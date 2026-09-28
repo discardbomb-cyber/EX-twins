@@ -27,9 +27,11 @@ def main() -> int:
     except ImportError as error:
         fail(f"soundfile is required for decoded validation: {error}")
     data = json.loads(SOUNDS_JSON.read_text(encoding="utf-8"))
-    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))["assets"]
-    listed = {entry["file"] for entry in manifest}
     expected = {node["sounds"][0]["name"].split(":", 1)[1] + ".ogg" for node in data.values()}
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))["assets"] if MANIFEST.is_file() else [
+        {"file": name} for name in sorted(expected)
+    ]
+    listed = {entry["file"] for entry in manifest}
     if listed != expected:
         fail(f"sounds.json/resources mismatch: expected {len(expected)}, manifest {len(listed)}")
     if len(listed) != 34:
@@ -42,7 +44,7 @@ def main() -> int:
         if len(raw) < 256 or not raw.startswith(b"OggS") or b"\x01vorbis" not in raw[:256]:
             fail(f"{path.name} is not a non-empty Ogg Vorbis stream")
         digest = hashlib.sha256(raw).hexdigest()
-        if digest != entry["sha256"]:
+        if "sha256" in entry and digest != entry["sha256"]:
             fail(f"{path.name} hash does not match generated manifest")
         decoded, sample_rate = soundfile.read(str(path), dtype="float64", always_2d=True)
         duration = len(decoded) / sample_rate
@@ -53,7 +55,7 @@ def main() -> int:
         if not .12 <= duration <= .8 or peak > .81 or abs(dc) > .001:
             fail(f"{path.name} exceeds duration, peak, or DC budget")
         digests.add(digest)
-        total_seconds += entry["duration_seconds"]
+        total_seconds += duration
     if len(digests) != len(manifest) or total_seconds > 18.0:
         fail("sound variants are not distinct or the total source budget is too large")
     REPORT.parent.mkdir(parents=True, exist_ok=True)

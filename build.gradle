@@ -45,7 +45,7 @@ neoForge {
 
         startupCheckClient {
             client()
-            gameDirectory = file('run-shield-capture')
+            gameDirectory = file('run-verification')
             systemProperty 'relics_addon.startupSmoke', 'true'
             systemProperty 'relics_addon.visualSmoke', 'false'
             systemProperty 'relics_addon.shieldSmoke', 'false'
@@ -55,7 +55,7 @@ neoForge {
 
         shieldCaptureClient {
             client()
-            gameDirectory = file('run-shield-capture')
+            gameDirectory = file('run-verification')
             systemProperty 'relics_addon.visualSmoke', 'true'
             systemProperty 'relics_addon.shieldSmoke', 'true'
             systemProperty 'relics_addon.captureAndExit', 'true'
@@ -64,15 +64,23 @@ neoForge {
 
         researchCaptureClient {
             client()
-            gameDirectory = file('run-shield-capture')
+            gameDirectory = file('run-verification')
             systemProperty 'relics_addon.visualSmoke', 'true'
             systemProperty 'relics_addon.researchSmoke', 'true'
             systemProperty 'relics_addon.captureAndExit', 'true'
         }
 
+        uiCaptureClient {
+            client()
+            gameDirectory = file('run-ui-capture')
+            systemProperty 'relics_addon.visualSmoke', 'true'
+            systemProperty 'relics_addon.uiSmoke', 'true'
+            systemProperty 'relics_addon.captureAndExit', 'true'
+        }
+
         hiveCaptureClient {
             client()
-            gameDirectory = file('run-shield-capture')
+            gameDirectory = file('run-verification')
             systemProperty 'relics_addon.visualSmoke', 'true'
             systemProperty 'relics_addon.hiveSmoke', 'true'
             systemProperty 'relics_addon.captureAndExit', 'true'
@@ -89,7 +97,7 @@ neoForge {
 
         modelCaptureClient {
             client()
-            gameDirectory = file('run-shield-capture')
+            gameDirectory = file('run-verification')
             systemProperty 'relics_addon.visualSmoke', 'true'
             systemProperty 'relics_addon.captureAndExit', 'true'
         }

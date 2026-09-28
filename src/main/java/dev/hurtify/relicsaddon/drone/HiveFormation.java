@@ -1,6 +1,5 @@
 package dev.hurtify.relicsaddon.drone;
 
-import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -13,16 +12,21 @@ public final class HiveFormation {
     public static Vec3 idle(Vec3 owner, float yaw, int index, int count, HiveType type, double time) {
         count = safeCount(count);
         index = Math.clamp(index, 0, count - 1);
-        time = safeTime(time);
+        return belt(owner, yaw, type).add(fibonacciSphere(index, count, .045, .6));
+    }
+
+    public static Vec3 belt(Vec3 owner, float yaw, HiveType type) {
         Vec3 forward = Vec3.directionFromRotation(0.0F, yaw);
         Vec3 right = new Vec3(-forward.z, 0, forward.x);
-        Vec3 local = switch (type) {
-            case RF -> rearHexagon(index, count);
-            case MANA -> manaWings(index, count);
-            case TWINS -> twinsWings(index, count);
-        };
-        Vec3 base = owner.subtract(forward.scale(1.15 + local.z)).add(right.scale(local.x)).add(0, 1.18 + local.y, 0);
-        return base.add(beeJitter(index, type, time, .075));
+        return owner.add(right.scale((type.ordinal() - 1) * .16)).add(forward.scale(.22)).add(0, .86, 0);
+    }
+
+    public static Vec3 healing(Vec3 owner, float yaw, int index, int count, HiveType type, double time, double progress) {
+        Vec3 rest = idle(owner, yaw, index, count, type, time);
+        Vec3 deployed = owner.add(0, 1.12, 0).add(fibonacciSphere(index, safeCount(count), .92, .60))
+                .add(beeJitter(index, type, safeTime(time), .035));
+        double p = Math.clamp(progress, 0, 1);
+        return rest.lerp(deployed, p * p * (3 - 2 * p));
     }
 
     public static Vec3 combat(Vec3 target, double targetWidth, double targetHeight,
@@ -65,7 +69,7 @@ public final class HiveFormation {
     /** Analytic drop shared with the faint traveling wave bands and the server's formation pose. */
     public static Vec3 travelPoint(Vec3 owner, float yaw, Vec3 target, double targetHeight, double progress,
             double polar, double azimuth, double time) {
-        Vec3 start = owner.subtract(Vec3.directionFromRotation(0, yaw).scale(1.15)).add(0, 1.35, 0);
+        Vec3 start = owner.add(Vec3.directionFromRotation(0, yaw).scale(.22)).add(0, .86, 0);
         Vec3 end = target.add(0, saneSize(targetHeight, 1.8) * .55, 0);
         Vec3 forward = end.subtract(start).normalize();
         if (forward.lengthSqr() < .01) forward = new Vec3(0, 0, 1);
@@ -78,41 +82,6 @@ public final class HiveFormation {
         double around = Math.sin(polar) * (.68 + .32 * along) * pulse;
         return center.add(forward.scale((along * 1.22 - .22) * pulse))
                 .add(right.scale(Math.cos(azimuth) * around)).add(up.scale(Math.sin(azimuth) * around));
-    }
-
-    private static Vec3 rearHexagon(int index, int count) {
-        double ring = Math.ceil((Math.sqrt(12.0 * index + 9.0) - 3.0) / 6.0);
-        int before = ring <= 0 ? 0 : (int) (3 * ring * (ring - 1) + 1);
-        if (ring <= 0) return Vec3.ZERO;
-        double edge = (index - before) / ring;
-        int side = (int) Math.floor(edge);
-        double fraction = edge - side;
-        double a = side * Math.PI / 3, b = (side + 1) * Math.PI / 3;
-        double distance = ring * .38;
-        return new Vec3(Mth.lerp(fraction, Math.cos(a), Math.cos(b)) * distance,
-                Mth.lerp(fraction, Math.sin(a), Math.sin(b)) * distance, 0);
-    }
-
-    private static Vec3 manaWings(int index, int count) {
-        int slot = index / 2;
-        double side = (index & 1) == 0 ? -1 : 1;
-        // A rotated square lattice gives each wing a filled diamond silhouette, not a pair of long lines.
-        int sideCount = Math.max(1, (int) Math.ceil(Math.sqrt((count + 1) / 2.0)));
-        double u = slot % sideCount - (sideCount - 1) * .5;
-        double v = slot / sideCount - (sideCount - 1) * .5;
-        return new Vec3(side * (.42 + (u + v + sideCount - 1) * .20),
-                (v - u) * .28 + .20, .12 + Math.abs(u + v) * .035);
-    }
-
-    private static Vec3 twinsWings(int index, int count) {
-        if (index < 6) {
-            double angle = index * Math.PI / 3;
-            return new Vec3(Math.cos(angle) * .40, Math.sin(angle) * .40, -.16);
-        }
-        int wing = index - 6;
-        double side = (wing & 1) == 0 ? -1 : 1;
-        Vec3 diamond = manaWings(wing, Math.max(1, count - 6));
-        return new Vec3(diamond.x + side * .30, diamond.y, diamond.z);
     }
 
     private static Vec3 fibonacciSphere(int index, int count, double radius, double vertical) {

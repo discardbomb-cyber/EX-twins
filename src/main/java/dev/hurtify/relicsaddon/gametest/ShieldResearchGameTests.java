@@ -16,12 +16,13 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class ShieldResearchGameTests {
     @GameTest(template = "test_room")
-    public static void allEightGraphsAndNativeCardResources(GameTestHelper helper) throws Exception {
+    public static void allRelicGraphsAndNativeCardResources(GameTestHelper helper) throws Exception {
         var player = AutonomousRelicGameTests.survivalPlayer(helper);
         int count = 0;
         var graphShapes = new HashSet<String>();
         var iconContents = new HashSet<String>();
-        for (var item : List.of(ModItems.RF_SHIELD.get(), ModItems.MANA_SHIELD.get(), ModItems.TWINS_SHIELD.get())) {
+        for (var item : List.of(ModItems.RF_SHIELD.get(), ModItems.MANA_SHIELD.get(), ModItems.TWINS_SHIELD.get(),
+                ModItems.RF_HIVE.get(), ModItems.MANA_HIVE.get(), ModItems.TWINS_HIVE.get())) {
             var stack = new ItemStack(item);
             var abilities = item.getRelicData(player, stack).getAbilitiesData();
             for (String id : abilities.getAbilityIDs()) {
@@ -30,7 +31,7 @@ public final class ShieldResearchGameTests {
                 helper.assertTrue(graph.getStars().size() >= 6 && !graph.getLinks().isEmpty(), "Real research graph: " + id);
                 var positions = new HashSet<String>();
                 for (var star : graph.getStars().values()) {
-                    helper.assertTrue(star.getX() >= 3 && star.getX() <= 27 && star.getY() >= 4 && star.getY() <= 28, "Native viewport bounds");
+                    helper.assertTrue(star.getX() >= 3 && star.getX() <= 19 && star.getY() >= 3 && star.getY() <= 27, "Native padded 110x155 viewport bounds");
                     helper.assertTrue(positions.add(star.getX() + ":" + star.getY()), "No overlapping stars");
                 }
                 var connected = new HashSet<Integer>();
@@ -61,7 +62,7 @@ public final class ShieldResearchGameTests {
                 count++;
             }
         }
-        helper.assertTrue(count == 8, "Three main, three distribution, two gather constellations");
+        helper.assertTrue(count == 24, "Six main abilities and three researched upgrades for every relic");
         helper.succeed();
     }
 

@@ -283,7 +283,12 @@ public final class ShieldVisualRenderer {
             default -> 0x7CF7FF;
         };
         int alpha = (int) Math.clamp((105 + 110 * fade) * Math.max(.35D, bufferRatio), 0, 230);
-        int sides = role == RelicRole.MANA_SHIELD ? 14 : 6;
+        if (role == RelicRole.MANA_SHIELD) {
+            renderManaImpactPulse(consumer, matrix, normal, u, v, impact.distance() + .012D, patchRadius,
+                    originX, originY, originZ, color, alpha);
+            return;
+        }
+        int sides = 6;
         Vec3 center = normal.scale(impact.distance() + .012D);
         for (int side = 0; side < sides; side++) {
             double a = Math.PI * 2 * side / sides;
@@ -294,6 +299,29 @@ public final class ShieldVisualRenderer {
             patchVertex(consumer, matrix, pa, originX, originY, originZ, color, alpha);
             patchVertex(consumer, matrix, pb, originX, originY, originZ, color, alpha);
         }
+    }
+
+    /** A translucent radial falloff removes the mechanical polygon edge from Mana's impact pulse. */
+    private static void renderManaImpactPulse(VertexConsumer consumer, Matrix4f matrix, Vec3 normal, Vec3 u, Vec3 v,
+            double distance, double radius, double x, double y, double z, int color, int alpha) {
+        final int sides = 24;
+        final double[] rings = {0, .38D, .72D, 1};
+        final double[] opacity = {1, .66D, .18D, 0};
+        for (int ring = 0; ring + 1 < rings.length; ring++) for (int side = 0; side < sides; side++) {
+            double a = Math.PI * 2 * side / sides;
+            double b = Math.PI * 2 * (side + 1) / sides;
+            patchVertex(consumer, matrix, pulsePoint(normal, u, v, distance, radius * rings[ring], a), x, y, z, color, (int) (alpha * opacity[ring]));
+            patchVertex(consumer, matrix, pulsePoint(normal, u, v, distance, radius * rings[ring + 1], a), x, y, z, color, (int) (alpha * opacity[ring + 1]));
+            patchVertex(consumer, matrix, pulsePoint(normal, u, v, distance, radius * rings[ring + 1], b), x, y, z, color, (int) (alpha * opacity[ring + 1]));
+            patchVertex(consumer, matrix, pulsePoint(normal, u, v, distance, radius * rings[ring], a), x, y, z, color, (int) (alpha * opacity[ring]));
+            patchVertex(consumer, matrix, pulsePoint(normal, u, v, distance, radius * rings[ring + 1], b), x, y, z, color, (int) (alpha * opacity[ring + 1]));
+            patchVertex(consumer, matrix, pulsePoint(normal, u, v, distance, radius * rings[ring], b), x, y, z, color, (int) (alpha * opacity[ring]));
+        }
+    }
+
+    private static Vec3 pulsePoint(Vec3 normal, Vec3 u, Vec3 v, double distance, double radius, double angle) {
+        if (radius == 0) return normal.scale(distance);
+        return normal.scale(distance).add(u.scale(Math.cos(angle) * radius)).add(v.scale(Math.sin(angle) * radius)).normalize().scale(distance);
     }
 
     private static boolean wasJustBroken(List<ShieldImpact> impacts, int cell, double forwardX, double forwardZ) {
@@ -312,15 +340,16 @@ public final class ShieldVisualRenderer {
             case TWINS_SHIELD -> 0xB55CFF;
             default -> role.color();
         };
-        base = ShieldCellVisual.color(base, hp);
+        boolean twins = role == RelicRole.TWINS_SHIELD;
+        base = twins ? ShieldCellVisual.violetHealth(base, hp) : ShieldCellVisual.color(base, hp);
         int red = base >> 16 & 0xFF;
         int green = base >> 8 & 0xFF;
         int blue = base & 0xFF;
         double brightening = response.absorption() * .78D;
         double broken = response.destruction();
         int highlightRed = clampColor((int) Math.round(red + (255 - red) * Math.max(brightening, broken)));
-        int highlightGreen = clampColor((int) Math.round(green + (225 - green) * Math.max(brightening, broken * .8D)));
-        int highlightBlue = clampColor((int) Math.round(blue + (255 - blue) * brightening - blue * broken * .7D));
+        int highlightGreen = clampColor((int) Math.round(green + (225 - green) * Math.max(brightening, broken * (twins ? .25D : .8D))));
+        int highlightBlue = clampColor((int) Math.round(blue + (255 - blue) * Math.max(brightening, twins ? broken : 0) - blue * broken * (twins ? 0 : .7D)));
         int fillAlpha = clampColor((int) Math.round(response.presence() * 42 + response.absorption() * 52 + broken * 48));
         int borderAlpha = clampColor((int) Math.round(response.presence() * 160 + response.absorption() * 75 + broken * 80));
         return (long) highlightRed << 32 | (long) highlightGreen << 24 | (long) highlightBlue << 16

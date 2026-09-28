@@ -112,11 +112,11 @@ public final class ShieldController {
             state = state.withCellsAndBuffer(state.cells(), capacity, state.moves(), state.gatherTime());
             shield.set(ModDataComponents.SHIELD_STACK_STATE.get(), state);
         }
-        if (now % role.repairInterval() != 0 || !state.needsRepair(capacity)
-                || (now >= state.lastActiveGameTime() && now - state.lastActiveGameTime() < 40)) {
+        if (now % role.repairInterval() != 0 || !state.needsRepair(capacity)) {
             return;
         }
-        shield.set(ModDataComponents.SHIELD_STACK_STATE.get(), state.repairFirstDamagedPanel(now, capacity));
+        shield.set(ModDataComponents.SHIELD_STACK_STATE.get(), ShieldCellDefense.repair(state, now, capacity,
+                ShieldUpgrades.quietTicks(player, shield), ShieldUpgrades.repairSteps(player, shield)));
     }
 
     public static float reduction(float damage, double ratio, float capacity) {

@@ -16,7 +16,6 @@ import it.hurts.sskirillss.relics.api.relics.abilities.stats.AbilityStatTemplate
 import it.hurts.sskirillss.relics.init.RelicsRelicContainers;
 import it.hurts.sskirillss.relics.init.RelicsScalingModels;
 import it.hurts.sskirillss.relics.items.relics.base.WearableRelicItem;
-import it.hurts.sskirillss.relics.items.relics.base.data.leveling.LevelingTemplate;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
@@ -62,7 +61,7 @@ public abstract class AutonomousRelicItem extends WearableRelicItem {
                 .maxLevelRankModifier(0)
                 .requiredLevel(0)
                 .requiredRank(0)
-                .requiredPoints(0)
+                .requiredPoints(1)
                 .active(AbilityActivationTemplate.builder(AbilityActivationType.TOGGLEABLE)
                         .container(RelicsRelicContainers.CURIOS.get())
                         .build())
@@ -73,7 +72,7 @@ public abstract class AutonomousRelicItem extends WearableRelicItem {
                         .formatValue(value -> Math.round(value * 100))
                         .build())
                 .experienceSources(ExperienceSourcesTemplate.builder()
-                        .source(role().abilityId() + "_activity")
+                        .source(RelicProgression.combatSource(role()))
                         .build());
         if (role().isShield()) builder.research(ShieldResearch.protection(role()))
                 .stat(AbilityStatTemplate.builder("buffer_capacity").initialValue(504, 504)
@@ -86,16 +85,14 @@ public abstract class AutonomousRelicItem extends WearableRelicItem {
         var abilities = AbilitiesTemplate.builder().ability(ability);
         if (role().isShield()) {
             abilities.ability(ShieldUpgrades.distribution(role()));
+            abilities.ability(ShieldUpgrades.restoration(role()));
             if (role() != RelicRole.TWINS_SHIELD) abilities.ability(ShieldUpgrades.gather(role()));
+            else abilities.ability(ShieldUpgrades.stabilization(role()));
         }
 
         return RelicTemplate.builder()
                 .abilities(abilities.build())
-                .leveling(LevelingTemplate.builder()
-                        .initialCost(10.0)
-                        .step(5.0)
-                        .maxRank(1)
-                        .build())
+                .leveling(RelicProgression.levelingTemplate())
                 .build();
     }
 

@@ -7,6 +7,7 @@ import dev.hurtify.relicsaddon.drone.HiveStackState;
 import dev.hurtify.relicsaddon.drone.HiveType;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
+import dev.hurtify.relicsaddon.relic.HiveUpgrades;
 import dev.hurtify.relicsaddon.sound.RelicSounds;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -48,6 +49,8 @@ public final class HiveCombatController {
         ServerLevel level = serverPlayer.serverLevel();
         long now = level.getGameTime();
         var equipped = HiveController.active(serverPlayer);
+        for (var hive : equipped) HiveController.prepare(serverPlayer, hive.stack(), false);
+        HiveTaskController.tickHealing(serverPlayer, equipped, now);
         var liveTypes = new boolean[HiveType.values().length];
         for (HiveController.Equipped hive : equipped) {
             liveTypes[hive.type().ordinal()] = true;
@@ -58,9 +61,12 @@ public final class HiveCombatController {
 
     private static void tickHive(ServerPlayer owner, ServerLevel level, HiveController.Equipped hive, long now) {
         ItemStack stack = hive.stack();
-        HiveStackState swarm = HiveController.prepare(owner, stack, false);
+        HiveStackState swarm = stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), HiveStackState.DEFAULT);
         HiveCombatState before = stack.getOrDefault(ModDataComponents.HIVE_COMBAT_STATE.get(), HiveCombatState.DEFAULT);
         LivingEntity target = selectTarget(owner, level, before.targetId());
+        var settings = HiveTaskController.settings(stack);
+        int fighters = settings.fighters(swarm.units().size());
+        if (fighters == 0) target = null;
         if (target == null) {
             finish(owner, level, hive.type(), stack, before, now);
             FLIGHTS.getOrDefault(owner.getUUID(), new EnumMap<>(HiveType.class)).remove(hive.type());
@@ -85,6 +91,7 @@ public final class HiveCombatController {
             int intervalMax = attackIntervalMax(owner, stack);
             float damage = attackDamage(owner, stack, hive.type());
             for (int index = 0; index < nextUnits.size(); index++) {
+                if (settings.healer(index, nextUnits.size())) continue;
                 HiveStackState.Unit unit = nextUnits.get(index);
                 if (!unit.attackReady(now)) continue;
                 if (unit.attackReadyAt() == 0) {
@@ -94,7 +101,7 @@ public final class HiveCombatController {
                     continue;
                 }
                 Vec3 origin = HiveFormation.position(owner.position(), owner.getYRot(), targetFeet, target.getBbWidth(),
-                        target.getBbHeight(), index, nextUnits.size(), hive.type(), now, progress);
+                        target.getBbHeight(), index, fighters, hive.type(), now, progress);
                 int kind = shotKind(hive.type(), owner.getUUID(), index, now);
                 long readyAt = now + attackIntervalFor(owner.getUUID(), hive.type(), index, now, intervalMax);
                 nextUnits.set(index, new HiveStackState.Unit(unit.hp(), unit.readyAt(), unit.lastHit(), unit.x(), unit.y(), unit.z(), readyAt));
@@ -161,6 +168,11 @@ public final class HiveCombatController {
         while (iterator.hasNext()) {
             Flight flight = iterator.next();
             if (flight.level != level || !owner.isAlive()) { iterator.remove(); continue; }
+            if (HiveTaskController.settings(stack).healer(flight.unit, HiveController.capacity(owner, stack))) {
+                iterator.remove();
+                shots.removeIf(shot -> shot.unit() == flight.unit && shot.firedAt() == flight.firedAt);
+                continue;
+            }
             Vec3 from = flight.position;
             Vec3 to = from.add(flight.velocity);
             Hit hit = firstHit(owner, level, from, to);
@@ -232,7 +244,8 @@ public final class HiveCombatController {
     }
 
     private static float attackDamage(ServerPlayer player, ItemStack stack, HiveType type) {
-        return (float) RelicRuntime.stat(player, stack, "attack_damage", type.initialAttackDamage, 1, 100);
+        return (float) (RelicRuntime.stat(player, stack, "attack_damage", type.initialAttackDamage, 1, 100)
+                * HiveUpgrades.damageMultiplier(player, stack));
     }
 
     public static int attackIntervalFor(UUID owner, HiveType type, int unit, long now, int max) {

@@ -55,13 +55,22 @@ public final class RelicRuntime {
     }
 
     public static void awardAbsorption(Player player, ItemStack stack, float absorbed) {
-        if (!(absorbed > 0) || !Float.isFinite(absorbed) || player.isCreative()) {
+        awardCombatExperience(player, stack, absorbed);
+    }
+
+    /**
+     * Awards Relics' own item-level experience for confirmed combat work.
+     * Callers provide resolved damage/absorption, never attempted damage.
+     */
+    public static void awardCombatExperience(Player player, ItemStack stack, float combatValue) {
+        if (!(combatValue > 0) || !Float.isFinite(combatValue) || player.isCreative()) {
             return;
         }
-        AutonomousRelicItem item = (AutonomousRelicItem) stack.getItem();
-        if (!item.role().available()) return;
+        if (!(stack.getItem() instanceof AutonomousRelicItem item) || !item.role().available()) {
+            return;
+        }
         item.getRelicData(player, stack).getLevelingData().addExperience(
-                item.role().abilityId(), item.role().abilityId() + "_activity", Math.min(2.0, absorbed * 0.25));
+                item.role().abilityId(), RelicProgression.combatSource(item.role()), Math.min(2.0, combatValue * 0.25));
     }
 
     private RelicRuntime() {

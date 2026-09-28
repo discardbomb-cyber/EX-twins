@@ -15,6 +15,15 @@ public final class ModDataComponents {
     public static final DeferredRegister.DataComponents DATA_COMPONENTS =
             DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, RelicsAddon.MOD_ID);
 
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.drone.HiveSettings>> HIVE_SETTINGS =
+            DATA_COMPONENTS.registerComponentType("hive_settings", builder -> builder
+                    .persistent(dev.hurtify.relicsaddon.drone.HiveSettings.CODEC)
+                    .networkSynchronized(dev.hurtify.relicsaddon.drone.HiveSettings.STREAM_CODEC));
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.drone.HiveSupportState>> HIVE_SUPPORT_STATE =
+            DATA_COMPONENTS.registerComponentType("hive_support_state", builder -> builder
+                    .networkSynchronized(dev.hurtify.relicsaddon.drone.HiveSupportState.STREAM_CODEC));
+
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.drone.HiveCombatState>> HIVE_COMBAT_STATE =
             DATA_COMPONENTS.registerComponentType("hive_combat_state", builder -> builder
                     .networkSynchronized(dev.hurtify.relicsaddon.drone.HiveCombatState.STREAM_CODEC));

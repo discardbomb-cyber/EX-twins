@@ -7,16 +7,18 @@ Required mods: Relics 1.21.1-0.12.8, Curios 9.5.1+1.21.1, OctoLib 0.6.2 and Arch
 ## Included
 
 - Three autonomous shield amulets and three typed combat-hive amulets, with recipes, native Relics research and upgrade cards.
+- Native item-level experience, upgrade points and up to five ranks on every relic, independently of ability levels. Three additional passive upgrades per item.
 - Shields with 420 local HP cells and a shared buffer upgraded to 5000 HP; adjustable radius and allied-creature coverage.
 - RF raised panels, Mana incoming-facing glass hemispheres, and violet-black Ex-Twins glass, honeycomb segments and particles. Independent impact waves do not reset on subsequent hits.
 - Hives with closed inner hulls, articulated shells and recessed docking details. Inventory icons use their animated 3D models.
 - 12 initial drones per type, upgraded to 250. Typed attacks, target formations, droplet travel and family-specific sounds.
+- A dedicated per-hive task menu (`H`) separates combat drones from owner-only healers. Drones return into the belt and disappear when idle.
 - Bounded virtual swarms, dense-model LODs and render culling. No standalone drone items, batteries or generators.
 - Ordinary Minecraft main-menu startup. Development preview screens and test fixtures are excluded from the release JAR.
 
 ## Verification
 
-The local verification suite includes 87 required server GameTests, geometry and animation checks, model-resource validation and native client captures. These checks are not a full modpack, multiplayer, shader-pack or prolonged 750-drone performance certification.
+The local verification suite includes 102 required server GameTests, geometry and animation checks, all 24 research-card and constellation checks, model-resource validation and native client captures. These checks are not a full modpack, multiplayer, shader-pack or prolonged 750-drone performance certification.
 
 To rerun: `./gradlew build runGameTestServer`. The native capture tasks require a graphical desktop and installed dependencies. `runStartupCheckClient` checks ordinary main-menu startup; `runHiveGifClient` records hive and swarm frames for `tools/assemble_hive_preview.py`.
 

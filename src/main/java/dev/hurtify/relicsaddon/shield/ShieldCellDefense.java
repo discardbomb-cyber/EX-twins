@@ -3,7 +3,7 @@ package dev.hurtify.relicsaddon.shield;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Pure server/client-shared cell accounting. Neither upgrade can create HP. */
+/** Pure server/client-shared cell accounting. Upgrades change repair timing, never either maximum. */
 public final class ShieldCellDefense {
     public static final int GATHER_COOLDOWN = 40;
     public static final int MOVE_TICKS = 10;
@@ -68,6 +68,31 @@ public final class ShieldCellDefense {
             }
         }
         return moves.isEmpty() ? state : state.withCells(health, moves, now);
+    }
+
+    /** Passive repair restores existing local or buffer HP; it never changes either maximum. */
+    public static ShieldStackState repair(ShieldStackState state, long now, int capacity, int quietTicks, int steps) {
+        capacity = Math.clamp(capacity, 0, ShieldStackState.MAX_BUFFER_CAPACITY);
+        quietTicks = Math.clamp(quietTicks, 0, ShieldStackState.BUFFER_REPAIR_QUIET_TICKS);
+        if (steps <= 0 || now < state.lastActiveGameTime() + quietTicks) return state;
+        for (int step = 0; step < Math.min(steps, 3); step++) {
+            ShieldStackState next = repairOne(state, capacity);
+            if (next == state) break;
+            state = next;
+        }
+        return state;
+    }
+
+    private static ShieldStackState repairOne(ShieldStackState state, int capacity) {
+        var health = new ArrayList<>(state.cells());
+        for (int cell = 0; cell < health.size(); cell++) if (health.get(cell) < ShieldStackState.MAX_PANEL_INTEGRITY) {
+            health.set(cell, health.get(cell) + 1);
+            return state.withCells(health, state.moves(), state.gatherTime());
+        }
+        if (state.sharedBuffer() < capacity) {
+            return state.withCellsAndBuffer(state.cells(), state.sharedBuffer() + 1, state.moves(), state.gatherTime());
+        }
+        return state;
     }
 
     private ShieldCellDefense() { }

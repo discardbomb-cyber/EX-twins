@@ -40,7 +40,7 @@ final class TwinsShieldVisual {
                 double flare = Math.max(response.absorption(), response.destruction());
                 int healthy = material == TwinsShieldGlyphMesh.CIRCUIT ? 0xC66CFF : material == TwinsShieldGlyphMesh.MEMBRANE ? 0x140C20
                         : material == TwinsShieldGlyphMesh.ORBIT ? 0x5E268D : 0xA84FE0;
-                int color = ShieldCellVisual.color(healthy, warningHp);
+                int color = ShieldCellVisual.violetHealth(healthy, warningHp);
                 double highlight = Math.min(1, flare * .85 + Math.pow(pulse, 12) * .30);
                 int r = color >> 16 & 255, g = color >> 8 & 255, b = color & 255;
                 r += (int) ((255 - r) * highlight);

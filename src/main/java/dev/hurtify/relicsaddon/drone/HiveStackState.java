@@ -75,8 +75,17 @@ public record HiveStackState(boolean enabled, List<Unit> units) {
     public HiveStackState withEnabled(boolean value) { return new HiveStackState(value, units); }
 
     public HiveStackState prepare(int capacity, int maxHealth, long now, boolean repair) {
+        return prepare(capacity, maxHealth, now, repair, 1);
+    }
+
+    public HiveStackState prepare(int capacity, int maxHealth, long now, boolean repair, int repairAmount) {
         capacity = Math.clamp(capacity, 1, HiveType.MAX_DRONES);
         maxHealth = Math.clamp(maxHealth, 1, 1000);
+        if ((!repair || !enabled) && capacity == units.size()) {
+            boolean bounded = true;
+            for (Unit unit : units) if (unit.hp() > maxHealth) { bounded = false; break; }
+            if (bounded) return this;
+        }
         var next = new ArrayList<Unit>(capacity);
         for (int index = 0; index < capacity; index++) {
             Unit unit = index < units.size() ? units.get(index) : Unit.fresh(maxHealth);
@@ -84,7 +93,7 @@ public record HiveStackState(boolean enabled, List<Unit> units) {
             if (repair && enabled) {
                 if (health == 0 && now >= unit.readyAt()) health = maxHealth;
                 else if (health > 0 && now % 20 == 0 && (unit.lastHit() < 0 || now - unit.lastHit() >= 40)) {
-                    health = Math.min(maxHealth, health + 1);
+                    health = Math.min(maxHealth, health + Math.clamp(repairAmount, 1, 5));
                 }
             }
             next.add(health == unit.hp() ? unit : new Unit(health, unit.readyAt(), unit.lastHit(), unit.x(), unit.y(), unit.z(), unit.attackReadyAt()));

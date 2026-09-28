@@ -36,6 +36,12 @@ final class ShieldCellVisual {
         return hp <= 3 ? 0xED4242 : hp <= 5 ? 0xF08232 : hp <= 8 ? 0xE8D34B : healthy;
     }
 
+    static int violetHealth(int healthy, int hp) {
+        double brightness = .45 + .55 * Math.clamp(hp / (double) ShieldStackState.MAX_PANEL_INTEGRITY, 0, 1);
+        return (int) ((healthy >> 16 & 255) * brightness) << 16
+                | (int) ((healthy >> 8 & 255) * brightness) << 8 | (int) ((healthy & 255) * brightness);
+    }
+
     static int warningHp(ShieldStackState state, int cellHp) {
         return Math.min(cellHp, (int) Math.ceil(state.totalIntegrity() / (double) ShieldTopology.CELL_COUNT));
     }

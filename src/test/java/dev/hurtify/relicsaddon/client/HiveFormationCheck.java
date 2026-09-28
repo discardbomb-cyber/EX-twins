@@ -14,7 +14,11 @@ public final class HiveFormationCheck {
                 idle[index] = HiveFormation.idle(owner, 35, index, count, type, 187.25);
                 combat[index] = HiveFormation.combat(target, 1.1, 1.9, index, count, type, 187.25);
                 requireFinite(idle[index], "idle"); requireFinite(combat[index], "combat");
-                require(idle[index].distanceToSqr(owner) < 36, "idle position escaped owner");
+                require(idle[index].distanceToSqr(HiveFormation.belt(owner, 35, type)) < .003, "docked drones must converge inside the belt");
+                Vec3 healed = HiveFormation.healing(owner, 35, index, count, type, 187.25, 1);
+                requireFinite(healed, "healing");
+                require(healed.distanceToSqr(owner.add(0, 1.12, 0)) < 1.1, "healers must stay around their owner");
+                require(HiveFormation.healing(owner, 35, index, count, type, 187.25, 0).equals(idle[index]), "healers recall to the same belt slots");
                 require(combat[index].distanceToSqr(target) < 49, "combat position escaped target");
                 Vec3 blend = HiveFormation.position(owner, 35, target, 1.1, 1.9, index, count, type, 187.25, .5);
                 requireFinite(blend, "transition");

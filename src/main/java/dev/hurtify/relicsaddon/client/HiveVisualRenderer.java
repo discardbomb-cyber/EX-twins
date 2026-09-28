@@ -6,6 +6,8 @@ import dev.hurtify.relicsaddon.drone.HiveCombatState;
 import dev.hurtify.relicsaddon.drone.HiveFormation;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
 import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.drone.HiveSupportState;
+import dev.hurtify.relicsaddon.server.HiveTaskController;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.server.HiveController;
 import java.util.ArrayList;
@@ -47,7 +49,6 @@ public final class HiveVisualRenderer {
         var players = new ArrayList<>(minecraft.level.players());
         players.sort(Comparator.comparingDouble(player -> player.distanceToSqr(camera)));
         for (var player : players) {
-            if (budget <= 0) break;
             if (player.isInvisible() || player.distanceToSqr(camera) > 32 * 32) continue;
             EquippedCache cached = active(player, minecraft.level.getGameTime(), minecraft.level);
             for (var hive : cached.hives()) {
@@ -61,6 +62,9 @@ public final class HiveVisualRenderer {
                 if (!enabled && !fadingOut) continue;
                 int count = units.units().size();
                 if (count == 0) continue;
+                var tasks = HiveTaskController.settings(hive.stack());
+                int fighters = tasks.fighters(count);
+                var support = hive.stack().getOrDefault(ModDataComponents.HIVE_SUPPORT_STATE.get(), HiveSupportState.DEFAULT);
                 double progress = liveCombat ? Mth.clamp((time - combat.changedAt()) / 20.0, 0, 1)
                         : combatPose != null ? Mth.clamp(1 - (time - combatPose.disabledAt()) / 10.0, 0, 1) : 0;
                 double appear = visibility.enabled() ? Mth.clamp((time - visibility.changedAt()) / 10.0, 0, 1)
@@ -69,22 +73,38 @@ public final class HiveVisualRenderer {
                         Mth.lerp(partial, player.zo, player.getZ()));
                 float yaw = Mth.rotLerp(partial, player.yRotO, player.getYRot());
                 List<Vec3> formation = liveCombat ? new ArrayList<>(count) : List.of();
-                for (int index = 0; index < count && budget > 0; index++) {
+                for (int index = 0; index < count; index++) {
                     HiveStackState.Unit unit = units.units().get(index);
                     double hitAge = unit.lastHit() < 0 ? 100 : time - unit.lastHit();
                     if (unit.hp() == 0 && (hitAge < 0 || hitAge >= 6)) continue;
-                    Vec3 position = HiveFormation.position(owner, yaw, combatPose == null ? null : combatPose.target(),
-                            combatPose == null ? .6 : combatPose.width(), combatPose == null ? 1.8 : combatPose.height(),
-                            index, count, hive.type(), time, progress);
-                    if (liveCombat) formation.add(position);
+                    boolean healer = tasks.healer(index, count);
+                    double supportAge = time - (enabled ? support.changedAt() : visibility.changedAt());
+                    double supportProgress = support.active() && enabled ? Mth.clamp(supportAge / 12, 0, 1)
+                            : support.changedAt() > 0 ? Mth.clamp(1 - supportAge / 12, 0, 1) : 0;
+                    double motion = healer ? supportProgress : progress;
+                    Vec3 position;
+                    if (healer) {
+                        if (motion <= 0) continue;
+                        position = HiveFormation.healing(owner, yaw, index - fighters, count - fighters, hive.type(), time, motion);
+                    } else if (combatPose != null && motion > 0) {
+                        position = HiveFormation.position(owner, yaw, combatPose.target(), combatPose.width(), combatPose.height(),
+                                index, fighters, hive.type(), time, motion);
+                    } else if (hitAge >= 0 && hitAge < 12) {
+                        motion = 1 - hitAge / 12;
+                        Vec3 point = owner.add(unit.x() * HiveController.RADIUS, .92 + unit.y() * HiveController.RADIUS, unit.z() * HiveController.RADIUS);
+                        position = HiveFormation.belt(owner, yaw, hive.type()).lerp(point, motion * motion * (3 - 2 * motion));
+                    } else continue;
+                    if (liveCombat && !healer) formation.add(position);
+                    if (budget <= 0) continue;
                     if (!event.getFrustum().isVisible(new AABB(position, position).inflate(.45))) continue;
                     if (player == minecraft.player && minecraft.options.getCameraType().isFirstPerson() && position.distanceToSqr(camera) < 1) continue;
                     poses.pushPose();
                     poses.translate(position.x - camera.x, position.y - camera.y, position.z - camera.z);
                     float baseSize = count > 50 ? .20F : .30F;
                     float size = unit.hp() == 0 ? (float) (baseSize * Math.max(.1, 1 - hitAge / 6)) : baseSize;
-                    poses.scale(size * (float) appear, size * (float) appear, size * (float) appear);
-                    if (liveCombat && combatPose != null) {
+                    float visibleSize = size * (float) Math.min(appear, Math.min(1, motion * 4));
+                    poses.scale(visibleSize, visibleSize, visibleSize);
+                    if (liveCombat && !healer && combatPose != null) {
                         Vec3 direction = combatPose.target().add(0, combatPose.height() * .55, 0).subtract(position);
                         poses.mulPose(Axis.YP.rotation((float) Math.atan2(direction.x, direction.z)));
                         poses.mulPose(Axis.XP.rotation((float) -Math.atan2(direction.y, Math.sqrt(direction.x * direction.x + direction.z * direction.z))));

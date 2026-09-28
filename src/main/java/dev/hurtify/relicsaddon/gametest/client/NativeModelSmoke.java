@@ -26,6 +26,10 @@ public final class NativeModelSmoke {
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
         Minecraft minecraft = Minecraft.getInstance();
+        if (NativeUiCapture.active()) {
+            NativeUiCapture.tick(minecraft);
+            return;
+        }
         if ((Boolean.getBoolean("relics_addon.startupSmoke") || Boolean.getBoolean("relics_addon.interactiveSmoke")) && minecraft.screen instanceof TitleScreen
                 && minecraft.getOverlay() == null) menuTicks++;
         if (Boolean.getBoolean("relics_addon.captureAndExit") && Boolean.getBoolean("relics_addon.visualSmoke")
@@ -43,6 +47,10 @@ public final class NativeModelSmoke {
     @SubscribeEvent
     public static void onFrame(RenderFrameEvent.Post event) {
         Minecraft minecraft = Minecraft.getInstance();
+        if (NativeUiCapture.active()) {
+            NativeUiCapture.frame(minecraft);
+            return;
+        }
         if (menuTicks >= 40 && !menuCaptured && minecraft.screen instanceof TitleScreen) {
             menuCaptured = true;
             Screenshot.grab(minecraft.gameDirectory, "relics-normal-startup.png", minecraft.getMainRenderTarget(), message -> {

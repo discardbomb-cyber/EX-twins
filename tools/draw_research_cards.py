@@ -5,6 +5,7 @@ from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
 ART = ROOT / "art/research"
+ART.mkdir(parents=True, exist_ok=True)
 DEST = ROOT / "src/main/resources/assets/relics/textures/abilities"
 PALETTES = {
     "rf": dict(edge="#183542", shade="#24596d", base="#2885a4", light="#44d9ed", white="#d4faff", accent="#ffc967"),

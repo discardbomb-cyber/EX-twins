@@ -18,6 +18,12 @@ public final class ManaDomeSurfaceCheck {
             require(p.z >= -1e-7 && Math.abs(p.length() - 1) < 1e-7, "clipped edge left the hemisphere");
         }
         require(ManaDomeSurface.clip(a.scale(-1), b.scale(-1), new Vec3(0, -1, -.2).normalize(), one).isEmpty(), "back triangle must not render");
+        float[][] smoothCenters = {new float[] {-.08F, 0, .9968F}, new float[] {.08F, 0, .9968F}};
+        double[] smoothHealth = {0, 1};
+        double left = ManaShieldVisual.weightedIntegrity(new Vec3(-.001, 0, 1).normalize(), smoothCenters, smoothHealth);
+        double middle = ManaShieldVisual.weightedIntegrity(new Vec3(0, 0, 1), smoothCenters, smoothHealth);
+        double right = ManaShieldVisual.weightedIntegrity(new Vec3(.001, 0, 1).normalize(), smoothCenters, smoothHealth);
+        require(left < middle && middle < right && right - left < .03, "health must blend continuously across a cell boundary");
         var repeated = ManaDomeSurface.caps(List.of(new ShieldResponse.Threat(forward, 1), new ShieldResponse.Threat(forward, 0)), List.of(), 100);
         require(repeated.size() == 1, "same direction must not double the glass opacity");
         var old = new ShieldImpact(forward, 80, 0, 6, false);

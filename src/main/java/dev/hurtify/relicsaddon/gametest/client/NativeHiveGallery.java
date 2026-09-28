@@ -35,9 +35,10 @@ final class NativeHiveGallery extends Screen {
         int cw = width / 3;
         long age = GIF ? gifFrame * 100L : Util.getMillis() - start;
         double time = age / 50.0;
-        boolean transit = age >= 5000 && age < 7500;
-        boolean combat = age >= 7500;
-        double progress = combat ? 1 : transit ? Math.clamp((age - 5000) / 2500.0, 0, 1) : 0;
+        boolean transit = age >= 1000 && age < 4000;
+        boolean combat = age >= 4000 && age < 8500;
+        boolean returning = age >= 8500 && age < 10500;
+        double progress = combat ? 1 : transit ? (age - 1000) / 3000.0 : returning ? 1 - (age - 8500) / 2000.0 : 0;
         for (int family = 0; family < 3; family++) {
             int x = cw * family;
             graphics.drawString(font, items[family].getHoverName(), x + 9, 26, 0xFFD5DBE2, false);
@@ -50,33 +51,29 @@ final class NativeHiveGallery extends Screen {
             graphics.pose().scale(scale, scale, scale);
             graphics.renderItem(items[family], 0, 0);
             graphics.pose().popPose();
-            graphics.drawString(font, (combat ? "combat formation / " : transit ? "droplet flight / " : "idle formation / ")
+            graphics.drawString(font, (combat ? "combat formation / " : transit ? "droplet flight / " : returning ? "return to belt / " : "docked / ")
                     + HiveType.MAX_DRONES, x + 9, height / 2, 0xFFD5DBE2, false);
-            var owner = new net.minecraft.world.phys.Vec3(transit ? -2 : 0, 0, 0);
-            var target = new net.minecraft.world.phys.Vec3(0, 0, 0);
+            var owner = new net.minecraft.world.phys.Vec3(-3, 0, 0);
+            var target = new net.minecraft.world.phys.Vec3(.5, 0, 0);
             var points = new java.util.ArrayList<net.minecraft.world.phys.Vec3>();
-            double minX = Double.POSITIVE_INFINITY, maxX = Double.NEGATIVE_INFINITY;
-            double minY = Double.POSITIVE_INFINITY, maxY = Double.NEGATIVE_INFINITY;
             for (int index = 0; index < HiveType.MAX_DRONES; index++) {
                 var point = HiveFormation.position(owner, 0, target, 1.0, 1.8, index, HiveType.MAX_DRONES, HiveType.values()[family], time, progress);
                 points.add(point);
-                double projectedY = point.y * Math.cos(.30) - point.z * Math.sin(.30);
-                minX = Math.min(minX, point.x); maxX = Math.max(maxX, point.x);
-                minY = Math.min(minY, projectedY); maxY = Math.max(maxY, projectedY);
             }
             double top = height / 2.0 + 24, bottom = height - 18;
-            double formationScale = Math.min((cw - 36) / (maxX - minX + .8), (bottom - top) / (maxY - minY + .8));
+            // A fixed camera envelope keeps the belt recall honest: no zoom into parked drones.
+            double formationScale = Math.min((cw - 36) / 7.6, (bottom - top) / 6.6);
             graphics.flush();
             graphics.pose().pushPose();
-            graphics.pose().translate(x + cw / 2.0 - (minX + maxX) * .5 * formationScale,
-                    (top + bottom) * .5 + (minY + maxY) * .5 * formationScale, 150);
+            graphics.pose().translate(x + cw / 2.0, (top + bottom) * .5 + formationScale, 150);
             graphics.pose().scale((float) formationScale, (float) -formationScale, (float) formationScale);
             graphics.pose().mulPose(Axis.XP.rotation(.30F));
-            for (int index = 0; index < HiveType.MAX_DRONES; index++) {
+            for (int index = 0; progress > 0 && index < HiveType.MAX_DRONES; index++) {
                 var point = points.get(index);
                 graphics.pose().pushPose();
                 graphics.pose().translate(point.x, point.y, point.z);
-                graphics.pose().scale(.20F, .20F, .20F);
+                float size = .20F * (float) Math.min(1, progress * 4);
+                graphics.pose().scale(size, size, size);
                 graphics.pose().mulPose(Axis.YP.rotationDegrees((float) (time * 2 + index * 137.5)));
                 graphics.pose().translate(-.5, -.5, -.5);
                 HiveVisualRenderer.renderModel(HiveType.values()[family], graphics.pose(), graphics.bufferSource(), index == 0, true);
@@ -84,7 +81,7 @@ final class NativeHiveGallery extends Screen {
             }
             if (combat) HiveCombatVisual.renderFormation(HiveType.values()[family], points, target.add(0, .99, 0),
                     net.minecraft.world.phys.Vec3.ZERO, graphics.bufferSource(), graphics.pose().last().pose(), time);
-            if (transit) HiveCombatVisual.renderTravel(HiveType.values()[family], owner, 0, target, 1.8, progress,
+            if (transit || returning) HiveCombatVisual.renderTravel(HiveType.values()[family], owner, 0, target, 1.8, progress,
                     net.minecraft.world.phys.Vec3.ZERO, graphics.bufferSource(), graphics.pose().last().pose(), time);
             graphics.flush();
             graphics.pose().popPose();
@@ -110,7 +107,7 @@ final class NativeHiveGallery extends Screen {
                     }));
             return;
         }
-        if (captures == 0 && age > 4000 || captures == 1 && age > 6500 || captures == 2 && age > 9500) {
+        if (captures == 0 && age > 2500 || captures == 1 && age > 6500 || captures == 2 && age > 9500) {
             captures++;
             int frame = captures;
             Screenshot.grab(minecraft.gameDirectory, "relics-hive-formations-" + frame + ".png", minecraft.getMainRenderTarget(), message -> {

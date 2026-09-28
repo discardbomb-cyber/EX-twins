@@ -10,7 +10,6 @@ import it.hurts.sskirillss.relics.api.relics.abilities.activation.AbilityActivat
 import it.hurts.sskirillss.relics.api.relics.abilities.stats.AbilityStatTemplate;
 import it.hurts.sskirillss.relics.init.RelicsRelicContainers;
 import it.hurts.sskirillss.relics.init.RelicsScalingModels;
-import it.hurts.sskirillss.relics.items.relics.base.data.leveling.LevelingTemplate;
 
 public abstract class HiveRelicItem extends AutonomousRelicItem {
     protected HiveRelicItem(Properties properties) {
@@ -24,7 +23,7 @@ public abstract class HiveRelicItem extends AutonomousRelicItem {
         // Relics calls this from Item's constructor, before instance fields initialize.
         HiveType type = type();
         var ability = AbilityTemplate.builder(role().abilityId())
-                .initialMaxLevel(10).maxLevelRankModifier(0).requiredLevel(0).requiredRank(0).requiredPoints(0)
+                .initialMaxLevel(10).maxLevelRankModifier(0).requiredLevel(0).requiredRank(0).requiredPoints(1)
                 .active(AbilityActivationTemplate.builder(AbilityActivationType.TOGGLEABLE)
                         .container(RelicsRelicContainers.CURIOS.get()).build())
                 .research(HiveResearch.forType(type))
@@ -36,10 +35,11 @@ public abstract class HiveRelicItem extends AutonomousRelicItem {
                         .initialValue(type.initialCooldown, type.initialCooldown)
                         .targetValue(RelicsScalingModels.ADDITIVE.get(), type.minCooldown)
                         .thresholdValue(20, 1200).formatValue(value -> Math.round(value / 2) / 10.0).build())
-                .experienceSources(ExperienceSourcesTemplate.builder().source(role().abilityId() + "_activity").build())
+                .experienceSources(ExperienceSourcesTemplate.builder().source(RelicProgression.combatSource(role())).build())
                 .build();
-        return RelicTemplate.builder().abilities(AbilitiesTemplate.builder().ability(ability).build())
-                .leveling(LevelingTemplate.builder().initialCost(10).step(5).maxRank(1).build()).build();
+        return RelicTemplate.builder().abilities(AbilitiesTemplate.builder().ability(ability)
+                        .ability(HiveUpgrades.combat(type)).ability(HiveUpgrades.support(type)).ability(HiveUpgrades.recovery(type)).build())
+                .leveling(RelicProgression.levelingTemplate()).build();
     }
 
     private static AbilityStatTemplate stat(String id, double start, double target, double min, double max) {

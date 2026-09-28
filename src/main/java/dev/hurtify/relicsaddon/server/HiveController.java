@@ -7,6 +7,7 @@ import dev.hurtify.relicsaddon.AddonConfig;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
+import dev.hurtify.relicsaddon.relic.HiveUpgrades;
 import dev.hurtify.relicsaddon.shield.ShieldField;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.DamageTypeTags;
@@ -65,7 +66,8 @@ public final class HiveController {
 
     public static HiveStackState prepare(Player player, ItemStack stack, boolean repair) {
         HiveStackState old = stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), HiveStackState.DEFAULT);
-        HiveStackState next = old.prepare(capacity(player, stack), health(player, stack), player.level().getGameTime(), repair);
+        HiveStackState next = old.prepare(capacity(player, stack), health(player, stack), player.level().getGameTime(), repair,
+                repair ? HiveUpgrades.repairAmount(player, stack) : 1);
         if (old != next) stack.set(ModDataComponents.HIVE_STACK_STATE.get(), next);
         return next;
     }
@@ -123,13 +125,15 @@ public final class HiveController {
             HiveStackState state = prepare(player, hive.stack(), false);
             var next = new ArrayList<>(state.units());
             var order = new ArrayList<Integer>(next.size());
-            for (int index = 0; index < next.size(); index++) if (next.get(index).ready(now)) order.add(index);
+            for (int index = 0; index < next.size(); index++) if (next.get(index).ready(now)
+                    && !HiveTaskController.settings(hive.stack()).healer(index, next.size())) order.add(index);
             order.sort(java.util.Comparator.comparingDouble(index -> {
                 HiveOrbit.Point p = HiveOrbit.at(index, next.size(), hive.type().ordinal(), now);
                 return -(p.x() * crossing.normal().x + p.y() * crossing.normal().y + p.z() * crossing.normal().z);
             }));
             int before = remaining;
-            int rebuild = (int) Math.round(RelicRuntime.stat(player, hive.stack(), "cooldown", hive.type().initialCooldown, 20, 1200));
+            int rebuild = Math.max(20, (int) Math.round(RelicRuntime.stat(player, hive.stack(), "cooldown", hive.type().initialCooldown, 20, 1200)
+                    * HiveUpgrades.rebuildMultiplier(player, hive.stack())));
             for (int index : order) {
                 if (remaining == 0) break;
                 HiveStackState.Unit unit = next.get(index);
