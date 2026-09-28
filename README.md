@@ -4,9 +4,11 @@ Expandable autonomous shields and combat hives for Minecraft 1.21.1, NeoForge, C
 
 ![Hives and swarms: deployment, combat and belt recall](docs/images/hives-and-swarms.gif)
 
+[Full feature showcase, 46.5-second GIF](https://github.com/discardbomb-cyber/EX-twins/releases/download/v1.0.0-beta.1/EX-twins-showcase.gif): shields, impact waves, damage, gathering, swarm attacks, belt recall, healer formations and research UI. These are native renderer demonstrations and seeded interface captures, not a live-world battle recording. GIF has no audio.
+
 ## Installation
 
-Install `EX-twins-1.0.0-beta.jar` on both the client and server alongside the dependencies below. This is a beta release; back up existing worlds before upgrading. No generators, batteries or external energy are required.
+Install `EX-twins-1.0.0-beta.1.jar` on both the client and server alongside the dependencies below. This is a beta release; back up existing worlds before upgrading. No generators, batteries or external energy are required.
 
 ## Build From Source
 
@@ -18,7 +20,7 @@ Use Java 21 and the included Gradle wrapper. Obtain these dependencies separatel
 - `architectury-13.0.11-neoforge.jar`
 
 Dependencies are not bundled or redistributed. Optional paths can be set in an untracked `gradle.local.properties` using `relicsJar`, `curiosJar`, `octolibJar`, and `architecturyJar`; `-P` command-line values take priority.
-Run `./gradlew build` on Linux/macOS or `.\gradlew.bat build` on Windows. The result is `build/libs/EX-twins-1.0.0-beta.jar`. The first build requires internet access for Gradle and NeoForge artifacts.
+Run `./gradlew build` on Linux/macOS or `.\gradlew.bat build` on Windows. The result is `build/libs/EX-twins-1.0.0-beta.1.jar`. The first build requires internet access for Gradle and NeoForge artifacts.
 
 ## Items
 
@@ -33,7 +35,7 @@ Standalone drone item IDs are no longer registered. Hives deploy their existing 
 
 ## Playable Build
 
-Version `1.0.0-beta` targets Minecraft 1.21.1, Java 21, NeoForge 21.1.212 and exactly Relics 0.12.8.
+Version `1.0.0-beta.1` targets Minecraft 1.21.1, Java 21, NeoForge 21.1.212 and exactly Relics 0.12.8.
 The three shields and three hives use the charm (Amulet) slot. Slot count remains controlled by the modpack. Each has a recipe and recipe-book unlock.
 Toggle an equipped ability through Relics; using a held relic also toggles its enabled state.
 Each of the six items earns native Relics item-level XP and upgrade points independently of its ability levels, with up to five native ranks. Every item has its main ability plus three researched passive upgrades. Rank advancement follows Relics' own rules; rarity is not used as a substitute for progression.
@@ -72,6 +74,7 @@ RF hives have four silver mechanical bay doors, Mana has six ivory/gold shells, 
 Ten native ability upgrade levels reach those targets. The hard cap is 250 drones per type per wearer, or 750 active virtual helpers when all three types are equipped. Only the first active functional hive of each type participates, so duplicate amulets cannot multiply the limit. Different types coexist only if the modpack provides enough charm slots.
 
 - Hives summon combat helpers which assist against a recently attacked target or an aggressor. RF uses cyan electricity; Mana fires traveling blue mana bolts; Twins uses violet lightning and mana bolts. Lightning checks line of sight and creates no fire. Mana bolts are server-simulated swept projectiles with block and entity collisions. Vanilla hurt invulnerability is respected.
+- Once acquired, a target stays locked until it dies; losing sight or attacking another creature does not reset the swarm. Shots still respect walls. Disabling the hive, assigning all drones to healing, a target becoming allied, changing dimensions or exceeding the configured pursuit range cancels pursuit.
 - Each drone has an independent 1-5 second attack interval, upgraded to 1-2 seconds. Initial volleys are staggered. RF/Mana damage upgrades from 2 to 3, Twins from 3 to 4 before the target's armor and effects.
 - In transit, the swarm morphs into a softly pulsing droplet with faint moving wave bands. It then surrounds its target: RF inward-facing hexagonal emitters, Mana rotating rings, Twins a polygonal sphere. When a task ends, drones fly into the owner's belt and disappear. There are no idle formations behind the player.
 - Press `H` (rebindable in Controls) to open Hive Tasks. Select a hive and assign a number of healers; remaining slots defend and attack. Assignments persist separately on each item. Healers restore only their owner and neither attack nor intercept. Healing is capped at 4 HP/second across all equipped hives by default, configurable by the server.
@@ -105,6 +108,10 @@ Use `/relics_addon shield_status` for read-only diagnosis of your equipped shiel
 Inventory icons render the animated 3D models. Hives have closed inner hulls, articulated armor, recessed docking ports and distinct RF, Mana and violet-black Ex-Twins materials. The deployed swarm uses separate low-detail 3D models at high populations.
 
 The `tools/` directory includes the current mesh generators, ability-card drawings and resource validators. Python tools require the packages listed in `tools/requirements.txt`; the hive card generator uses Node.js standard modules. Ready-to-use assets are included, so regenerating them is not required to build the mod.
+
+`./gradlew runReleaseCheckClient` verifies the packaged release from `run-release-check/mods`, captures the ordinary title screen and exits. It does not load the main source-set classes or any preview screens. The separate startup probe is never packaged in the addon. Keep development clients in a separate checkout while recompiling: a running development client can fail to load a class if its compiler output changes during startup.
+
+To reproduce the extended showcase, run `runFeatureGifClient` and `runUiCaptureClient`, then `python tools/assemble_feature_preview.py run-feature-gif/screenshots run-ui-capture/screenshots outputs/EX-twins-showcase.gif --font /path/to/a-cyrillic-font.ttf`. Recording is explicitly opt-in and never runs in a release client.
 
 ## Beta Limitations
 

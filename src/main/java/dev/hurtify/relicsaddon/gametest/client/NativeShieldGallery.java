@@ -27,6 +27,9 @@ final class NativeShieldGallery extends Screen {
     private final Set<String> captures = new HashSet<>();
     private final Set<String> saved = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private long completedAt;
+    private static final boolean GIF = Boolean.getBoolean("relics_addon.featureGif");
+    private int gifFrame;
+    private boolean gifPending;
     private static final Vec3 NORMAL = new Vec3(.35, .1, .93).normalize();
     private static final boolean CELLS = Boolean.getBoolean("relics_addon.cellSmoke");
     private static final List<String> STAGES = CELLS ? List.of("approach", "absorption", "break", "idle", "hp-full", "hp-half", "hp-critical", "gather-start", "gather-end", "wave", "overlapping-waves")
@@ -37,7 +40,7 @@ final class NativeShieldGallery extends Screen {
     }
 
     private double animationTick() {
-        return (Util.getMillis() - started) / 50.0D % (CELLS ? 290 : 100);
+        return GIF ? gifFrame : (Util.getMillis() - started) / 50.0D % (CELLS ? 290 : 100);
     }
 
     @Override
@@ -106,6 +109,19 @@ final class NativeShieldGallery extends Screen {
     }
 
     void capture(Minecraft minecraft) {
+        if (GIF) {
+            if (Util.getMillis() - started < 1800 || gifPending || gifFrame >= 290) return;
+            gifPending = true;
+            Screenshot.grab(minecraft.gameDirectory, String.format(java.util.Locale.ROOT, "relics-shield-gif-%03d.png", gifFrame),
+                    minecraft.getMainRenderTarget(), message -> minecraft.execute(() -> {
+                        gifPending = false;
+                        if (++gifFrame >= 290) {
+                            RelicsAddon.LOGGER.info("Feature GIF: 290 native shield frames captured");
+                            minecraft.setScreen(new NativeHiveGallery());
+                        }
+                    }));
+            return;
+        }
         if (Boolean.getBoolean("relics_addon.captureAndExit")) {
             String prefix = "relics-shields-" + minecraft.getMainRenderTarget().width + "x" + minecraft.getMainRenderTarget().height + "-";
             boolean complete = STAGES.stream()

@@ -6,6 +6,7 @@ import dev.hurtify.relicsaddon.client.HiveVisualRenderer;
 import dev.hurtify.relicsaddon.client.HiveCombatVisual;
 import dev.hurtify.relicsaddon.drone.HiveFormation;
 import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.drone.HiveCombatState;
 import dev.hurtify.relicsaddon.registry.ModItems;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
@@ -23,6 +24,8 @@ final class NativeHiveGallery extends Screen {
     private int captures, frames;
     private long renderNanos;
     private static final boolean GIF = Boolean.getBoolean("relics_addon.hiveGif");
+    private static final boolean FEATURES = Boolean.getBoolean("relics_addon.featureGif");
+    private static final int GIF_FRAMES = FEATURES ? 180 : 120;
     private int gifFrame;
     private boolean gifPending;
 
@@ -38,7 +41,10 @@ final class NativeHiveGallery extends Screen {
         boolean transit = age >= 1000 && age < 4000;
         boolean combat = age >= 4000 && age < 8500;
         boolean returning = age >= 8500 && age < 10500;
+        boolean healing = FEATURES && age >= 12000;
         double progress = combat ? 1 : transit ? (age - 1000) / 3000.0 : returning ? 1 - (age - 8500) / 2000.0 : 0;
+        if (healing) progress = Math.clamp(Math.min((age - 12000) / 600.0, (18000 - age) / 2000.0), 0, 1);
+        int population = healing ? 12 : HiveType.MAX_DRONES;
         for (int family = 0; family < 3; family++) {
             int x = cw * family;
             graphics.drawString(font, items[family].getHoverName(), x + 9, 26, 0xFFD5DBE2, false);
@@ -51,13 +57,14 @@ final class NativeHiveGallery extends Screen {
             graphics.pose().scale(scale, scale, scale);
             graphics.renderItem(items[family], 0, 0);
             graphics.pose().popPose();
-            graphics.drawString(font, (combat ? "combat formation / " : transit ? "droplet flight / " : returning ? "return to belt / " : "docked / ")
-                    + HiveType.MAX_DRONES, x + 9, height / 2, 0xFFD5DBE2, false);
-            var owner = new net.minecraft.world.phys.Vec3(-3, 0, 0);
+            graphics.drawString(font, (healing ? "owner-only support / " : combat ? "combat formation / " : transit ? "droplet flight / " : returning ? "return to belt / " : "docked / ")
+                    + population, x + 9, height / 2, 0xFFD5DBE2, false);
+            var owner = new net.minecraft.world.phys.Vec3(healing ? -1 : -3, 0, 0);
             var target = new net.minecraft.world.phys.Vec3(.5, 0, 0);
             var points = new java.util.ArrayList<net.minecraft.world.phys.Vec3>();
-            for (int index = 0; index < HiveType.MAX_DRONES; index++) {
-                var point = HiveFormation.position(owner, 0, target, 1.0, 1.8, index, HiveType.MAX_DRONES, HiveType.values()[family], time, progress);
+            for (int index = 0; index < population; index++) {
+                var point = healing ? HiveFormation.healing(owner, 0, index, population, HiveType.values()[family], time, progress)
+                        : HiveFormation.position(owner, 0, target, 1.0, 1.8, index, population, HiveType.values()[family], time, progress);
                 points.add(point);
             }
             double top = height / 2.0 + 24, bottom = height - 18;
@@ -68,7 +75,7 @@ final class NativeHiveGallery extends Screen {
             graphics.pose().translate(x + cw / 2.0, (top + bottom) * .5 + formationScale, 150);
             graphics.pose().scale((float) formationScale, (float) -formationScale, (float) formationScale);
             graphics.pose().mulPose(Axis.XP.rotation(.30F));
-            for (int index = 0; progress > 0 && index < HiveType.MAX_DRONES; index++) {
+            for (int index = 0; progress > 0 && index < population; index++) {
                 var point = points.get(index);
                 graphics.pose().pushPose();
                 graphics.pose().translate(point.x, point.y, point.z);
@@ -81,6 +88,19 @@ final class NativeHiveGallery extends Screen {
             }
             if (combat) HiveCombatVisual.renderFormation(HiveType.values()[family], points, target.add(0, .99, 0),
                     net.minecraft.world.phys.Vec3.ZERO, graphics.bufferSource(), graphics.pose().last().pose(), time);
+            if (combat && FEATURES) {
+                var shots = new java.util.ArrayList<HiveCombatState.Shot>();
+                for (int index = 0; index < Math.min(100, population); index++) {
+                    long first = 80 + index % 40;
+                    if (time < first) continue;
+                    long fired = first + (long) ((time - first) / 40) * 40;
+                    var from = points.get(index);
+                    var end = target.add(0, .99, 0);
+                    int kind = family == 0 ? 0 : family == 1 ? 1 : 2 + index % 2;
+                    shots.add(new HiveCombatState.Shot(index, fired, kind, from.x, from.y, from.z, end.x, end.y, end.z, fired + 4));
+                }
+                HiveCombatVisual.renderShots(shots, net.minecraft.world.phys.Vec3.ZERO, graphics.bufferSource(), graphics.pose().last().pose(), time);
+            }
             if (transit || returning) HiveCombatVisual.renderTravel(HiveType.values()[family], owner, 0, target, 1.8, progress,
                     net.minecraft.world.phys.Vec3.ZERO, graphics.bufferSource(), graphics.pose().last().pose(), time);
             graphics.flush();
@@ -94,14 +114,14 @@ final class NativeHiveGallery extends Screen {
     void capture(Minecraft minecraft) {
         long age = Util.getMillis() - start;
         if (GIF) {
-            if (age < 1800 || gifPending || gifFrame >= 120) return;
+            if (age < 1800 || gifPending || gifFrame >= GIF_FRAMES) return;
             gifPending = true;
             Screenshot.grab(minecraft.gameDirectory, String.format(java.util.Locale.ROOT, "relics-hive-gif-%03d.png", gifFrame),
                     minecraft.getMainRenderTarget(), message -> minecraft.execute(() -> {
                         gifFrame++;
                         gifPending = false;
-                        if (gifFrame >= 120) {
-                            RelicsAddon.LOGGER.info("Hive GIF evidence: 120 native frames captured");
+                        if (gifFrame >= GIF_FRAMES) {
+                            RelicsAddon.LOGGER.info("Hive GIF evidence: {} native frames captured", GIF_FRAMES);
                             minecraft.stop();
                         }
                     }));

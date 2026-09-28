@@ -122,6 +122,61 @@ public final class HiveCombatGameTests {
         liveVolley(helper, HiveType.RF, 0);
     }
 
+    @GameTest(template = "field_arena", timeoutTicks = 180)
+    public static void twinsHiveKeepsAttackingAndToggleStopsIt(GameTestHelper helper) {
+        liveVolley(helper, HiveType.TWINS, 2);
+    }
+
+    @GameTest(template = "field_arena")
+    public static void targetLockSurvivesLostSightAndNewAggressors(GameTestHelper helper) {
+        ServerPlayer owner = AutonomousRelicGameTests.survivalPlayer(helper);
+        owner.setPos(helper.absoluteVec(new Vec3(6.5, 2, 6.5)));
+        Husk target = combatTarget(helper, owner.position().add(0, 0, 4));
+        Husk other = combatTarget(helper, owner.position().add(3, 0, 0));
+        owner.setLastHurtMob(target);
+        helper.assertTrue(HiveCombatController.selectTarget(owner, helper.getLevel(), -1) == target,
+                "A visible victim can be acquired");
+        owner.tickCount += 200;
+        owner.setLastHurtMob(other);
+        owner.setLastHurtByMob(other);
+        for (int y = 1; y <= 6; y++) {
+            helper.setBlock(new BlockPos(6, y, 8), Blocks.STONE);
+        }
+        helper.assertFalse(owner.hasLineOfSight(target), "A solid wall hides the locked target from the owner");
+        helper.assertTrue(HiveCombatController.selectTarget(owner, helper.getLevel(), target.getId()) == target,
+                "Old target remains locked despite lost sight, expired aggression and a newer victim");
+        helper.assertFalse(HiveCombatController.lineOfSight(helper.getLevel(), owner.getEyePosition(), target.getEyePosition()),
+                "Persistent targeting does not let an attack ray travel through a wall");
+        target.setHealth(0);
+        helper.assertTrue(HiveCombatController.selectTarget(owner, helper.getLevel(), target.getId()) == other,
+                "Only after the locked target dies can the next hostile target be acquired");
+        other.discard();
+        target.discard();
+        helper.succeed();
+    }
+
+    @GameTest(template = "field_arena")
+    public static void targetLockStillRejectsAlliesAndOutOfRangeTargets(GameTestHelper helper) {
+        ServerPlayer owner = AutonomousRelicGameTests.survivalPlayer(helper);
+        owner.setPos(helper.absoluteVec(new Vec3(6.5, 2, 6.5)));
+        Husk target = combatTarget(helper, owner.position().add(0, 0, 3));
+        PlayerTeam team = owner.getScoreboard().addPlayerTeam("hive_lock_allies");
+        try {
+            owner.getScoreboard().addPlayerToTeam(owner.getScoreboardName(), team);
+            owner.getScoreboard().addPlayerToTeam(target.getScoreboardName(), team);
+            helper.assertTrue(HiveCombatController.selectTarget(owner, helper.getLevel(), target.getId()) == null,
+                    "A locked target that becomes allied is released immediately");
+            owner.getScoreboard().removePlayerFromTeam(target.getScoreboardName(), team);
+            target.setPos(owner.position().add(100, 0, 0));
+            helper.assertTrue(HiveCombatController.selectTarget(owner, helper.getLevel(), target.getId()) == null,
+                    "Pursuit stays bounded and never forces distant chunks to load");
+        } finally {
+            owner.getScoreboard().removePlayerTeam(team);
+            target.discard();
+        }
+        helper.succeed();
+    }
+
     private static void liveVolley(GameTestHelper helper, HiveType type, int expectedKind) {
         ServerPlayer owner = AutonomousRelicGameTests.survivalPlayer(helper);
         owner.setPos(helper.absoluteVec(new Vec3(6.5, 2, 6.5)));
@@ -144,8 +199,16 @@ public final class HiveCombatGameTests {
                 sawExpectedShot[0] |= state.shots().stream().anyMatch(shot -> shot.kind() == expectedKind && finite(shot));
             });
         }
+        helper.runAfterDelay(80, () -> {
+            owner.setLastHurtMob(null);
+            owner.setLastHurtByMob(null);
+            owner.tickCount += 200;
+            healthAfterDisable[0] = target.getHealth();
+        });
         helper.runAfterDelay(161, () -> {
             helper.assertTrue(target.getHealth() < healthBefore, type + " hive deals real server-authoritative combat damage");
+            helper.assertTrue(target.getHealth() < healthAfterDisable[0],
+                    type + " continues dealing damage without repeated player attacks or fresh aggression");
             helper.assertTrue(sawExpectedShot[0], type + " hive synchronizes its expected shot type with finite world coordinates");
             RelicRuntime.setEnabled(owner, hive, false);
             healthAfterDisable[0] = target.getHealth();
@@ -160,6 +223,15 @@ public final class HiveCombatGameTests {
             target.discard();
             helper.succeed();
         });
+    }
+
+    private static Husk combatTarget(GameTestHelper helper, Vec3 position) {
+        Husk target = new Husk(EntityType.HUSK, helper.getLevel());
+        target.setPos(position);
+        target.setNoAi(true);
+        target.setNoGravity(true);
+        helper.assertTrue(helper.getLevel().addFreshEntity(target), "Target enters the field arena");
+        return target;
     }
 
     private static ItemStack equipHive(ServerPlayer owner, HiveType type) {

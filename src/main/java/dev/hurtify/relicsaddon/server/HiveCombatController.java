@@ -135,17 +135,14 @@ public final class HiveCombatController {
         }
     }
 
-    /** Owner's victim wins; an attacker is the fallback. Existing targets may pursue to a larger cap. */
+    /** Keep a live hostile target until defeated; visibility is only needed to acquire a new one. */
     public static LivingEntity selectTarget(ServerPlayer owner, ServerLevel level, int previousTargetId) {
+        Entity previous = previousTargetId < 0 ? null : level.getEntity(previousTargetId);
+        if (previous instanceof LivingEntity living && validTarget(owner, living, true)) return living;
         LivingEntity attacked = owner.getLastHurtMob();
         if (owner.tickCount - owner.getLastHurtMobTimestamp() < 100 && validTarget(owner, attacked, false)) return attacked;
         LivingEntity aggressor = owner.getLastHurtByMob();
         if (owner.tickCount - owner.getLastHurtByMobTimestamp() < 100 && validTarget(owner, aggressor, false)) return aggressor;
-        Entity previous = previousTargetId < 0 ? null : level.getEntity(previousTargetId);
-        if (previous instanceof LivingEntity living && validTarget(owner, living, true)
-                && owner.distanceToSqr(living) <= AddonConfig.HIVE_PURSUIT_RANGE.get() * AddonConfig.HIVE_PURSUIT_RANGE.get()) {
-            return living;
-        }
         return null;
     }
 
@@ -157,7 +154,7 @@ public final class HiveCombatController {
         if (candidate instanceof TamableAnimal pet && pet.getOwner() != null
                 && (pet.getOwner() == owner || pet.getOwner().isAlliedTo(owner))) return false;
         double range = pursuing ? AddonConfig.HIVE_PURSUIT_RANGE.get() : AddonConfig.HIVE_TARGET_RANGE.get();
-        return owner.distanceToSqr(candidate) <= range * range && owner.hasLineOfSight(candidate);
+        return owner.distanceToSqr(candidate) <= range * range && (pursuing || owner.hasLineOfSight(candidate));
     }
 
     private static void tickFlights(ServerPlayer owner, ServerLevel level, HiveType type, ItemStack stack,

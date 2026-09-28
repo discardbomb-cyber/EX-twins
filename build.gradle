@@ -12,8 +12,11 @@ base {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
+sourceSets { releaseProbe }
+
 neoForge {
     version = neo_version
+    addModdingDependenciesTo(sourceSets.releaseProbe)
 
     runs {
         client {
@@ -51,6 +54,13 @@ neoForge {
             systemProperty 'relics_addon.shieldSmoke', 'false'
             systemProperty 'relics_addon.captureAndExit', 'false'
             systemProperty 'relics_addon.cellSmoke', 'false'
+        }
+
+        releaseCheckClient {
+            client()
+            sourceSet = sourceSets.releaseProbe
+            gameDirectory = file('run-release-check')
+            loadedMods = []
         }
 
         shieldCaptureClient {
@@ -95,6 +105,17 @@ neoForge {
             systemProperty 'relics_addon.captureAndExit', 'true'
         }
 
+        featureGifClient {
+            client()
+            gameDirectory = file('run-feature-gif')
+            systemProperty 'relics_addon.visualSmoke', 'true'
+            systemProperty 'relics_addon.shieldSmoke', 'true'
+            systemProperty 'relics_addon.cellSmoke', 'true'
+            systemProperty 'relics_addon.featureGif', 'true'
+            systemProperty 'relics_addon.hiveGif', 'true'
+            systemProperty 'relics_addon.captureAndExit', 'true'
+        }
+
         modelCaptureClient {
             client()
             gameDirectory = file('run-verification')
@@ -107,6 +128,13 @@ neoForge {
         "${mod_id}" {
             sourceSet(sourceSets.main)
         }
+        release_probe {
+            sourceSet(sourceSets.releaseProbe)
+        }
+    }
+    runs.releaseCheckClient.loadedMods = [mods.release_probe]
+    runs.configureEach {
+        if (name != 'releaseCheckClient') loadedMods = [mods.getByName(mod_id)]
     }
 }
 
@@ -159,6 +187,8 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }
 
+configurations.releaseProbeRuntimeClasspath.extendsFrom(configurations.implementation)
+
 tasks.withType(AbstractArchiveTask).configureEach {
     preserveFileTimestamps = false
     reproducibleFileOrder = true
@@ -180,6 +210,7 @@ tasks.named('check') {
     dependsOn 'verifyHiveFormation'
     dependsOn 'verifyHiveLayers'
     dependsOn 'verifyManaDome'
+    dependsOn 'verifyReleaseContents'
 }
 
 tasks.register('verifyManaDome', JavaExec) {
@@ -242,6 +273,45 @@ tasks.named('jar') {
     exclude 'dev/hurtify/relicsaddon/gametest/**'
     exclude 'data/relics_addon/structure/test_room.nbt'
     exclude 'data/relics_addon/structure/field_arena.nbt'
+}
+
+tasks.register('verifyReleaseContents') {
+    dependsOn tasks.named('jar')
+    doLast {
+        def archive = tasks.named('jar').get().archiveFile.get().asFile
+        new java.util.zip.ZipFile(archive).withCloseable { zip ->
+            sourceSets.main.output.classesDirs.each { root ->
+                fileTree(root).matching {
+                    include '**/*.class'
+                    exclude 'dev/hurtify/relicsaddon/gametest/**'
+                }.each { compiled ->
+                    def entry = root.toPath().relativize(compiled.toPath()).toString().replace('\\', '/')
+                    if (zip.getEntry(entry) == null) throw new GradleException("Missing release class: ${entry}")
+                }
+            }
+            if (zip.entries().any { it.name.startsWith('dev/hurtify/relicsaddon/gametest/') }) {
+                throw new GradleException('Development preview/test classes leaked into the release jar')
+            }
+        }
+    }
+}
+
+tasks.register('stageReleaseCheck', Sync) {
+    dependsOn tasks.named('verifyReleaseContents')
+    from tasks.named('jar').flatMap { it.archiveFile }
+    into layout.projectDirectory.dir('run-release-check/mods')
+}
+
+tasks.named('runReleaseCheckClient').configure {
+    dependsOn tasks.named('stageReleaseCheck')
+    doFirst { ext.testStartedMillis = System.currentTimeMillis() }
+    doLast {
+        def log = file('run-release-check/logs/latest.log')
+        if (!log.exists() || log.lastModified() < ext.testStartedMillis ||
+                !log.getText('UTF-8').contains('Packaged release verified: TitleScreen, no preview')) {
+            throw new GradleException('Packaged release did not reach the ordinary title screen')
+        }
+    }
 }
 
 tasks.register('verifyRelicAnimation', JavaExec) {
