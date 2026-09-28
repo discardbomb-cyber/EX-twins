@@ -1,0 +1,147 @@
+{
+  "textures": {
+    "surface": "relics_addon:item/materials/mana_shield",
+    "fx": "relics_addon:item/fx/mana_shield",
+    "particle": "relics_addon:item/mana_shield"
+  },
+  "ambientocclusion": false,
+  "render_type": "minecraft:solid",
+  "elements": [
+    {
+      "from": [
+        6.6,
+        6.5,
+        5.5
+      ],
+      "to": [
+        9.4,
+        10.5,
+        6.4
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            4,
+            4,
+            8
+          ],
+          "texture": "#surface"
+        },
+        "south": {
+          "uv": [
+            0,
+            4,
+            4,
+            8
+          ],
+          "texture": "#surface"
+        },
+        "east": {
+          "uv": [
+            0,
+            4,
+            4,
+            8
+          ],
+          "texture": "#surface"
+        },
+        "west": {
+          "uv": [
+            0,
+            4,
+            4,
+            8
+          ],
+          "texture": "#surface"
+        },
+        "up": {
+          "uv": [
+            0,
+            4,
+            4,
+            8
+          ],
+          "texture": "#surface"
+        },
+        "down": {
+          "uv": [
+            0,
+            4,
+            4,
+            8
+          ],
+          "texture": "#surface"
+        }
+      }
+    },
+    {
+      "from": [
+        7.2,
+        7.5,
+        5.2
+      ],
+      "to": [
+        8.8,
+        9.8,
+        5.6
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            12,
+            0,
+            16,
+            4
+          ],
+          "texture": "#surface"
+        },
+        "south": {
+          "uv": [
+            12,
+            0,
+            16,
+            4
+          ],
+          "texture": "#surface"
+        },
+        "east": {
+          "uv": [
+            12,
+            0,
+            16,
+            4
+          ],
+          "texture": "#surface"
+        },
+        "west": {
+          "uv": [
+            12,
+            0,
+            16,
+            4
+          ],
+          "texture": "#surface"
+        },
+        "up": {
+          "uv": [
+            12,
+            0,
+            16,
+            4
+          ],
+          "texture": "#surface"
+        },
+        "down": {
+          "uv": [
+            12,
+            0,
+            16,
+            4
+          ],
+          "texture": "#surface"
+        }
+      }
+    }
+  ]
+}

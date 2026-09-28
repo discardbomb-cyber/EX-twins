@@ -1,0 +1,27 @@
+{
+  "loader": "neoforge:obj",
+  "model": "relics_addon:models/item/mana_drone.obj",
+  "automatic_culling": false,
+  "shade_quads": true,
+  "emissive_ambient": true,
+  "render_type": "minecraft:solid",
+  "textures": {
+    "particle": "relics_addon:item/mana_drone"
+  },
+  "visibility": {
+    "energy_core": false,
+    "shell_0_ceramic_petal": true,
+    "shell_0_gold_inlay": true,
+    "shell_1_ceramic_petal": false,
+    "shell_1_gold_inlay": false,
+    "shell_2_ceramic_petal": false,
+    "shell_2_gold_inlay": false,
+    "shell_3_ceramic_petal": false,
+    "shell_3_gold_inlay": false,
+    "shell_4_ceramic_petal": false,
+    "shell_4_gold_inlay": false,
+    "shell_5_ceramic_petal": false,
+    "shell_5_gold_inlay": false,
+    "suspension_collars": false
+  }
+}

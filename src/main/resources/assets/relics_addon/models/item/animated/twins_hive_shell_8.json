@@ -1,0 +1,28 @@
+{
+  "loader": "neoforge:obj",
+  "model": "relics_addon:models/item/twins_hive.obj",
+  "automatic_culling": false,
+  "shade_quads": true,
+  "emissive_ambient": true,
+  "render_type": "minecraft:solid",
+  "textures": {
+    "particle": "relics_addon:item/twins_drone"
+  },
+  "visibility": {
+    "body": false,
+    "core": false,
+    "fx": false,
+    "shell_0": false,
+    "shell_1": false,
+    "shell_2": false,
+    "shell_3": false,
+    "shell_4": false,
+    "shell_5": false,
+    "shell_6": false,
+    "shell_7": false,
+    "shell_8": true,
+    "shell_9": false,
+    "shell_10": false,
+    "shell_11": false
+  }
+}

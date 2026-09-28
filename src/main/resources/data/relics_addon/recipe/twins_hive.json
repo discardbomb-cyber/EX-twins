@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "OEO",
+    "EDE",
+    "OEO"
+  ],
+  "key": {
+    "O": { "item": "minecraft:obsidian" },
+    "E": { "item": "minecraft:end_crystal" },
+    "D": { "item": "minecraft:diamond_block" }
+  },
+  "result": {
+    "id": "relics_addon:twins_hive",
+    "count": 1
+  }
+}

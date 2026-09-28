@@ -1,0 +1,104 @@
+newmtl silver
+Kd 0.47 0.51 0.55
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl edge
+Kd 0.92 0.95 0.98
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl graphite
+Kd 0.045 0.055 0.068
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl rubber
+Kd 0.019 0.024 0.032
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl steel
+Kd 0.24 0.28 0.33
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl red_rim
+Kd 0.34 0.012 0.025
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl red_glass
+Kd 0.78 0.012 0.035
+Ka 0.28 0.28 0.28
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl cyan
+Kd 0.32 0.77 1.0
+Ka 1 1 1
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl ceramic
+Kd 0.79 0.81 0.78
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl ceramic_shadow
+Kd 0.41 0.48 0.55
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl gold
+Kd 0.59 0.4 0.13
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl gold_edge
+Kd 0.91 0.71 0.3
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl navy
+Kd 0.024 0.04 0.09
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl mana_core
+Kd 0.045 0.45 0.83
+Ka 0.35 0.35 0.35
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl mana_light
+Kd 0.28 0.89 1
+Ka 0.85 0.85 0.85
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl obsidian
+Kd 0.075 0.066 0.11
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl armor
+Kd 0.16 0.14 0.22
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl armor_edge
+Kd 0.31 0.28 0.38
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl violet
+Kd 0.57 0.1 0.84
+Ka 0.55 0.55 0.55
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl amethyst
+Kd 0.29 0.05 0.45
+Ka 0.22 0.22 0.22
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl lilac
+Kd 0.83 0.47 1
+Ka 0.85 0.85 0.85
+map_Kd relics_addon:item/materials/rf_mesh_white

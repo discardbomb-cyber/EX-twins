@@ -1,0 +1,11 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_echo_shard": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": { "items": [{ "items": "minecraft:echo_shard" }] }
+    }
+  },
+  "requirements": [["has_echo_shard"]],
+  "rewards": { "recipes": ["relics_addon:rf_hive"] }
+}

@@ -1,0 +1,22 @@
+{
+  "loader": "neoforge:obj",
+  "model": "relics_addon:models/item/mana_hive.obj",
+  "automatic_culling": false,
+  "shade_quads": true,
+  "emissive_ambient": true,
+  "render_type": "minecraft:solid",
+  "textures": {
+    "particle": "relics_addon:item/mana_drone"
+  },
+  "visibility": {
+    "body": false,
+    "core": false,
+    "fx": false,
+    "shell_0": false,
+    "shell_1": false,
+    "shell_2": true,
+    "shell_3": false,
+    "shell_4": false,
+    "shell_5": false
+  }
+}

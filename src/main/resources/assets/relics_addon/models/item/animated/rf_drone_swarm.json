@@ -1,0 +1,14 @@
+{
+  "loader": "neoforge:obj",
+  "model": "relics_addon:models/item/rf_drone_lod.obj",
+  "automatic_culling": false,
+  "shade_quads": true,
+  "emissive_ambient": true,
+  "render_type": "minecraft:solid",
+  "textures": {
+    "particle": "relics_addon:item/rf_drone"
+  },
+  "visibility": {
+    "hull": true
+  }
+}

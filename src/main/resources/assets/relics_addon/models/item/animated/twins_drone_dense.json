@@ -1,0 +1,14 @@
+{
+  "loader": "neoforge:obj",
+  "model": "relics_addon:models/item/twins_drone_dense.obj",
+  "automatic_culling": false,
+  "shade_quads": true,
+  "emissive_ambient": true,
+  "render_type": "minecraft:solid",
+  "textures": {
+    "particle": "relics_addon:item/twins_drone"
+  },
+  "visibility": {
+    "hull": true
+  }
+}

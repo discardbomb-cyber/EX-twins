@@ -1,0 +1,88 @@
+{
+  "textures": {
+    "surface": "relics_addon:item/materials/mana_shield",
+    "fx": "relics_addon:item/fx/mana_shield",
+    "particle": "relics_addon:item/mana_shield"
+  },
+  "ambientocclusion": false,
+  "render_type": "minecraft:solid",
+  "elements": [
+    {
+      "from": [
+        4.3,
+        3.3,
+        6.2
+      ],
+      "to": [
+        7.1,
+        8.1,
+        8
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            4,
+            4,
+            8,
+            8
+          ],
+          "texture": "#surface"
+        },
+        "south": {
+          "uv": [
+            4,
+            4,
+            8,
+            8
+          ],
+          "texture": "#surface"
+        },
+        "east": {
+          "uv": [
+            4,
+            4,
+            8,
+            8
+          ],
+          "texture": "#surface"
+        },
+        "west": {
+          "uv": [
+            4,
+            4,
+            8,
+            8
+          ],
+          "texture": "#surface"
+        },
+        "up": {
+          "uv": [
+            4,
+            4,
+            8,
+            8
+          ],
+          "texture": "#surface"
+        },
+        "down": {
+          "uv": [
+            4,
+            4,
+            8,
+            8
+          ],
+          "texture": "#surface"
+        }
+      },
+      "rotation": {
+        "angle": 22.5,
+        "axis": "z",
+        "origin": [
+          5.699999999999999,
+          5.699999999999999,
+          7.1
+        ]
+      }
+    }
+  ]
+}

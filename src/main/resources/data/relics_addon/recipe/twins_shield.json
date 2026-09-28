@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "OAO",
+    "EDE",
+    "OAO"
+  ],
+  "key": {
+    "O": { "item": "minecraft:obsidian" },
+    "A": { "item": "minecraft:amethyst_shard" },
+    "E": { "item": "minecraft:ender_pearl" },
+    "D": { "item": "minecraft:diamond" }
+  },
+  "result": {
+    "id": "relics_addon:twins_shield",
+    "count": 1
+  }
+}

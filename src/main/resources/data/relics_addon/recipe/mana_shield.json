@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "GLG",
+    "LDA",
+    "GAG"
+  ],
+  "key": {
+    "G": { "item": "minecraft:gold_ingot" },
+    "L": { "item": "minecraft:lapis_lazuli" },
+    "D": { "item": "minecraft:diamond" },
+    "A": { "item": "minecraft:amethyst_shard" }
+  },
+  "result": {
+    "id": "relics_addon:mana_shield",
+    "count": 1
+  }
+}

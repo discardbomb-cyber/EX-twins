@@ -1,0 +1,11 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_emerald": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": { "items": [{ "items": "minecraft:emerald" }] }
+    }
+  },
+  "requirements": [["has_emerald"]],
+  "rewards": { "recipes": ["relics_addon:mana_hive"] }
+}

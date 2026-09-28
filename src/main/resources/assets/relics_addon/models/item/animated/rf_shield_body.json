@@ -1,0 +1,32 @@
+{
+  "loader": "neoforge:obj",
+  "model": "relics_addon:models/item/rf_shield.obj",
+  "automatic_culling": false,
+  "shade_quads": true,
+  "emissive_ambient": true,
+  "render_type": "minecraft:solid",
+  "textures": {
+    "particle": "relics_addon:item/rf_shield"
+  },
+  "visibility": {
+    "armor_fasteners": true,
+    "armor_vents": true,
+    "equatorial_service_belt": true,
+    "front_armor_petal_0": true,
+    "front_armor_petal_1": true,
+    "front_armor_petal_2": true,
+    "front_armor_petal_3": true,
+    "graphite_inner_sphere": true,
+    "optic_housing": true,
+    "optic_retainer_tabs": true,
+    "rear_armor_petal_0": true,
+    "rear_armor_petal_1": true,
+    "rear_armor_petal_2": true,
+    "rear_armor_petal_3": true,
+    "rear_service_cap": true,
+    "recessed_red_optic": true,
+    "segmented_cyan_ring": false,
+    "side_sensor_-1": true,
+    "side_sensor_1": true
+  }
+}

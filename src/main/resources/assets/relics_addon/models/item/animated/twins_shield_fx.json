@@ -1,0 +1,43 @@
+{
+  "render_type": "minecraft:translucent",
+  "ambientocclusion": false,
+  "textures": {
+    "fx": "relics_addon:item/fx/twins_shield",
+    "particle": "relics_addon:item/twins_shield"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        1.1
+      ],
+      "to": [
+        16,
+        16,
+        14.9
+      ],
+      "shade": false,
+      "faces": {
+        "north": {
+          "texture": "#fx",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "south": {
+          "texture": "#fx",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        }
+      }
+    }
+  ]
+}

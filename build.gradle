@@ -1,0 +1,251 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.107'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = mod_archive_name
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+neoForge {
+    version = neo_version
+
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+        }
+
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+        }
+
+        gameTestServer {
+            type = 'gameTestServer'
+            gameDirectory = file('run-gametest')
+            systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+        }
+
+        visualTestClient {
+            client()
+            gameDirectory = file('run-visual')
+            systemProperty 'relics_addon.interactiveSmoke', 'true'
+            systemProperty 'relics_addon.visualSmoke', 'false'
+            systemProperty 'relics_addon.shieldSmoke', 'false'
+            systemProperty 'relics_addon.captureAndExit', 'false'
+            systemProperty 'relics_addon.cellSmoke', 'false'
+        }
+
+        startupCheckClient {
+            client()
+            gameDirectory = file('run-shield-capture')
+            systemProperty 'relics_addon.startupSmoke', 'true'
+            systemProperty 'relics_addon.visualSmoke', 'false'
+            systemProperty 'relics_addon.shieldSmoke', 'false'
+            systemProperty 'relics_addon.captureAndExit', 'false'
+            systemProperty 'relics_addon.cellSmoke', 'false'
+        }
+
+        shieldCaptureClient {
+            client()
+            gameDirectory = file('run-shield-capture')
+            systemProperty 'relics_addon.visualSmoke', 'true'
+            systemProperty 'relics_addon.shieldSmoke', 'true'
+            systemProperty 'relics_addon.captureAndExit', 'true'
+            systemProperty 'relics_addon.cellSmoke', 'true'
+        }
+
+        researchCaptureClient {
+            client()
+            gameDirectory = file('run-shield-capture')
+            systemProperty 'relics_addon.visualSmoke', 'true'
+            systemProperty 'relics_addon.researchSmoke', 'true'
+            systemProperty 'relics_addon.captureAndExit', 'true'
+        }
+
+        hiveCaptureClient {
+            client()
+            gameDirectory = file('run-shield-capture')
+            systemProperty 'relics_addon.visualSmoke', 'true'
+            systemProperty 'relics_addon.hiveSmoke', 'true'
+            systemProperty 'relics_addon.captureAndExit', 'true'
+        }
+
+        hiveGifClient {
+            client()
+            gameDirectory = file('run-hive-gif')
+            systemProperty 'relics_addon.visualSmoke', 'true'
+            systemProperty 'relics_addon.hiveSmoke', 'true'
+            systemProperty 'relics_addon.hiveGif', 'true'
+            systemProperty 'relics_addon.captureAndExit', 'true'
+        }
+
+        modelCaptureClient {
+            client()
+            gameDirectory = file('run-shield-capture')
+            systemProperty 'relics_addon.visualSmoke', 'true'
+            systemProperty 'relics_addon.captureAndExit', 'true'
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+def localProperties = new Properties()
+if (file('gradle.local.properties').isFile()) {
+    file('gradle.local.properties').withInputStream { localProperties.load(it) }
+}
+def requiredJar = { String propertyName, String displayName, String filename ->
+    def raw = providers.gradleProperty(propertyName).orNull ?: localProperties.getProperty(propertyName) ?: "libs/${filename}"
+
+    def jar = file(raw)
+    if (!jar.isFile()) {
+        throw new GradleException("${displayName} jar not found: ${jar}. Put it in libs/ or set ${propertyName} in gradle.local.properties.")
+    }
+
+    jar
+}
+
+dependencies {
+    testImplementation 'com.google.code.gson:gson:2.10.1'
+    implementation files(requiredJar('relicsJar', 'Relics 1.21.1-0.12.8', 'relics-1.21.1-0.12.8.jar'))
+    implementation files(requiredJar('curiosJar', 'Curios 9.5.1+1.21.1', 'curios-neoforge-9.5.1+1.21.1.jar'))
+    implementation files(requiredJar('octolibJar', 'OctoLib 0.6.2+1.21', 'OctoLib-NEOFORGE-0.6.2+1.21.jar'))
+    implementation files(requiredJar('architecturyJar', 'Architectury 13.0.11', 'architectury-13.0.11-neoforge.jar'))
+}
+
+sourceSets.main.resources {
+    srcDir 'src/generated/resources'
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    def replaceProperties = [
+            minecraft_version: minecraft_version,
+            neo_version      : neo_version,
+            mod_id           : mod_id,
+            mod_name         : mod_name,
+            mod_version      : mod_version,
+            mod_authors      : mod_authors,
+            mod_description  : mod_description,
+    ]
+
+    inputs.properties replaceProperties
+
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand replaceProperties
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+tasks.register('verifyShieldMesh', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.hurtify.relicsaddon.client.ShieldHexMeshCheck'
+    args layout.buildDirectory.file('reports/shield-geometry.json').get().asFile.absolutePath
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('verifyShieldMesh')
+    dependsOn 'verifyRelicAnimation'
+    dependsOn 'verifyTwinsFacets'
+    dependsOn 'verifyTwinsGlyphs'
+    dependsOn 'verifyShieldImpact'
+    dependsOn 'verifyHiveFormation'
+    dependsOn 'verifyHiveLayers'
+    dependsOn 'verifyManaDome'
+}
+
+tasks.register('verifyManaDome', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.client.ManaDomeSurfaceCheck'
+}
+
+tasks.register('verifyHiveLayers', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.hurtify.relicsaddon.client.HiveLayerAnimationCheck'
+}
+
+tasks.register('verifyHiveFormation', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.client.HiveFormationCheck'
+}
+
+tasks.named('compileTestJava', JavaCompile) {
+    classpath += tasks.named('compileJava').get().classpath
+}
+
+tasks.register('verifyShieldImpact', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.hurtify.relicsaddon.client.ShieldImpactPulseCheck'
+}
+
+tasks.register('verifyTwinsGlyphs', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.hurtify.relicsaddon.client.TwinsShieldGlyphMeshCheck'
+}
+
+tasks.register('inspectShieldSave', JavaExec) {
+    dependsOn tasks.named('classes')
+    classpath = sourceSets.main.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.gametest.ShieldSaveDiagnostic'
+    if (providers.gradleProperty('shieldSave').isPresent()) {
+        args providers.gradleProperty('shieldSave').get()
+    }
+}
+
+// NeoForge can exit zero after a loading error, before running any tests.
+tasks.named('runGameTestServer').configure {
+    doFirst { ext.testStartedMillis = System.currentTimeMillis() }
+    doLast {
+        def log = file('run-gametest/logs/latest.log')
+        if (!log.exists() || log.lastModified() < ext.testStartedMillis ||
+                !(log.getText('UTF-8') =~ /All \d+ required tests passed/).find()) {
+            throw new GradleException('GameTest server did not confirm a fresh successful test run; inspect run-gametest/logs/latest.log')
+        }
+    }
+}
+
+// Development-only tests are discoverable by GameTest, but never shipped in the mod jar.
+tasks.named('jar') {
+    exclude 'dev/hurtify/relicsaddon/gametest/**'
+    exclude 'data/relics_addon/structure/test_room.nbt'
+    exclude 'data/relics_addon/structure/field_arena.nbt'
+}
+
+tasks.register('verifyRelicAnimation', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.hurtify.relicsaddon.client.RelicAnimationPoseCheck'
+    args layout.buildDirectory.file('reports/animation-poses.json').get().asFile.absolutePath
+}
+
+tasks.register('verifyTwinsFacets', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.hurtify.relicsaddon.client.TwinsFacetPoseCheck'
+    args layout.buildDirectory.file('reports/twins-facet-poses.json').get().asFile.absolutePath
+}

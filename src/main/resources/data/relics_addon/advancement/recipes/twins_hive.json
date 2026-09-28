@@ -1,0 +1,11 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_end_crystal": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": { "items": [{ "items": "minecraft:end_crystal" }] }
+    }
+  },
+  "requirements": [["has_end_crystal"]],
+  "rewards": { "recipes": ["relics_addon:twins_hive"] }
+}

@@ -1,0 +1,35 @@
+{
+  "loader": "neoforge:obj",
+  "model": "relics_addon:models/item/twins_drone.obj",
+  "automatic_culling": false,
+  "shade_quads": true,
+  "emissive_ambient": true,
+  "render_type": "minecraft:solid",
+  "textures": {
+    "particle": "relics_addon:item/twins_drone"
+  },
+  "visibility": {
+    "core_cage": false,
+    "energy_core": false,
+    "shell_0_faceted_armor": false,
+    "shell_10_faceted_armor": false,
+    "shell_11_faceted_armor": false,
+    "shell_12_faceted_armor": false,
+    "shell_13_faceted_armor": false,
+    "shell_14_faceted_armor": false,
+    "shell_15_faceted_armor": false,
+    "shell_16_faceted_armor": true,
+    "shell_17_faceted_armor": false,
+    "shell_18_faceted_armor": false,
+    "shell_19_faceted_armor": false,
+    "shell_1_faceted_armor": false,
+    "shell_2_faceted_armor": false,
+    "shell_3_faceted_armor": false,
+    "shell_4_faceted_armor": false,
+    "shell_5_faceted_armor": false,
+    "shell_6_faceted_armor": false,
+    "shell_7_faceted_armor": false,
+    "shell_8_faceted_armor": false,
+    "shell_9_faceted_armor": false
+  }
+}

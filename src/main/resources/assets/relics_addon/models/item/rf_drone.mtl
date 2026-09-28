@@ -1,0 +1,139 @@
+newmtl silver
+Kd 0.47 0.51 0.55
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl pearl
+Kd 0.7 0.73 0.76
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl edge
+Kd 0.92 0.95 0.98
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl graphite
+Kd 0.045 0.055 0.068
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl rubber
+Kd 0.019 0.024 0.032
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl steel
+Kd 0.24 0.28 0.33
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl red_rim
+Kd 0.34 0.012 0.025
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl red_glass
+Kd 0.78 0.012 0.035
+Ka 0.28 0.28 0.28
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl iris
+Kd 0.17 0.022 0.028
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl copper
+Kd 0.4 0.24 0.13
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl cyan
+Kd 0.32 0.77 1.0
+Ka 1 1 1
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl white
+Kd 0.93 0.98 1.0
+Ka 1 1 1
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl lens_00
+Kd 0.14 0.006 0.018
+Ka 0.035 0.035 0.035
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl lens_01
+Kd 0.19333333333333336 0.006 0.018
+Ka 0.035 0.035 0.035
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl lens_02
+Kd 0.2466666666666667 0.006 0.018
+Ka 0.035 0.035 0.035
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl lens_03
+Kd 0.30000000000000004 0.006 0.018
+Ka 0.035 0.035 0.035
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl lens_04
+Kd 0.3533333333333334 0.006 0.018
+Ka 0.035 0.035 0.035
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl lens_05
+Kd 0.4066666666666667 0.006 0.018
+Ka 0.035 0.035 0.035
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl lens_06
+Kd 0.4600000000000001 0.006 0.018
+Ka 0.035 0.035 0.035
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl lens_07
+Kd 0.5133333333333334 0.006 0.018
+Ka 0.035 0.035 0.035
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl lens_08
+Kd 0.5666666666666667 0.006 0.018
+Ka 0.035 0.035 0.035
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl lens_09
+Kd 0.62 0.006 0.018
+Ka 0.035 0.035 0.035
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl lens_10
+Kd 0.6733333333333333 0.006 0.018
+Ka 0.035 0.035 0.035
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl lens_11
+Kd 0.7266666666666667 0.048222222222222215 0.05133333333333333
+Ka 0.035 0.035 0.035
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl lens_12
+Kd 0.7800000000000001 0.1326666666666668 0.11800000000000009
+Ka 0.035 0.035 0.035
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl lens_13
+Kd 0.8333333333333334 0.2171111111111112 0.18466666666666673
+Ka 0.035 0.035 0.035
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl lens_14
+Kd 0.8866666666666667 0.30155555555555563 0.2513333333333334
+Ka 0.035 0.035 0.035
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl lens_15
+Kd 0.9400000000000001 0.3860000000000001 0.31800000000000006
+Ka 0.035 0.035 0.035
+map_Kd relics_addon:item/materials/rf_mesh_white

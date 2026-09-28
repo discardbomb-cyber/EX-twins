@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "relics_addon:rf_shield",
+    "relics_addon:mana_shield",
+    "relics_addon:twins_shield",
+    "relics_addon:rf_hive",
+    "relics_addon:mana_hive",
+    "relics_addon:twins_hive"
+  ]
+}

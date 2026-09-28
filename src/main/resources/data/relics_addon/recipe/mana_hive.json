@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "ALA",
+    "LEL",
+    "AGA"
+  ],
+  "key": {
+    "A": { "item": "minecraft:amethyst_block" },
+    "L": { "item": "minecraft:lapis_block" },
+    "E": { "item": "minecraft:emerald" },
+    "G": { "item": "minecraft:gold_block" }
+  },
+  "result": {
+    "id": "relics_addon:mana_hive",
+    "count": 1
+  }
+}

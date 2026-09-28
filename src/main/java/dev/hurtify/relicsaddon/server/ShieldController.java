@@ -1,0 +1,169 @@
+package dev.hurtify.relicsaddon.server;
+
+import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
+
+import dev.hurtify.relicsaddon.registry.ModDataComponents;
+import dev.hurtify.relicsaddon.relic.RelicRole;
+import dev.hurtify.relicsaddon.relic.RelicRuntime;
+import dev.hurtify.relicsaddon.shield.ShieldStackState;
+import dev.hurtify.relicsaddon.shield.ShieldImpact;
+import dev.hurtify.relicsaddon.shield.ShieldField;
+import dev.hurtify.relicsaddon.shield.ShieldTopology;
+import dev.hurtify.relicsaddon.shield.ShieldCellDefense;
+import dev.hurtify.relicsaddon.shield.ShieldParameters;
+import dev.hurtify.relicsaddon.sound.RelicSounds;
+import dev.hurtify.relicsaddon.relic.ShieldUpgrades;
+import net.minecraft.network.chat.Component;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.util.Mth;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.tick.PlayerTickEvent;
+
+import java.util.Locale;
+
+public final class ShieldController {
+    public static void onIncomingDamage(LivingIncomingDamageEvent event) {
+        LivingEntity victim = event.getEntity();
+        if (victim.level().isClientSide() || !victim.isAlive() || victim.isSpectator()
+                || (victim instanceof Player player && !EquippedRelicSetResolver.isRealPlayer(player))
+                || event.isCanceled() || !(event.getAmount() > 0) || !Float.isFinite(event.getAmount())
+                || event.getSource().is(DamageTypeTags.BYPASSES_INVULNERABILITY)
+                || event.getSource().is(DamageTypeTags.BYPASSES_SHIELD)) {
+            return;
+        }
+        // Select one coverage owner. Overlapping fields never spend twice on the same melee event.
+        var owners = new java.util.ArrayList<Player>(victim.level().players());
+        if (victim instanceof Player wearer && !owners.contains(wearer)) owners.add(wearer);
+        owners.sort(java.util.Comparator.comparingDouble(owner -> owner == victim ? -1 : owner.distanceToSqr(victim)));
+        for (Player owner : owners) {
+            if (!EquippedRelicSetResolver.isRealPlayer(owner)) continue;
+            ItemStack shield = EquippedRelicSetResolver.findFirstActive(owner, RelicRole.EQUIPMENT_SLOT, RelicRole.shields())
+                    .orElse(ItemStack.EMPTY);
+            if (shield.isEmpty() || !ShieldCoverage.covers(owner, shield, victim)) continue;
+            if (event.getSource().getDirectEntity() instanceof Projectile projectile) {
+            float prepaid = ShieldProjectileInterceptor.consumePaidDamage(projectile, owner, event.getAmount());
+            if (prepaid > 0) {
+                event.setAmount(event.getAmount() - prepaid);
+                return;
+            }
+            if (ShieldProjectileInterceptor.alreadyAbsorbed(projectile, owner)
+                    || ShieldProjectileInterceptor.passedThrough(projectile, owner)) continue;
+            }
+            if (tryShieldBlock(event, owner, shield)) return;
+        }
+    }
+
+    private static boolean tryShieldBlock(LivingIncomingDamageEvent event, Player player, ItemStack shield) {
+        ShieldStackState state = shield.getOrDefault(ModDataComponents.SHIELD_STACK_STATE.get(), ShieldStackState.DEFAULT);
+        Vec3 sourcePosition = event.getSource().getSourcePosition();
+        if (sourcePosition == null && event.getSource().getDirectEntity() != null) sourcePosition = event.getSource().getDirectEntity().position();
+        Vec3 direction = sourcePosition == null ? Vec3.directionFromRotation(0, player.getYRot())
+                : sourcePosition.subtract(player.position().add(0, ShieldField.CENTER_Y, 0));
+        int cell = selectCell(player, direction);
+        long now = player.level().getGameTime();
+        ShieldStackState gathered = ShieldCellDefense.gather(state, cell, ShieldUpgrades.gathering(player, shield), now);
+        if (gathered != state) shield.set(ModDataComponents.SHIELD_STACK_STATE.get(), gathered);
+        state = gathered;
+        int cost = Math.clamp(Mth.ceil(event.getAmount()), 1, 10000);
+        var damage = ShieldCellDefense.damage(state, cell, cost, ShieldUpgrades.sharing(player, shield), now);
+        float absorbed = Math.min(event.getAmount(), damage.spent());
+        if (absorbed <= 0) {
+            return false;
+        }
+        event.setAmount(event.getAmount() - absorbed);
+        ShieldStackState next = damage.apply(state, cell, absorbed, player.level().getGameTime());
+        shield.set(ModDataComponents.SHIELD_STACK_STATE.get(), next);
+        ShieldImpact impact = ShieldImpact.of(direction, player.level().getGameTime(), cell, absorbed, state, next);
+        if (sourcePosition != null && direction.length() < ShieldParameters.radius(player, shield)) impact = impact.atDistance(direction.length());
+        shield.set(ModDataComponents.SHIELD_IMPACT.get(), impact);
+        shield.set(ModDataComponents.SHIELD_IMPACTS.get(), shield.getOrDefault(ModDataComponents.SHIELD_IMPACTS.get(),
+                dev.hurtify.relicsaddon.shield.ShieldImpactHistory.EMPTY).append(impact));
+        RelicSounds.shield((net.minecraft.server.level.ServerLevel) player.level(), player.position().add(0, ShieldField.CENTER_Y, 0)
+                .add(impact.normal().scale(impact.distance() >= 0 ? impact.distance() : ShieldParameters.radius(player, shield))),
+                ((AutonomousRelicItem) shield.getItem()).role(), impact.broken(), next.totalIntegrity() == 0);
+        RelicRuntime.awardAbsorption(player, shield, absorbed);
+        player.displayClientMessage(Component.translatable("message.relics_addon.shield_blocked",
+                formatDamage(absorbed), next.sharedBuffer(), ShieldParameters.capacity(player, shield),
+                next.cellHp(cell), ShieldStackState.MAX_PANEL_INTEGRITY), true);
+        return true;
+    }
+
+    public static void onPlayerTick(PlayerTickEvent.Post event) {
+        Player player = event.getEntity();
+        if (player.level().isClientSide() || !EquippedRelicSetResolver.isRealPlayer(player)) {
+            return;
+        }
+        ItemStack shield = EquippedRelicSetResolver.findFirstActive(player, RelicRole.EQUIPMENT_SLOT, RelicRole.shields())
+                .orElse(ItemStack.EMPTY);
+        if (shield.isEmpty()) {
+            return;
+        }
+        RelicRole role = ((AutonomousRelicItem) shield.getItem()).role();
+        long now = player.level().getGameTime();
+        ShieldStackState state = shield.getOrDefault(ModDataComponents.SHIELD_STACK_STATE.get(), ShieldStackState.DEFAULT);
+        int capacity = ShieldParameters.capacity(player, shield);
+        if (state.sharedBuffer() > capacity) {
+            state = state.withCellsAndBuffer(state.cells(), capacity, state.moves(), state.gatherTime());
+            shield.set(ModDataComponents.SHIELD_STACK_STATE.get(), state);
+        }
+        if (now % role.repairInterval() != 0 || !state.needsRepair(capacity)
+                || (now >= state.lastActiveGameTime() && now - state.lastActiveGameTime() < 40)) {
+            return;
+        }
+        shield.set(ModDataComponents.SHIELD_STACK_STATE.get(), state.repairFirstDamagedPanel(now, capacity));
+    }
+
+    public static float reduction(float damage, double ratio, float capacity) {
+        if (!Float.isFinite(damage) || !Double.isFinite(ratio) || !Float.isFinite(capacity) || damage <= 0 || capacity <= 0) {
+            return 0;
+        }
+        return (float) Math.min(damage, Math.min(damage * Math.clamp(ratio, 0, 1), capacity));
+    }
+
+    public static int selectPanel(Player player, DamageSource source) {
+        Vec3 position = source.getSourcePosition();
+        if (position == null && source.getEntity() != null) {
+            position = source.getEntity().position();
+        }
+        if (position == null) {
+            return ShieldStackState.PANEL_FRONT;
+        }
+        return selectPanel(player, position.subtract(player.position()));
+    }
+
+    public static int selectPanel(Player player, Vec3 incoming) {
+        Vec3 forward = Vec3.directionFromRotation(0, player.getYRot());
+        double angle = Math.atan2(incoming.x * -forward.z + incoming.z * forward.x,
+                incoming.x * forward.x + incoming.z * forward.z);
+        // These exact quadrant boundaries match ShieldHexMesh.panelFor(). Pitch must not change sectors.
+        if (angle >= -Math.PI / 4 && angle < Math.PI / 4) {
+            return ShieldStackState.PANEL_FRONT;
+        }
+        if (angle >= Math.PI / 4 && angle < 3 * Math.PI / 4) {
+            return ShieldStackState.PANEL_RIGHT;
+        }
+        if (angle >= -3 * Math.PI / 4 && angle < -Math.PI / 4) {
+            return ShieldStackState.PANEL_LEFT;
+        }
+        return ShieldStackState.PANEL_BACK;
+    }
+
+    public static int selectCell(Player player, Vec3 incoming) {
+        Vec3 forward = Vec3.directionFromRotation(0, player.getYRot());
+        return ShieldTopology.INSTANCE.nearest(-incoming.x * forward.z + incoming.z * forward.x,
+                incoming.y, incoming.x * forward.x + incoming.z * forward.z);
+    }
+
+    public static String formatDamage(float damage) {
+        return String.format(Locale.ROOT, "%.1f", damage);
+    }
+
+    private ShieldController() {
+    }
+}

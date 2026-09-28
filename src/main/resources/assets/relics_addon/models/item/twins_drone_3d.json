@@ -1,0 +1,173 @@
+{
+  "loader": "neoforge:composite",
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "relics_addon:item/twins_drone"
+  },
+  "display": {
+    "gui": {
+      "rotation": [
+        18,
+        208,
+        0
+      ],
+      "scale": [
+        0.85,
+        0.85,
+        0.85
+      ]
+    },
+    "ground": {
+      "translation": [
+        0,
+        2,
+        0
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.8,
+        0.8,
+        0.8
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        15,
+        -35,
+        10
+      ],
+      "translation": [
+        0,
+        1,
+        0
+      ],
+      "scale": [
+        0.65,
+        0.65,
+        0.65
+      ]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [
+        15,
+        35,
+        -10
+      ],
+      "translation": [
+        0,
+        1,
+        0
+      ],
+      "scale": [
+        0.65,
+        0.65,
+        0.65
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        10,
+        -25,
+        0
+      ],
+      "translation": [
+        1,
+        2,
+        0
+      ],
+      "scale": [
+        0.65,
+        0.65,
+        0.65
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        10,
+        25,
+        0
+      ],
+      "translation": [
+        1,
+        2,
+        0
+      ],
+      "scale": [
+        0.65,
+        0.65,
+        0.65
+      ]
+    }
+  },
+  "children": {
+    "body": {
+      "loader": "neoforge:obj",
+      "model": "relics_addon:models/item/twins_drone.obj",
+      "automatic_culling": false,
+      "shade_quads": true,
+      "emissive_ambient": true,
+      "render_type": "minecraft:solid",
+      "textures": {
+        "particle": "relics_addon:item/twins_drone"
+      }
+    },
+    "plasma": {
+      "render_type": "minecraft:translucent",
+      "ambientocclusion": false,
+      "textures": {
+        "fx": "relics_addon:item/fx/twins_drone",
+        "particle": "relics_addon:item/twins_drone"
+      },
+      "elements": [
+        {
+          "from": [
+            0,
+            0,
+            1.1
+          ],
+          "to": [
+            16,
+            16,
+            14.9
+          ],
+          "shade": false,
+          "faces": {
+            "north": {
+              "texture": "#fx",
+              "uv": [
+                0,
+                0,
+                16,
+                16
+              ]
+            },
+            "south": {
+              "texture": "#fx",
+              "uv": [
+                0,
+                0,
+                16,
+                16
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  "item_render_order": [
+    "body",
+    "plasma"
+  ]
+}

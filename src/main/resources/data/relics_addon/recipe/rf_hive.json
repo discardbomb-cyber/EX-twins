@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "RCR",
+    "CEC",
+    "RDR"
+  ],
+  "key": {
+    "R": { "item": "minecraft:redstone_block" },
+    "C": { "item": "minecraft:copper_block" },
+    "E": { "item": "minecraft:echo_shard" },
+    "D": { "item": "minecraft:diamond" }
+  },
+  "result": {
+    "id": "relics_addon:rf_hive",
+    "count": 1
+  }
+}
