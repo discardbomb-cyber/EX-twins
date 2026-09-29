@@ -32,7 +32,17 @@ public final class HiveTaskController {
         ItemStack stack = locate(owner, charm, slot);
         if (!(stack.getItem() instanceof AutonomousRelicItem item) || !item.role().isHive() || identity.isEmpty()
                 || !identity.equals(stack.get(ModDataComponents.INSTANCE_ID.get())) || healers < 0 || healers > HiveController.capacity(owner, stack)) return false;
-        stack.set(ModDataComponents.HIVE_SETTINGS.get(), new HiveSettings(healers));
+        stack.set(ModDataComponents.HIVE_SETTINGS.get(), settings(stack).withHealers(healers));
+        return true;
+    }
+
+    /** Switches how the hive's fighters attack; a swarm in combat regroups for the new mode. */
+    public static boolean configureMode(Player owner, boolean charm, int slot, String identity, dev.hurtify.relicsaddon.drone.AttackMode mode) {
+        if (owner.level().isClientSide() || !owner.isAlive() || owner.isSpectator() || !EquippedRelicSetResolver.isRealPlayer(owner) || mode == null) return false;
+        ItemStack stack = locate(owner, charm, slot);
+        if (!(stack.getItem() instanceof AutonomousRelicItem item) || !item.role().isHive() || identity.isEmpty()
+                || !identity.equals(stack.get(ModDataComponents.INSTANCE_ID.get()))) return false;
+        stack.set(ModDataComponents.HIVE_SETTINGS.get(), settings(stack).withMode(mode));
         return true;
     }
 
@@ -50,11 +60,12 @@ public final class HiveTaskController {
             if (!active || now % 20 != 0 || budget <= 0) continue;
             var units = new ArrayList<>(state.units());
             boolean changed = false;
-            for (int index = settings.fighters(units.size()); index < units.size() && budget > 0; index++) {
+            int first = settings.fighters(units.size()), deployed = dev.hurtify.relicsaddon.drone.HiveSlots.healerSlots(units.size(), settings);
+            for (int index = first; index < first + deployed && budget > 0; index++) {
                 var unit = units.get(index);
                 if (!unit.attackReady(now)) continue;
                 if (unit.attackReadyAt() == 0) {
-                    units.set(index, new HiveStackState.Unit(unit.hp(), unit.readyAt(), unit.lastHit(), unit.x(), unit.y(), unit.z(), now + 20L * (1 + index % 5)));
+                    units.set(index, unit.withAttackReadyAt(now + 20L * (1 + index % 5)));
                     changed = true;
                     continue;
                 }
@@ -67,7 +78,7 @@ public final class HiveTaskController {
                 float restored = Math.max(0, owner.getHealth() - oldHealth);
                 dev.hurtify.relicsaddon.power.DevicePower.drain(owner, stack, (int) Math.ceil(restored * dev.hurtify.relicsaddon.power.DevicePower.HEAL_PER_HP));
                 budget -= restored;
-                units.set(index, new HiveStackState.Unit(unit.hp(), unit.readyAt(), unit.lastHit(), unit.x(), unit.y(), unit.z(), now + 100));
+                units.set(index, unit.withAttackReadyAt(now + 100));
                 changed = true;
             }
             if (changed) stack.set(ModDataComponents.HIVE_STACK_STATE.get(), new HiveStackState(state.enabled(), units));

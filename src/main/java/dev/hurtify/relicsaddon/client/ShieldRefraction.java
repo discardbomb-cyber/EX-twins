@@ -43,6 +43,9 @@ public final class ShieldRefraction {
     private static Boolean irisPresent;
 
     private record Job(double x, double y, double z, double radius, RelicRole role, List<ShieldImpact> impacts, double time) { }
+    /** A round warp facing the camera: a ring bump ({@code funnel} false) or a funnel steepest at {@code inner}. */
+    private record Lens(double x, double y, double z, double inner, double radius, double strength, boolean funnel) { }
+    private static final List<Lens> LENSES = new ArrayList<>();
 
     public static void registerShaders(RegisterShadersEvent event) throws IOException {
         event.registerShader(new ShaderInstance(event.getResourceProvider(),
@@ -57,12 +60,23 @@ public final class ShieldRefraction {
         if (!live.isEmpty()) JOBS.add(new Job(x, y, z, radius, role, live, time));
     }
 
+    /**
+     * Queues a round warp of space at a camera-relative point: a blast's ring ({@code funnel} false,
+     * a bump between {@code inner} and {@code radius}) or the pull around a black hole ({@code funnel}
+     * true, steepest at {@code inner}). Drawn by the next {@link #flush}.
+     */
+    static void queueLens(double x, double y, double z, double inner, double radius, double strength, boolean funnel) {
+        if (!enabled() || !(radius > inner) || Math.abs(strength) < .01 || LENSES.size() > 64) return;
+        LENSES.add(new Lens(x, y, z, Math.max(0, inner), radius, strength, funnel));
+    }
+
     static void flush(Matrix4f pose) {
-        if (JOBS.isEmpty()) return;
+        if (JOBS.isEmpty() && LENSES.isEmpty()) return;
         try {
             if (shader != null && enabled()) draw(pose);
         } finally {
             JOBS.clear();
+            LENSES.clear();
         }
     }
 
@@ -99,13 +113,14 @@ public final class ShieldRefraction {
 
         BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
         for (Job job : JOBS) for (ShieldImpact impact : job.impacts) band(builder, pose, job, impact);
+        for (Lens lens : LENSES) lens(builder, pose, lens);
         MeshData mesh = builder.build();
         if (mesh == null) return;
 
         RenderSystem.setShader(() -> shader);
         RenderSystem.setShaderTexture(0, sceneCopy.getColorTextureId());
         shader.safeGetUniform("RefractionGain").set((float) (220 * AddonClientConfig.refractionStrength()));
-        int tint = JOBS.getFirst().role.color();
+        int tint = JOBS.isEmpty() ? 0xB25CFF : JOBS.getFirst().role.color();
         shader.safeGetUniform("Tint").set((tint >> 16 & 255) / 255F, (tint >> 8 & 255) / 255F, (tint & 255) / 255F);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -149,6 +164,38 @@ public final class ShieldRefraction {
             }
         }
         for (int ring = 0; ring < RINGS; ring++) for (int segment = 0; segment < SEGMENTS; segment++) {
+            put(builder, pose, points[ring][segment], colors[ring][segment]);
+            put(builder, pose, points[ring + 1][segment], colors[ring + 1][segment]);
+            put(builder, pose, points[ring + 1][segment + 1], colors[ring + 1][segment + 1]);
+            put(builder, pose, points[ring][segment], colors[ring][segment]);
+            put(builder, pose, points[ring + 1][segment + 1], colors[ring + 1][segment + 1]);
+            put(builder, pose, points[ring][segment + 1], colors[ring][segment + 1]);
+        }
+    }
+
+    /** A disc facing the camera whose height (red) is a ring bump or a funnel, faded out at both edges. */
+    private static void lens(BufferBuilder builder, Matrix4f pose, Lens lens) {
+        Vec3 centre = new Vec3(lens.x, lens.y, lens.z);
+        if (centre.lengthSqr() < 1e-6) return;
+        Vec3 view = centre.scale(-1).normalize();
+        Vec3 right = view.cross(Math.abs(view.y) > .95 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize();
+        Vec3 up = right.cross(view);
+        int rings = 8, segments = 40;
+        Vec3[][] points = new Vec3[rings + 1][segments + 1];
+        int[][] colors = new int[rings + 1][segments + 1];
+        for (int ring = 0; ring <= rings; ring++) {
+            double t = ring / (double) rings, r = lens.inner + (lens.radius - lens.inner) * t;
+            double height = lens.funnel ? lens.strength * (1 - t) * (1 - t) : lens.strength * Math.sin(Math.PI * t);
+            double window = lens.funnel ? Math.min(1, t * 6) * (1 - t) : Math.sin(Math.PI * t);
+            int red = (int) Math.round(Math.clamp(height * .5 + .5, 0, 1) * 255);
+            int alpha = (int) Math.round(Math.clamp(window, 0, 1) * 255);
+            for (int segment = 0; segment <= segments; segment++) {
+                double angle = Math.PI * 2 * segment / segments;
+                points[ring][segment] = centre.add(right.scale(Math.cos(angle) * r)).add(up.scale(Math.sin(angle) * r));
+                colors[ring][segment] = alpha << 24 | red << 16;
+            }
+        }
+        for (int ring = 0; ring < rings; ring++) for (int segment = 0; segment < segments; segment++) {
             put(builder, pose, points[ring][segment], colors[ring][segment]);
             put(builder, pose, points[ring + 1][segment], colors[ring + 1][segment]);
             put(builder, pose, points[ring + 1][segment + 1], colors[ring + 1][segment + 1]);

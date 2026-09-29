@@ -157,7 +157,7 @@ public final class DevicePower {
                     .ifPresent(shield -> drain(player, shield, SHIELD_UPKEEP));
             for (HiveController.Equipped hive : HiveController.active(player)) {
                 int drones = hive.stack().getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), HiveStackState.DEFAULT).units().size();
-                drain(player, hive.stack(), HIVE_UPKEEP + drones / 10);
+                drain(player, hive.stack(), HIVE_UPKEEP + Math.min(drones, dev.hurtify.relicsaddon.drone.HiveType.MAX_DEPLOYED) / 10);
             }
         }
         if (now % 10 != 5 || free(player)) return;

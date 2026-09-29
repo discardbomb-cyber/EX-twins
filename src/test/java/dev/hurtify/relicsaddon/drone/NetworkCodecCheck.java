@@ -1,30 +1,75 @@
 package dev.hurtify.relicsaddon.drone;
 
+import com.mojang.serialization.Codec;
 import dev.hurtify.relicsaddon.power.DeviceEnergy;
 import dev.hurtify.relicsaddon.shield.ShieldImpact;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.IntTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.phys.Vec3;
 
-/** Every synced component must read back exactly what it wrote, or item sync packets desynchronise. */
+/**
+ * Every synced component must read back exactly what it wrote, or item sync packets desynchronise;
+ * saved forms must read back too, including saves from older versions.
+ */
 public final class NetworkCodecCheck {
     public static void main(String[] args) {
+        // A full 750-drone hive, some drones hit and on their way home.
         List<HiveStackState.Unit> units = new ArrayList<>();
         for (int index = 0; index < HiveType.MAX_DRONES; index++) {
-            units.add(new HiveStackState.Unit(index % 61, 1_000_000L + index, index % 3 == 0 ? -1 : 2_000_000L + index,
-                    index * .01F, -index * .02F, index * .03F, 3_000_000L + index));
+            units.add(index % 9 == 0 ? new HiveStackState.Unit(index % 4, 1_000_000L + index, 2_000_000L + index, 3_000_000L + index)
+                    : HiveStackState.Unit.fresh());
         }
         HiveStackState swarm = new HiveStackState(true, units);
         int swarmBytes = roundTrip(HiveStackState.STREAM_CODEC, swarm, "full swarm");
+        int restingBytes = roundTrip(HiveStackState.STREAM_CODEC, new HiveStackState(true,
+                java.util.Collections.nCopies(HiveType.MAX_DRONES, HiveStackState.Unit.fresh())), "resting swarm");
+        require(restingBytes < 800, "a resting 750-drone swarm must fit in about a byte per drone, took " + restingBytes);
+
+        // Saves keep health and repair time; older saves (one compound per drone) still load.
+        HiveStackState saved = decode(HiveStackState.CODEC, encode(HiveStackState.CODEC, swarm));
+        for (int index = 0; index < units.size(); index++) {
+            require(saved.units().get(index).hp() == units.get(index).hp() && saved.units().get(index).readyAt() == units.get(index).readyAt(),
+                    "drone " + index + " lost its health or repair time in a save");
+        }
+        CompoundTag legacy = new CompoundTag();
+        legacy.putBoolean("enabled", true);
+        ListTag legacyUnits = new ListTag();
+        for (int index = 0; index < 5; index++) {
+            CompoundTag unit = new CompoundTag();
+            unit.putInt("hp", index == 2 ? 0 : 35);
+            unit.putLong("ready_at", index == 2 ? 900 : 0);
+            unit.putLong("last_hit", -1);
+            unit.putFloat("x", 0); unit.putFloat("y", 0); unit.putFloat("z", 0);
+            legacyUnits.add(unit);
+        }
+        legacy.put("units", legacyUnits);
+        HiveStackState old = decode(HiveStackState.CODEC, legacy);
+        require(old.units().size() == 5 && old.units().get(0).hp() == HiveType.DRONE_HP && old.units().get(2).hp() == 0
+                && old.units().get(2).readyAt() == 900, "an old save must load with whole drones and the destroyed one rebuilding");
+
+        // Settings: the attack mode travels and saves; old saves held only a healer count.
+        for (AttackMode mode : AttackMode.values()) {
+            HiveSettings settings = new HiveSettings(37, mode);
+            roundTrip(HiveSettings.STREAM_CODEC, settings, "settings " + mode);
+            require(decode(HiveSettings.CODEC, encode(HiveSettings.CODEC, settings)).equals(settings), "settings " + mode + " did not survive a save");
+        }
+        require(decode(HiveSettings.CODEC, IntTag.valueOf(12)).equals(new HiveSettings(12, AttackMode.BARRAGE)), "an old healer count must still load");
 
         List<HiveCombatState.Shot> shots = new ArrayList<>();
         for (int index = 0; index < HiveCombatState.MAX_SHOTS; index++) {
-            shots.add(new HiveCombatState.Shot(HiveType.MAX_DRONES - 1 - index, 5_000L + index, index % 4, 1, 2, 3, 4, 5, 6, 5_010L + index));
+            shots.add(new HiveCombatState.Shot(HiveType.MAX_DRONES - 1 - index, 5_000L + index, 4 + index % 7, 1, 2, 3, 4, 5, 6, 5_010L + index));
         }
-        roundTrip(HiveCombatState.STREAM_CODEC, new HiveCombatState(true, 42, 77L, 1.5, 2.5, 3.5, shots), "combat shots");
+        for (AttackMode mode : AttackMode.values()) {
+            roundTrip(HiveCombatState.STREAM_CODEC, new HiveCombatState(true, 42, 77L, 1.5, 2.5, 3.5, mode, 44, shots), "combat " + mode);
+        }
 
         for (DeviceEnergy.ManaSource source : DeviceEnergy.ManaSource.values()) {
             roundTrip(DeviceEnergy.STREAM_CODEC, new DeviceEnergy(1_000_000, 100_000, false, true, source), "battery " + source);
@@ -35,7 +80,16 @@ public final class NetworkCodecCheck {
         ShieldImpact strike = ShieldImpact.strike(new Vec3(0, 0, 1), 1_234L, 2, 4.5F, .3F);
         roundTrip(ShieldImpact.STREAM_CODEC, strike, "shield strike");
         require(strike.isStrike() && !new ShieldImpact(new Vec3(0, 1, 0), 5L, 0, 2, false).isStrike(), "Only strikes are marked as strikes");
-        System.out.println("Network codecs: 500-drone swarm (" + swarmBytes + " bytes), shots, batteries and shield impacts round-trip exactly");
+        System.out.println("Network codecs: 750-drone swarm (" + swarmBytes + " bytes, " + restingBytes + " at rest), old saves, settings, "
+                + "combat, batteries and shield impacts round-trip exactly");
+    }
+
+    private static <T> Tag encode(Codec<T> codec, T value) {
+        return codec.encodeStart(NbtOps.INSTANCE, value).getOrThrow();
+    }
+
+    private static <T> T decode(Codec<T> codec, Tag tag) {
+        return codec.parse(NbtOps.INSTANCE, tag).getOrThrow();
     }
 
     private static <T> int roundTrip(StreamCodec<ByteBuf, T> codec, T value, String label) {

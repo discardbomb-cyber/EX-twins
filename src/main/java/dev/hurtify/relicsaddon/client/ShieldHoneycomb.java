@@ -16,6 +16,8 @@ import java.util.Map;
 final class ShieldHoneycomb {
     static final int FREQUENCY = 6;
     static final List<Cell> CELLS = build(FREQUENCY);
+    /** A coarse honeycomb (42 cells) for the small hexagon-shelled spheres of the Twins swarm. */
+    static final List<Cell> SMALL = build(2);
 
     /** A drawn cell in the wearer's yaw frame: unit centre, corner ring (x, y, z triples) and the gameplay cell beneath it. */
     record Cell(float[] center, float[] perimeter, int gameplay) { }

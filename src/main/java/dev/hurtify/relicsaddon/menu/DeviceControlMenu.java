@@ -1,5 +1,6 @@
 package dev.hurtify.relicsaddon.menu;
 
+import dev.hurtify.relicsaddon.drone.AttackMode;
 import dev.hurtify.relicsaddon.power.DeviceEnergy;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
@@ -36,6 +37,8 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
     /** One button per {@link DeviceEnergy.ManaSource}, in ordinal order. */
     public static final int BUTTON_MANA_SOURCE_BASE = 7;
     public static final int BUTTON_UPGRADE_BASE = 20;
+    /** One button per {@link AttackMode}, in ordinal order. */
+    public static final int BUTTON_MODE_BASE = 40;
     public static final int CHARGE_X = 204, CHARGE_Y = 102;
     /** Menu slot layout: the charge slot, then the player inventory. */
     public static final int CHARGE_SLOT = 0, INVENTORY_START = CHARGE_SLOT + 1;
@@ -119,6 +122,13 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
         if (source >= 0 && source < DeviceEnergy.ManaSource.values().length && DevicePower.hasMana(role)) {
             DevicePower.setManaSource(stack, DeviceEnergy.ManaSource.values()[source]);
             return true;
+        }
+        int mode = id - BUTTON_MODE_BASE;
+        if (mode >= 0 && mode < AttackMode.values().length) {
+            if (!item.role().isHive()) return false;
+            boolean changed = HiveTaskController.configureMode(player, charm, deviceSlot, identity, AttackMode.values()[mode]);
+            if (changed) RelicSounds.ui(player, RelicSounds.Ui.TOGGLE);
+            return changed;
         }
         int upgrade = id - BUTTON_UPGRADE_BASE;
         if (upgrade >= 0 && upgrade < DeviceUpgrade.values().length && RelicRuntime.purchaseUpgrade(stack, DeviceUpgrade.values()[upgrade].id())) {

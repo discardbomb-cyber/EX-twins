@@ -4,7 +4,6 @@ import dev.hurtify.relicsaddon.drone.HiveStackState;
 import dev.hurtify.relicsaddon.drone.HiveType;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
-import dev.hurtify.relicsaddon.relic.HiveUpgrades;
 import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import java.util.ArrayList;
@@ -44,19 +43,13 @@ public final class HiveController {
         return (int) Math.round(RelicRuntime.stat(player, stack, "drone_count", type.initialCount, 12, HiveType.MAX_DRONES));
     }
 
-    public static int health(Player player, ItemStack stack) {
-        HiveType type = HiveType.of(((AutonomousRelicItem) stack.getItem()).role());
-        return (int) Math.round(RelicRuntime.stat(player, stack, "drone_health", type.initialHealth, 1, 1000));
-    }
-
     public static HiveStackState prepare(Player player, ItemStack stack, boolean repair) {
         HiveStackState old = stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), HiveStackState.DEFAULT);
-        HiveStackState next = old.prepare(capacity(player, stack), health(player, stack), player.level().getGameTime(), repair,
-                repair ? HiveUpgrades.repairAmount(player, stack) : 1);
+        HiveStackState next = old.prepare(capacity(player, stack), player.level().getGameTime(), repair);
         if (repair && next != old) {
             int restored = restoredHealth(old, next);
             if (restored > 0 && !dev.hurtify.relicsaddon.power.DevicePower.drain(player, stack, restored * dev.hurtify.relicsaddon.power.DevicePower.HIVE_REPAIR_PER_HP)) {
-                next = old.prepare(capacity(player, stack), health(player, stack), player.level().getGameTime(), false, 1);
+                next = old.prepare(capacity(player, stack), player.level().getGameTime(), false);
             }
         }
         if (old != next) stack.set(ModDataComponents.HIVE_STACK_STATE.get(), next);

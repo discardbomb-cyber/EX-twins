@@ -1,6 +1,7 @@
 package dev.hurtify.relicsaddon.client;
 
 import dev.hurtify.relicsaddon.RelicsAddon;
+import dev.hurtify.relicsaddon.drone.AttackMode;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
 import dev.hurtify.relicsaddon.menu.DeviceControlMenu;
 import dev.hurtify.relicsaddon.power.DeviceEnergy;
@@ -143,6 +144,17 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
                 }
             }
             case SWARM -> {
+                AttackMode[] modes = AttackMode.values();
+                int modeWidth = (CR - CX - 4) / modes.length;
+                for (int index = 0; index < modes.length; index++) {
+                    AttackMode mode = modes[index];
+                    controls.add(new Control(CX + index * (modeWidth + 2), 50, modeWidth, 14,
+                            () -> Component.translatable("screen.relics_addon.mode." + mode.id()),
+                            () -> true, () -> HiveTaskController.settings(device()).mode() == mode,
+                            () -> press(DeviceControlMenu.BUTTON_MODE_BASE + mode.ordinal()),
+                            () -> List.of(Component.translatable("screen.relics_addon.mode." + mode.id()).withStyle(ChatFormatting.AQUA),
+                                    Component.translatable("screen.relics_addon.mode." + mode.id() + ".hint." + role().itemId()).withStyle(ChatFormatting.GRAY))));
+                }
                 int[] ids = {DeviceControlMenu.BUTTON_HEALERS_MINUS_10, DeviceControlMenu.BUTTON_HEALERS_MINUS_1,
                         DeviceControlMenu.BUTTON_HEALERS_PLUS_1, DeviceControlMenu.BUTTON_HEALERS_PLUS_10};
                 String[] labels = {"−10", "−1", "+1", "+10"};
@@ -150,7 +162,7 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
                 for (int index = 0; index < ids.length; index++) {
                     int id = ids[index];
                     String label = labels[index];
-                    controls.add(new Control(xs[index], 70, 30, 14, () -> Component.literal(label),
+                    controls.add(new Control(xs[index], 88, 30, 14, () -> Component.literal(label),
                             () -> id <= DeviceControlMenu.BUTTON_HEALERS_MINUS_1 ? healers() > 0 : healers() < hiveCapacity(),
                             () -> false, () -> press(id), () -> List.of(Component.translatable("screen.relics_addon.healers_adjust", label))));
                 }
@@ -365,7 +377,7 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
         int x = leftPos, y = topPos;
         int capacity = hiveCapacity(), healers = healers(), fighters = capacity - healers;
         g.drawString(font, Component.translatable("screen.relics_addon.swarm_title"), x + CX, y + CY + 2, HoloPaint.TEXT, false);
-        int barX = x + CX, barY = y + 52, barW = CR - CX;
+        int barX = x + CX, barY = y + 70, barW = CR - CX;
         g.fill(barX, barY, barX + barW, barY + 12, 0x80101317);
         int split = capacity == 0 ? barW : (int) Math.round(barW * fighters / (double) capacity);
         g.fill(barX + 1, barY + 1, barX + Math.max(1, split), barY + 11, 0xC0000000 | accent() & 0xFFFFFF);
@@ -374,8 +386,8 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
         g.drawString(font, Component.translatable("screen.relics_addon.fighters", fighters), barX + 4, barY + 2, HoloPaint.TEXT, true);
         Component healing = Component.translatable("screen.relics_addon.healers", healers);
         g.drawString(font, healing, barX + barW - 4 - font.width(healing), barY + 2, HoloPaint.TEXT, true);
-        g.drawCenteredString(font, Component.translatable("screen.relics_addon.healers_move"), x + (CX + CR) / 2, y + 73, HoloPaint.TEXT_DIM);
-        paragraph(g, Component.translatable("screen.relics_addon.swarm_hint"), x + CX, y + 92, CR - CX, 30, HoloPaint.TEXT_FAINT);
+        fit(g, Component.translatable("screen.relics_addon.healers_move"), x + CX + 64, y + 91, CR - CX - 128, HoloPaint.TEXT_DIM, false, true);
+        paragraph(g, Component.translatable("screen.relics_addon.swarm_hint"), x + CX, y + 106, CR - CX, 20, HoloPaint.TEXT_FAINT);
     }
 
     private void renderHelp(GuiGraphics g) {

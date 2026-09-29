@@ -68,6 +68,19 @@ public final class RelicSounds {
     private static final DeferredHolder<SoundEvent, SoundEvent> RF_SHIELD_STRIKE = sound("shield.rf_strike");
     private static final DeferredHolder<SoundEvent, SoundEvent> MANA_SHIELD_STRIKE = sound("shield.mana_strike");
     private static final DeferredHolder<SoundEvent, SoundEvent> TWINS_SHIELD_STRIKE = sound("shield.twins_strike");
+    private static final DeferredHolder<SoundEvent, SoundEvent> RF_TESSERACT = sound("hive.rf_tesseract");
+    private static final DeferredHolder<SoundEvent, SoundEvent> MANA_DROPLET = sound("hive.mana_droplet");
+    private static final DeferredHolder<SoundEvent, SoundEvent> TWINS_PULSAR = sound("hive.twins_pulsar");
+    private static final DeferredHolder<SoundEvent, SoundEvent> RF_CHARGE_FIRE = sound("hive.rf_charge_fire");
+    private static final DeferredHolder<SoundEvent, SoundEvent> MANA_CHARGE_FIRE = sound("hive.mana_charge_fire");
+    private static final DeferredHolder<SoundEvent, SoundEvent> TWINS_CHARGE_FIRE = sound("hive.twins_charge_fire");
+    private static final DeferredHolder<SoundEvent, SoundEvent> RF_BLAST = sound("hive.rf_lightning_blast");
+    private static final DeferredHolder<SoundEvent, SoundEvent> MANA_BLAST = sound("hive.mana_lightning_blast");
+    private static final DeferredHolder<SoundEvent, SoundEvent> TWINS_BLAST = sound("hive.twins_lightning_blast");
+    private static final DeferredHolder<SoundEvent, SoundEvent> RF_SEAL = sound("hive.rf_seal");
+    private static final DeferredHolder<SoundEvent, SoundEvent> MANA_WARD = sound("hive.mana_ward");
+    private static final DeferredHolder<SoundEvent, SoundEvent> TWINS_RIFT = sound("hive.twins_rift");
+    private static final DeferredHolder<SoundEvent, SoundEvent> WARD_REFLECT = sound("hive.ward_reflect");
 
     private static final int MAX_THROTTLE_ENTRIES = 2_048;
     private static final long STALE_TICKS = 1_200L;
@@ -123,6 +136,52 @@ public final class RelicSounds {
             default -> null;
         };
         if (event != null) play(level, position, event, Category.STRIKE, 4, .66F, .94F + (float) level.getRandom().nextGaussian() * .04F);
+    }
+
+    /** A strike group's single blow (tesseract, droplet or pulsar), followed by its lightning blast. */
+    public static void swarmStrike(ServerLevel level, Vec3 position, HiveType type) {
+        DeferredHolder<SoundEvent, SoundEvent> event = switch (type) {
+            case RF -> RF_TESSERACT;
+            case MANA -> MANA_DROPLET;
+            case TWINS -> TWINS_PULSAR;
+        };
+        play(level, position, event, Category.SWARM, 3, .85F, .95F + (float) level.getRandom().nextGaussian() * .04F);
+        swarmExplosion(level, position, type);
+    }
+
+    /** A cluster lets its charge go. */
+    public static void chargeFire(ServerLevel level, Vec3 position, HiveType type) {
+        DeferredHolder<SoundEvent, SoundEvent> event = switch (type) {
+            case RF -> RF_CHARGE_FIRE;
+            case MANA -> MANA_CHARGE_FIRE;
+            case TWINS -> TWINS_CHARGE_FIRE;
+        };
+        play(level, position, event, Category.CHARGE, 2, .7F, 1F);
+    }
+
+    /** The crack of lightning after a blow or a charge lands. */
+    public static void swarmExplosion(ServerLevel level, Vec3 position, HiveType type) {
+        DeferredHolder<SoundEvent, SoundEvent> event = switch (type) {
+            case RF -> RF_BLAST;
+            case MANA -> MANA_BLAST;
+            case TWINS -> TWINS_BLAST;
+        };
+        play(level, position, event, Category.BLAST, 3, .9F, .92F + (float) level.getRandom().nextGaussian() * .05F);
+    }
+
+    /** A containment construct at work: RF sealing zaps, the Mana ward's hum, the Twins rift. */
+    public static void containment(ServerLevel level, Vec3 position, HiveType type) {
+        DeferredHolder<SoundEvent, SoundEvent> event = switch (type) {
+            case RF -> RF_SEAL;
+            case MANA -> MANA_WARD;
+            case TWINS -> TWINS_RIFT;
+        };
+        play(level, position, event, Category.CONTAIN, 10, .7F, 1F);
+    }
+
+    /** The Mana ward turns a blow back on its attacker. */
+    public static void reflect(ServerLevel level, Vec3 position) {
+        play(level, position, WARD_REFLECT, Category.REFLECT, 3, .75F, 1F);
     }
 
     /** Console feedback is private to the player using the device menu. */
@@ -244,7 +303,12 @@ public final class RelicSounds {
         SUMMON,
         SHIELD,
         RIPPLE,
-        STRIKE
+        STRIKE,
+        SWARM,
+        CHARGE,
+        BLAST,
+        CONTAIN,
+        REFLECT
     }
 
     public enum Ui {

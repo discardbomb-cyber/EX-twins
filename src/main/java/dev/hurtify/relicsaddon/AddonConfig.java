@@ -12,6 +12,7 @@ public final class AddonConfig {
     public static final ModConfigSpec.DoubleValue HIVE_TARGET_RANGE;
     public static final ModConfigSpec.DoubleValue HIVE_PURSUIT_RANGE;
     public static final ModConfigSpec.DoubleValue HIVE_HEAL_PER_SECOND;
+    public static final ModConfigSpec.DoubleValue HIVE_STRIKE_EFFICIENCY;
     public static final ModConfigSpec.BooleanValue POWER_REQUIRED;
     public static final ModConfigSpec.IntValue XP_POINT_VALUE;
     public static final ModConfigSpec.IntValue XP_RESERVE_LEVELS;
@@ -28,8 +29,12 @@ public final class AddonConfig {
                 .defineInRange("shield.strikeKnockback", 1.0, 0.0, 5.0);
         SHIELD_STRIKE_COOLDOWN = builder.comment("Ticks before a shield can strike the same mob again.")
                 .defineInRange("shield.strikeCooldownTicks", 20, 5, 200);
-        HIVE_TARGET_RANGE = builder.defineInRange("hive.targetRange", 16.0, 4.0, 32.0);
-        HIVE_PURSUIT_RANGE = builder.defineInRange("hive.pursuitRange", 24.0, 4.0, 48.0);
+        HIVE_TARGET_RANGE = builder.comment("Blocks from the owner within which a hive picks up a target.")
+                .defineInRange("hive.targetRange", 128.0, 4.0, 256.0);
+        HIVE_PURSUIT_RANGE = builder.comment("Blocks from the owner a hive keeps chasing its target.")
+                .defineInRange("hive.pursuitRange", 128.0, 4.0, 256.0);
+        HIVE_STRIKE_EFFICIENCY = builder.comment("Share of each drone's damage that goes into its group's blow or charge.")
+                .defineInRange("hive.strikeEfficiency", 0.5, 0.0, 10.0);
         HIVE_HEAL_PER_SECOND = builder.defineInRange("hive.maxHealingPerSecond", 4.0, 0.0, 20.0);
         POWER_REQUIRED = builder.comment("Shields and hives run on their built-in RF and mana batteries. Disable to make them free.")
                 .define("power.requireBatteries", true);

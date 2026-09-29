@@ -37,6 +37,7 @@ final class ExFxLibrary {
     static final int LIGHTNING_SEGMENTS = 4;
     private static final ResourceLocation TAIL = ResourceLocation.fromNamespaceAndPath("photon", "textures/particle/kila_tail.png");
     private static final ResourceLocation RING = ResourceLocation.fromNamespaceAndPath("photon", "textures/particle/ring.png");
+    private static final ResourceLocation SMOKE = ResourceLocation.fromNamespaceAndPath("photon", "textures/particle/smoke.png");
 
     static FX shieldAbsorb(int color) {
         return fx(
@@ -59,6 +60,59 @@ final class ExFxLibrary {
         var ring = drag(glow("ring", color, 26, circle(.12f, 1), 3, 4, 7, 10, .05f, .09f, .85f), .82f);
         var glints = shrink(glow("glints", color, 8, sphere(.25f, 1), .2f, .8f, 10, 18, .03f, .06f, .9f), 0, 1, 0);
         return fx(flash("flash", color, .8f, 5), sparks, ring, glints);
+    }
+
+    /** A swarm's blow landing: a big flash, a burst of streaking sparks, a shock ring and lingering motes. */
+    static FX swarmBlast(int color) {
+        var ring = flash("ring", color, 2.2f, 8);
+        ring.config.renderer.getMaterials().set(0, additive(new MaterialSetting(new TextureMaterial(RING))));
+        shrink(ring, .2f, 1.3f);
+        return fx(flash("flash", color, 1.6f, 6),
+                streaks(glow("sparks", color, 44, sphere(.25f, 1), 5, 11, 6, 14, .04f, .09f, 1), 8, .84f),
+                ring,
+                shrink(glow("motes", color, 18, sphere(.8f, 1), .2f, .9f, 14, 26, .05f, .11f, .7f), .5f, 1.2f, 0));
+    }
+
+    /** A charge in flight: a bright ball with a long ribbon tail and sparks shed behind it. */
+    static FX chargeBall(int color) {
+        var head = glow("head", color, 1, new Dot(), 0, 0, 20, 20, .55f, .55f, 1);
+        head.config.setMaxParticles(2);
+        head.config.colorOverLifetime.setColor(hold(color));
+        var trails = head.config.trails;
+        trails.setEnable(true);
+        trails.setLifetime(NumberFunction.constant(.35f));
+        trails.setInheritParticleColor(false);
+        trails.setColorOverLifetime(NumberFunction.color(-1));
+        trails.config.setWidthOverTrail(curve(0, .9f, 1));
+        trails.config.setColorOverTrail(trail(color));
+        trails.config.renderer.getMaterials().set(0, additive(new MaterialSetting(new TextureMaterial(TAIL))));
+        var halo = glow("halo", color, 1, new Dot(), 0, 0, 20, 20, 1.3f, 1.3f, .45f);
+        halo.config.colorOverLifetime.setColor(hold(color));
+        var sparkle = streaks(glow("sparkle", color, 0, sphere(.25f, 1), 1f, 2.5f, 6, 12, .03f, .06f, .95f), 6, .85f);
+        sparkle.config.setSimulationSpace(ParticleConfig.Space.World);
+        sparkle.config.emission.setEmissionRate(NumberFunction.constant(6));
+        sparkle.config.setMaxParticles(96);
+        sparkle.config.setDuration(20);
+        return fx(head, halo, sparkle);
+    }
+
+    /** Twins smoke: dark violet puffs that swell and drift, blended over the scene rather than added to it. */
+    static FX smoke(int color) {
+        var puffs = glow("smoke", color, 10, sphere(.35f, 1), .1f, .45f, 26, 42, .45f, .8f, .55f);
+        var material = new MaterialSetting(new TextureMaterial(SMOKE));
+        material.getBlendMode().setSrcColorFactor(GlStateManager.SourceFactor.SRC_ALPHA);
+        material.getBlendMode().setDstColorFactor(GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
+        material.setDepthMask(false);
+        puffs.config.renderer.getMaterials().set(0, material);
+        puffs.config.colorOverLifetime.setColor(fade(color, .55f, .05f));
+        shrink(puffs, .5f, 1.4f, 1.9f);
+        return fx(drag(puffs, .92f));
+    }
+
+    /** Twins void pulse: motes drawn inward to a point with a dark flash. */
+    static FX voidPulse(int color) {
+        return fx(shrink(glow("motes", color, 28, sphere(1.6f, 0), -2.5f, -3.5f, 10, 16, .04f, .08f, 1), 1, .6f, 0),
+                flash("flash", color, 1.1f, 5));
     }
 
     /** Unit-radius shapes; ExFx scales them to the shield radius per instance. */

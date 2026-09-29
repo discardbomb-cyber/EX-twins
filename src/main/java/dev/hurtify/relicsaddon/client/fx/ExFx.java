@@ -200,6 +200,86 @@ public final class ExFx {
         }
     }
 
+    /** {@code swarm_blast_<type>}: a group's blow or a charge landing. */
+    public static void swarmBlast(Level level, Vec3 point, HiveType type, float scale) {
+        try {
+            float s = Mth.clamp(scale, .5f, 2.5f);
+            play(level, point, point, 0, "swarm_blast_" + type.name().toLowerCase(Locale.ROOT), swarmColor(type), ExFxLibrary::swarmBlast,
+                    executor -> executor.onStarted(runtime -> {
+                        ExFxLibrary.each(runtime, "flash", emitter -> ExFxLibrary.size(emitter, 1.6f * s));
+                        ExFxLibrary.each(runtime, "sparks", emitter -> ExFxLibrary.scaleCount(emitter, s));
+                    }));
+        } catch (RuntimeException | LinkageError error) {
+            fail(error);
+        }
+    }
+
+    /** {@code swarm_charge_<type>}: a cluster's charge flying from its cluster to the target over {@code travelTicks}. */
+    public static void chargeBall(Level level, Vec3 from, Vec3 to, int travelTicks, HiveType type) {
+        try {
+            int travel = Math.max(1, travelTicks);
+            play(level, from, to, travel, "swarm_charge_" + type.name().toLowerCase(Locale.ROOT), swarmColor(type), ExFxLibrary::chargeBall,
+                    executor -> executor.onStarted(runtime -> {
+                        ExFxLibrary.each(runtime, "head", emitter -> ExFxLibrary.lifetime(emitter, travel));
+                        ExFxLibrary.each(runtime, "halo", emitter -> ExFxLibrary.lifetime(emitter, travel));
+                        ExFxLibrary.each(runtime, "sparkle", emitter -> emitter.runtime().duration.set(travel));
+                    }));
+        } catch (RuntimeException | LinkageError error) {
+            fail(error);
+        }
+    }
+
+    /** {@code swarm_smoke}: a puff of violet smoke from a Twins octagon or charge. */
+    public static void swarmSmoke(Level level, Vec3 point) {
+        try {
+            play(level, point, point, 0, "swarm_smoke", 0x3B1260, ExFxLibrary::smoke, executor -> { });
+        } catch (RuntimeException | LinkageError error) {
+            fail(error);
+        }
+    }
+
+    /** {@code swarm_void}: the black hole's pulse, motes pulled into the target. */
+    public static void voidPulse(Level level, Vec3 point) {
+        try {
+            play(level, point, point, 0, "swarm_void", 0xB151FF, ExFxLibrary::voidPulse, executor -> { });
+        } catch (RuntimeException | LinkageError error) {
+            fail(error);
+        }
+    }
+
+    /** {@code swarm_ward}: the Mana ward turning a blow back. */
+    public static void wardFlash(Level level, Vec3 point) {
+        try {
+            play(level, point, point, 0, "swarm_ward", 0x42E6C8, ExFxLibrary::shieldAbsorb, executor -> { });
+        } catch (RuntimeException | LinkageError error) {
+            fail(error);
+        }
+    }
+
+    /** {@code swarm_spark_<type>}: a small spark where a drone was hit or a shot was eaten. */
+    public static void swarmSpark(Level level, Vec3 point, HiveType type) {
+        try {
+            play(level, point, point, 0, "swarm_spark_" + type.name().toLowerCase(Locale.ROOT), swarmColor(type),
+                    color -> ExFxLibrary.hiveImpact(color, false), executor -> { });
+        } catch (RuntimeException | LinkageError error) {
+            fail(error);
+        }
+    }
+
+    /** {@code swarm_zap_<type>}: a containment bolt from the construct into the target. */
+    public static void swarmZap(Level level, Vec3 from, Vec3 to, HiveType type) {
+        hiveShot(level, from, to, type, 2, 0);
+        hiveImpact(level, to, type, 2);
+    }
+
+    private static int swarmColor(HiveType type) {
+        return switch (type) {
+            case RF -> 0x38E8FF;
+            case MANA -> 0x42E6C8;
+            case TWINS -> 0xB151FF;
+        };
+    }
+
     /** Drops cached definitions; hook to resource reloads so edited {@code .fx} overrides are picked up. */
     public static void clearCaches() {
         AUTHORED.clear();

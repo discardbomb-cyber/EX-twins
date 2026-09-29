@@ -33,11 +33,11 @@ public final class ShieldGlow {
     private static final MultiBufferSource.BufferSource BUFFERS = MultiBufferSource.immediate(new ByteBufferBuilder(1 << 20));
     private static final Vec3[][] LOW_SPHERE = sphere(16), HIGH_SPHERE = sphere(32);
 
-    static VertexConsumer consumer() {
+    public static VertexConsumer consumer() {
         return BUFFERS.getBuffer(TYPE);
     }
 
-    static void flush() {
+    public static void flush() {
         BUFFERS.endBatch(TYPE);
     }
 

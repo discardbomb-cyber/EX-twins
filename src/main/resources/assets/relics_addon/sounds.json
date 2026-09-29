@@ -326,5 +326,109 @@
         "name": "relics_addon:combat/shield_twins_strike"
       }
     ]
+  },
+  "hive.rf_tesseract": {
+    "subtitle": "subtitles.relics_addon.hive_rf_tesseract",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_rf_tesseract"
+      }
+    ]
+  },
+  "hive.mana_droplet": {
+    "subtitle": "subtitles.relics_addon.hive_mana_droplet",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_mana_droplet"
+      }
+    ]
+  },
+  "hive.twins_pulsar": {
+    "subtitle": "subtitles.relics_addon.hive_twins_pulsar",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_twins_pulsar"
+      }
+    ]
+  },
+  "hive.rf_charge_fire": {
+    "subtitle": "subtitles.relics_addon.hive_rf_charge_fire",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_rf_charge_fire"
+      }
+    ]
+  },
+  "hive.mana_charge_fire": {
+    "subtitle": "subtitles.relics_addon.hive_mana_charge_fire",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_mana_charge_fire"
+      }
+    ]
+  },
+  "hive.twins_charge_fire": {
+    "subtitle": "subtitles.relics_addon.hive_twins_charge_fire",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_twins_charge_fire"
+      }
+    ]
+  },
+  "hive.rf_lightning_blast": {
+    "subtitle": "subtitles.relics_addon.hive_rf_lightning_blast",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_rf_lightning_blast"
+      }
+    ]
+  },
+  "hive.mana_lightning_blast": {
+    "subtitle": "subtitles.relics_addon.hive_mana_lightning_blast",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_mana_lightning_blast"
+      }
+    ]
+  },
+  "hive.twins_lightning_blast": {
+    "subtitle": "subtitles.relics_addon.hive_twins_lightning_blast",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_twins_lightning_blast"
+      }
+    ]
+  },
+  "hive.rf_seal": {
+    "subtitle": "subtitles.relics_addon.hive_rf_seal",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_rf_seal"
+      }
+    ]
+  },
+  "hive.mana_ward": {
+    "subtitle": "subtitles.relics_addon.hive_mana_ward",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_mana_ward"
+      }
+    ]
+  },
+  "hive.twins_rift": {
+    "subtitle": "subtitles.relics_addon.hive_twins_rift",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_twins_rift"
+      }
+    ]
+  },
+  "hive.ward_reflect": {
+    "subtitle": "subtitles.relics_addon.hive_ward_reflect",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_ward_reflect"
+      }
+    ]
   }
 }

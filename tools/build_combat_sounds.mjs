@@ -40,6 +40,12 @@ const SPECS = [
   ["shield_mana_ripple", "shield_ripple:mana", .70], ["shield_twins_ripple", "shield_ripple:twins", .75],
   ["shield_rf_strike", "shield_strike:rf", .34], ["shield_mana_strike", "shield_strike:mana", .46],
   ["shield_twins_strike", "shield_strike:twins", .52],
+  ["hive_rf_tesseract", "swarm_strike:rf", .70], ["hive_mana_droplet", "swarm_strike:mana", .75], ["hive_twins_pulsar", "swarm_strike:twins", .95],
+  ["hive_rf_charge_fire", "charge_fire:rf", .45], ["hive_mana_charge_fire", "charge_fire:mana", .5], ["hive_twins_charge_fire", "charge_fire:twins", .55],
+  ["hive_rf_lightning_blast", "lightning_blast:rf", 1.0], ["hive_mana_lightning_blast", "lightning_blast:mana", 1.05],
+  ["hive_twins_lightning_blast", "lightning_blast:twins", 1.2],
+  ["hive_rf_seal", "containment:rf", .8], ["hive_mana_ward", "containment:mana", 1.1], ["hive_twins_rift", "containment:twins", 1.3],
+  ["hive_ward_reflect", "ward_reflect", .45],
   ["ui_toggle", "ui_toggle", .20], ["ui_upgrade", "ui_upgrade", .55],
 ];
 
@@ -295,6 +301,67 @@ function synthesize(name, family, seconds) {
       }
       if (flavor === "twins") v.add(mul(osc(n, t => 58 * detune + 24 * Math.exp(-t * 10)), env(n, .004, .16)), .4);
       space = flavor === "rf" ? .12 : .32;
+      break;
+    }
+    case "swarm_strike": {
+      // A whole group hitting as one: RF a hyperspace sweep folding in on itself, Mana a heavy splash,
+      // Twins a pulsar's beat: sharp broadband ticks at a steady rate over a low hum.
+      v.add(mul(osc(n, t => 70 * Math.exp(-t * 7) + 34), env(n, .003, .22)), .8);
+      if (flavor === "rf") {
+        v.add(mul(fm(n, (t, x) => 180 + 1400 * x * (1 - x) * 4 * detune, 1.5, 3.2, .3), env(n, .01, .25)), .35);
+        v.add(highpass(crackle(v, (t, x) => 5000 * (1 - x) ** 1.5, .001), 1800), .5);
+      } else if (flavor === "mana") {
+        v.add(mul(bandpass(v.noise(), t => 2600 * Math.exp(-t * 5) + 250, 1.8), env(n, .002, .18)), .6);
+        for (let g = 0; g < 14; g++) v.add(bell(Math.round(.12 * RATE), p.pitch * (.6 + v.random() * 1.2), [1, 2.76], .05), .08, .03 + v.random() * seconds * .5);
+      } else {
+        const beat = 13;
+        const ticks = v.noise().map((x, i) => { const t = i / RATE; const phase = (t * beat) % 1; return x * Math.exp(-phase * 55) * Math.exp(-t * 2.4); });
+        v.add(highpass(ticks, 900), .9);
+        v.add(mul(osc(n, t => 55 * detune), env(n, .02, seconds * .5)), .45);
+      }
+      space = flavor === "rf" ? .2 : .35;
+      break;
+    }
+    case "charge_fire": {
+      // Release of a charged ball: a whine rushing up and a soft thump as it leaves.
+      v.add(mul(fm(n, (t, x) => p.pitch * (.4 + .9 * x) * detune, p.ratio, p.index * .7, .5), env(n, seconds * .5, .06)), .35);
+      v.add(mul(bandpass(v.noise(), (t, x) => 400 + 3200 * x, 4), env(n, seconds * .55, .05)), .3);
+      v.add(mul(osc(n, t => 110 * Math.exp(-Math.max(0, t - seconds * .55) * 18) + 45), env(n, seconds * .55, .08, 0)), .5, 0);
+      if (flavor !== "mana") v.add(highpass(crackle(v, (t, x) => 2500 * x, .001), 2000), .3);
+      space = .25;
+      break;
+    }
+    case "lightning_blast": {
+      // The crack and roll of a lightning blast: a white crack, a rumble, sparks raining after.
+      v.add(mul(highpass(v.noise(), 1500), env(n, .0008, .03)), .9);
+      v.add(mul(lowpass(v.noise(), (t, x) => 900 * Math.exp(-t * 2.5) + 90), env(n, .004, seconds * .35)), .8);
+      v.add(mul(osc(n, t => 48 * detune + 25 * Math.exp(-t * 8)), env(n, .002, seconds * .3)), .6);
+      v.add(highpass(crackle(v, (t, x) => 3500 * Math.exp(-x * 3), .0012), 1500), .45);
+      if (flavor === "mana") v.add(bell(n, p.pitch * .5 * detune, [1, 2.76, 5.4], .3), .25);
+      if (flavor === "twins") v.add(mul(fm(n, t => 90 * detune, 1.5, 2.5, .6), env(n, .01, seconds * .4)), .3);
+      space = .35;
+      break;
+    }
+    case "containment": {
+      // A construct holding its target: RF buzzing seals, the Mana ward's chord, the Twins rift's swell.
+      if (flavor === "rf") {
+        v.add(mul(lowpass(osc(n, 120 * detune, "square"), 1800), env(n, .02, seconds * .4)), .3);
+        v.add(highpass(crackle(v, (t, x) => 1800 * Math.sin(Math.PI * x), .0015), 1800), .6);
+      } else if (flavor === "mana") {
+        [1, 1.25, 1.5, 2].forEach(step => v.add(mul(osc(n, t => 330 * step * detune * (1 + .004 * Math.sin(t * 30))), env(n, .15, seconds * .4)), .14));
+        v.add(mul(bandpass(v.noise(), 5000, 10), env(n, .2, seconds * .3)), .12);
+      } else {
+        v.add(mul(osc(n, (t, x) => 40 + 30 * x), env(n, seconds * .6, .25)), .6);
+        v.add(mul(bandpass(v.noise(), (t, x) => 200 + 1600 * (1 - x), 3), env(n, seconds * .7, .2)), .4);
+      }
+      space = .4;
+      break;
+    }
+    case "ward_reflect": {
+      v.add(bell(n, 1500 * detune, [1, 2.76, 5.4, 8.93], .2), .5);
+      v.add(mul(bandpass(v.noise(), (t, x) => 6000 - 4500 * x, 5), env(n, .002, .12)), .3);
+      v.add(mul(osc(n, t => 300 * Math.exp(-t * 6) + 120), env(n, .002, .1)), .35);
+      space = .35;
       break;
     }
     case "ui_toggle": {

@@ -263,8 +263,8 @@ public final class ShieldDefenseGameTests {
     public static void droneHitsDoNotKnockBack(GameTestHelper helper) {
         ServerPlayer player = openArena(helper);
         Husk husk = husk(helper, player.position().add(4, 0, 0));
-        helper.assertTrue(dev.hurtify.relicsaddon.server.HiveCombatController.damage(player, husk, 3, dev.hurtify.relicsaddon.drone.HiveType.RF, 0,
-                husk.getBoundingBox().getCenter()), "A drone hit lands");
+        helper.assertTrue(husk.hurt(helper.getLevel().damageSources().source(dev.hurtify.relicsaddon.server.HiveCombatController.DRONE_SHOT, player), 3),
+                "A drone hit lands");
         helper.assertTrue(husk.getHealth() < husk.getMaxHealth(), "The drone hit hurts");
         helper.assertTrue(husk.getDeltaMovement().horizontalDistanceSqr() < 1e-6, "A drone hit never knocks the target back");
         helper.assertTrue(husk.getLastDamageSource() != null && husk.getLastDamageSource().getEntity() == player,

@@ -36,8 +36,8 @@ public final class RelicRuntime {
         double value = switch (id) {
             case "buffer_capacity" -> 504 + (5000 - 504) * level / 10.0;
             case "radius" -> 2 + level;
-            case "drone_count" -> 12 + (500 - 12) * level / 10.0;
-            case "drone_health" -> hiveValue(stack, level, 1);
+            case "drone_count" -> 12 + (dev.hurtify.relicsaddon.drone.HiveType.MAX_DRONES - 12) * level / 10.0;
+            case "drone_health" -> dev.hurtify.relicsaddon.drone.HiveType.DRONE_HP;
             case "attack_damage" -> hiveValue(stack, level, 2);
             case "attack_interval_max" -> 100 - 60 * level / 10.0;
             case "cooldown" -> hiveValue(stack, level, 3);
@@ -49,7 +49,6 @@ public final class RelicRuntime {
         if (!(stack.getItem() instanceof AutonomousRelicItem item)) return 0;
         var type = dev.hurtify.relicsaddon.drone.HiveType.of(item.role());
         return switch (kind) {
-            case 1 -> type.initialHealth + (type.maxHealth - type.initialHealth) * level / 10.0;
             case 2 -> type.initialAttackDamage + (type.maxAttackDamage - type.initialAttackDamage) * level / 10.0;
             default -> type.initialCooldown + (type.minCooldown - type.initialCooldown) * level / 10.0;
         };
