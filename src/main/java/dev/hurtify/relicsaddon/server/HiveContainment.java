@@ -9,6 +9,7 @@ import java.util.UUID;
 import java.util.WeakHashMap;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -16,18 +17,25 @@ import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.Tags;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.EntityTeleportEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 
 /**
  * Containment: the swarm holds its target fast. Every family roots it where it stands; RF and Twins
  * also smother its attacks (and RF eats every shot it fires), Mana lets it strike but turns each blow
- * back on it from a ward the drones keep topping up, and Twins lift it four blocks into the air over a
- * black hole. Bosses and players are never pinned, only hurt.
+ * back on it from a ward the drones keep topping up, and Twins lift it up to four blocks into the air
+ * over a black hole, as far as the space above it allows. Bosses and players are never pinned, only
+ * hurt. A creature held by one player's swarm stays in that hold while it lasts; another player's
+ * swarm joins in rather than taking it over.
  */
 public final class HiveContainment {
     public static final int LIFT = 4;
@@ -36,36 +44,53 @@ public final class HiveContainment {
     private static final String GRAVITY = RelicsAddon.MOD_ID + ":held_gravity";
     private static final Map<LivingEntity, Hold> HELD = new WeakHashMap<>();
 
-    /** A creature held by one owner's hive. {@code ward} is Mana's store of damage it can still turn back. */
+    /**
+     * A creature held by one owner's hive. {@code ward} is Mana's store of damage it can still turn back.
+     * Twins lift from {@code anchor} (the ground under the target) by {@code lift}, starting from
+     * {@code startLift} if it was already off the ground.
+     */
     public static final class Hold {
         final UUID owner;
         final HiveType type;
         final Vec3 anchor;
+        final double lift, startLift;
         final long since;
         long seen;
         double ward, wardMax;
         final List<Vec3> intercepted = new ArrayList<>();
         final List<Vec3> reflected = new ArrayList<>();
 
-        Hold(UUID owner, HiveType type, Vec3 anchor, long since) {
+        Hold(UUID owner, HiveType type, LivingEntity target, long since) {
             this.owner = owner;
             this.type = type;
-            this.anchor = anchor;
             this.since = since;
             this.seen = since;
+            if (type == HiveType.TWINS) {
+                anchor = groundBelow(target);
+                lift = headroom(target, anchor, LIFT);
+                startLift = Math.clamp(target.getY() - anchor.y, 0, lift);
+            } else {
+                anchor = target.position();
+                lift = startLift = 0;
+            }
         }
 
         public HiveType type() { return type; }
         public double ward() { return ward; }
         public double wardMax() { return wardMax; }
+        public double lift() { return lift; }
+        public Vec3 anchor() { return anchor; }
     }
 
     /** Keeps {@code target} held this tick by {@code owner}'s {@code type} hive of {@code drones} flying drones. */
     public static Hold hold(Player owner, LivingEntity target, HiveType type, int drones, long now) {
         Hold hold = HELD.get(target);
-        if (hold == null || !hold.owner.equals(owner.getUUID()) || hold.type != type) {
+        boolean mine = hold != null && hold.owner.equals(owner.getUUID()) && hold.type == type;
+        // Another swarm holds it and is still at it: join in rather than tear its hold down every tick.
+        if (hold != null && !mine && now - hold.seen <= 1 && now >= hold.seen) return hold;
+        if (!mine) {
             release(target);
-            hold = new Hold(owner.getUUID(), type, target.position(), now);
+            hold = new Hold(owner.getUUID(), type, target, now);
             HELD.put(target, hold);
         }
         hold.seen = now;
@@ -115,15 +140,40 @@ public final class HiveContainment {
         }
     }
 
-    private static boolean immune(LivingEntity target) {
+    /** Bosses and players are never pinned, only hurt. */
+    public static boolean immune(LivingEntity target) {
         return target instanceof Player || target.getType().is(Tags.EntityTypes.BOSSES);
+    }
+
+    /** Where a target stands, or the ground a few blocks under it if it is in the air, so a new lift never stacks on an old one. */
+    private static Vec3 groundBelow(LivingEntity target) {
+        Vec3 at = target.position();
+        if (target.onGround()) return at;
+        BlockHitResult ground = target.level().clip(new ClipContext(at, at.subtract(0, LIFT + 2, 0), ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE, target));
+        return ground.getType() == HitResult.Type.MISS ? at : ground.getLocation();
+    }
+
+    /**
+     * How far, up to {@code most}, the target can rise from {@code anchor} without its box meeting a
+     * block, in quarter-block steps from the bottom, so a lift never pushes it into a ceiling or
+     * through one.
+     */
+    private static double headroom(LivingEntity target, Vec3 anchor, double most) {
+        AABB box = target.getBoundingBox().move(anchor.subtract(target.position()));
+        double free = 0;
+        for (double up = .25; up <= most + 1e-6; up += .25) {
+            if (!target.level().noCollision(target, box.move(0, up, 0))) break;
+            free = up;
+        }
+        return free;
     }
 
     private static void pin(LivingEntity target, Hold hold, long now) {
         Vec3 at = hold.anchor;
         if (hold.type == HiveType.TWINS) {
             double t = Math.min(1, (now - hold.since) / (double) LIFT_TICKS);
-            at = at.add(0, LIFT * t * t * (3 - 2 * t), 0);
+            at = at.add(0, hold.startLift + (hold.lift - hold.startLift) * t * t * (3 - 2 * t), 0);
             CompoundTag data = target.getPersistentData();
             if (!data.contains(GRAVITY)) data.putBoolean(GRAVITY, target.isNoGravity());
             target.setNoGravity(true);
@@ -196,6 +246,17 @@ public final class HiveContainment {
         }
         // A creature saved while lifted gets its own gravity back on load.
         if (event.getEntity() instanceof LivingEntity living && !HELD.containsKey(living)) restoreGravity(living);
+    }
+
+    /**
+     * A held creature cannot be scooped into a bucket or otherwise used until it is let go: a bucket
+     * would keep a lifted fish's switched-off gravity but not the mark that restores it.
+     */
+    public static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
+        if (!event.getLevel().isClientSide() && pinned(event.getTarget())) {
+            event.setCancellationResult(InteractionResult.FAIL);
+            event.setCanceled(true);
+        }
     }
 
     /** Endermen and shulkers cannot blink out of a hold. */

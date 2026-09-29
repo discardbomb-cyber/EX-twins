@@ -26,6 +26,7 @@ import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
@@ -60,6 +61,10 @@ public final class ShieldController {
             ItemStack shield = EquippedRelicSetResolver.findFirstActive(owner, RelicRole.EQUIPMENT_SLOT, RelicRole.shields())
                     .orElse(ItemStack.EMPTY);
             if (shield.isEmpty() || !ShieldCoverage.covers(owner, shield, victim)) continue;
+            // A field that covers everyone near it never shelters a stranger from its own side's blows,
+            // such as its owner's sword or swarm hitting a mob that stands inside it.
+            Entity attacker = event.getSource().getEntity();
+            if (attacker != null && !ShieldCoverage.friendly(owner, victim) && ShieldCoverage.friendly(owner, attacker)) continue;
             if (event.getSource().getDirectEntity() instanceof Projectile projectile) {
             float prepaid = ShieldProjectileInterceptor.consumePaidDamage(projectile, owner, event.getAmount());
             if (prepaid > 0) {
@@ -76,13 +81,15 @@ public final class ShieldController {
 
     /**
      * Damage no field takes. The server's pass list wins outright; its absorb list overrides the
-     * {@code shield_passes} tag, except for strikes and swarm blows, which a field must never eat.
+     * {@code shield_passes} tag, except for shield strikes, which a field must never eat. Swarm blows
+     * are not in the tag: another player's field stops them like any blow, and a field never shelters
+     * a stranger from its own owner's swarm (see {@link #onIncomingDamage}).
      */
     public static boolean passesField(DamageSource source) {
         Holder<DamageType> type = source.typeHolder();
         if (AddonConfig.PASSING_DAMAGE.matches(type)) return true;
         if (!type.is(PASSES_SHIELD)) return false;
-        return !AddonConfig.ABSORBED_DAMAGE.matches(type) || type.is(ShieldStrike.STRIKES) || type.is(HiveCombatController.SWARM_DAMAGE);
+        return !AddonConfig.ABSORBED_DAMAGE.matches(type) || type.is(ShieldStrike.STRIKES);
     }
 
     /**

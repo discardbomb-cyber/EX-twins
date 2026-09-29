@@ -56,6 +56,18 @@ public final class HiveController {
         return next;
     }
 
+    /** Past any flight out (70 ticks) and home (24), with room to spare. */
+    private static final long SETTLE_QUIET_TICKS = 120;
+
+    /** Drops timings the swarm no longer needs, so it goes back to one byte per drone on the wire (see {@link HiveStackState#settle}). */
+    private static void settle(Player player, ItemStack stack, HiveStackState state) {
+        var settings = HiveTaskController.settings(stack);
+        int units = state.units().size();
+        HiveStackState settled = state.settle(player.level().getGameTime(), dev.hurtify.relicsaddon.drone.HiveSlots.fighterSlots(units, settings),
+                settings.fighters(units), SETTLE_QUIET_TICKS);
+        if (settled != state) stack.set(ModDataComponents.HIVE_STACK_STATE.get(), settled);
+    }
+
     /** HP regained by drones that already existed; drones added by a larger capacity arrive free. */
     private static int restoredHealth(HiveStackState before, HiveStackState after) {
         int sum = 0, shared = Math.min(before.units().size(), after.units().size());
@@ -68,7 +80,7 @@ public final class HiveController {
         if (player.level().isClientSide()) return;
         HiveCombatController.tick(player);
         if (player.level().getGameTime() % 10 != 0) return;
-        for (Equipped hive : active(player)) prepare(player, hive.stack(), true);
+        for (Equipped hive : active(player)) settle(player, hive.stack(), prepare(player, hive.stack(), true));
     }
 
     private HiveController() { }

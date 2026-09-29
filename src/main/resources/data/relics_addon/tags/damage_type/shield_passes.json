@@ -8,7 +8,6 @@
     "minecraft:cramming",
     "minecraft:outside_border",
     "minecraft:generic_kill",
-    "#relics_addon:shield_strike",
-    "#relics_addon:swarm_damage"
+    "#relics_addon:shield_strike"
   ]
 }
