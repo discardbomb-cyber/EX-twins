@@ -25,6 +25,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.TagKey;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.Entity;
@@ -55,6 +56,9 @@ public final class HiveCombatController {
     public static final ResourceKey<DamageType> SWARM_VOID = key("swarm_void");
     /** Mana ward: a held creature's own blow turned back on it. */
     public static final ResourceKey<DamageType> SWARM_REFLECT = key("swarm_reflect");
+    /** Every swarm type. The tag is part of {@code shield_passes}, so no field absorbs a swarm's blow. */
+    public static final TagKey<DamageType> SWARM_DAMAGE = TagKey.create(Registries.DAMAGE_TYPE,
+            ResourceLocation.fromNamespaceAndPath(RelicsAddon.MOD_ID, "swarm_damage"));
     private static final int SHOT_VISUAL_TICKS = 40;
     private static final double BALL_SPEED = .9;
     /** Battery points per drone taking part in a blow or a charge. */
