@@ -60,7 +60,6 @@ public final class HiveVisualRenderer {
         var matrix = poses.last().pose();
         GlowBrush.setPixelAngle(2 * Math.tan(Math.toRadians(minecraft.options.fov().get()) / 2) / Math.max(1, minecraft.getWindow().getHeight()));
         var glow = ShieldGlow.consumer();
-        var fill = buffers.getBuffer(ShieldVisualRenderer.renderType());
         int[] budget = {MODEL_BUDGET};
         List<HiveModeVisual.Scene> scenes = new ArrayList<>();
         var players = new ArrayList<>(minecraft.level.players());
@@ -72,8 +71,12 @@ public final class HiveVisualRenderer {
                 renderHive(minecraft, event, player, hive, cached.present().contains(hive.type()), now, time, partial, camera, poses, glow, budget, scenes);
             }
         }
+        // Drone models are drawn first; the glass of the constructs goes in a buffer taken only after
+        // that batch ends, since ending it would also end (and invalidate) a buffer taken before.
         buffers.endBatch();
+        var fill = buffers.getBuffer(ShieldVisualRenderer.renderType());
         for (HiveModeVisual.Scene scene : scenes) HiveModeVisual.render(scene, camera, glow, fill, matrix);
+        if (EffectLights.enabled()) scenes.forEach(HiveModeVisual::light);
         // Space bends before the glass and light are laid over it.
         ShieldRefraction.flush(matrix);
         buffers.endBatch(ShieldVisualRenderer.renderType());

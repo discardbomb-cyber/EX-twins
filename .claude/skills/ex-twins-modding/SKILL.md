@@ -69,6 +69,10 @@ export JAVA_HOME="/c/Program Files/Eclipse Adoptium/jdk-21.0.12.8-hotspot"
   hit traces `ShieldCircuitTraces`. Inside-the-shell views must stay faint (`ShieldSurfaceLighting.INSIDE`).
 - Photon effects: `client/fx/ExFx` (+ `ExFxLibrary`, `PointEffectExecutor`), built in code,
   overridable by `assets/relics_addon/fx/<name>.fx`.
+- Dynamic lights (optional LambDynamicLights): renderers report `EffectLights.glow` (per frame) and
+  `EffectLights.flash` (per event); it merges and caps them (24). Only `client/light` touches LDL
+  types; LDL loads `DynamicLightsBridge` through the `yumi:entrypoints` mod property. Client config
+  `lights.dynamic`. Checks: `EffectLightsCheck`, `client/light/EffectLightPoolCheck`.
 
 ## Pitfalls already hit
 
@@ -80,6 +84,13 @@ export JAVA_HOME="/c/Program Files/Eclipse Adoptium/jdk-21.0.12.8-hotspot"
 - `#minecraft:bypasses_shield` includes wither, fire, magic, fall - do not use it to filter.
 - Curios 9.5 defines the `charm` slot but gives it to nobody: `data/relics_addon/curios/entities/devices.json`.
 - Every user-facing string needs `en_us` AND `ru_ru` keys (the user plays in Russian).
+- A fresh run directory (new worktree) has no `options.txt`, so the client opens the accessibility
+  onboarding screen and capture runs wait forever for the title screen; copy `options.txt`
+  (`onboardAccessibility:false`) from an existing run dir first.
+- A mod for some runs only goes on the run task's JVM classpath (`classpathProvider`), never on
+  MDG's per-run `additionalRuntimeClasspath`: that makes it a boot-layer library and FML skips it
+  ("already located earlier", visible only with DEBUG logs). LambDynamicLights also needs
+  `net.minecraft.mappings=mojmap` plus `bundling=external`, or Gradle picks its shadowed `-dev.jar`.
 - Shell/Windows: PowerShell `Remove-Item` with wildcards in TEMP is blocked - write to a new folder.
   No Python/ffmpeg on the machine; use Node.js for scripts and WinRT for video.
   Clone into short paths (`C:/dev/...`) - the scratch path is too long for git.

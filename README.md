@@ -12,9 +12,11 @@ The showcase above is rendered in-game by the capture galleries: shield impacts 
 
 Install `EX-twins-1.0.0-beta.1.jar` on both the client and server alongside Curios, Photon, LDLib2 and KilaGraph (Photon 2.2.7+, LDLib2 2.2.40+). This is a beta release; back up existing worlds before upgrading. Devices run on built-in batteries; Botania, Ars Nouveau and Iron's Spells are optional mana sources.
 
+Optional, client only: with [LambDynamicLights](https://modrinth.com/mod/lambdynamiclights) 4.8.11+ installed, the mod's effects light up the world around them: a visible shield (brighter for a moment after each hit), swarm strike groups, barrage charges while they build and in flight, blasts, the containment constructs and the Twins black hole. Nearby lights are merged and capped at 24 sources so chunk relighting stays cheap; the light is colourless. Client config `lights.dynamic` turns it off. Without LambDynamicLights nothing changes.
+
 ## Build From Source
 
-Use Java 21 and the included Gradle wrapper. Curios, Photon, LDLib2 and KilaGraph are resolved from their Maven repositories (`maven.theillusivec4.top`, `maven.firstdark.dev/snapshots`); nothing has to be placed in `libs/`.
+Use Java 21 and the included Gradle wrapper. Curios, Photon, LDLib2 and KilaGraph are resolved from their Maven repositories (`maven.theillusivec4.top`, `maven.firstdark.dev/snapshots`); nothing has to be placed in `libs/`. LambDynamicLights (`maven.gegy.dev`) is only compiled against; the development clients load it, while `runGameTestServer` and `runReleaseCheckClient` run without it.
 
 Run `./gradlew build` on Linux/macOS or `.\gradlew.bat build` on Windows. The result is `build/libs/EX-twins-1.0.0-beta.1.jar`. The first build requires internet access for Gradle and NeoForge artifacts.
 
@@ -133,7 +135,7 @@ $env:GRADLE_USER_HOME = "$env:USERPROFILE/.gradle"
 .\gradlew.bat --offline runVisualTestClient
 ```
 
-`build` runs mesh, mechanical-animation and orbit checks. GameTests use the separate `run-gametest` world.
+`build` runs mesh, mechanical-animation, orbit and effect-light checks. GameTests use the separate `run-gametest` world.
 The interactive test client uses `run-visual` and opens the normal Minecraft main menu, without a startup preview. Separate `runShieldCaptureClient`, `runResearchCaptureClient`, `runUiCaptureClient` and `runHiveCaptureClient` automations capture renderer/resources and exit. `runStartupCheckClient` captures the normal main menu and exits.
 These runs use isolated development directories. Development tests and the model gallery are excluded from the release JAR.
 
