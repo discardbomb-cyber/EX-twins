@@ -31,7 +31,7 @@ public record DeviceProgression(int experience, int level, int points, int modul
         return new DeviceProgression(Math.max(0, experience), Math.clamp(level, 0, MAX_LEVEL), Math.max(0, points), modules, upgrades);
     }
 
-    public int rank(String id) { return (upgrades >>> DeviceUpgrade.byId(id).bit()) & 3; }
+    public int rank(String id) { return (upgrades >>> (DeviceUpgrade.byId(id).bit() * 2)) & 3; }
     public boolean hasModule(int slot) { return slot >= 0 && slot < MODULE_SLOTS && ((modules >>> slot) & 1) != 0; }
     public DeviceProgression withModule(int slot, boolean installed) {
         if (slot < 0 || slot >= MODULE_SLOTS) return this;

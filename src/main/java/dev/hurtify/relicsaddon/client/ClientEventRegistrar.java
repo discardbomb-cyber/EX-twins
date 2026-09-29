@@ -16,6 +16,11 @@ public final class ClientEventRegistrar {
         modEventBus.addListener(HiveMenuKey::register);
         modEventBus.addListener(AnimatedRelicItemRenderer::registerAdditionalModels);
         modEventBus.addListener(ClientEventRegistrar::registerItemExtensions);
+        modEventBus.addListener(ClientEventRegistrar::registerScreens);
+    }
+
+    private static void registerScreens(net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event) {
+        event.register(dev.hurtify.relicsaddon.registry.ModMenus.DEVICE_CONTROL.get(), DeviceControlScreen::new);
     }
 
     private static void registerItemExtensions(RegisterClientExtensionsEvent event) {

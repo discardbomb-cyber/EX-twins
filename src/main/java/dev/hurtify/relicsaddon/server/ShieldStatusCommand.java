@@ -32,15 +32,15 @@ public final class ShieldStatusCommand {
 
     private static int status(Player player, com.mojang.brigadier.context.CommandContext<net.minecraft.commands.CommandSourceStack> context) {
         int found = 0;
-        ItemStack active = EquippedRelicSetResolver.findFirstActive(player, "charm", RelicRole.shields()).orElse(ItemStack.EMPTY);
+        ItemStack active = EquippedRelicSetResolver.findFirstActive(player, RelicRole.EQUIPMENT_SLOT, RelicRole.shields()).orElse(ItemStack.EMPTY);
         var inventory = CuriosApi.getCuriosInventory(player).orElse(null);
         if (inventory != null) {
-            var handler = inventory.getStacksHandler("charm");
+            var handler = inventory.getStacksHandler(RelicRole.EQUIPMENT_SLOT);
             if (handler.isPresent()) for (int slot = 0; slot < handler.get().getSlots(); slot++) {
                 ItemStack stack = handler.get().getStacks().getStackInSlot(slot);
                 if (!shield(stack)) continue;
                 ShieldStackState state = stack.getOrDefault(ModDataComponents.SHIELD_STACK_STATE.get(), ShieldStackState.DEFAULT);
-                String reason = !inventory.isSlotActive("charm", slot) ? "inactive_slot" : !state.enabled() ? "disabled"
+                String reason = !inventory.isSlotActive(RelicRole.EQUIPMENT_SLOT, slot) ? "inactive_slot" : !state.enabled() ? "disabled"
                         : active != stack ? "priority"
                         : state.totalIntegrity() == 0 ? "broken" : "active";
                 int index = slot;
@@ -80,11 +80,11 @@ public final class ShieldStatusCommand {
     }
 
     private static ItemStack selected(Player player) {
-        ItemStack active = EquippedRelicSetResolver.findFirstActive(player, "charm", RelicRole.shields()).orElse(ItemStack.EMPTY);
+        ItemStack active = EquippedRelicSetResolver.findFirstActive(player, RelicRole.EQUIPMENT_SLOT, RelicRole.shields()).orElse(ItemStack.EMPTY);
         if (!active.isEmpty()) return active;
         var inventory = CuriosApi.getCuriosInventory(player).orElse(null);
         if (inventory != null) {
-            var handler = inventory.getStacksHandler("charm");
+            var handler = inventory.getStacksHandler(RelicRole.EQUIPMENT_SLOT);
             if (handler.isPresent()) for (int slot = 0; slot < handler.get().getSlots(); slot++) {
                 ItemStack stack = handler.get().getStacks().getStackInSlot(slot);
                 if (shield(stack)) return stack;

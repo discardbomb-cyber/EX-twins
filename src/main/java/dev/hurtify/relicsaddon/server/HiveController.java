@@ -1,5 +1,6 @@
 package dev.hurtify.relicsaddon.server;
 
+import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.drone.HiveOrbit;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
 import dev.hurtify.relicsaddon.drone.HiveType;
@@ -35,13 +36,13 @@ public final class HiveController {
         if (!EquippedRelicSetResolver.isRealPlayer(player) || !player.isAlive() || player.isSpectator()) return List.of();
         return CuriosApi.getCuriosInventory(player).map(handler -> {
             var result = new ArrayList<Equipped>(3);
-            var optional = handler.getStacksHandler("charm");
+            var optional = handler.getStacksHandler(RelicRole.EQUIPMENT_SLOT);
             if (optional.isEmpty()) return result;
             var stacks = optional.get().getStacks();
             boolean[] found = new boolean[3];
             for (int slot = 0; slot < stacks.getSlots(); slot++) {
                 ItemStack stack = stacks.getStackInSlot(slot);
-                if (handler.isSlotActive("charm", slot) && stack.getItem() instanceof AutonomousRelicItem item
+                if (handler.isSlotActive(RelicRole.EQUIPMENT_SLOT, slot) && stack.getItem() instanceof AutonomousRelicItem item
                         && item.role().isHive() && RelicRuntime.canOperate(player, stack)) {
                     HiveType type = HiveType.of(item.role());
                     if (!found[type.ordinal()]) {

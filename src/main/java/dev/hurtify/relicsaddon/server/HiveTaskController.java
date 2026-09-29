@@ -1,5 +1,6 @@
 package dev.hurtify.relicsaddon.server;
 
+import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.AddonConfig;
 import dev.hurtify.relicsaddon.drone.HiveSettings;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
@@ -21,7 +22,7 @@ public final class HiveTaskController {
     public static ItemStack locate(Player owner, boolean charm, int slot) {
         if (slot < 0) return ItemStack.EMPTY;
         if (!charm) return slot < owner.getInventory().getContainerSize() ? owner.getInventory().getItem(slot) : ItemStack.EMPTY;
-        return CuriosApi.getCuriosInventory(owner).flatMap(handler -> handler.getStacksHandler("charm"))
+        return CuriosApi.getCuriosInventory(owner).flatMap(handler -> handler.getStacksHandler(RelicRole.EQUIPMENT_SLOT))
                 .map(handler -> slot < handler.getStacks().getSlots() ? handler.getStacks().getStackInSlot(slot) : ItemStack.EMPTY)
                 .orElse(ItemStack.EMPTY);
     }

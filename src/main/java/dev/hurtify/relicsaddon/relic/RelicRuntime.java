@@ -64,6 +64,7 @@ public final class RelicRuntime {
         stack.set(ModDataComponents.DEVICE_PROGRESSION.get(), state.withRank(id, rank + 1).withPoints(state.points() - 1));
         return true;
     }
+    public static int experienceToNext(int level) { return 10 + level * 5; }
     public static boolean setModule(ItemStack stack, int slot, boolean installed) {
         if (!(stack.getItem() instanceof AutonomousRelicItem) || slot < 0 || slot >= DeviceProgression.MODULE_SLOTS) return false;
         stack.set(ModDataComponents.DEVICE_PROGRESSION.get(), progression(stack).withModule(slot, installed));
@@ -75,7 +76,7 @@ public final class RelicRuntime {
         DeviceProgression before = progression(stack);
         int experience = before.experience() + Math.max(1, Math.round(Math.min(2F, value * .25F)));
         int level = before.level(), points = before.points();
-        while (level < DeviceProgression.MAX_LEVEL && experience >= 10 + level * 5) { experience -= 10 + level * 5; level++; points++; }
+        while (level < DeviceProgression.MAX_LEVEL && experience >= experienceToNext(level)) { experience -= experienceToNext(level); level++; points++; }
         stack.set(ModDataComponents.DEVICE_PROGRESSION.get(), new DeviceProgression(experience, level, points, before.modules(), before.upgrades()));
     }
     private RelicRuntime() { }

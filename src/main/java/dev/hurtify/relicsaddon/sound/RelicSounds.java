@@ -61,6 +61,13 @@ public final class RelicSounds {
     private static final DeferredHolder<SoundEvent, SoundEvent> TWINS_SHIELD_CELL_BREAK = sound("shield.twins_cell_break");
     private static final DeferredHolder<SoundEvent, SoundEvent> TWINS_SHIELD_COLLAPSE = sound("shield.twins_collapse");
 
+    private static final DeferredHolder<SoundEvent, SoundEvent> UI_TOGGLE = sound("ui.toggle");
+    private static final DeferredHolder<SoundEvent, SoundEvent> UI_UPGRADE = sound("ui.upgrade");
+    private static final DeferredHolder<SoundEvent, SoundEvent> UI_MODULE_INSERT = sound("ui.module_insert");
+    private static final DeferredHolder<SoundEvent, SoundEvent> UI_MODULE_REMOVE = sound("ui.module_remove");
+    private static final DeferredHolder<SoundEvent, SoundEvent> MANA_SHIELD_RIPPLE = sound("shield.mana_ripple");
+    private static final DeferredHolder<SoundEvent, SoundEvent> TWINS_SHIELD_RIPPLE = sound("shield.twins_ripple");
+
     private static final int MAX_THROTTLE_ENTRIES = 2_048;
     private static final long STALE_TICKS = 1_200L;
     /** Weak keys ensure a closed integrated-server level cannot be retained by sound state. */
@@ -103,6 +110,29 @@ public final class RelicSounds {
         int cooldown = exhausted ? 20 : broken ? 8 : 4;
         float volume = exhausted ? 0.88F : broken ? 0.72F : 0.50F;
         play(level, position, event, Category.SHIELD, cooldown, volume, exhausted ? 0.82F : 1.0F);
+        if (!exhausted) ripple(level, position, role);
+    }
+
+    /** Console feedback is private to the player using the device menu. */
+    public static void ui(net.minecraft.world.entity.player.Player player, Ui sound) {
+        if (!(player instanceof net.minecraft.server.level.ServerPlayer serverPlayer)) return;
+        DeferredHolder<SoundEvent, SoundEvent> event = switch (sound) {
+            case TOGGLE -> UI_TOGGLE;
+            case UPGRADE -> UI_UPGRADE;
+            case MODULE_INSERT -> UI_MODULE_INSERT;
+            case MODULE_REMOVE -> UI_MODULE_REMOVE;
+        };
+        serverPlayer.playNotifySound(event.get(), SoundSource.PLAYERS, .7F, 1F);
+    }
+
+    /** Distortion wave that follows an absorbed hit on the Mana and Twins shells. */
+    public static void ripple(ServerLevel level, Vec3 position, RelicRole role) {
+        DeferredHolder<SoundEvent, SoundEvent> event = switch (role) {
+            case MANA_SHIELD -> MANA_SHIELD_RIPPLE;
+            case TWINS_SHIELD -> TWINS_SHIELD_RIPPLE;
+            default -> null;
+        };
+        if (event != null) play(level, position, event, Category.RIPPLE, 10, .42F, 1F);
     }
 
     private static DeferredHolder<SoundEvent, SoundEvent> attackEvent(ServerLevel level, Vec3 position, HiveType type, int kind) {
@@ -202,7 +232,15 @@ public final class RelicSounds {
         ATTACK,
         IMPACT,
         SUMMON,
-        SHIELD
+        SHIELD,
+        RIPPLE
+    }
+
+    public enum Ui {
+        TOGGLE,
+        UPGRADE,
+        MODULE_INSERT,
+        MODULE_REMOVE
     }
 
     private record SpatialKey(int x, int y, int z, Category category) {
