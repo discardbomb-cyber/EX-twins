@@ -58,6 +58,8 @@
   "message.relics_addon.shield_enabled": "Щит включён.",
   "message.relics_addon.shield_disabled": "Щит выключен.",
   "message.relics_addon.shield_blocked": "Поглощено %s урона. Буфер: %s/%s. Ячейка: %s/%s HP",
+  "message.relics_addon.shield_effect_cut": "Щит отсёк эффект: %s",
+  "message.relics_addon.shield_effect_trimmed": "Щит ослабил эффект: %s",
   "message.relics_addon.hive_enabled": "Улей включён.",
   "message.relics_addon.hive_disabled": "Улей выключен.",
   "upgrade.relics_addon.rf_shield.damage_distribution": "Проводящая сеть",

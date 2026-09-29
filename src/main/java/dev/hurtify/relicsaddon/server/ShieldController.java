@@ -91,6 +91,9 @@ public final class ShieldController {
 
     /** Applies an absorbed amount: a fully absorbed hit is cancelled so it causes no knockback, flash or on-hit effects. */
     private static void settle(LivingIncomingDamageEvent event, LivingEntity victim, float absorbed) {
+        var source = event.getSource();
+        ShieldEffectGuard.recordHit(victim, source.getEntity() != null ? source.getEntity() : source.getDirectEntity(),
+                absorbed, event.getAmount() - absorbed);
         float[] last = RECENT_HITS.get(victim);
         long now = victim.level().getGameTime();
         float previous = last != null && now - (long) last[0] < IMMUNITY_TICKS && now >= (long) last[0] ? last[1] : 0;

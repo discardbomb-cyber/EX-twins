@@ -9,6 +9,7 @@ import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.server.ShieldBarrier;
+import dev.hurtify.relicsaddon.server.ShieldEffectGuard;
 import dev.hurtify.relicsaddon.server.ShieldStrike;
 import dev.hurtify.relicsaddon.shield.ShieldField;
 import dev.hurtify.relicsaddon.shield.ShieldImpact;
@@ -20,6 +21,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageType;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
@@ -106,6 +108,33 @@ public final class ShieldDefenseGameTests {
             helper.assertTrue(start - DeviceTestSupport.integrity(shield) == 4, "After the window a new hit is paid again");
             helper.succeed();
         });
+    }
+
+    @GameTest(template = TEMPLATE)
+    public static void attackersEffectsAreCutOff(GameTestHelper helper) {
+        ServerPlayer player = DeviceTestSupport.player(helper);
+        ItemStack shield = DeviceTestSupport.equip(helper, player, RelicRole.MANA_SHIELD, 0);
+        Zombie zombie = zombie(helper, player.position().add(3, 0, 0));
+        int charge = DevicePower.energy(shield).mana();
+        helper.assertFalse(player.addEffect(new MobEffectInstance(MobEffects.POISON, 200, 1), zombie), "An attacker's poison is cut off");
+        helper.assertFalse(player.hasEffect(MobEffects.POISON), "No poison reaches the wearer");
+        helper.assertTrue(DevicePower.energy(shield).mana() < charge, "Cutting an effect costs charge");
+        helper.assertTrue(player.addEffect(new MobEffectInstance(MobEffects.WITHER, 100), null), "Effects nobody cast (a wither rose) still apply");
+        helper.assertTrue(player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 100), zombie), "Helpful effects pass");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE)
+    public static void aPartlyStoppedHitTrimsItsEffect(GameTestHelper helper) {
+        ServerPlayer player = DeviceTestSupport.player(helper);
+        DeviceTestSupport.equip(helper, player, RelicRole.RF_SHIELD, 0);
+        Zombie zombie = zombie(helper, player.position().add(3, 0, 0));
+        // The field stopped 6 of 8 damage in this tick, so a quarter of the hit got through.
+        ShieldEffectGuard.recordHit(player, zombie, 6, 2);
+        player.addEffect(new MobEffectInstance(MobEffects.WITHER, 200), zombie);
+        MobEffectInstance wither = player.getEffect(MobEffects.WITHER);
+        helper.assertTrue(wither != null && wither.getDuration() == 50, "A quarter of the wither stays: " + (wither == null ? "none" : wither.getDuration()));
+        helper.succeed();
     }
 
     @GameTest(template = TEMPLATE)

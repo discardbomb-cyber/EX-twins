@@ -58,6 +58,8 @@
   "message.relics_addon.shield_enabled": "Shield enabled.",
   "message.relics_addon.shield_disabled": "Shield disabled.",
   "message.relics_addon.shield_blocked": "Absorbed %s damage. Buffer: %s/%s. Cell: %s/%s HP",
+  "message.relics_addon.shield_effect_cut": "The field cut off %s",
+  "message.relics_addon.shield_effect_trimmed": "The field shortened %s",
   "message.relics_addon.hive_enabled": "Hive enabled.",
   "message.relics_addon.hive_disabled": "Hive disabled.",
   "upgrade.relics_addon.rf_shield.damage_distribution": "Conductive Network",

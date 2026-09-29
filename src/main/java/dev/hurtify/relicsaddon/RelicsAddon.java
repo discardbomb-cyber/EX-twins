@@ -28,6 +28,7 @@ public final class RelicsAddon {
         modEventBus.addListener(dev.hurtify.relicsaddon.power.DeviceEnergyStorage::register);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.power.DevicePower::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(ShieldController::onIncomingDamage);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.ShieldEffectGuard::onEffectApplicable);
         NeoForge.EVENT_BUS.addListener(ShieldController::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.ShieldBarrier::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(ShieldProjectileInterceptor::onEntityTick);
