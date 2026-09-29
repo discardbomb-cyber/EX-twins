@@ -12,6 +12,15 @@ base {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
+configurations {
+    // LambDynamicLights is optional: compiled against, and loaded only by the development clients below.
+    dynamicLightsRuntime {
+        canBeConsumed = false
+        canBeResolved = true
+        attributes { attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME)) }
+    }
+}
+
 sourceSets {
     releaseProbe
     // GameTests under gametest/** compile with the mod and run with runGameTestServer;
@@ -139,6 +148,13 @@ neoForge {
     runs.releaseCheckClient.loadedMods = [mods.release_probe]
     runs.configureEach {
         if (name != 'releaseCheckClient') loadedMods = [mods.getByName(mod_id)]
+        // Servers and the packaged-jar check run without it, so they prove the mod never needs it.
+        // FML finds development mods on the JVM classpath; the run's additionalRuntimeClasspath would make
+        // it a boot-layer library that mod discovery then skips as already located.
+        if (type.get() == 'client' && name != 'releaseCheckClient') {
+            def runTask = "run${name.capitalize()}"
+            tasks.matching { it.name == runTask }.configureEach { classpathProvider.from(configurations.dynamicLightsRuntime) }
+        }
     }
 }
 
@@ -153,14 +169,37 @@ repositories {
         url = "https://maven.firstdark.dev/snapshots"
         content { includeGroupByRegex 'com\\.lowdragmc.*' }
     }
+    maven {
+        name = "Gegy"
+        url = "https://maven.gegy.dev/releases/"
+        content { includeGroup "dev.lambdaurora.lambdynamiclights" }
+    }
+}
+
+// LambDynamicLights publishes Fabric (intermediary), NeoForge (mojmap) and a shadowed dev jar side by side;
+// only the unshadowed mojmap variant carries the nested jars NeoForge needs.
+def mappingsAttribute = Attribute.of('net.minecraft.mappings', String)
+def neoForgeVariant = { AttributeContainer attributes ->
+    attributes.attribute(mappingsAttribute, 'mojmap')
+    attributes.attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling, Bundling.EXTERNAL))
 }
 
 dependencies {
+    attributesSchema { attribute(mappingsAttribute) }
     testImplementation 'com.google.code.gson:gson:2.10.1'
     implementation "top.theillusivec4.curios:curios-neoforge:${curios_version}"
     implementation("com.lowdragmc.photon:photon-neoforge-1.21.1:${photon_version}:all") { transitive = false }
     implementation "com.lowdragmc.ldlib2:ldlib2-neoforge-1.21.1:${ldlib2_version}:all"
     implementation "com.lowdragmc.kilagraph:kilagraph-neoforge-1.21.1:${kilagraph_version}"
+    compileOnly("dev.lambdaurora.lambdynamiclights:lambdynamiclights-api:${lambdynamiclights_version}") {
+        attributes(neoForgeVariant)
+        transitive = false
+    }
+    // The runtime jar nests its API, SpruceUI, Pridelib and Yumi, which FML unpacks itself.
+    dynamicLightsRuntime("dev.lambdaurora.lambdynamiclights:lambdynamiclights-runtime:${lambdynamiclights_version}") {
+        attributes(neoForgeVariant)
+        transitive = false
+    }
 }
 
 sourceSets.main.resources {
@@ -217,7 +256,22 @@ tasks.named('check') {
     dependsOn 'verifyNetworkCodecs'
     dependsOn 'verifyHiveFormation'
     dependsOn 'verifyHiveLayers'
+    dependsOn 'verifyEffectLights'
+    dependsOn 'verifyEffectLightSources'
     dependsOn 'verifyReleaseContents'
+}
+
+tasks.register('verifyEffectLights', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.client.EffectLightsCheck'
+}
+
+// Runs against the LambDynamicLights API jar the mod compiles with, without the rest of the mod.
+tasks.register('verifyEffectLightSources', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.client.light.EffectLightPoolCheck'
 }
 
 tasks.register('verifyHiveLayers', JavaExec) {

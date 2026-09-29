@@ -43,3 +43,15 @@ type="required"
 versionRange="[${ldlib2_version},)"
 ordering="AFTER"
 side="BOTH"
+
+# Optional: with LambDynamicLights installed, shields, swarm effects and blasts light up the world.
+[[dependencies.${mod_id}]]
+modId="lambdynlights_api"
+type="optional"
+versionRange="[4.0.0,)"
+ordering="NONE"
+side="CLIENT"
+
+# LambDynamicLights loads this class itself; nothing else in the mod refers to its package.
+[modproperties.${mod_id}."yumi:entrypoints"]
+"lambdynlights:initializer"="dev.hurtify.relicsaddon.client.light.DynamicLightsBridge"
