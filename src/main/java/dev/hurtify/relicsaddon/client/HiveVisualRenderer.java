@@ -141,6 +141,12 @@ public final class HiveVisualRenderer {
                     if (tick - fade.changedAt() < 10) retained.add(old);
                 }
             }
+            if (cached != null && cached.level() == level && player.level() instanceof net.minecraft.world.level.Level world) {
+                for (HiveType type : HiveType.values()) {
+                    boolean was = cached.present().contains(type), is = present.contains(type);
+                    if (was != is) dev.hurtify.relicsaddon.client.fx.ExFx.hiveSummon(world, player, type, is);
+                }
+            }
             cached = new EquippedCache(tick, level, List.copyOf(retained), present);
             ACTIVE.put(player, cached);
         }

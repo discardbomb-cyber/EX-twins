@@ -81,6 +81,7 @@ public final class ShieldVisualRenderer {
                 ShieldImpactHistory authoritative = shield.getOrDefault(ModDataComponents.SHIELD_IMPACTS.get(), ShieldImpactHistory.EMPTY);
                 List<ShieldImpact> waves = trackImpacts(player.getUUID(), authoritative.impacts(),
                         shield.get(ModDataComponents.SHIELD_IMPACT.get()), level.getGameTime());
+                spawnImpactEffects(level, player, shield, shieldRole(shield), state);
                 renderShield(player, shield, shieldRole(shield), state, waves,
                         ShieldThreatTracker.threats(player.getUUID()), level.getGameTime(), partialTick, camera, consumer, matrix, quality);
             } else {
@@ -125,13 +126,31 @@ public final class ShieldVisualRenderer {
                 && Math.abs(a.distance() - b.distance()) < 1e-4D && a.absorbed() == b.absorbed();
     }
 
+    /** Photon sparks, shards and the collapse nova for hits first seen this frame. */
+    private static void spawnImpactEffects(ClientLevel level, AbstractClientPlayer player, ItemStack shield, RelicRole role, ShieldStackState state) {
+        ImpactCache cache = IMPACT_WAVES.get(player.getUUID());
+        if (cache == null || cache.fresh.isEmpty()) return;
+        Vec3 center = player.position().add(0, SHELL_CENTER_Y, 0);
+        double radius = ShieldParameters.radius(player, shield);
+        for (ShieldImpact impact : cache.fresh) {
+            if (level.getGameTime() - impact.gameTime() > 3) continue;
+            Vec3 point = center.add(impact.normal().scale(impact.distance() >= 0 ? impact.distance() : radius));
+            if (impact.absorbed() > 0) dev.hurtify.relicsaddon.client.fx.ExFx.shieldAbsorb(level, point, impact.normal(), role, impact.absorbed());
+            if (impact.broken()) dev.hurtify.relicsaddon.client.fx.ExFx.shieldCellBreak(level, point, impact.normal(), role);
+        }
+        if (state.totalIntegrity() == 0) dev.hurtify.relicsaddon.client.fx.ExFx.shieldCollapse(level, center, radius, role);
+        cache.fresh.clear();
+    }
+
     private static final class ImpactCache {
         final ArrayDeque<ShieldImpact> waves = new ArrayDeque<>();
+        final List<ShieldImpact> fresh = new ArrayList<>();
         List<ShieldImpact> observed = List.of();
 
         void add(ShieldImpact impact) {
             if (impact == null) return;
             waves.addLast(impact);
+            fresh.add(impact);
             while (waves.size() > MAX_IMPACT_WAVES) waves.removeFirst();
         }
     }

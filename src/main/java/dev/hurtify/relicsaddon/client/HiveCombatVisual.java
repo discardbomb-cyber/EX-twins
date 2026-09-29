@@ -50,27 +50,39 @@ public final class HiveCombatVisual {
         }
     }
 
+    /**
+     * Shots are Photon effects now: each synchronized shot starts its beam, bolt or lightning once,
+     * and its impact flash fires when the shot lands. Keys expire with the shot, so replays of the
+     * same synchronized list never duplicate an effect.
+     */
     public static void renderShots(List<HiveCombatState.Shot> shots, Vec3 camera, MultiBufferSource buffers, Matrix4f matrix, double time) {
-        if (shots.isEmpty()) return;
-        VertexConsumer consumer = buffers.getBuffer(TYPE);
+        var level = net.minecraft.client.Minecraft.getInstance().level;
+        if (level == null) return;
+        long now = level.getGameTime();
+        SHOT_FX.values().removeIf(state -> now - state[0] > 200);
         for (HiveCombatState.Shot shot : shots) {
-            double age = time - shot.firedAt();
-            boolean bolt = shot.kind() == 1 || shot.kind() == 3;
-            if (age < 0 || (bolt ? time > shot.impactAt() + 3 : age > 4)) continue;
+            if (time < shot.firedAt()) continue;
+            long key = shot.firedAt() * 1_000_003L + shot.unit() * 31L + shot.kind()
+                    + Double.doubleToLongBits(shot.startX() + shot.startZ() * 3);
+            long[] state = SHOT_FX.get(key);
             Vec3 start = new Vec3(shot.startX(), shot.startY(), shot.startZ());
             Vec3 end = new Vec3(shot.endX(), shot.endY(), shot.endZ());
-            int color = switch (shot.kind()) { case 0 -> 0x38E8FF; case 1 -> 0x46A9FF; case 2, 3 -> 0xB151FF; default -> 0xFFFFFF; };
-            if (bolt) {
-                double travel = Math.clamp(age / Math.max(1.0, shot.impactAt() - shot.firedAt()), 0, 1);
-                Vec3 head = start.lerp(end, travel);
-                Vec3 tail = start.lerp(end, Math.max(0, travel - .18));
-                line(consumer, matrix, tail, head, camera, color, 175);
-                cross(consumer, matrix, head, camera, .10, color, 220);
-            } else {
-                lightning(consumer, matrix, start, end, camera, color, 190, shot.firedAt());
+            HiveType type = switch (shot.kind()) { case 0 -> HiveType.RF; case 1 -> HiveType.MANA; default -> HiveType.TWINS; };
+            if (state == null) {
+                if (time - shot.firedAt() > 20) continue;
+                state = new long[]{now, 0};
+                SHOT_FX.put(key, state);
+                int travel = (int) Math.max(1, shot.impactAt() - shot.firedAt());
+                dev.hurtify.relicsaddon.client.fx.ExFx.hiveShot(level, start, end, type, shot.kind(), travel);
+            }
+            if (state[1] == 0 && time >= shot.impactAt()) {
+                state[1] = 1;
+                dev.hurtify.relicsaddon.client.fx.ExFx.hiveImpact(level, end, type, shot.kind());
             }
         }
     }
+
+    private static final java.util.Map<Long, long[]> SHOT_FX = new java.util.HashMap<>();
 
     public static RenderType renderType() { return TYPE; }
 
@@ -103,27 +115,6 @@ public final class HiveCombatVisual {
             line(c, m, previous, next, camera, rgb, alpha);
             previous = next;
         }
-    }
-
-    private static void lightning(VertexConsumer c, Matrix4f m, Vec3 start, Vec3 end, Vec3 camera, int rgb, int alpha, long seed) {
-        Vec3 delta = end.subtract(start);
-        Vec3 sideways = delta.cross(new Vec3(0, 1, 0));
-        if (sideways.lengthSqr() < 1e-4) sideways = delta.cross(new Vec3(1, 0, 0));
-        sideways = sideways.normalize();
-        Vec3 previous = start;
-        for (int step = 1; step <= 5; step++) {
-            double t = step / 5.0;
-            double wobble = step == 5 ? 0 : ((((seed + step * 17) & 7) - 3.5) * .045);
-            Vec3 next = start.lerp(end, t).add(sideways.scale(wobble));
-            line(c, m, previous, next, camera, rgb, alpha);
-            previous = next;
-        }
-    }
-
-    private static void cross(VertexConsumer c, Matrix4f m, Vec3 center, Vec3 camera, double size, int rgb, int alpha) {
-        line(c, m, center.add(-size, 0, 0), center.add(size, 0, 0), camera, rgb, alpha);
-        line(c, m, center.add(0, -size, 0), center.add(0, size, 0), camera, rgb, alpha);
-        line(c, m, center.add(0, 0, -size), center.add(0, 0, size), camera, rgb, alpha);
     }
 
     private static int[] nearest(List<Vec3> points, int index, int limit) {
