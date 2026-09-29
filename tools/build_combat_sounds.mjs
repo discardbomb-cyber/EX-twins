@@ -1,0 +1,379 @@
+#!/usr/bin/env node
+// Deterministic, original combat and console sounds for EX-twins, encoded as mono Ogg Vorbis.
+//
+// Everything is synthesized here (FM voices, filtered noise, chirps, short reverb); nothing is
+// sampled from other works. Encoding uses a WASM Vorbis encoder, so no ffmpeg/oggenc/Python is
+// needed:  cd tools && npm install && node build_combat_sounds.mjs [--validate] [--wav-only]
+import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createOggEncoder } from "wasm-media-encoders";
+import { OggVorbisDecoder } from "@wasm-audio-decoders/ogg-vorbis";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ASSETS = join(ROOT, "src/main/resources/assets/relics_addon");
+const OUT = join(ASSETS, "sounds/combat");
+const WAV_OUT = join(ROOT, "work/sound-preview");
+const RATE = 48_000;
+const TAU = Math.PI * 2;
+
+// name, family, seconds. Names must match sounds.json (relics_addon:combat/<name>).
+const SPECS = [
+  ["rf_attack_1", "rf_attack", .26], ["rf_attack_2", "rf_attack", .30],
+  ["rf_impact_1", "rf_impact", .22], ["rf_impact_2", "rf_impact", .26],
+  ["mana_attack_1", "mana_attack", .46], ["mana_attack_2", "mana_attack", .52],
+  ["mana_impact_1", "mana_impact", .42], ["mana_impact_2", "mana_impact", .48],
+  ["twins_lightning_attack_1", "twins_lightning", .34], ["twins_lightning_attack_2", "twins_lightning", .38],
+  ["twins_bolt_attack_1", "twins_bolt", .44], ["twins_bolt_attack_2", "twins_bolt", .50],
+  ["twins_lightning_impact_1", "twins_lightning_hit", .28], ["twins_lightning_impact_2", "twins_lightning_hit", .32],
+  ["twins_bolt_impact_1", "twins_bolt_hit", .38], ["twins_bolt_impact_2", "twins_bolt_hit", .42],
+  ["rf_summon", "rf_summon", .70], ["rf_dismiss", "rf_dismiss", .45],
+  ["mana_summon", "mana_summon", .85], ["mana_dismiss", "mana_dismiss", .55],
+  ["twins_summon", "twins_summon", .95], ["twins_dismiss", "twins_dismiss", .60],
+  ["shield_rf_absorb_1", "shield_absorb:rf", .22], ["shield_rf_absorb_2", "shield_absorb:rf", .26],
+  ["shield_rf_cell_break", "shield_break:rf", .45], ["shield_rf_collapse", "shield_collapse:rf", 1.1],
+  ["shield_mana_absorb_1", "shield_absorb:mana", .32], ["shield_mana_absorb_2", "shield_absorb:mana", .36],
+  ["shield_mana_cell_break", "shield_break:mana", .55], ["shield_mana_collapse", "shield_collapse:mana", 1.25],
+  ["shield_twins_absorb_1", "shield_absorb:twins", .30], ["shield_twins_absorb_2", "shield_absorb:twins", .34],
+  ["shield_twins_cell_break", "shield_break:twins", .52], ["shield_twins_collapse", "shield_collapse:twins", 1.3],
+  ["shield_mana_ripple", "shield_ripple:mana", .70], ["shield_twins_ripple", "shield_ripple:twins", .75],
+  ["ui_toggle", "ui_toggle", .20], ["ui_upgrade", "ui_upgrade", .55],
+  ["ui_module_insert", "ui_module_insert", .24], ["ui_module_remove", "ui_module_remove", .22],
+];
+
+// Base pitch per family: RF is metallic and bright, Mana glassy and high, Twins dark and low.
+const PALETTE = {
+  rf: { pitch: 880, ratio: 1.414, index: 2.6 },
+  mana: { pitch: 1318, ratio: 3.5, index: 1.4 },
+  twins: { pitch: 330, ratio: 1.5, index: 3.2 },
+};
+
+function rng(name) {
+  let state = createHash("sha256").update(name).digest().readUInt32LE(0) || 1;
+  return () => {
+    state |= 0; state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+class Voice {
+  constructor(seconds, name) {
+    this.n = Math.max(1, Math.round(seconds * RATE));
+    this.out = new Float64Array(this.n);
+    this.random = rng(name);
+  }
+  gauss() { return Math.sqrt(-2 * Math.log(this.random() + 1e-12)) * Math.cos(TAU * this.random()); }
+  noise() { const b = new Float64Array(this.n); for (let i = 0; i < this.n; i++) b[i] = this.gauss(); return b; }
+  add(buffer, gain = 1, offset = 0) {
+    const start = Math.round(offset * RATE);
+    for (let i = 0; i < buffer.length && start + i < this.n; i++) if (start + i >= 0) this.out[start + i] += buffer[i] * gain;
+    return this;
+  }
+}
+
+const env = (n, attack, decay, hold = 0) => {
+  const b = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const t = i / RATE;
+    const a = Math.min(1, t / Math.max(attack, 1e-4));
+    b[i] = a * (t < attack + hold ? 1 : Math.exp(-(t - attack - hold) / decay));
+  }
+  return b;
+};
+const mul = (a, b) => a.map((v, i) => v * (b[i] ?? 0));
+// Phase-accumulating oscillator with a frequency function f(t); shape: sine | saw | square.
+function osc(n, freq, shape = "sine", phase = 0) {
+  const b = new Float64Array(n);
+  let p = phase;
+  for (let i = 0; i < n; i++) {
+    const f = typeof freq === "function" ? freq(i / RATE, i / n) : freq;
+    p += f / RATE;
+    const x = p - Math.floor(p);
+    b[i] = shape === "saw" ? 2 * x - 1 : shape === "square" ? (x < .5 ? 1 : -1) : Math.sin(TAU * x);
+  }
+  return b;
+}
+// Two-operator FM; the index envelope makes strikes bright at first and pure as they decay.
+function fm(n, carrier, ratio, index, indexDecay = .12) {
+  const b = new Float64Array(n);
+  let pc = 0, pm = 0;
+  for (let i = 0; i < n; i++) {
+    const t = i / RATE;
+    const f = typeof carrier === "function" ? carrier(t, i / n) : carrier;
+    pm += f * ratio / RATE; pc += f / RATE;
+    b[i] = Math.sin(TAU * pc + index * Math.exp(-t / indexDecay) * Math.sin(TAU * pm));
+  }
+  return b;
+}
+// Inharmonic bell/glass partials.
+function bell(n, base, partials = [1, 2.76, 5.4, 8.93], decay = .25) {
+  const b = new Float64Array(n);
+  partials.forEach((ratio, k) => {
+    const d = decay / (1 + k * .8);
+    for (let i = 0; i < n; i++) { const t = i / RATE; b[i] += Math.sin(TAU * base * ratio * t) * Math.exp(-t / d) / (1 + k * .6); }
+  });
+  return b;
+}
+function lowpass(buffer, cutoff) {
+  const b = new Float64Array(buffer.length); let y = 0;
+  for (let i = 0; i < buffer.length; i++) {
+    const c = typeof cutoff === "function" ? cutoff(i / RATE, i / buffer.length) : cutoff;
+    const a = 1 - Math.exp(-TAU * c / RATE); y += a * (buffer[i] - y); b[i] = y;
+  }
+  return b;
+}
+const highpass = (buffer, cutoff) => { const low = lowpass(buffer, cutoff); return buffer.map((v, i) => v - low[i]); };
+// Resonant state-variable bandpass for swept noise.
+function bandpass(buffer, center, q = 4) {
+  const b = new Float64Array(buffer.length); let low = 0, band = 0;
+  for (let i = 0; i < buffer.length; i++) {
+    const c = typeof center === "function" ? center(i / RATE, i / buffer.length) : center;
+    const f = 2 * Math.sin(Math.PI * Math.min(c, RATE / 6) / RATE);
+    low += f * band; const high = buffer[i] - low - band / q; band += f * high; b[i] = band;
+  }
+  return b;
+}
+// Poisson crackle: sparse, randomly signed clicks with tiny ring-outs.
+function crackle(voice, density, decay = .0015) {
+  const b = new Float64Array(voice.n);
+  for (let i = 0; i < voice.n; i++) {
+    if (voice.random() < density(i / RATE, i / voice.n) / RATE) {
+      const amp = (voice.random() < .5 ? -1 : 1) * (.4 + voice.random() * .6);
+      for (let k = 0; k < RATE * decay * 6 && i + k < voice.n; k++) b[i + k] += amp * Math.exp(-k / (RATE * decay));
+    }
+  }
+  return b;
+}
+// Small Schroeder reverb for air around the magical families.
+function reverb(buffer, mix = .25, size = 1) {
+  const combs = [1557, 1617, 1491, 1422].map(d => Math.round(d * size));
+  const wet = new Float64Array(buffer.length);
+  for (const d of combs) {
+    const line = new Float64Array(d); let idx = 0;
+    for (let i = 0; i < buffer.length; i++) { const y = line[idx]; line[idx] = buffer[i] + y * .78; idx = (idx + 1) % d; wet[i] += y / combs.length; }
+  }
+  for (const d of [225, 556].map(v => Math.round(v * size))) {
+    const line = new Float64Array(d); let idx = 0;
+    for (let i = 0; i < wet.length; i++) { const x = wet[i], y = line[idx]; line[idx] = x + y * .5; wet[i] = y - x * .5; idx = (idx + 1) % d; }
+  }
+  return buffer.map((v, i) => v * (1 - mix) + wet[i] * mix);
+}
+
+function synthesize(name, family, seconds) {
+  const v = new Voice(seconds, name);
+  const n = v.n;
+  const variant = /_2$/.test(name) ? 1 : 0;
+  const detune = 1 + (variant ? .06 : 0) + (v.random() - .5) * .02;
+  const [kind, flavor] = family.split(":");
+  const p = PALETTE[flavor] ?? PALETTE[family.split("_")[0]] ?? PALETTE.rf;
+  let space = 0;
+
+  switch (kind) {
+    case "rf_attack": {
+      // Coil discharge: a falling FM zap over a buzzing square body and spitting crackle.
+      v.add(mul(fm(n, t => 2600 * detune * Math.exp(-t * 14) + 260, 1.41, 4, .05), env(n, .002, .07)), .55);
+      v.add(mul(lowpass(osc(n, 118 * detune, "square"), 2400), env(n, .004, .09)), .22);
+      v.add(highpass(crackle(v, (t, x) => 2600 * (1 - x)), 1800), .5);
+      break;
+    }
+    case "rf_impact": {
+      v.add(mul(osc(n, t => 150 * Math.exp(-t * 18) + 48), env(n, .001, .06)), .8);
+      v.add(mul(bandpass(v.noise(), t => 3200 * Math.exp(-t * 6) + 900, 3), env(n, .001, .05)), .35);
+      v.add(highpass(crackle(v, (t, x) => 1800 * (1 - x) ** 2), 2500), .45);
+      break;
+    }
+    case "mana_attack": {
+      // Rising air swell with a glassy arpeggio riding on top.
+      v.add(mul(bandpass(v.noise(), (t, x) => 500 + 3800 * x, 6), env(n, seconds * .45, .1)), .25);
+      [1, 1.26, 1.5].forEach((step, k) => v.add(mul(fm(n, p.pitch * .5 * step * detune, 3.5, 1.1, .2), env(n, .004, .12)), .28, k * .045));
+      space = .3;
+      break;
+    }
+    case "mana_impact": {
+      v.add(bell(n, p.pitch * .75 * detune, [1, 2.76, 5.4, 8.93], .22), .5);
+      v.add(mul(bandpass(v.noise(), 5200, 2), env(n, .001, .03)), .3);
+      v.add(mul(osc(n, t => 220 * Math.exp(-t * 9) + 80), env(n, .002, .07)), .35);
+      space = .35;
+      break;
+    }
+    case "twins_lightning": {
+      // Violent branching crackle with a low bloom underneath.
+      v.add(highpass(crackle(v, (t, x) => 9000 * Math.exp(-x * 3), .0009), 900), .7);
+      v.add(mul(bandpass(v.noise(), t => 2400 * Math.exp(-t * 5) + 400, 2.5), env(n, .002, .08)), .35);
+      v.add(mul(osc(n, t => 62 * detune + 20 * Math.exp(-t * 12)), env(n, .006, .16)), .5);
+      space = .2;
+      break;
+    }
+    case "twins_lightning_hit": {
+      v.add(highpass(crackle(v, (t, x) => 6000 * (1 - x) ** 3, .0012), 1200), .6);
+      v.add(mul(osc(n, t => 110 * Math.exp(-t * 14) + 40), env(n, .001, .09)), .75);
+      space = .2;
+      break;
+    }
+    case "twins_bolt": {
+      // Dark detuned saws swept down, with a rune tremolo.
+      const body = osc(n, t => (180 - 90 * t / seconds) * detune, "saw").map((x, i) => x + osc(n, t => (182 - 92 * t / seconds) * detune, "saw")[i]);
+      const trem = osc(n, 13).map(x => .65 + .35 * x);
+      v.add(mul(mul(lowpass(body, (t, x) => 2600 - 1800 * x), trem), env(n, .03, .18)), .32);
+      v.add(mul(fm(n, 440 * detune, 1.5, 2.4, .12), env(n, .01, .1)), .2);
+      space = .35;
+      break;
+    }
+    case "twins_bolt_hit": {
+      v.add(bell(n, 196 * detune, [1, 2.4, 3.9, 6.2], .2), .5);
+      v.add(mul(bandpass(v.noise(), t => 1500 * Math.exp(-t * 7) + 300, 3), env(n, .002, .07)), .4);
+      space = .35;
+      break;
+    }
+    case "rf_summon": case "mana_summon": case "twins_summon":
+    case "rf_dismiss": case "mana_dismiss": case "twins_dismiss": {
+      // Hive deploy is a rising charge with a closing chord; recall is the reverse.
+      const up = kind.endsWith("summon");
+      const base = p.pitch * (flavor === "twins" || kind.startsWith("twins") ? 1 : .5);
+      const glide = (t, x) => base * (up ? .5 + .5 * x : 1 - .5 * x);
+      v.add(mul(fm(n, glide, p.ratio, p.index, .4), env(n, up ? seconds * .7 : .01, up ? .12 : seconds * .35)), .35);
+      v.add(mul(bandpass(v.noise(), (t, x) => 300 + 3000 * (up ? x : 1 - x), 5), env(n, up ? seconds * .6 : .01, .2)), .22);
+      if (up) [1, 1.25, 1.5].forEach(step => v.add(mul(osc(n - Math.round(seconds * .62 * RATE), base * step), env(n, .01, .16)), .18, seconds * .62));
+      if (kind.startsWith("rf")) v.add(highpass(crackle(v, (t, x) => 900 * (up ? x : 1 - x)), 2000), .3);
+      space = kind.startsWith("rf") ? .15 : .35;
+      break;
+    }
+    case "shield_absorb": {
+      // Energy thud plus a resonant ping in the shield's material colour.
+      v.add(mul(osc(n, t => 170 * Math.exp(-t * 20) + 55), env(n, .001, .05)), .6);
+      v.add(mul(fm(n, p.pitch * detune, p.ratio, p.index, .04), env(n, .001, flavor === "twins" ? .12 : .08)), .38);
+      if (flavor === "rf") v.add(highpass(crackle(v, (t, x) => 1500 * (1 - x) ** 2), 2500), .35);
+      if (flavor === "twins") v.add(mul(fm(n, p.pitch * 1.005 * detune, p.ratio, p.index, .05), env(n, .001, .12)), .3);
+      space = flavor === "rf" ? .1 : .3;
+      break;
+    }
+    case "shield_break": {
+      // Shatter: dozens of tiny bell grains scattered over the first third, over a crack.
+      v.add(mul(bandpass(v.noise(), t => 4200 * Math.exp(-t * 4) + 700, 1.5), env(n, .001, .06)), .5);
+      for (let g = 0; g < 28; g++) {
+        const at = v.random() * seconds * .35, len = Math.round(.12 * RATE);
+        v.add(bell(len, p.pitch * (1 + v.random() * 2.5), [1, 2.76, 5.4], .035), .08, at);
+      }
+      v.add(mul(osc(n, t => 120 * Math.exp(-t * 10) + 40), env(n, .001, .1)), .45);
+      space = .3;
+      break;
+    }
+    case "shield_collapse": {
+      v.add(mul(fm(n, (t, x) => p.pitch * .5 * (1 - .8 * x), p.ratio, p.index, .6), env(n, .01, seconds * .4)), .35);
+      v.add(mul(lowpass(v.noise(), (t, x) => 1800 * (1 - x) + 120), env(n, .02, seconds * .45)), .45);
+      v.add(mul(osc(n, t => 70 * Math.exp(-t * 1.5) + 32), env(n, .01, seconds * .5)), .6);
+      for (let g = 0; g < 18; g++) v.add(bell(Math.round(.15 * RATE), p.pitch * (.8 + v.random() * 2), [1, 2.76, 5.4], .05), .07, v.random() * seconds * .3);
+      space = .4;
+      break;
+    }
+    case "shield_ripple": {
+      // Soft "woob": a vibrato sine and a breathing noise band travelling down, like a bent pane.
+      const base = flavor === "mana" ? 520 : 240;
+      const wob = (t, x) => base * (1.15 - .4 * x) * (1 + .06 * Math.sin(TAU * (9 - 5 * x) * t));
+      v.add(mul(osc(n, wob), env(n, .05, seconds * .3)), .45);
+      v.add(mul(bandpass(v.noise(), (t, x) => base * 4 * (1 - .6 * x), 8), env(n, .08, seconds * .25)), .3);
+      if (flavor === "twins") v.add(mul(osc(n, (t, x) => base * .5 * (1.1 - .3 * x)), env(n, .06, seconds * .3)), .3);
+      space = .45;
+      break;
+    }
+    case "ui_toggle": {
+      v.add(mul(osc(n, 660), env(n, .002, .03)), .4);
+      v.add(mul(osc(n - Math.round(.07 * RATE), 990), env(n, .002, .05)), .4, .07);
+      v.add(mul(highpass(v.noise(), 4000), env(n, .0005, .006)), .25);
+      break;
+    }
+    case "ui_upgrade": {
+      [1, 1.26, 1.5, 2].forEach((step, k) => v.add(mul(fm(n, 523 * step, 2, 1.2, .08), env(n, .003, .12)), .22, k * .07));
+      v.add(mul(bandpass(v.noise(), (t, x) => 2000 + 6000 * x, 6), env(n, seconds * .5, .1)), .12);
+      space = .3;
+      break;
+    }
+    case "ui_module_insert": case "ui_module_remove": {
+      // Mechanical latch: a knock and a pitched click, rising on insert and falling on removal.
+      const up = kind === "ui_module_insert";
+      v.add(mul(osc(n, t => 240 * Math.exp(-t * 30) + 90), env(n, .001, .03)), .6);
+      v.add(mul(bandpass(v.noise(), 2600, 5), env(n, .0005, .012)), .5, up ? .06 : 0);
+      v.add(mul(osc(n, t => (up ? 700 + 1600 * t : 1400 - 1600 * t)), env(n, .002, .04)), .22, up ? .07 : .02);
+      break;
+    }
+    default:
+      throw new Error(`Unhandled family ${family}`);
+  }
+
+  let out = space > 0 ? reverb(v.out, space, flavor === "twins" ? 1.2 : 1) : v.out;
+  // Zero DC, normalise below full scale, and force click-free edges.
+  const mean = out.reduce((a, b) => a + b, 0) / out.length;
+  out = out.map(x => x - mean);
+  const peak = out.reduce((a, b) => Math.max(a, Math.abs(b)), 0);
+  const gain = peak ? .8 / peak : 0;
+  const fade = Math.min(Math.round(RATE * .012), Math.floor(n / 3));
+  return Float32Array.from(out, (x, i) => x * gain * Math.min(1, i / fade, (n - 1 - i) / fade));
+}
+
+function wav(samples) {
+  const data = Buffer.alloc(samples.length * 2);
+  samples.forEach((x, i) => data.writeInt16LE(Math.max(-32768, Math.min(32767, Math.round(x * 32767))), i * 2));
+  const header = Buffer.alloc(44);
+  header.write("RIFF", 0); header.writeUInt32LE(36 + data.length, 4); header.write("WAVEfmt ", 8);
+  header.writeUInt32LE(16, 16); header.writeUInt16LE(1, 20); header.writeUInt16LE(1, 22);
+  header.writeUInt32LE(RATE, 24); header.writeUInt32LE(RATE * 2, 28); header.writeUInt16LE(2, 32); header.writeUInt16LE(16, 34);
+  header.write("data", 36); header.writeUInt32LE(data.length, 40);
+  return Buffer.concat([header, data]);
+}
+
+async function encode(samples) {
+  const encoder = await createOggEncoder();
+  encoder.configure({ channels: 1, sampleRate: RATE, vbrQuality: 5 });
+  const chunks = [];
+  // The encoder reuses its output buffer, so every chunk is copied.
+  for (let i = 0; i < samples.length; i += 8192) chunks.push(Buffer.from(encoder.encode([samples.subarray(i, i + 8192)])));
+  chunks.push(Buffer.from(encoder.finalize()));
+  return Buffer.concat(chunks);
+}
+
+async function validate() {
+  const decoder = new OggVorbisDecoder();
+  await decoder.ready;
+  const sounds = JSON.parse(readFileSync(join(ASSETS, "sounds.json"), "utf8"));
+  const referenced = new Set(Object.values(sounds).flatMap(e => e.sounds.map(s => (typeof s === "string" ? s : s.name).split(":")[1])));
+  const problems = [];
+  for (const path of referenced) {
+    const file = join(ASSETS, "sounds", `${path}.ogg`);
+    if (!existsSync(file)) { problems.push(`missing ${path}.ogg`); continue; }
+    decoder.reset && await decoder.reset();
+    const { channelData, sampleRate, errors } = await decoder.decodeFile(new Uint8Array(readFileSync(file)));
+    const pcm = channelData[0];
+    const peak = pcm.reduce((a, b) => Math.max(a, Math.abs(b)), 0);
+    const dc = pcm.reduce((a, b) => a + b, 0) / pcm.length;
+    if (errors?.length) problems.push(`${path}: decode errors`);
+    if (channelData.length !== 1) problems.push(`${path}: ${channelData.length} channels (positional sounds must be mono)`);
+    if (sampleRate !== RATE) problems.push(`${path}: ${sampleRate} Hz`);
+    if (peak > .99 || peak < .2) problems.push(`${path}: peak ${peak.toFixed(3)}`);
+    if (Math.abs(dc) > .01) problems.push(`${path}: dc ${dc.toFixed(4)}`);
+  }
+  const lang = ["en_us", "ru_ru"].map(l => JSON.parse(readFileSync(join(ASSETS, `lang/${l}.json`), "utf8")));
+  for (const [event, entry] of Object.entries(sounds)) {
+    if (entry.subtitle && lang.some(l => !l[entry.subtitle])) problems.push(`${event}: subtitle ${entry.subtitle} missing in lang`);
+  }
+  decoder.free();
+  if (problems.length) { console.error(problems.join("\n")); process.exit(1); }
+  console.log(`Validated ${referenced.size} sound files: mono ${RATE} Hz, bounded peak, no DC, subtitles present.`);
+}
+
+async function main() {
+  const args = new Set(process.argv.slice(2));
+  if (args.has("--validate")) return validate();
+  const wavOnly = args.has("--wav-only");
+  mkdirSync(wavOnly ? WAV_OUT : OUT, { recursive: true });
+  for (const [name, family, seconds] of SPECS) {
+    const samples = synthesize(name, family, seconds);
+    if (wavOnly) writeFileSync(join(WAV_OUT, `${name}.wav`), wav(samples));
+    else writeFileSync(join(OUT, `${name}.ogg`), await encode(samples));
+  }
+  console.log(`Generated ${SPECS.length} ${wavOnly ? "WAV previews in work/sound-preview" : "Ogg Vorbis assets"}.`);
+}
+
+await main();

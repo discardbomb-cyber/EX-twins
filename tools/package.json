@@ -1,0 +1,14 @@
+{
+  "name": "ex-twins-tools",
+  "private": true,
+  "type": "module",
+  "description": "Asset generators for EX-twins",
+  "scripts": {
+    "sounds": "node build_combat_sounds.mjs",
+    "sounds:check": "node build_combat_sounds.mjs --validate"
+  },
+  "dependencies": {
+    "@wasm-audio-decoders/ogg-vorbis": "^0.1.16",
+    "wasm-media-encoders": "0.7.0"
+  }
+}
