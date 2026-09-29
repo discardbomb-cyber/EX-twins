@@ -289,7 +289,7 @@ public final class ShieldDefenseGameTests {
     }
 
     /** The arena has fixtures; an open 9x9 floor lets only the field decide where mobs go. */
-    private static ServerPlayer openArena(GameTestHelper helper) {
+    static ServerPlayer openArena(GameTestHelper helper) {
         for (int x = 2; x <= 10; x++) for (int y = 1; y <= 4; y++) for (int z = 2; z <= 10; z++) {
             helper.setBlock(new net.minecraft.core.BlockPos(x, y, z), net.minecraft.world.level.block.Blocks.AIR);
         }
@@ -297,7 +297,7 @@ public final class ShieldDefenseGameTests {
     }
 
     /** Husks are zombies that do not burn in daylight, so their health only changes when the field strikes. */
-    private static Husk husk(GameTestHelper helper, Vec3 at) {
+    static Husk husk(GameTestHelper helper, Vec3 at) {
         return mob(helper, EntityType.HUSK, at);
     }
 
@@ -310,7 +310,7 @@ public final class ShieldDefenseGameTests {
         return mob;
     }
 
-    private static Zombie zombie(GameTestHelper helper, Vec3 at) {
+    static Zombie zombie(GameTestHelper helper, Vec3 at) {
         Zombie zombie = EntityType.ZOMBIE.create(helper.getLevel());
         helper.assertTrue(zombie != null, "Zombie fixture");
         zombie.moveTo(at.x, at.y, at.z);

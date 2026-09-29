@@ -1,5 +1,6 @@
 package dev.hurtify.relicsaddon.server;
 
+import dev.hurtify.relicsaddon.AddonConfig;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.relic.RelicRole;
 import java.util.Map;
@@ -19,7 +20,8 @@ import net.neoforged.neoforge.event.entity.living.MobEffectEvent;
  * under a working field (a wither skeleton's wither, a cave spider's poison, a witch's potion, a
  * stray's slowness, a shulker's levitation) is cut off entirely, or, when the hit that carried it only
  * partly got through the field, trimmed to the share of damage that got through. The wearer's own
- * potions and effects of the world (a wither rose, a beacon) are left alone. Cutting costs charge.
+ * potions and effects of the world (a wither rose, a beacon) are left alone, and so are the effects
+ * the server lists in {@code shield.keptEffects}. Cutting costs charge.
  */
 public final class ShieldEffectGuard {
     /** Battery points per second of effect per level of its strength. */
@@ -37,7 +39,8 @@ public final class ShieldEffectGuard {
     public static void onEffectApplicable(MobEffectEvent.Applicable event) {
         LivingEntity victim = event.getEntity();
         MobEffectInstance effect = event.getEffectInstance();
-        if (reapplying || victim.level().isClientSide() || effect.getEffect().value().getCategory() != MobEffectCategory.HARMFUL) return;
+        if (reapplying || victim.level().isClientSide() || effect.getEffect().value().getCategory() != MobEffectCategory.HARMFUL
+                || AddonConfig.KEPT_EFFECTS.matches(effect.getEffect())) return;
         Entity attacker = attacker(event.getEffectSource());
         if (attacker == null || attacker == victim) return;
         Coverage cover = coverage(victim, attacker);
