@@ -4,7 +4,9 @@ Expandable autonomous shields and combat hives for Minecraft 1.21.1, NeoForge an
 
 ![Hives and swarms: deployment, combat and belt recall](docs/images/hives-and-swarms.gif)
 
-[Full feature showcase, 46.5-second GIF](https://github.com/discardbomb-cyber/EX-twins/releases/download/v1.0.0-beta.1/EX-twins-showcase.gif): shields, impact waves, damage, gathering, swarm attacks, belt recall, healer formations. These are native renderer demonstrations and seeded interface captures, not a live-world battle recording. GIF has no audio.
+![EX-twins showcase: glass honeycomb shield, strikes, and the hive's droplet, barrage and containment modes](docs/images/ex-twins-showcase.gif)
+
+The showcase above is rendered in-game by the capture galleries: shield impacts on the honeycomb, then a 750-drone hive deploying 250 drones in each attack mode. It is not a live-world battle recording, and the GIF has no audio. The older [46.5-second showcase](https://github.com/discardbomb-cyber/EX-twins/releases/download/v1.0.0-beta.1/EX-twins-showcase.gif) is still attached to the 1.0.0-beta.1 release.
 
 ## Installation
 
@@ -88,24 +90,32 @@ Each type has its own 22x31 upgrade cards and animated 3D hive amulet. Equip it 
 
 RF hives have four silver mechanical bay doors, Mana has six ivory/gold shells, and Ex-Twins has twelve black pentagonal plates with violet circuit inlays. Inventory icons render these same animated OBJ models. Generator: `tools/build_hive_meshes.py`.
 
-| Type | Initial drones -> upgraded | HP per drone -> upgraded | Reconstruction delay -> upgraded |
-| --- | --- | --- | --- |
-| RF | 12 -> 500 | 12 -> 40 | 4 -> 2 seconds |
-| Mana | 12 -> 500 | 8 -> 30 | 2.5 -> 1 second |
-| Ex-Twins | 12 -> 500 | 18 -> 60 | 6 -> 3 seconds |
+| Type | Drones: level 0 -> 10 | Flying at once | HP per drone | Repair delay -> upgraded | Blow damage -> upgraded |
+| --- | --- | --- | --- | --- | --- |
+| RF | 12 -> 750 | up to 250 | 3 | 4 -> 2 seconds | 2 -> 3 |
+| Mana | 12 -> 750 | up to 250 | 3 | 2.5 -> 1 second | 2 -> 3 |
+| Ex-Twins | 12 -> 750 | up to 250 | 3 | 6 -> 3 seconds | 3 -> 4 |
 
-Ten levels grow the swarm to 500 drones. Only one hive can be equipped (Curios rejects a second one), and only one operates. Large swarms fire in rotating volleys of at most 24 shots per tick.
+Ten levels grow the swarm to 750 drones. At most 250 fly at once; the rest wait in the hive as replacements. Only one hive can be equipped (Curios rejects a second one), and only one operates.
 
-- Hives summon combat helpers which assist against a recently attacked target or an aggressor. RF uses cyan electricity; Mana fires traveling blue mana bolts; Twins uses violet lightning and mana bolts. Lightning checks line of sight and creates no fire. Mana bolts are server-simulated swept projectiles with block and entity collisions. Vanilla hurt invulnerability is respected.
-- Once acquired, a target stays locked until it dies; losing sight or attacking another creature does not reset the swarm. Shots still respect walls. Disabling the hive, assigning all drones to healing, a target becoming allied, changing dimensions or exceeding the configured pursuit range cancels pursuit.
-- Each drone has an independent 1-5 second attack interval, upgraded to 1-2 seconds. Initial volleys are staggered. RF/Mana damage upgrades from 2 to 3, Twins from 3 to 4 before the target's armor and effects.
-- Drones pour out of the hive one after another along their own curved paths and take their own orbits around the target, so a big swarm is a living cloud: RF drones buzz on randomly tilted orbits, Mana drones circle in tilted rings (a few of them strung with light), Twins drones turn in two counter-rotating families. Healers ring their owner's chest. When a task ends, drones stream back into the hive.
-- Open the console with `H`, select a hive and use the Hive Tasks tab to move drones between fighters and healers (±1 / ±10). Remaining drones defend and attack. Assignments persist on the item. Healers restore only their owner and neither attack nor intercept. Healing is capped at 4 HP/second by default, configurable by the server.
-- Each hive has three upgrades: combat damage, healing strength, and repair/reconstruction. The families use different bonus ranges. These upgrades never increase the 500-drone cap or the healing limit, and changing tasks does not reset combat cooldowns.
+- The flying drones are split into 2 to 16 strike groups. Pick one of three attack modes in the console's Swarm tab:
+  - **Droplet.** Each group strikes as a single shape: a Mana drop, an RF tesseract turning through the fourth dimension, or Ex-Twins hexagons with lightning arcing between them.
+  - **Barrage.** Groups gather into clusters around the target and trade drones between them. Each cluster charges a glowing ball of lightning and fires it, and the ball bursts with a lightning blast that warps the space around it. Ex-Twins clusters form octagons that shed violet smoke.
+  - **Containment.** Every family stuns what it holds:
+    - RF seals the target in a torus of hexagons that zaps it and swallows its shots.
+    - Mana builds a ward of three rhombi and two rings. Drones keep a reflection buffer charged, and the ward turns blows back on the attacker.
+    - Ex-Twins spins hexagonal rift spheres that lift the target about 4 blocks into the air around a black hole with a violet accretion disk.
+    - Players and bosses cannot be held.
+- Swarm blows land as the swarm's own damage type, which may knock the target back. Containment zaps never knock it about.
+- The hive fights within 128 blocks of its owner by default. Once acquired, a target stays locked until it dies, leaves that range, becomes allied or changes dimension, or the hive is switched off.
+- Each drone has 3 HP. Targets in reach swing at nearby drones, and explosions damage them too. A hit drone flies home for repair, and the next drone in its lane launches at once to take its place. A repaired drone waits in reserve.
+- Drones pour out of the hive along their own curved paths and stream back when a task ends. Healers ring their owner's chest.
+- Open the console with `H`, select a hive and use the Swarm tab to set the attack mode and to move drones between fighters and healers (±1 / ±10). Assignments persist on the item. Healers restore only their owner and never attack. Healing is capped at 4 HP/second by default, which the server can configure.
+- Each hive has three upgrades: combat damage, healing strength, and repair/reconstruction. They never raise the 750-drone cap or the healing limit.
 - Drones do not absorb damage for their owner; protection is the shield's job. Hives only attack and heal.
 - Drone hits use their own damage type: the owner gets the kill credit, but hundreds of hits never knock the target around.
 - Drones cannot target or damage their wearer, teammates or allied pets. They have no attackable projectile entities of their own, so swarms never damage each other. Creative/spectator players and disallowed PvP targets are excluded.
-- Swarms contain no server-side drone entities or pathfinding. Damage/repair updates synchronize a bounded item component; visual flight is deterministic on the client. Only changed state is sent. Once a swarm exceeds 50 drones, or is rendered at distance, small helpers use lower-detail versions of the same silhouettes, with frustum/distance culling, a 750-model global visual budget and dense swarm LODs capped at 100 faces per model; all server-side defenders remain active.
+- Swarms contain no server-side drone entities or pathfinding. The item stores a compact drone array, and the network sends about one byte per resting drone. Flight is deterministic and computed identically on server and client, so blows land exactly where the shapes are drawn. Distant drones render as glowing points, and the renderer culls by frustum and distance.
 - Hives are not a substitute for the shield's melee/explosion protection. Every family has original synthesized attack/impact and summon/dismiss sounds, shields have absorption, cell-break, collapse and ripple sounds, and the console has its own feedback sounds (`tools/build_combat_sounds.mjs`). Playback is spatially rate-limited to avoid hundreds of simultaneous voices.
 
 ## Verification
@@ -132,7 +142,7 @@ The `tools/` directory includes the current mesh generators, ability-card drawin
 
 `./gradlew runReleaseCheckClient` verifies the packaged release from `run-release-check/mods`, captures the ordinary title screen and exits. It does not load the main source-set classes or any preview screens. The separate startup probe is never packaged in the addon. Keep development clients in a separate checkout while recompiling: a running development client can fail to load a class if its compiler output changes during startup.
 
-To reproduce the extended showcase, run `runFeatureGifClient` and `runUiCaptureClient`, then `python tools/assemble_feature_preview.py run-feature-gif/screenshots run-ui-capture/screenshots outputs/EX-twins-showcase.gif --font /path/to/a-cyrillic-font.ttf`. Recording is explicitly opt-in and never runs in a release client.
+To rebuild `docs/images/ex-twins-showcase.gif`, run `runFeatureGifClient`, then `cd tools && npm install && node build_showcase_gif.mjs --segment "../run-feature-gif/screenshots/relics-shield-gif-*.png:2:80" --segment "../run-feature-gif/screenshots/relics-hive-gif-*.png:1:64"`. The older release GIF came from `runFeatureGifClient` plus `runUiCaptureClient` through `python tools/assemble_feature_preview.py run-feature-gif/screenshots run-ui-capture/screenshots outputs/EX-twins-showcase.gif --font /path/to/a-cyrillic-font.ttf`. Recording is opt-in and never runs in a release client.
 
 ## Beta Limitations
 

@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "@wasm-audio-decoders/ogg-vorbis": "^0.1.16",
+    "gifenc": "^1.0.3",
+    "pngjs": "^7.0.0",
     "wasm-media-encoders": "0.7.0"
   }
 }
