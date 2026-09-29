@@ -28,7 +28,8 @@ public record HiveCombatState(boolean active, int targetId, long changedAt,
         @Override public void encode(ByteBuf buffer, HiveCombatState state) {
             buffer.writeBoolean(state.active).writeInt(state.targetId).writeLong(state.changedAt)
                     .writeDouble(state.targetX).writeDouble(state.targetY).writeDouble(state.targetZ).writeByte(state.shots.size());
-            for (Shot shot : state.shots) buffer.writeByte(shot.unit).writeLong(shot.firedAt).writeByte(shot.kind)
+            // Drone indices exceed a byte once a swarm passes 256 units.
+            for (Shot shot : state.shots) net.minecraft.network.VarInt.write(buffer, shot.unit).writeLong(shot.firedAt).writeByte(shot.kind)
                     .writeDouble(shot.startX).writeDouble(shot.startY).writeDouble(shot.startZ)
                     .writeDouble(shot.endX).writeDouble(shot.endY).writeDouble(shot.endZ).writeLong(shot.impactAt);
         }
@@ -38,7 +39,7 @@ public record HiveCombatState(boolean active, int targetId, long changedAt,
             int size = buffer.readUnsignedByte();
             if (size > MAX_SHOTS) throw new IllegalArgumentException("Oversized hive shot packet");
             var shots = new java.util.ArrayList<Shot>(size);
-            for (int index = 0; index < size; index++) shots.add(new Shot(buffer.readUnsignedByte(), buffer.readLong(), buffer.readUnsignedByte(),
+            for (int index = 0; index < size; index++) shots.add(new Shot(net.minecraft.network.VarInt.read(buffer), buffer.readLong(), buffer.readUnsignedByte(),
                     buffer.readDouble(), buffer.readDouble(), buffer.readDouble(), buffer.readDouble(), buffer.readDouble(), buffer.readDouble(), buffer.readLong()));
             return new HiveCombatState(active, target, changed, x, y, z, shots);
         }

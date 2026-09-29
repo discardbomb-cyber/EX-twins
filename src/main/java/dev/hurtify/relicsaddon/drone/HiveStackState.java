@@ -3,6 +3,8 @@ package dev.hurtify.relicsaddon.drone;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.netty.buffer.ByteBuf;
+import net.minecraft.network.VarInt;
+import net.minecraft.network.VarLong;
 import net.minecraft.network.codec.StreamCodec;
 
 import java.util.ArrayList;
@@ -18,17 +20,25 @@ public record HiveStackState(boolean enabled, List<Unit> units) {
     public static final StreamCodec<ByteBuf, HiveStackState> STREAM_CODEC = new StreamCodec<>() {
         @Override public HiveStackState decode(ByteBuf buffer) {
             boolean enabled = buffer.readBoolean();
-            int count = buffer.readUnsignedByte();
+            int count = VarInt.read(buffer);
             if (count > HiveType.MAX_DRONES) throw new io.netty.handler.codec.DecoderException("Hive unit count exceeds limit");
             var units = new ArrayList<Unit>(count);
-            for (int index = 0; index < count; index++) units.add(new Unit(buffer.readUnsignedShort(), buffer.readLong(),
-                    buffer.readLong(), buffer.readFloat(), buffer.readFloat(), buffer.readFloat(), buffer.readLong()));
+            // Tick stamps are sent as var-longs (lastHit is -1 when never hit, so it travels +1).
+            for (int index = 0; index < count; index++) units.add(new Unit(VarInt.read(buffer), VarLong.read(buffer),
+                    VarLong.read(buffer) - 1, buffer.readFloat(), buffer.readFloat(), buffer.readFloat(), VarLong.read(buffer)));
             return new HiveStackState(enabled, units);
         }
         @Override public void encode(ByteBuf buffer, HiveStackState value) {
-            buffer.writeBoolean(value.enabled()).writeByte(value.units().size());
-            for (Unit unit : value.units()) buffer.writeShort(unit.hp()).writeLong(unit.readyAt()).writeLong(unit.lastHit())
-                    .writeFloat(unit.x()).writeFloat(unit.y()).writeFloat(unit.z()).writeLong(unit.attackReadyAt());
+            // The count must not be a byte: swarms reach HiveType.MAX_DRONES (500) units.
+            buffer.writeBoolean(value.enabled());
+            VarInt.write(buffer, value.units().size());
+            for (Unit unit : value.units()) {
+                VarInt.write(buffer, unit.hp());
+                VarLong.write(buffer, unit.readyAt());
+                VarLong.write(buffer, Math.max(-1, unit.lastHit()) + 1);
+                buffer.writeFloat(unit.x()).writeFloat(unit.y()).writeFloat(unit.z());
+                VarLong.write(buffer, unit.attackReadyAt());
+            }
         }
     };
 
