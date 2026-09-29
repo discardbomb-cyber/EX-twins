@@ -1,11 +1,13 @@
 package dev.hurtify.relicsaddon.drone;
 
 import dev.hurtify.relicsaddon.power.DeviceEnergy;
+import dev.hurtify.relicsaddon.shield.ShieldImpact;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.world.phys.Vec3;
 
 /** Every synced component must read back exactly what it wrote, or item sync packets desynchronise. */
 public final class NetworkCodecCheck {
@@ -27,7 +29,13 @@ public final class NetworkCodecCheck {
         for (DeviceEnergy.ManaSource source : DeviceEnergy.ManaSource.values()) {
             roundTrip(DeviceEnergy.STREAM_CODEC, new DeviceEnergy(1_000_000, 100_000, false, true, source), "battery " + source);
         }
-        System.out.println("Network codecs: 500-drone swarm (" + swarmBytes + " bytes), shots and batteries round-trip exactly");
+
+        // Axis-aligned normals survive the constructor's re-normalisation bit for bit.
+        roundTrip(ShieldImpact.STREAM_CODEC, new ShieldImpact(new Vec3(1, 0, 0), 99L, 1, 6, true, List.of(3), 1.5, 0), "absorbed hit");
+        ShieldImpact strike = ShieldImpact.strike(new Vec3(0, 0, 1), 1_234L, 2, 4.5F, .3F);
+        roundTrip(ShieldImpact.STREAM_CODEC, strike, "shield strike");
+        require(strike.isStrike() && !new ShieldImpact(new Vec3(0, 1, 0), 5L, 0, 2, false).isStrike(), "Only strikes are marked as strikes");
+        System.out.println("Network codecs: 500-drone swarm (" + swarmBytes + " bytes), shots, batteries and shield impacts round-trip exactly");
     }
 
     private static <T> int roundTrip(StreamCodec<ByteBuf, T> codec, T value, String label) {

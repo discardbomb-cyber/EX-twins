@@ -19,12 +19,12 @@ public final class AddonClientConfig {
 
     public static final ModConfigSpec.DoubleValue SHIELD_IDLE_OPACITY = BUILDER
             .comment("How visible a shield is when nothing is attacking (0 hides it until a hit, 1 is as bright as in combat).")
-            .defineInRange("shield.idleOpacity", .35, 0.0, 1.0);
+            .defineInRange("shield.idleOpacity", 0.0, 0.0, 1.0);
 
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     static double idleOpacity() {
-        return SPEC.isLoaded() ? SHIELD_IDLE_OPACITY.get() : .35;
+        return SPEC.isLoaded() ? SHIELD_IDLE_OPACITY.get() : 0;
     }
 
     static double rippleStrength() {

@@ -6,6 +6,9 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 public final class AddonConfig {
     public static final ModConfigSpec SPEC;
     public static final ModConfigSpec.DoubleValue SHIELD_MAX_RADIUS;
+    public static final ModConfigSpec.DoubleValue SHIELD_STRIKE_DAMAGE;
+    public static final ModConfigSpec.DoubleValue SHIELD_STRIKE_KNOCKBACK;
+    public static final ModConfigSpec.IntValue SHIELD_STRIKE_COOLDOWN;
     public static final ModConfigSpec.DoubleValue HIVE_TARGET_RANGE;
     public static final ModConfigSpec.DoubleValue HIVE_PURSUIT_RANGE;
     public static final ModConfigSpec.DoubleValue HIVE_HEAL_PER_SECOND;
@@ -19,6 +22,12 @@ public final class AddonConfig {
     static {
         var builder = new ModConfigSpec.Builder();
         SHIELD_MAX_RADIUS = builder.defineInRange("shield.maxRadius", 12.0, 2.0, 24.0);
+        SHIELD_STRIKE_DAMAGE = builder.comment("Multiplier for the damage a shield deals to hostile mobs it throws back. 0 only pushes them.")
+                .defineInRange("shield.strikeDamage", 1.0, 0.0, 10.0);
+        SHIELD_STRIKE_KNOCKBACK = builder.comment("Multiplier for how far a shield throws hostile mobs back. 0 only holds them at the surface.")
+                .defineInRange("shield.strikeKnockback", 1.0, 0.0, 5.0);
+        SHIELD_STRIKE_COOLDOWN = builder.comment("Ticks before a shield can strike the same mob again.")
+                .defineInRange("shield.strikeCooldownTicks", 20, 5, 200);
         HIVE_TARGET_RANGE = builder.defineInRange("hive.targetRange", 16.0, 4.0, 32.0);
         HIVE_PURSUIT_RANGE = builder.defineInRange("hive.pursuitRange", 24.0, 4.0, 48.0);
         HIVE_HEAL_PER_SECOND = builder.defineInRange("hive.maxHealingPerSecond", 4.0, 0.0, 20.0);

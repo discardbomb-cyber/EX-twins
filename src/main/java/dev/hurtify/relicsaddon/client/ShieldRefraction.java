@@ -35,7 +35,7 @@ import org.lwjgl.opengl.GL30;
  * this pass, so it sits on top of the bent image.
  */
 public final class ShieldRefraction {
-    private static final int RINGS = 10, SEGMENTS = 56;
+    private static final int RINGS = 14, SEGMENTS = 80;
     private static final double BAND = .42;
     private static final List<Job> JOBS = new ArrayList<>();
     private static ShaderInstance shader;

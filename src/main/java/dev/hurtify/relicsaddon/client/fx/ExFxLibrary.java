@@ -53,6 +53,14 @@ final class ExFxLibrary {
                 shrink(glow("dust", color, 8, sphere(.25f, 1), .3f, 1.2f, 18, 30, .1f, .2f, .45f), .5f, 1.4f));
     }
 
+    /** Shell strike: sparks thrown outward in a cone, a flash, and a shockwave ring spreading along the shell. */
+    static FX shieldBurst(int color) {
+        var sparks = streaks(glow("sparks", color, 20, cone(38, .15f), 4, 9, 6, 12, .035f, .07f, 1), 9, .84f);
+        var ring = drag(glow("ring", color, 26, circle(.12f, 1), 3, 4, 7, 10, .05f, .09f, .85f), .82f);
+        var glints = shrink(glow("glints", color, 8, sphere(.25f, 1), .2f, .8f, 10, 18, .03f, .06f, .9f), 0, 1, 0);
+        return fx(flash("flash", color, .8f, 5), sparks, ring, glints);
+    }
+
     /** Unit-radius shapes; ExFx scales them to the shield radius per instance. */
     static FX shieldCollapse(int color) {
         var nova = flash("nova", color, 2, 7);

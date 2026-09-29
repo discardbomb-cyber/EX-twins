@@ -78,6 +78,12 @@ public abstract class AutonomousRelicItem extends Item {
         ShieldStackState state = stack.getOrDefault(ModDataComponents.SHIELD_STACK_STATE.get(), ShieldStackState.DEFAULT);
         lines.add(Component.translatable("tooltip.relics_addon.shield.autonomous", Component.translatable("tooltip.relics_addon.state." + (state.enabled() ? "enabled" : "disabled")), state.livingCells(), ShieldTopology.CELL_COUNT, state.totalIntegrity(), ShieldParameters.totalCapacity(null, stack)).withStyle(style()));
         lines.add(Component.translatable("tooltip.relics_addon.shield.buffer", state.sharedBuffer(), ShieldParameters.capacity(null, stack)).withStyle(style()));
+        float strike = ShieldParameters.strikeDamage(stack);
+        if (strike > 0) {
+            String kind = role() == RelicRole.RF_SHIELD ? "rf" : role() == RelicRole.MANA_SHIELD ? "mana" : "twins";
+            lines.add(Component.translatable("tooltip.relics_addon.shield.strike", String.format(java.util.Locale.ROOT, "%.1f", strike),
+                    Component.translatable("tooltip.relics_addon.strike." + kind)).withStyle(style()));
+        }
     }
     private int integrity(ItemStack stack) { return stack.getOrDefault(ModDataComponents.SHIELD_STACK_STATE.get(), ShieldStackState.DEFAULT).totalIntegrity(); }
     private ChatFormatting style() { return switch (role()) {

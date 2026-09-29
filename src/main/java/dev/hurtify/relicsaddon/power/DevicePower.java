@@ -27,7 +27,7 @@ public final class DevicePower {
     /** Idle upkeep per second while a device is switched on and running. */
     public static final int SHIELD_UPKEEP = 20, HIVE_UPKEEP = 20;
     /** Per-event costs. */
-    public static final int ABSORB_PER_HP = 10, REPAIR_PER_HP = 2, SHOT = 3, HEAL_PER_HP = 5, HIVE_REPAIR_PER_HP = 1;
+    public static final int ABSORB_PER_HP = 10, REPAIR_PER_HP = 2, SHOT = 3, HEAL_PER_HP = 5, HIVE_REPAIR_PER_HP = 1, STRIKE = 6;
     private static final int MANA_CHARGE_PER_PULSE = 250;
 
     public static boolean hasRf(RelicRole role) {

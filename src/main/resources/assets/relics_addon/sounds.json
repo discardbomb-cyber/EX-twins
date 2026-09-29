@@ -318,5 +318,29 @@
         "name": "relics_addon:combat/shield_twins_ripple"
       }
     ]
+  },
+  "shield.rf_strike": {
+    "subtitle": "subtitles.relics_addon.rf_shield_strike",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/shield_rf_strike"
+      }
+    ]
+  },
+  "shield.mana_strike": {
+    "subtitle": "subtitles.relics_addon.mana_shield_strike",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/shield_mana_strike"
+      }
+    ]
+  },
+  "shield.twins_strike": {
+    "subtitle": "subtitles.relics_addon.twins_shield_strike",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/shield_twins_strike"
+      }
+    ]
   }
 }

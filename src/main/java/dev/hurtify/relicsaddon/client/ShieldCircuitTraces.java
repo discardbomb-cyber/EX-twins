@@ -130,10 +130,25 @@ final class ShieldCircuitTraces {
             if (alpha <= 0) return;
             double du = u1 - u0, dv = v1 - v0, length = Math.hypot(du, dv);
             if (length < 1e-5) return;
-            double su = -dv / length * width, sv = du / length * width;
+            // Bright along the centre, fading to nothing at both edges: no hard, aliased rim.
+            double su = -dv / length * width * 1.5, sv = du / length * width * 1.5;
+            Vec3 start = surface(direction(u0, v0), 0), end = surface(direction(u1, v1), 0);
             Vec3 leftStart = surface(direction(u0 + su, v0 + sv), 0), leftEnd = surface(direction(u1 + su, v1 + sv), 0);
             Vec3 rightStart = surface(direction(u0 - su, v0 - sv), 0), rightEnd = surface(direction(u1 - su, v1 - sv), 0);
-            quad(consumer, matrix, leftStart, rightStart, rightEnd, leftEnd, r, g, b, alpha);
+            int bright = Math.min(255, alpha * 13 / 10);
+            soft(consumer, matrix, leftStart, start, end, leftEnd, r, g, b, bright);
+            soft(consumer, matrix, rightStart, start, end, rightEnd, r, g, b, bright);
+        }
+
+        /** A quad whose outer edge (first and last point) is transparent and inner edge carries {@code alpha}. */
+        private static void soft(VertexConsumer consumer, Matrix4f matrix, Vec3 outerStart, Vec3 innerStart, Vec3 innerEnd, Vec3 outerEnd,
+                int red, int green, int blue, int alpha) {
+            Vec3[] points = {outerStart, innerStart, innerEnd, outerStart, innerEnd, outerEnd};
+            int[] alphas = {0, alpha, alpha, 0, alpha, 0};
+            for (int index = 0; index < points.length; index++) {
+                consumer.addVertex(matrix, (float) points[index].x, (float) points[index].y, (float) points[index].z)
+                        .setColor(red, green, blue, alphas[index]);
+            }
         }
 
         void pad(VertexConsumer consumer, Matrix4f matrix, double u, double v, double size, int r, int g, int b, int alpha) {

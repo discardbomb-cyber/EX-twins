@@ -7,15 +7,26 @@ import dev.hurtify.relicsaddon.power.DeviceEnergy;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.RelicRole;
+import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.server.ShieldBarrier;
+import dev.hurtify.relicsaddon.server.ShieldStrike;
 import dev.hurtify.relicsaddon.shield.ShieldField;
+import dev.hurtify.relicsaddon.shield.ShieldImpact;
+import dev.hurtify.relicsaddon.shield.ShieldImpactHistory;
 import dev.hurtify.relicsaddon.shield.ShieldParameters;
+import dev.hurtify.relicsaddon.shield.ShieldSettings;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Wolf;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.entity.monster.ZombifiedPiglin;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.projectile.WitherSkull;
 import net.minecraft.world.item.ItemStack;
@@ -111,11 +122,7 @@ public final class ShieldDefenseGameTests {
 
     @GameTest(template = ARENA)
     public static void hostileMobsArePushedOutOfTheField(GameTestHelper helper) {
-        // The arena has fixtures; clear an open 9x9 floor so only the field decides where mobs go.
-        for (int x = 2; x <= 10; x++) for (int y = 1; y <= 4; y++) for (int z = 2; z <= 10; z++) {
-            helper.setBlock(new net.minecraft.core.BlockPos(x, y, z), net.minecraft.world.level.block.Blocks.AIR);
-        }
-        ServerPlayer player = DeviceTestSupport.player(helper, new Vec3(6.5, 1, 6.5));
+        ServerPlayer player = openArena(helper);
         ItemStack shield = DeviceTestSupport.equip(helper, player, RelicRole.RF_SHIELD, 0);
         Zombie zombie = zombie(helper, player.position().add(.6, 0, .2));
         Wolf wolf = EntityType.WOLF.create(helper.getLevel());
@@ -130,7 +137,135 @@ public final class ShieldDefenseGameTests {
         double distance = zombie.getBoundingBox().getCenter().subtract(center).horizontalDistance();
         helper.assertTrue(distance >= radius - .05, "The zombie is held at the shell (" + distance + " of " + radius + ")");
         helper.assertTrue(wolf.position().distanceTo(wolfBefore) < 1e-6, "A tamed wolf is never pushed");
+        DeviceTestSupport.close(helper, wolf.getHealth(), wolf.getMaxHealth(), "A tamed wolf is never struck");
         helper.succeed();
+    }
+
+    @GameTest(template = ARENA)
+    public static void aggressiveMobsAreStruckAndThrownBack(GameTestHelper helper) {
+        ServerPlayer player = openArena(helper);
+        ItemStack shield = DeviceTestSupport.equip(helper, player, RelicRole.RF_SHIELD, 0);
+        Husk husk = husk(helper, player.position().add(.6, 0, .2));
+        int charge = DevicePower.energy(shield).rf();
+        ShieldBarrier.onPlayerTick(new PlayerTickEvent.Post(player));
+        helper.assertTrue(husk.getHealth() < husk.getMaxHealth(), "The field strikes a hostile mob it holds back");
+        helper.assertTrue(husk.getLastDamageSource() != null && husk.getLastDamageSource().is(ShieldStrike.DISCHARGE),
+                "An RF shield strikes with its own discharge damage");
+        Vec3 outward = new Vec3(.6, 0, .2).normalize();
+        double throwSpeed = husk.getDeltaMovement().x * outward.x + husk.getDeltaMovement().z * outward.z;
+        helper.assertTrue(throwSpeed > .8, "The strike throws the mob away from the wearer (outward speed " + throwSpeed + ")");
+        helper.assertTrue(charge - DevicePower.energy(shield).rf() == (1 + DevicePower.STRIKE) * DevicePower.FE_PER_POINT,
+                "Holding and striking are paid from the battery: " + charge + " -> " + DevicePower.energy(shield).rf());
+        ShieldImpact last = shield.getOrDefault(ModDataComponents.SHIELD_IMPACTS.get(), ShieldImpactHistory.EMPTY).impacts().getLast();
+        helper.assertTrue(last.isStrike() && last.normal().dot(outward) > .95, "The strike shows on the shell facing the mob");
+        helper.assertTrue(RelicRuntime.progression(shield).experience() > 0, "Striking earns device experience");
+        DeviceTestSupport.close(helper, player.getHealth(), 20, "The wearer is untouched");
+        helper.succeed();
+    }
+
+    @GameTest(template = ARENA)
+    public static void rfDischargeIsSoftenedByArmour(GameTestHelper helper) {
+        strikeArmoured(helper, RelicRole.RF_SHIELD, ShieldStrike.DISCHARGE, false);
+    }
+
+    @GameTest(template = ARENA)
+    public static void manaBurstIgnoresArmour(GameTestHelper helper) {
+        strikeArmoured(helper, RelicRole.MANA_SHIELD, ShieldStrike.MANA_BURST, true);
+    }
+
+    @GameTest(template = ARENA)
+    public static void twinSurgeIgnoresArmour(GameTestHelper helper) {
+        strikeArmoured(helper, RelicRole.TWINS_SHIELD, ShieldStrike.TWIN_SURGE, true);
+    }
+
+    @GameTest(template = ARENA, timeoutTicks = 80)
+    public static void strikesRespectTheirCooldown(GameTestHelper helper) {
+        ServerPlayer player = openArena(helper);
+        DeviceTestSupport.equip(helper, player, RelicRole.RF_SHIELD, 0);
+        Vec3 inside = player.position().add(.6, 0, .2);
+        Husk husk = husk(helper, inside);
+        ShieldBarrier.onPlayerTick(new PlayerTickEvent.Post(player));
+        float afterFirst = husk.getHealth();
+        helper.assertTrue(afterFirst < husk.getMaxHealth(), "The first touch is struck");
+        husk.moveTo(inside.x, inside.y, inside.z);
+        ShieldBarrier.onPlayerTick(new PlayerTickEvent.Post(player));
+        DeviceTestSupport.close(helper, husk.getHealth(), afterFirst, "A second touch inside the cooldown is only pushed");
+        helper.runAfterDelay(ShieldParameters.strikeCooldown() + 1, () -> {
+            husk.moveTo(inside.x, inside.y, inside.z);
+            ShieldBarrier.onPlayerTick(new PlayerTickEvent.Post(player));
+            helper.assertTrue(husk.getHealth() < afterFirst, "After the cooldown the field strikes again");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = ARENA)
+    public static void neutralMobsAreStruckOnlyOnceTheyAttack(GameTestHelper helper) {
+        ServerPlayer player = openArena(helper);
+        DeviceTestSupport.equip(helper, player, RelicRole.RF_SHIELD, 0);
+        Vec3 inside = player.position().add(.6, 0, .2);
+        ZombifiedPiglin piglin = mob(helper, EntityType.ZOMBIFIED_PIGLIN, inside);
+        ShieldBarrier.onPlayerTick(new PlayerTickEvent.Post(player));
+        DeviceTestSupport.close(helper, piglin.getHealth(), piglin.getMaxHealth(), "A calm zombified piglin is held out but not struck");
+        helper.assertTrue(piglin.getBoundingBox().getCenter().subtract(player.position().add(0, ShieldField.CENTER_Y, 0)).horizontalDistance()
+                > ShieldParameters.radius(player, DeviceTestSupport.charm(helper, player, 0)) - .05, "It is still kept out of the field");
+        piglin.setTarget(player);
+        piglin.moveTo(inside.x, inside.y, inside.z);
+        ShieldBarrier.onPlayerTick(new PlayerTickEvent.Post(player));
+        helper.assertTrue(piglin.getHealth() < piglin.getMaxHealth(), "Once it attacks the wearer, it is struck");
+        helper.succeed();
+    }
+
+    @GameTest(template = ARENA)
+    public static void aFieldNeverAbsorbsAStrike(GameTestHelper helper) {
+        ServerPlayer player = openArena(helper);
+        ItemStack shield = DeviceTestSupport.equip(helper, player, RelicRole.RF_SHIELD, 0);
+        // Covering everyone puts the mob under the field too; the strike must still land.
+        shield.set(ModDataComponents.SHIELD_SETTINGS.get(), new ShieldSettings(2, "all"));
+        Husk husk = husk(helper, player.position().add(.6, 0, .2));
+        int integrity = DeviceTestSupport.integrity(shield);
+        helper.assertTrue(husk.hurt(helper.getLevel().damageSources().source(ShieldStrike.DISCHARGE, player), 4),
+                "Strike damage is registered and lands");
+        helper.assertTrue(husk.getHealth() < husk.getMaxHealth(), "The mob loses health");
+        helper.assertTrue(DeviceTestSupport.integrity(shield) == integrity, "The field spends nothing on its own strike");
+        helper.succeed();
+    }
+
+    /** A mob in full-strength armour is struck once; arcane strikes ignore the armour, a discharge does not. */
+    private static void strikeArmoured(GameTestHelper helper, RelicRole role, ResourceKey<DamageType> type, boolean ignoresArmour) {
+        ServerPlayer player = openArena(helper);
+        ItemStack shield = DeviceTestSupport.equip(helper, player, role, 0);
+        Husk husk = husk(helper, player.position().add(.6, 0, .2));
+        husk.getAttribute(Attributes.ARMOR).setBaseValue(20);
+        husk.getAttribute(Attributes.ARMOR_TOUGHNESS).setBaseValue(8);
+        ShieldBarrier.onPlayerTick(new PlayerTickEvent.Post(player));
+        float lost = husk.getMaxHealth() - husk.getHealth();
+        float nominal = ShieldParameters.strikeDamage(shield);
+        helper.assertTrue(husk.getLastDamageSource() != null && husk.getLastDamageSource().is(type), role + " strikes with " + type.location());
+        if (ignoresArmour) DeviceTestSupport.close(helper, lost, nominal, role + " goes straight through armour");
+        else helper.assertTrue(lost > 0 && lost < nominal * .5, role + " is softened by armour: " + lost + " of " + nominal);
+        helper.succeed();
+    }
+
+    /** The arena has fixtures; an open 9x9 floor lets only the field decide where mobs go. */
+    private static ServerPlayer openArena(GameTestHelper helper) {
+        for (int x = 2; x <= 10; x++) for (int y = 1; y <= 4; y++) for (int z = 2; z <= 10; z++) {
+            helper.setBlock(new net.minecraft.core.BlockPos(x, y, z), net.minecraft.world.level.block.Blocks.AIR);
+        }
+        return DeviceTestSupport.player(helper, new Vec3(6.5, 1, 6.5));
+    }
+
+    /** Husks are zombies that do not burn in daylight, so their health only changes when the field strikes. */
+    private static Husk husk(GameTestHelper helper, Vec3 at) {
+        return mob(helper, EntityType.HUSK, at);
+    }
+
+    private static <T extends Mob> T mob(GameTestHelper helper, EntityType<T> type, Vec3 at) {
+        T mob = type.create(helper.getLevel());
+        helper.assertTrue(mob != null, type + " fixture");
+        mob.moveTo(at.x, at.y, at.z);
+        mob.setNoAi(true);
+        helper.assertTrue(helper.getLevel().addFreshEntity(mob), type + " enters the level");
+        return mob;
     }
 
     private static Zombie zombie(GameTestHelper helper, Vec3 at) {

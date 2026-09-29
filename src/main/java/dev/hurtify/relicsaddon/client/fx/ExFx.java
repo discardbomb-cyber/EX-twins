@@ -44,7 +44,7 @@ public final class ExFx {
     public static void shieldAbsorb(Level level, Vec3 point, Vec3 outwardNormal, RelicRole role, float strength) {
         try {
             float power = Mth.clamp(Float.isFinite(strength) ? strength : 1, .2f, 2);
-            play(level, point, point, 0, "shield_absorb_" + family(role), role.color(), ExFxLibrary::shieldAbsorb,
+            play(level, point, point, 0, "shield_absorb_" + family(role), shieldColor(role), ExFxLibrary::shieldAbsorb,
                     executor -> executor.orient(outwardNormal).onStarted(runtime -> {
                         ExFxLibrary.each(runtime, "sparks", emitter -> ExFxLibrary.scaleCount(emitter, power));
                         ExFxLibrary.each(runtime, "flash", emitter -> ExFxLibrary.size(emitter, .35f + .3f * power));
@@ -57,8 +57,52 @@ public final class ExFx {
     /** {@code shield_cell_break_<family>}: shards thrown outward under gravity, a flash and lingering dust. */
     public static void shieldCellBreak(Level level, Vec3 point, Vec3 outwardNormal, RelicRole role) {
         try {
-            play(level, point, point, 0, "shield_cell_break_" + family(role), role.color(), ExFxLibrary::shieldCellBreak,
+            play(level, point, point, 0, "shield_cell_break_" + family(role), shieldColor(role), ExFxLibrary::shieldCellBreak,
                     executor -> executor.orient(outwardNormal));
+        } catch (RuntimeException | LinkageError error) {
+            fail(error);
+        }
+    }
+
+    /**
+     * The shell striking a mob at its surface. RF reaches out with {@code shield_strike_arc_<family>}
+     * arcs from the shell into the struck body and a {@code shield_strike_zap_<family>} on it; Mana
+     * bursts outward from the contact point ({@code shield_strike_burst_<family>}); Twins do both.
+     * {@code reach} is how far beyond the surface the body sits.
+     */
+    public static void shieldStrike(Level level, Vec3 center, double radius, Vec3 normal, double reach, RelicRole role, float strength) {
+        try {
+            if (!(radius > 0) || !(normal.lengthSqr() > 1e-6)) return;
+            Vec3 out = normal.normalize();
+            int color = shieldColor(role);
+            String family = family(role);
+            float power = Mth.clamp(Float.isFinite(strength) ? strength / 5 : 1, .6f, 1.6f);
+            Vec3 target = center.add(out.scale(radius + Mth.clamp(reach, .25, 2)));
+            if (role != RelicRole.MANA_SHIELD) {
+                var random = level.getRandom();
+                Vec3 side = out.cross(Math.abs(out.y) > .9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize();
+                Vec3 lift = out.cross(side);
+                int arcs = role == RelicRole.TWINS_SHIELD ? 3 : 4;
+                for (int arc = 0; arc < arcs; arc++) {
+                    // Arcs leave the shell around the contact, roughly a block apart whatever the radius.
+                    double angle = (arc + random.nextDouble() * .7) * Math.PI * 2 / arcs;
+                    double spread = Math.tan(Math.min(.5, (.45 + random.nextDouble() * .45) / radius));
+                    Vec3 from = center.add(out.add(side.scale(Math.cos(angle) * spread)).add(lift.scale(Math.sin(angle) * spread))
+                            .normalize().scale(radius));
+                    Vec3 path = target.subtract(from);
+                    float length = (float) path.length();
+                    if (!(length > .05f)) continue;
+                    play(level, from, target, 0, "shield_strike_arc_" + family, color, ExFxLibrary::hiveLightning,
+                            executor -> executor.onStarted(runtime -> placeLightning(runtime, level, path, length, .22)));
+                }
+                play(level, target, target, 0, "shield_strike_zap_" + family, color, c -> ExFxLibrary.hiveImpact(c, false), executor -> { });
+            }
+            if (role != RelicRole.RF_SHIELD) {
+                Vec3 contact = center.add(out.scale(radius));
+                play(level, contact, contact, 0, "shield_strike_burst_" + family, color, ExFxLibrary::shieldBurst,
+                        executor -> executor.orient(out).onStarted(runtime ->
+                                ExFxLibrary.each(runtime, "sparks", emitter -> ExFxLibrary.scaleCount(emitter, power))));
+            }
         } catch (RuntimeException | LinkageError error) {
             fail(error);
         }
@@ -69,7 +113,7 @@ public final class ExFx {
         try {
             float r = (float) Mth.clamp(Double.isFinite(radius) ? radius : 2, .5, 16);
             float count = Mth.clamp(r / 2.5f, .6f, 2);
-            play(level, center, center, 0, "shield_collapse_" + family(role), role.color(), ExFxLibrary::shieldCollapse,
+            play(level, center, center, 0, "shield_collapse_" + family(role), shieldColor(role), ExFxLibrary::shieldCollapse,
                     executor -> executor.onStarted(runtime -> {
                         for (String name : new String[]{"shell", "ring", "dust"}) {
                             ExFxLibrary.each(runtime, name, emitter -> {
@@ -124,7 +168,7 @@ public final class ExFx {
                             }));
                 }
                 case 2 -> play(level, from, to, 0, "hive_lightning_" + suffix, color, ExFxLibrary::hiveLightning,
-                        executor -> executor.onStarted(runtime -> placeLightning(runtime, level, path, length)));
+                        executor -> executor.onStarted(runtime -> placeLightning(runtime, level, path, length, .08)));
                 default -> { }
             }
         } catch (RuntimeException | LinkageError error) {
@@ -215,12 +259,12 @@ public final class ExFx {
     }
 
     /** Jagged polyline: interior points jitter perpendicular to the shot, each segment emitter spans one leg. */
-    private static void placeLightning(FXRuntime runtime, Level level, Vec3 path, float length) {
+    private static void placeLightning(FXRuntime runtime, Level level, Vec3 path, float length, double jag) {
         int segments = ExFxLibrary.LIGHTNING_SEGMENTS;
         Vec3 axis = path.normalize();
         Vec3 side = axis.cross(Math.abs(axis.y) > .9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize();
         Vec3 lift = axis.cross(side);
-        double jitter = Math.min(.6, length * .08);
+        double jitter = Math.min(.6, length * jag);
         var random = level.getRandom();
         Vec3[] points = new Vec3[segments + 1];
         points[0] = Vec3.ZERO;
@@ -241,6 +285,11 @@ public final class ExFx {
                 ExFxLibrary.scaleCount(emitter, Mth.clamp(legLength / 3, .2f, 1.5f));
             });
         }
+    }
+
+    /** Effect colour matching each shell's glass: the Mana dome is teal, whatever the item's accent. */
+    private static int shieldColor(RelicRole role) {
+        return role == RelicRole.MANA_SHIELD ? 0x4FF2DA : role.color();
     }
 
     private static String family(RelicRole role) {

@@ -58,6 +58,9 @@ public final class ShieldVisualRenderer {
         Vec3 camera = event.getCamera().getPosition();
         MultiBufferSource.BufferSource buffers = minecraft.renderBuffers().bufferSource();
         VertexConsumer consumer = buffers.getBuffer(SHIELD_RENDER_TYPE);
+        // One pixel's angle, so the shells never draw a line or spark thinner than the screen can show.
+        ShieldShellVisual.setPixelAngle(2 * Math.tan(Math.toRadians(minecraft.options.fov().get()) / 2)
+                / Math.max(1, minecraft.getWindow().getHeight()));
         Matrix4f matrix = event.getPoseStack().last().pose();
         float partialTick = event.getPartialTick().getGameTimeDeltaPartialTick(false);
 
@@ -126,7 +129,7 @@ public final class ShieldVisualRenderer {
                 && Math.abs(a.distance() - b.distance()) < 1e-4D && a.absorbed() == b.absorbed();
     }
 
-    /** Photon sparks, shards and the collapse nova for hits first seen this frame. */
+    /** Photon sparks, shards, strike arcs and the collapse nova for impacts first seen this frame. */
     private static void spawnImpactEffects(ClientLevel level, AbstractClientPlayer player, ItemStack shield, RelicRole role, ShieldStackState state) {
         ImpactCache cache = IMPACT_WAVES.get(player.getUUID());
         if (cache == null || cache.fresh.isEmpty()) return;
@@ -134,6 +137,10 @@ public final class ShieldVisualRenderer {
         double radius = ShieldParameters.radius(player, shield);
         for (ShieldImpact impact : cache.fresh) {
             if (level.getGameTime() - impact.gameTime() > 3) continue;
+            if (impact.isStrike()) {
+                dev.hurtify.relicsaddon.client.fx.ExFx.shieldStrike(level, center, radius, impact.normal(), impact.strike(), role, impact.absorbed());
+                continue;
+            }
             Vec3 point = center.add(impact.normal().scale(impact.distance() >= 0 ? impact.distance() : radius));
             if (impact.absorbed() > 0) dev.hurtify.relicsaddon.client.fx.ExFx.shieldAbsorb(level, point, impact.normal(), role, impact.absorbed());
             if (impact.broken()) dev.hurtify.relicsaddon.client.fx.ExFx.shieldCellBreak(level, point, impact.normal(), role);
@@ -207,7 +214,7 @@ public final class ShieldVisualRenderer {
                 ? new Vec3(-originX, -originY, -originZ).normalize() : Vec3.ZERO;
         ShieldRefraction.queue(role, originX, originY, originZ, radius, impacts, time, quality == ShieldVisualQuality.LOW);
         renderField(role, state, impacts, threats, time, consumer, matrix, originX, originY, originZ,
-                forwardX, forwardZ, quality == ShieldVisualQuality.LOW, eyeDirection, radius, bufferRatio);
+                forwardX, forwardZ, quality == ShieldVisualQuality.LOW, eyeDirection, radius, bufferRatio, true);
     }
 
     /** Flushes the additive light layer; callers drawing shells outside the world pass (galleries) need it. */
@@ -230,7 +237,7 @@ public final class ShieldVisualRenderer {
             double originX, double originY, double originZ, double forwardX, double forwardZ, boolean low, Vec3 eyeDirection) {
         renderField(role, state, impact == null ? List.of() : List.of(impact), threats, time, consumer, matrix, originX, originY, originZ,
                 forwardX, forwardZ, low, eyeDirection, SHELL_RADIUS,
-                state.sharedBuffer() / (double) ShieldStackState.MAX_SHARED_BUFFER);
+                state.sharedBuffer() / (double) ShieldStackState.MAX_SHARED_BUFFER, false);
     }
 
     /** Native gallery entry point for overlapping authoritative impacts at the standard two-block radius. */
@@ -239,13 +246,13 @@ public final class ShieldVisualRenderer {
             double originX, double originY, double originZ, double forwardX, double forwardZ, boolean low, Vec3 eyeDirection) {
         renderField(role, state, impacts == null ? List.of() : List.copyOf(impacts), threats, time, consumer, matrix,
                 originX, originY, originZ, forwardX, forwardZ, low, eyeDirection, SHELL_RADIUS,
-                state.sharedBuffer() / (double) ShieldStackState.MAX_SHARED_BUFFER);
+                state.sharedBuffer() / (double) ShieldStackState.MAX_SHARED_BUFFER, false);
     }
 
     private static void renderField(RelicRole role, ShieldStackState state, List<ShieldImpact> impacts,
             List<ShieldResponse.Threat> threats, double time, VertexConsumer consumer, Matrix4f matrix,
             double originX, double originY, double originZ, double forwardX, double forwardZ, boolean low, Vec3 eyeDirection,
-            double radius, double bufferRatio) {
+            double radius, double bufferRatio, boolean world) {
         double idle = AddonClientConfig.idleOpacity();
         if (idle <= 0 && !state.gathering(time) && threats.isEmpty() && impacts.isEmpty()) return;
         boolean rippling = role == RelicRole.MANA_SHIELD || role == RelicRole.TWINS_SHIELD;
@@ -257,7 +264,7 @@ public final class ShieldVisualRenderer {
             // The shell is always faintly there; combat brings it to full strength.
             double presence = Math.max(idle, activity);
             ShieldShellVisual.render(role, consumer, new ShieldShellVisual.Frame(matrix, originX, originY, originZ, radius, forwardX, forwardZ,
-                    eyeDirection), state, impacts, threats, time, presence, low);
+                    eyeDirection, world), state, impacts, threats, time, presence, low);
             ShieldGlow.halo(matrix, role, originX, originY, originZ, radius, activity, impacts, time, eyeDirection, low);
             if (role == RelicRole.TWINS_SHIELD) {
                 ShieldCircuitTraces.render(consumer, ShieldGlow.consumer(), matrix, originX, originY, originZ, radius, impacts, time, low,
@@ -287,26 +294,11 @@ public final class ShieldVisualRenderer {
             default -> 0x7CF7FF;
         };
         int alpha = (int) Math.clamp((105 + 110 * fade) * Math.max(.35D, bufferRatio), 0, 230);
-        if (role == RelicRole.MANA_SHIELD) {
-            renderManaImpactPulse(consumer, matrix, normal, u, v, impact.distance() + .012D, patchRadius,
-                    originX, originY, originZ, color, alpha);
-            return;
-        }
-        int sides = 6;
-        Vec3 center = normal.scale(impact.distance() + .012D);
-        for (int side = 0; side < sides; side++) {
-            double a = Math.PI * 2 * side / sides;
-            double b = Math.PI * 2 * (side + 1) / sides;
-            Vec3 pa = center.add(u.scale(Math.cos(a) * patchRadius)).add(v.scale(Math.sin(a) * patchRadius));
-            Vec3 pb = center.add(u.scale(Math.cos(b) * patchRadius)).add(v.scale(Math.sin(b) * patchRadius));
-            patchVertex(consumer, matrix, center, originX, originY, originZ, color, alpha);
-            patchVertex(consumer, matrix, pa, originX, originY, originZ, color, alpha);
-            patchVertex(consumer, matrix, pb, originX, originY, originZ, color, alpha);
-        }
+        renderImpactPulse(consumer, matrix, normal, u, v, impact.distance() + .012D, patchRadius, originX, originY, originZ, color, alpha);
     }
 
-    /** A translucent radial falloff removes the mechanical polygon edge from Mana's impact pulse. */
-    private static void renderManaImpactPulse(VertexConsumer consumer, Matrix4f matrix, Vec3 normal, Vec3 u, Vec3 v,
+    /** A translucent radial falloff, so the patch has no hard polygon edge. */
+    private static void renderImpactPulse(VertexConsumer consumer, Matrix4f matrix, Vec3 normal, Vec3 u, Vec3 v,
             double distance, double radius, double x, double y, double z, int color, int alpha) {
         final int sides = 24;
         final double[] rings = {0, .38D, .72D, 1};

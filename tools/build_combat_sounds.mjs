@@ -3,7 +3,7 @@
 //
 // Everything is synthesized here (FM voices, filtered noise, chirps, short reverb); nothing is
 // sampled from other works. Encoding uses a WASM Vorbis encoder, so no ffmpeg/oggenc/Python is
-// needed:  cd tools && npm install && node build_combat_sounds.mjs [--validate] [--wav-only]
+// needed:  cd tools && npm install && node build_combat_sounds.mjs [--validate] [--wav-only] [--only=name,name]
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -38,6 +38,8 @@ const SPECS = [
   ["shield_twins_absorb_1", "shield_absorb:twins", .30], ["shield_twins_absorb_2", "shield_absorb:twins", .34],
   ["shield_twins_cell_break", "shield_break:twins", .52], ["shield_twins_collapse", "shield_collapse:twins", 1.3],
   ["shield_mana_ripple", "shield_ripple:mana", .70], ["shield_twins_ripple", "shield_ripple:twins", .75],
+  ["shield_rf_strike", "shield_strike:rf", .34], ["shield_mana_strike", "shield_strike:mana", .46],
+  ["shield_twins_strike", "shield_strike:twins", .52],
   ["ui_toggle", "ui_toggle", .20], ["ui_upgrade", "ui_upgrade", .55],
   ["ui_module_insert", "ui_module_insert", .24], ["ui_module_remove", "ui_module_remove", .22],
 ];
@@ -279,6 +281,23 @@ function synthesize(name, family, seconds) {
       space = .45;
       break;
     }
+    case "shield_strike": {
+      // The shell hitting back: a concussive push, then the shield's own voice. RF snaps like a
+      // discharge, Mana blooms like struck glass, Twins does both over a darker body.
+      v.add(mul(osc(n, t => 96 * Math.exp(-t * 15) + 38), env(n, .001, .09)), .75);
+      v.add(mul(bandpass(v.noise(), t => 2800 * Math.exp(-t * 9) + 320, 2.2), env(n, .002, .07)), .42);
+      if (flavor !== "mana") {
+        v.add(mul(fm(n, t => 3400 * Math.exp(-t * 20) + 260, 1.41, 3.6, .035), env(n, .001, .05)), .42);
+        v.add(highpass(crackle(v, (t, x) => (flavor === "rf" ? 7500 : 5200) * (1 - x) ** 2, .0009), 1900), .55);
+      }
+      if (flavor !== "rf") {
+        v.add(mul(fm(n, t => p.pitch * .5 * (1 + .45 * Math.exp(-t * 11)) * detune, p.ratio, p.index * .8, .07), env(n, .002, .14)), .32);
+        v.add(bell(n, p.pitch * (flavor === "twins" ? .5 : .75) * detune, [1, 2.76, 5.4], .16), .22);
+      }
+      if (flavor === "twins") v.add(mul(osc(n, t => 58 * detune + 24 * Math.exp(-t * 10)), env(n, .004, .16)), .4);
+      space = flavor === "rf" ? .12 : .32;
+      break;
+    }
     case "ui_toggle": {
       v.add(mul(osc(n, 660), env(n, .002, .03)), .4);
       v.add(mul(osc(n - Math.round(.07 * RATE), 990), env(n, .002, .05)), .4, .07);
@@ -367,13 +386,15 @@ async function main() {
   const args = new Set(process.argv.slice(2));
   if (args.has("--validate")) return validate();
   const wavOnly = args.has("--wav-only");
+  const only = [...args].find(arg => arg.startsWith("--only="))?.slice(7).split(",");
   mkdirSync(wavOnly ? WAV_OUT : OUT, { recursive: true });
-  for (const [name, family, seconds] of SPECS) {
+  const specs = only ? SPECS.filter(([name]) => only.includes(name)) : SPECS;
+  for (const [name, family, seconds] of specs) {
     const samples = synthesize(name, family, seconds);
     if (wavOnly) writeFileSync(join(WAV_OUT, `${name}.wav`), wav(samples));
     else writeFileSync(join(OUT, `${name}.ogg`), await encode(samples));
   }
-  console.log(`Generated ${SPECS.length} ${wavOnly ? "WAV previews in work/sound-preview" : "Ogg Vorbis assets"}.`);
+  console.log(`Generated ${specs.length} ${wavOnly ? "WAV previews in work/sound-preview" : "Ogg Vorbis assets"}.`);
 }
 
 await main();

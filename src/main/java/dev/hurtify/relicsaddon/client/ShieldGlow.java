@@ -31,7 +31,7 @@ public final class ShieldGlow {
                     .setCullState(RenderStateShard.NO_CULL)
                     .createCompositeState(false));
     private static final MultiBufferSource.BufferSource BUFFERS = MultiBufferSource.immediate(new ByteBufferBuilder(1 << 20));
-    private static final Vec3[][] LOW_SPHERE = sphere(14), HIGH_SPHERE = sphere(24);
+    private static final Vec3[][] LOW_SPHERE = sphere(16), HIGH_SPHERE = sphere(32);
 
     static VertexConsumer consumer() {
         return BUFFERS.getBuffer(TYPE);

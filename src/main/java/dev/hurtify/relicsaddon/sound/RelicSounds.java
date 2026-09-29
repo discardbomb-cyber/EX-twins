@@ -67,6 +67,9 @@ public final class RelicSounds {
     private static final DeferredHolder<SoundEvent, SoundEvent> UI_MODULE_REMOVE = sound("ui.module_remove");
     private static final DeferredHolder<SoundEvent, SoundEvent> MANA_SHIELD_RIPPLE = sound("shield.mana_ripple");
     private static final DeferredHolder<SoundEvent, SoundEvent> TWINS_SHIELD_RIPPLE = sound("shield.twins_ripple");
+    private static final DeferredHolder<SoundEvent, SoundEvent> RF_SHIELD_STRIKE = sound("shield.rf_strike");
+    private static final DeferredHolder<SoundEvent, SoundEvent> MANA_SHIELD_STRIKE = sound("shield.mana_strike");
+    private static final DeferredHolder<SoundEvent, SoundEvent> TWINS_SHIELD_STRIKE = sound("shield.twins_strike");
 
     private static final int MAX_THROTTLE_ENTRIES = 2_048;
     private static final long STALE_TICKS = 1_200L;
@@ -111,6 +114,17 @@ public final class RelicSounds {
         float volume = exhausted ? 0.88F : broken ? 0.72F : 0.50F;
         play(level, position, event, Category.SHIELD, cooldown, volume, exhausted ? 0.82F : 1.0F);
         if (!exhausted) ripple(level, position, role);
+    }
+
+    /** The shell striking a hostile mob and throwing it back. */
+    public static void strike(ServerLevel level, Vec3 position, RelicRole role) {
+        DeferredHolder<SoundEvent, SoundEvent> event = switch (role) {
+            case RF_SHIELD -> RF_SHIELD_STRIKE;
+            case MANA_SHIELD -> MANA_SHIELD_STRIKE;
+            case TWINS_SHIELD -> TWINS_SHIELD_STRIKE;
+            default -> null;
+        };
+        if (event != null) play(level, position, event, Category.STRIKE, 4, .66F, .94F + (float) level.getRandom().nextGaussian() * .04F);
     }
 
     /** Console feedback is private to the player using the device menu. */
@@ -233,7 +247,8 @@ public final class RelicSounds {
         IMPACT,
         SUMMON,
         SHIELD,
-        RIPPLE
+        RIPPLE,
+        STRIKE
     }
 
     public enum Ui {
