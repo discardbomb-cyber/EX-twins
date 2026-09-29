@@ -1,5 +1,7 @@
 package dev.hurtify.relicsaddon.drone;
 
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -9,11 +11,12 @@ import net.minecraft.world.phys.Vec3;
  * <p>Fighters hold places ({@link HiveSlots}) in two to sixteen strike groups. Where a place is depends
  * on the attack mode:
  * <ul>
- *   <li>Droplet: each group builds its shape ({@link HiveShapes}) at its own post around and above the
- *   target, and in turn dives through the target and swings back out. The blow lands at
- *   {@link #IMPACT} of the group's cycle.</li>
- *   <li>Barrage: each group hangs at its post as a patterned cluster, charges and fires at {@link #FIRE};
- *   a few drones hop to a neighbouring cluster now and then.</li>
+ *   <li>Droplet: each group forms one big figure ({@link HiveShapes}) at its own place in a fan behind
+ *   and above the owner, and in turn flies at the target like a projectile, strikes it whole at
+ *   {@link #IMPACT} of its cycle and flies back to re-form.</li>
+ *   <li>Barrage: each group is a dense clump around the target, and the clumps together make a pattern
+ *   (an RF crown, a Mana star, Twins octagons). A clump charges and fires at {@link #FIRE}; a few drones
+ *   hop to a neighbouring clump now and then.</li>
  *   <li>Containment: the whole swarm builds one construct around the target.</li>
  * </ul>
  * Drones leave the hive one after another along their own curved paths and come home the same way.
@@ -22,12 +25,14 @@ public final class HiveFormation {
     private static final double GOLDEN_ANGLE = 2.399963229728653;
     /** Share of a deployment over which departures are staggered. */
     private static final double STAGGER = .45;
-    /** Droplet cycle: hover until {@link #DIVE}, dive until {@link #IMPACT}, then swing back to the post. */
-    public static final double DIVE = .55, IMPACT = .75;
+    /** Droplet cycle: a group waits formed up, launches so it reaches the target at {@link #IMPACT}, holds there briefly and flies back. */
+    public static final double IMPACT = .7;
     /** Barrage cycle: charge until {@link #FIRE}, then cool down. */
     public static final double FIRE = .8;
     /** Ticks a hit drone takes to fly home. */
     public static final int RETURN_TICKS = 24;
+    /** Droplet fan: half its opening angle (a half circle from shoulder to shoulder), how far apart its figures sit, and how far it leans back from the target. */
+    private static final double FAN = Math.PI / 2, FAN_SPACING = 2.7, FAN_LEAN = .44;
 
     public static Vec3 idle(Vec3 owner, float yaw, int index, int count, HiveType type, double time) {
         count = safeCount(count);
@@ -63,7 +68,7 @@ public final class HiveFormation {
     /**
      * Where a group's cycle stands at {@code time}, 0 to 1, or below 0 before it starts. Each group
      * starts its first cycle a share of the interval after the last, so from the start they are spread
-     * evenly and none begins in the middle of a dive.
+     * evenly and none begins in the middle of a flight.
      */
     public static double groupPhase(double time, double cycleStart, int interval, int group, int groups) {
         double phase = (time - cycleStart) / Math.max(1, interval) - group / (double) Math.max(1, groups);
@@ -83,50 +88,168 @@ public final class HiveFormation {
         return target.add(0, saneSize(targetHeight, 1.8) * .55, 0);
     }
 
-    /** A group's post around and above the target; groups spread over the upper half-sphere and drift round. */
-    public static Vec3 post(Vec3 target, double targetWidth, double targetHeight, int group, int groups, double time, double reach) {
-        double up = .22 + .5 * ((group * .6180339887 + .31) % 1);
-        double angle = group * GOLDEN_ANGLE + time * .006;
-        double ring = Math.sqrt(1 - up * up);
-        double radius = reach + .2 * groups + saneSize(targetWidth, .6) * .5;
-        return core(target, targetHeight).add(Math.cos(angle) * ring * radius, up * radius, Math.sin(angle) * ring * radius);
-    }
+    // --- droplet ---------------------------------------------------------------------------------
 
-    /** Droplet: centre of a group's shape at {@code time}: hovering at its post, diving through the target, swinging back. */
-    public static Vec3 dropletCentre(Vec3 target, double targetWidth, double targetHeight, int group, int groups,
-            double time, double cycleStart, int interval) {
-        // The group bobs gently at its post; dives leave from and swings return to that bobbing point.
-        Vec3 hover = post(target, targetWidth, targetHeight, group, groups, time, 4.2).add(0, .15 * Math.sin(time * .1 + group), 0);
-        Vec3 core = core(target, targetHeight);
-        double phase = groupPhase(time, cycleStart, interval, group, groups);
-        if (phase < DIVE) return hover;
-        if (phase < IMPACT) {
-            double s = (phase - DIVE) / (IMPACT - DIVE);
-            return hover.lerp(core, s * s);
+    /**
+     * Droplet: where a group forms up. The groups fill arcs of a fan behind and above their owner,
+     * inner arc first, leaning back from the target, so a launched figure flies past overhead.
+     */
+    public static Vec3 muster(Vec3 owner, Vec3 target, int group, int groups, double time) {
+        groups = Math.max(1, groups);
+        group = Math.clamp(group, 0, groups - 1);
+        Vec3 toward = new Vec3(target.x - owner.x, 0, target.z - owner.z);
+        Vec3 forward = toward.lengthSqr() < 1e-6 ? new Vec3(0, 0, 1) : toward.normalize();
+        Vec3 side = new Vec3(-forward.z, 0, forward.x);
+        Vec3 up = new Vec3(0, Math.cos(FAN_LEAN), 0).subtract(forward.scale(Math.sin(FAN_LEAN)));
+        int row = 0, first = 0, inRow;
+        while (true) {
+            inRow = Math.min(groups - first, fanCapacity(row));
+            if (group < first + inRow) break;
+            first += inRow;
+            row++;
         }
-        // It holds on the target for three ticks, so the blow (the first tick past IMPACT) lands on it.
-        double release = IMPACT + 3.0 / Math.max(1, interval);
-        if (phase < release) return core;
-        double s = (phase - release) / (1 - release), eased = 1 - (1 - s) * (1 - s);
-        return core.lerp(hover, eased).add(0, Math.sin(Math.PI * s) * 1.2, 0);
+        double radius = fanRadius(row);
+        double angle = inRow == 1 ? 0 : -FAN + 2 * FAN * (group - first + .5) / inRow;
+        Vec3 pivot = owner.add(0, 1.5, 0).subtract(forward.scale(.9));
+        double bob = .12 * Math.sin(safeTime(time) * .08 + group * 1.3);
+        return pivot.add(up.scale(Math.cos(angle) * radius + bob)).add(side.scale(Math.sin(angle) * radius));
     }
 
-    /** Barrage: centre of a group's cluster, where its charge builds. */
-    public static Vec3 clusterCentre(Vec3 target, double targetWidth, double targetHeight, int group, int groups, double time) {
-        return post(target, targetWidth, targetHeight, group, groups, time, 3.8);
+    private static double fanRadius(int row) {
+        return 2.6 + 2.6 * row;
     }
 
-    /** Size of a droplet shape for a group of {@code members}. */
+    private static int fanCapacity(int row) {
+        return Math.max(1, (int) (fanRadius(row) * 2 * FAN / FAN_SPACING));
+    }
+
+    /** Ticks a figure takes from its place in the fan to the target: quick, at least 5, at most 40% of a cycle. */
+    public static double flightTicks(double distance, int interval) {
+        return Math.clamp(distance / 1.6, 5, Math.max(5, interval * .4));
+    }
+
+    /**
+     * Droplet: how far through its sortie a group is. Below 0 it waits in the fan; 0 to 1 it flies out,
+     * reaching the target at 1; it holds there at 1; from 1 to 2 it flies home.
+     */
+    public static double sortie(Vec3 owner, Vec3 target, double targetHeight, int group, int groups,
+            double time, double cycleStart, int interval) {
+        interval = Math.max(1, interval);
+        double phase = groupPhase(time, cycleStart, interval, group, groups);
+        if (phase < 0) return -1;
+        Vec3 home = muster(owner, target, group, groups, time), core = core(target, targetHeight);
+        double flight = flightTicks(home.distanceTo(core), interval) / interval;
+        double launch = IMPACT - flight;
+        if (phase < launch) return -1;
+        if (phase < IMPACT) return (phase - launch) / flight;
+        double release = release(interval);
+        if (phase < release) return 1;
+        return 1 + (phase - release) / (1 - release);
+    }
+
+    /** End of a figure's short hold on the target, so the blow (the first tick past {@link #IMPACT}) lands on it. */
+    private static double release(int interval) {
+        return IMPACT + Math.min(3, .1 * interval) / Math.max(1, interval);
+    }
+
+    /** Droplet: centre of a group's figure at {@code time}: in the fan, flying at the target, or flying home. */
+    public static Vec3 dropletCentre(Vec3 owner, Vec3 target, double targetHeight, int group, int groups,
+            double time, double cycleStart, int interval) {
+        Vec3 home = muster(owner, target, group, groups, time), core = core(target, targetHeight);
+        double sortie = sortie(owner, target, targetHeight, group, groups, time, cycleStart, interval);
+        if (sortie <= 0) return home;
+        double distance = home.distanceTo(core);
+        if (sortie <= 1) {
+            // Launched from rest, it gathers speed all the way in over a shallow arc.
+            double arc = Math.min(2.5, distance * .12);
+            return home.lerp(core, sortie * sortie).add(0, Math.sin(Math.PI * sortie) * arc, 0);
+        }
+        // Home on a wider arc swung out to one side, clear of the figures still flying in.
+        double s = sortie - 1, eased = s * s * (3 - 2 * s), swing = Math.sin(Math.PI * s) * Math.min(4, distance * .2);
+        Vec3 across = new Vec3(-(core.z - home.z), 0, core.x - home.x);
+        across = across.lengthSqr() < 1e-6 ? Vec3.ZERO : across.normalize().scale(group % 2 == 0 ? 1 : -1);
+        return core.lerp(home, eased).add(0, swing * .6, 0).add(across.scale(swing));
+    }
+
+    /** Size of a droplet figure for a group of {@code members}. */
     public static double shapeSize(int members) {
-        return .55 + .07 * Math.cbrt(Math.max(1, members));
+        return .55 + .1 * Math.cbrt(Math.max(1, members));
+    }
+
+    // --- barrage ---------------------------------------------------------------------------------
+
+    /**
+     * Barrage: centre of a group's clump, where its charge builds. The clumps themselves make the
+     * pattern: RF a crown with alternate points raised, Mana a breathing star between a wide low ring
+     * and a narrow high one, Twins octagons of up to eight clumps stacked and turning against each other.
+     */
+    public static Vec3 clusterCentre(HiveType type, Vec3 target, double targetWidth, double targetHeight, int group, int groups, double time) {
+        groups = Math.max(1, groups);
+        group = Math.clamp(group, 0, groups - 1);
+        time = safeTime(time);
+        Vec3 core = core(target, targetHeight);
+        double reach = 2.7 + .13 * groups + saneSize(targetWidth, .6) * .5;
+        return core.add(switch (type) {
+            case RF -> {
+                double angle = group * Math.PI * 2 / groups + time * .004;
+                double lift = groups > 3 && group % 2 == 1 ? .75 : 0;
+                yield new Vec3(Math.cos(angle) * reach, 1.3 + lift, Math.sin(angle) * reach);
+            }
+            case MANA -> {
+                boolean inner = groups > 1 && group % 2 == 1;
+                double angle = group * Math.PI * 2 / groups - time * .003;
+                double r = reach * (1 + .05 * Math.sin(time * .04)) * (inner ? .58 : 1);
+                yield new Vec3(Math.cos(angle) * r, inner ? 2.3 : .8, Math.sin(angle) * r);
+            }
+            case TWINS -> {
+                int ring = group / 8, index = group % 8, inRing = Math.min(8, groups - ring * 8);
+                double angle = index * Math.PI * 2 / inRing + (ring % 2 == 0 ? 1 : -1) * time * .005 + ring * Math.PI / 8;
+                double r = reach * (1 - .28 * ring);
+                yield new Vec3(Math.cos(angle) * r, 1.0 + 1.5 * ring, Math.sin(angle) * r);
+            }
+        });
+    }
+
+    /** The pattern's lines, as pairs of groups: the crown's ring, the star's zigzag and outer ring, the octagons and the struts between them. */
+    public static int[][] clusterLinks(HiveType type, int groups) {
+        if (groups < 2) return new int[0][];
+        List<int[]> links = new ArrayList<>();
+        switch (type) {
+            case RF, MANA -> {
+                for (int group = 0; group < (groups == 2 ? 1 : groups); group++) links.add(new int[]{group, (group + 1) % groups});
+                if (type == HiveType.MANA && groups >= 6) {
+                    int outer = (groups + 1) / 2;
+                    for (int k = 0; k < outer; k++) {
+                        int a = 2 * k, b = 2 * ((k + 1) % outer);
+                        if (a != b) links.add(new int[]{a, b});
+                    }
+                }
+            }
+            case TWINS -> {
+                for (int ring = 0; ring * 8 < groups; ring++) {
+                    int size = Math.min(8, groups - ring * 8);
+                    for (int index = 0; index < (size == 2 ? 1 : size); index++) {
+                        if (size > 1) links.add(new int[]{ring * 8 + index, ring * 8 + (index + 1) % size});
+                    }
+                    if (ring > 0) for (int index = 0; index < size; index++) links.add(new int[]{(ring - 1) * 8 + index, ring * 8 + index});
+                }
+            }
+        }
+        return links.toArray(int[][]::new);
+    }
+
+    /** Radius of a barrage clump of {@code members} drones. */
+    public static double clumpRadius(int members) {
+        return .36 + .1 * Math.cbrt(Math.max(1, members));
     }
 
     /**
      * Where fighter place {@code slot} of {@code slots} flies once deployed. {@code target} is the
-     * target's feet; for containment the construct surrounds it.
+     * target's feet; for containment the construct surrounds it. Droplet figures form up near
+     * {@code owner}'s feet.
      */
-    public static Vec3 station(AttackMode mode, HiveType type, int slot, int slots, Vec3 target, double targetWidth, double targetHeight,
-            double time, double cycleStart, int interval) {
+    public static Vec3 station(AttackMode mode, HiveType type, int slot, int slots, Vec3 owner, Vec3 target, double targetWidth,
+            double targetHeight, double time, double cycleStart, int interval) {
         slots = Math.max(1, slots);
         slot = Math.clamp(slot, 0, slots - 1);
         time = safeTime(time);
@@ -137,8 +260,8 @@ public final class HiveFormation {
         Vec3 core = core(target, targetHeight);
         return switch (mode) {
             case DROPLET -> {
-                Vec3 centre = dropletCentre(target, targetWidth, targetHeight, group, groups, time, cycleStart, interval);
-                Vec3 facing = core.subtract(post(target, targetWidth, targetHeight, group, groups, time, 4.2));
+                Vec3 centre = dropletCentre(owner, target, targetHeight, group, groups, time, cycleStart, interval);
+                Vec3 facing = core.subtract(muster(owner, target, group, groups, time));
                 double size = shapeSize(members);
                 yield centre.add(switch (type) {
                     case RF -> HiveShapes.tesseract(member, members, time + group * 17, size);
@@ -147,18 +270,18 @@ public final class HiveFormation {
                 });
             }
             case BARRAGE -> {
-                // A few drones hop to the next cluster every eight seconds, gliding over for a second.
+                // A few drones hop to the next clump every eight seconds, gliding over for a second.
                 int home = group;
-                Vec3 at = barragePoint(type, home, member, members, groups, target, targetWidth, targetHeight, time, 1);
+                Vec3 at = barragePoint(type, home, member, members, groups, target, targetWidth, targetHeight, time, -1);
                 if (member % 7 == 3 && groups > 1) {
                     double clock = time + member * 37 + group * 53;
                     long hops = (long) Math.floor(clock / 160);
                     double into = clock - hops * 160;
                     int from = (int) Math.floorMod(home + hops - 1, groups), to = (int) Math.floorMod(home + hops, groups);
-                    // A visiting drone keeps to the outer ring of the cluster it drops in on.
-                    Vec3 there = barragePoint(type, to, member, members, groups, target, targetWidth, targetHeight, time, to == home ? 1 : 1.45);
+                    // A visiting drone circles just outside the clump it drops in on.
+                    Vec3 there = barragePoint(type, to, member, members, groups, target, targetWidth, targetHeight, time, to == home ? -1 : home);
                     if (into < 24) {
-                        Vec3 before = barragePoint(type, from, member, members, groups, target, targetWidth, targetHeight, time, from == home ? 1 : 1.45);
+                        Vec3 before = barragePoint(type, from, member, members, groups, target, targetWidth, targetHeight, time, from == home ? -1 : home);
                         double t = into / 24;
                         at = before.lerp(there, t * t * (3 - 2 * t)).add(0, Math.sin(Math.PI * t) * .8, 0);
                     } else at = there;
@@ -173,11 +296,18 @@ public final class HiveFormation {
         };
     }
 
+    /**
+     * A drone's place in clump {@code group}. A visitor (from clump {@code visitorFrom}, or -1 for a clump's
+     * own drones) circles just outside it, turned by its home clump so that visitors from different
+     * clumps never share a place.
+     */
     private static Vec3 barragePoint(HiveType type, int group, int member, int members, int groups, Vec3 target,
-            double targetWidth, double targetHeight, double time, double spread) {
-        Vec3 centre = clusterCentre(target, targetWidth, targetHeight, group, groups, time);
+            double targetWidth, double targetHeight, double time, int visitorFrom) {
+        Vec3 centre = clusterCentre(type, target, targetWidth, targetHeight, group, groups, time);
         Vec3 facing = core(target, targetHeight).subtract(centre);
-        return centre.add(HiveShapes.cluster(type, member, members, time, facing).scale(spread));
+        double turn = visitorFrom < 0 ? 0 : visitorFrom * 41 + 17;
+        return centre.add(HiveShapes.clump(type, member, members, time + group * 29 + turn, facing, clumpRadius(members))
+                .scale(visitorFrom < 0 ? 1 : 1.45));
     }
 
     /**

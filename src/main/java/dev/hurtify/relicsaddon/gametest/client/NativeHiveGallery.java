@@ -30,10 +30,10 @@ import net.minecraft.world.phys.Vec3;
  */
 final class NativeHiveGallery extends Screen {
     private static final AttackMode[] STAGES = {AttackMode.DROPLET, AttackMode.BARRAGE, AttackMode.CONTAINMENT};
-    private static final long STAGE_MS = 3200;
-    private static final int SLOTS = HiveType.MAX_DEPLOYED, UNITS = HiveType.MAX_DRONES, TRAVEL = 30, INTERVAL = 60;
+    private static final long STAGE_MS = 6400;
+    private static final int SLOTS = HiveType.MAX_DEPLOYED, UNITS = HiveType.MAX_DRONES, TRAVEL = 20, INTERVAL = 40;
     private static final boolean GIF = Boolean.getBoolean("relics_addon.hiveGif");
-    private static final int GIF_FRAMES = 150;
+    private static final int GIF_FRAMES = 300;
     private final ItemStack[] items = {new ItemStack(ModItems.RF_HIVE.get()), new ItemStack(ModItems.MANA_HIVE.get()),
             new ItemStack(ModItems.TWINS_HIVE.get())};
     private final long start = Util.getMillis();
@@ -72,15 +72,18 @@ final class NativeHiveGallery extends Screen {
     }
 
     private void renderSwarm(GuiGraphics graphics, HiveType type, AttackMode mode, double time, double combatStart, double centreX, int cw) {
-        boolean contain = mode == AttackMode.CONTAINMENT;
-        double reach = contain ? 5.5 : 10.5;
+        boolean contain = mode == AttackMode.CONTAINMENT, droplet = mode == AttackMode.DROPLET;
+        // Droplet figures form up in a fan behind their owner: that view is turned so the fan opens out
+        // across the frame and the figures fly off to the right, and shifted to take in both ends.
+        double reach = contain ? 5.5 : droplet ? 9 : 8, shift = droplet ? 1.9 : 0;
+        float turn = droplet ? .65F : 0F;
         double scale = Math.min((cw - 16) / (reach * 2), (height - 60) / (reach * 1.9));
-        Vec3 target = Vec3.ZERO;
+        Vec3 target = droplet ? new Vec3(7.5, 0, 0) : Vec3.ZERO;
         if (contain && type == HiveType.TWINS) {
             double lift = Math.clamp((time - combatStart - TRAVEL * .5) / 30, 0, 1);
             target = target.add(0, HiveContainment.LIFT * lift * lift * (3 - 2 * lift), 0);
         }
-        Vec3 owner = new Vec3(contain ? -4.5 : -8, 0, 1.5);
+        Vec3 owner = droplet ? new Vec3(-1.5, 0, 0) : new Vec3(contain ? -4.5 : -8, 0, 1.5);
         double cycleStart = combatStart + TRAVEL;
         int groups = HiveSlots.groups(SLOTS);
         int[] members = new int[groups];
@@ -90,13 +93,15 @@ final class NativeHiveGallery extends Screen {
         graphics.flush();
         var pose = graphics.pose();
         pose.pushPose();
-        pose.translate(centreX, 60 + (height - 60) * (contain ? .55 : .62), 150);
+        pose.translate(centreX + shift * scale, 60 + (height - 60) * (contain ? .55 : droplet ? .8 : .62), 150);
         pose.scale((float) scale, (float) -scale, (float) scale);
         pose.mulPose(Axis.XP.rotation(.30F));
-        GlowBrush.setFlatView(new Vec3(0, Math.sin(.30), Math.cos(.30)));
+        pose.mulPose(Axis.YP.rotation(turn));
+        // Towards the viewer, in world space: the inverse of the two turns applied to +z.
+        GlowBrush.setFlatView(new Vec3(-Math.cos(.30) * Math.sin(turn), Math.sin(.30), Math.cos(.30) * Math.cos(turn)));
         try {
             for (int slot = 0; slot < SLOTS; slot++) {
-                Vec3 station = HiveFormation.station(mode, type, slot, SLOTS, target, .6, 1.8, time, cycleStart, INTERVAL);
+                Vec3 station = HiveFormation.station(mode, type, slot, SLOTS, owner, target, .6, 1.8, time, cycleStart, INTERVAL);
                 Vec3 at = HiveFormation.deployed(owner, -90, station, slot, UNITS, type, time, combatStart, TRAVEL);
                 drones[slot] = at;
                 members[HiveSlots.group(slot, groups)]++;
@@ -113,21 +118,26 @@ final class NativeHiveGallery extends Screen {
             var glow = ShieldGlow.consumer();
             var fill = graphics.bufferSource().getBuffer(ShieldVisualRenderer.renderType());
             var matrix = pose.last().pose();
-            // The target: a zombie-sized outline.
-            double[][] box = {{-.3, 0, -.3}, {.3, 0, -.3}, {.3, 0, .3}, {-.3, 0, .3}};
-            for (int corner = 0; corner < 4; corner++) {
-                Vec3 a = target.add(box[corner][0], 0, box[corner][2]), b = target.add(box[(corner + 1) % 4][0], 0, box[(corner + 1) % 4][2]);
-                GlowBrush.line(glow, matrix, a, b, .03, 0xC8CED6, 150);
-                GlowBrush.line(glow, matrix, a.add(0, 1.8, 0), b.add(0, 1.8, 0), .03, 0xC8CED6, 150);
-                GlowBrush.line(glow, matrix, a, a.add(0, 1.8, 0), .03, 0xC8CED6, 150);
-            }
-            HiveModeVisual.render(new HiveModeVisual.Scene(mode, type, SLOTS, groups, members, drones, target, .6, 1.8, time, cycleStart,
+            // The target: a zombie-sized outline; for droplet the owner too, in the hive's colour.
+            outline(glow, matrix, target, 0xC8CED6);
+            if (droplet) outline(glow, matrix, owner, HiveModeVisual.color(type));
+            HiveModeVisual.render(new HiveModeVisual.Scene(mode, type, SLOTS, groups, members, drones, owner, target, .6, 1.8, time, cycleStart,
                     INTERVAL, time >= combatStart + TRAVEL * .5), Vec3.ZERO, glow, fill, matrix);
             graphics.bufferSource().endBatch(ShieldVisualRenderer.renderType());
             ShieldGlow.flush();
         } finally {
             GlowBrush.setFlatView(null);
             pose.popPose();
+        }
+    }
+
+    private static void outline(com.mojang.blaze3d.vertex.VertexConsumer glow, org.joml.Matrix4f matrix, Vec3 at, int color) {
+        double[][] box = {{-.3, 0, -.3}, {.3, 0, -.3}, {.3, 0, .3}, {-.3, 0, .3}};
+        for (int corner = 0; corner < 4; corner++) {
+            Vec3 a = at.add(box[corner][0], 0, box[corner][2]), b = at.add(box[(corner + 1) % 4][0], 0, box[(corner + 1) % 4][2]);
+            GlowBrush.line(glow, matrix, a, b, .03, color, 150);
+            GlowBrush.line(glow, matrix, a.add(0, 1.8, 0), b.add(0, 1.8, 0), .03, color, 150);
+            GlowBrush.line(glow, matrix, a, a.add(0, 1.8, 0), .03, color, 150);
         }
     }
 

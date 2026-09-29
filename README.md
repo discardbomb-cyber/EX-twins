@@ -6,7 +6,7 @@ Expandable autonomous shields and combat hives for Minecraft 1.21.1, NeoForge an
 
 ![EX-twins showcase: glass honeycomb shield, strikes, and the hive's droplet, barrage and containment modes](docs/images/ex-twins-showcase.gif)
 
-The showcase above is rendered in-game by the capture galleries: shield impacts on the honeycomb, then a 750-drone hive deploying 250 drones in each attack mode. It is not a live-world battle recording, and the GIF has no audio. The older [46.5-second showcase](https://github.com/discardbomb-cyber/EX-twins/releases/download/v1.0.0-beta.1/EX-twins-showcase.gif) is still attached to the 1.0.0-beta.1 release.
+The showcase above is rendered in-game by the capture galleries: shield impacts on the honeycomb, then a 750-drone hive deploying 250 drones in each attack mode. The droplet figures fly from the fan behind their owner (the coloured outline) to the target (the grey outline). It is not a live-world battle recording, and the GIF has no audio. The older [46.5-second showcase](https://github.com/discardbomb-cyber/EX-twins/releases/download/v1.0.0-beta.1/EX-twins-showcase.gif) is still attached to the 1.0.0-beta.1 release.
 
 ## Installation
 
@@ -99,8 +99,8 @@ RF hives have four silver mechanical bay doors, Mana has six ivory/gold shells, 
 Ten levels grow the swarm to 750 drones. At most 250 fly at once; the rest wait in the hive as replacements. Only one hive can be equipped (Curios rejects a second one), and only one operates.
 
 - The flying drones are split into 2 to 16 strike groups. Pick one of three attack modes in the console's Swarm tab:
-  - **Droplet.** Each group strikes as a single shape: a Mana drop, an RF tesseract turning through the fourth dimension, or Ex-Twins hexagons with lightning arcing between them.
-  - **Barrage.** Groups gather into clusters around the target and trade drones between them. Each cluster charges a glowing ball of lightning and fires it, and the ball bursts with a lightning blast that warps the space around it. Ex-Twins clusters form octagons that shed violet smoke.
+  - **Droplet.** Each group forms one big figure in a fan behind and above its owner: a Mana drop, an RF tesseract turning through the fourth dimension, or Ex-Twins hexagons with lightning arcing between them. In turn, each figure flies at the target like a projectile, strikes it whole and knocks it back, then flies home to re-form. Ex-Twins figures bend space as they fly.
+  - **Barrage.** Each group packs into a dense, glowing clump around the target, and the clumps draw the family's pattern: an RF crown, a Mana star, Ex-Twins octagons. A ball of lightning charges inside each clump. When it fires, it passes through walls and bursts on the target in a lightning blast that warps the space around it. Now and then a few drones hop to a neighbouring clump. Ex-Twins clumps are octagons that crackle with lightning and shed violet smoke.
   - **Containment.** Every family stuns what it holds:
     - RF seals the target in a torus of hexagons that zaps it and swallows its shots.
     - Mana builds a ward of three rhombi and two rings. Drones keep a reflection buffer charged, and the ward turns blows back on the attacker.
@@ -142,7 +142,7 @@ The `tools/` directory includes the current mesh generators, ability-card drawin
 
 `./gradlew runReleaseCheckClient` verifies the packaged release from `run-release-check/mods`, captures the ordinary title screen and exits. It does not load the main source-set classes or any preview screens. The separate startup probe is never packaged in the addon. Keep development clients in a separate checkout while recompiling: a running development client can fail to load a class if its compiler output changes during startup.
 
-To rebuild `docs/images/ex-twins-showcase.gif`, run `runFeatureGifClient`, then `cd tools && npm install && node build_showcase_gif.mjs --segment "../run-feature-gif/screenshots/relics-shield-gif-*.png:2:80" --segment "../run-feature-gif/screenshots/relics-hive-gif-*.png:1:64"`. The older release GIF came from `runFeatureGifClient` plus `runUiCaptureClient` through `python tools/assemble_feature_preview.py run-feature-gif/screenshots run-ui-capture/screenshots outputs/EX-twins-showcase.gif --font /path/to/a-cyrillic-font.ttf`. Recording is opt-in and never runs in a release client.
+To rebuild `docs/images/ex-twins-showcase.gif`, run `runFeatureGifClient` (shield frames) and `runHiveGifClient` (swarm frames), then `cd tools && npm install && node build_showcase_gif.mjs --segment "../run-feature-gif/screenshots/relics-shield-gif-*.png:2:80" --segment "../run-hive-gif/screenshots/relics-hive-gif-*.png:1:64"`. The older release GIF came from `runFeatureGifClient` plus `runUiCaptureClient` through `python tools/assemble_feature_preview.py run-feature-gif/screenshots run-ui-capture/screenshots outputs/EX-twins-showcase.gif --font /path/to/a-cyrillic-font.ttf`. Recording is opt-in and never runs in a release client.
 
 ## Beta Limitations
 
