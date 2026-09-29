@@ -135,14 +135,15 @@ public final class ShieldRefraction {
             double theta = from + (to - from) * ring / RINGS;
             // Soft window so the band has no visible edge.
             double window = Math.sin(Math.PI * ring / RINGS);
-            double height = ShieldRipple.profile(Math.cos(theta), age) * ShieldRipple.strength(impact.absorbed());
+            // Twins refract far less than Mana (see ShieldRipple.roleScale); both the bend and the lensing scale.
+            double height = ShieldRipple.profile(Math.cos(theta), age) * ShieldRipple.strength(impact.absorbed()) * lensing(job.role);
             int red = (int) Math.round(Math.clamp(height * .5 + .5, 0, 1) * 255);
             int alpha = (int) Math.round(Math.clamp(strength * window * window, 0, 1) * 255);
             double sin = Math.sin(theta), cos = Math.cos(theta);
             for (int segment = 0; segment <= SEGMENTS; segment++) {
                 double phi = Math.PI * 2 * segment / SEGMENTS;
                 Vec3 dir = n.scale(cos).add(t1.scale(Math.cos(phi) * sin)).add(t2.scale(Math.sin(phi) * sin));
-                double radius = job.radius * (1 + height * ShieldRipple.AMPLITUDE * AddonClientConfig.rippleStrength()) * 1.004;
+                double radius = job.radius * (1 + height / lensing(job.role) * ShieldRipple.roleScale(job.role) * ShieldRipple.AMPLITUDE * AddonClientConfig.rippleStrength()) * 1.004;
                 points[ring][segment] = new Vec3(job.x + dir.x * radius, job.y + dir.y * radius, job.z + dir.z * radius);
                 colors[ring][segment] = alpha << 24 | red << 16;
             }
@@ -155,6 +156,10 @@ public final class ShieldRefraction {
             put(builder, pose, points[ring + 1][segment + 1], colors[ring + 1][segment + 1]);
             put(builder, pose, points[ring][segment + 1], colors[ring][segment + 1]);
         }
+    }
+
+    private static double lensing(RelicRole role) {
+        return role == RelicRole.TWINS_SHIELD ? .35 : 1;
     }
 
     private static void put(BufferBuilder builder, Matrix4f pose, Vec3 point, int argb) {

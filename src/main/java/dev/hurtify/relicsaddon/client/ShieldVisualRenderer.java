@@ -249,7 +249,7 @@ public final class ShieldVisualRenderer {
         double idle = AddonClientConfig.idleOpacity();
         if (idle <= 0 && !state.gathering(time) && threats.isEmpty() && impacts.isEmpty()) return;
         boolean rippling = role == RelicRole.MANA_SHIELD || role == RelicRole.TWINS_SHIELD;
-        if (rippling) ShieldRipple.begin(impacts, time);
+        if (rippling) ShieldRipple.begin(impacts, time, ShieldRipple.roleScale(role));
         try {
             double activity = threats.isEmpty() ? impacts.stream().mapToDouble(hit ->
                     ShieldField.fade(time - hit.gameTime(), ShieldResponse.IMPACT_TICKS)).max().orElse(0) : 1;
