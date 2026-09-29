@@ -32,14 +32,14 @@ final class ShieldCircuitTraces {
     private record Pattern(List<Segment> segments, List<Pad> pads) { }
 
     static void render(VertexConsumer core, VertexConsumer glow, Matrix4f matrix, double x, double y, double z,
-            double radius, List<ShieldImpact> impacts, double time, boolean low) {
+            double radius, List<ShieldImpact> impacts, double time, boolean low, boolean inside) {
+        double view = inside ? ShieldSurfaceLighting.INSIDE : 1;
         for (ShieldImpact impact : impacts) {
             double age = time - impact.gameTime();
             if (impact.absorbed() <= 0 || age < 0 || age >= ShieldResponse.IMPACT_TICKS) continue;
             Pattern pattern = PATTERNS.computeIfAbsent(seed(impact), ShieldCircuitTraces::generate);
             double reach = age * GROWTH;
-            double fade = ShieldField.fade(age - 10, ShieldResponse.IMPACT_TICKS - 10);
-            if (age < 10) fade = 1;
+            double fade = (age < 10 ? 1 : ShieldField.fade(age - 10, ShieldResponse.IMPACT_TICKS - 10)) * view;
             Vec3 n = impact.normal();
             Vec3 t1 = n.cross(Math.abs(n.y) > .9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize();
             Vec3 t2 = n.cross(t1).normalize();

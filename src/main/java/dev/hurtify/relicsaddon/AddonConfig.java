@@ -16,6 +16,7 @@ public final class AddonConfig {
     public static final ModConfigSpec.DoubleValue PLAYER_MANA_VALUE;
     public static final ModConfigSpec.DoubleValue PLAYER_MANA_RESERVE;
     public static final ModConfigSpec.IntValue BOTANIA_MANA_PER_POINT;
+    public static final ModConfigSpec.IntValue XP_PER_MINUTE;
     static {
         var builder = new ModConfigSpec.Builder();
         SHIELD_MAX_RADIUS = builder.defineInRange("shield.maxRadius", 12.0, 2.0, 24.0);
@@ -35,6 +36,8 @@ public final class AddonConfig {
                 .defineInRange("power.playerManaReserve", 0.25, 0.0, 1.0);
         BOTANIA_MANA_PER_POINT = builder.comment("Botania mana taken from mana tablets and similar items per point of battery charge.")
                 .defineInRange("power.botaniaManaPerPoint", 10, 1, 10000);
+        XP_PER_MINUTE = builder.comment("Most device experience one shield or hive can earn per minute of combat.")
+                .defineInRange("progression.maxExperiencePerMinute", 30, 1, 100000);
         SPEC = builder.build();
     }
     private AddonConfig() { }

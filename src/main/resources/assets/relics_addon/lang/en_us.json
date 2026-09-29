@@ -201,5 +201,6 @@
   "item.relics_addon.mana_drone_shell.desc": "Petal shell around a mana light; six of them become a Mana Hive.",
   "item.relics_addon.twins_drone_plate": "Twins Drone Plate",
   "item.relics_addon.twins_drone_plate.desc": "Black pentagonal plate with a violet sigil; four of them become a Twins Hive.",
-  "item.relics_addon.device_module.desc": "Place it in a module bay of a shield or hive console."
+  "item.relics_addon.device_module.desc": "Place it in a module bay of a shield or hive console.",
+  "screen.relics_addon.battery_rf.tab_hint": "Charge from any FE charger, or put a charged FE item in the slot on the right."
 }

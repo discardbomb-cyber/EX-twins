@@ -261,7 +261,8 @@ public final class ShieldVisualRenderer {
             if (state.gathering(time)) activity = Math.max(activity, .6);
             ShieldGlow.halo(matrix, role, originX, originY, originZ, radius, activity, impacts, time, eyeDirection, low);
             if (role == RelicRole.TWINS_SHIELD) {
-                ShieldCircuitTraces.render(consumer, ShieldGlow.consumer(), matrix, originX, originY, originZ, radius, impacts, time, low);
+                ShieldCircuitTraces.render(consumer, ShieldGlow.consumer(), matrix, originX, originY, originZ, radius, impacts, time, low,
+                        ShieldSurfaceLighting.inside(eyeDirection));
             }
         } finally {
             ShieldRipple.end();

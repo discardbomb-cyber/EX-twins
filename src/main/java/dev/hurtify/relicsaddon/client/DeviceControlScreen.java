@@ -302,7 +302,7 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
         if (DevicePower.hasMana(role())) {
             g.drawString(font, Component.translatable("screen.relics_addon.mana_source_label"), x + CX, y + 92, HoloPaint.TEXT_DIM, false);
         } else {
-            List<FormattedCharSequence> hint = font.split(Component.translatable("screen.relics_addon.battery_rf.hint"), 170);
+            List<FormattedCharSequence> hint = font.split(Component.translatable("screen.relics_addon.battery_rf.tab_hint"), 176);
             for (int line = 0; line < Math.min(3, hint.size()); line++) g.drawString(font, hint.get(line), x + CX, y + 92 + line * 10, HoloPaint.TEXT_FAINT, false);
         }
         if (DevicePower.hasRf(role())) {

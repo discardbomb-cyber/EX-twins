@@ -201,5 +201,6 @@
   "item.relics_addon.mana_drone_shell.desc": "Лепестки вокруг огня маны; из шести собирается мана-улей.",
   "item.relics_addon.twins_drone_plate": "Пластина дрона Близнецов",
   "item.relics_addon.twins_drone_plate.desc": "Чёрная пятиугольная пластина с фиолетовым знаком; из четырёх собирается улей Близнецов.",
-  "item.relics_addon.device_module.desc": "Вставьте в отсек модулей в консоли щита или улья."
+  "item.relics_addon.device_module.desc": "Вставьте в отсек модулей в консоли щита или улья.",
+  "screen.relics_addon.battery_rf.tab_hint": "Заряжайте любым FE-зарядником или положите заряженный FE-предмет в слот справа."
 }

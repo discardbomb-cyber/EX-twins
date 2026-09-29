@@ -57,6 +57,8 @@ public final class ShieldGlow {
         int r = color >> 16 & 255, g = color >> 8 & 255, b = color & 255;
         VertexConsumer consumer = consumer();
         double shell = radius * 1.018;
+        // From inside, the halo would surround the camera; only hit spots glow there.
+        boolean inside = ShieldSurfaceLighting.inside(eye);
         for (Vec3[] triangle : low ? LOW_SPHERE : HIGH_SPHERE) {
             for (Vec3 n : triangle) {
                 double rim = eye.lengthSqr() < .01 ? .22 : Math.pow(1 - Math.abs(n.dot(eye)), 2.4);
@@ -67,7 +69,7 @@ public final class ShieldGlow {
                     hit = Math.max(hit, ShieldField.focus(n.dot(impact.normal()), .22) * ShieldField.fade(age, 18));
                 }
                 double ripple = ShieldRipple.active() ? Math.max(0, ShieldRipple.height(n.x, n.y, n.z)) : 0;
-                double light = activity * (rim * .55 + .05) + hit * .95 + ripple * .6;
+                double light = inside ? hit * .6 : activity * (rim * .55 + .05) + hit * .95 + ripple * .6;
                 int alpha = (int) Math.clamp(light * 150 * ShieldSurfaceLighting.visibility(n.x, n.y, n.z, eye), 0, 220);
                 double bent = shell * ShieldRipple.scale(n.x, n.y, n.z);
                 consumer.addVertex(matrix, (float) (x + n.x * bent), (float) (y + n.y * bent), (float) (z + n.z * bent))
