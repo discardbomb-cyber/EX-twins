@@ -14,6 +14,8 @@ public final class ModItems {
     public static final DeferredItem<dev.hurtify.relicsaddon.relic.HiveRelicItem> RF_HIVE = hive(dev.hurtify.relicsaddon.drone.HiveType.RF);
     public static final DeferredItem<dev.hurtify.relicsaddon.relic.HiveRelicItem> MANA_HIVE = hive(dev.hurtify.relicsaddon.drone.HiveType.MANA);
     public static final DeferredItem<dev.hurtify.relicsaddon.relic.HiveRelicItem> TWINS_HIVE = hive(dev.hurtify.relicsaddon.drone.HiveType.TWINS);
+    public static final DeferredItem<dev.hurtify.relicsaddon.relic.DeviceModuleItem> DEVICE_MODULE = ITEMS.register(
+            "device_module", () -> new dev.hurtify.relicsaddon.relic.DeviceModuleItem(new Item.Properties()));
 
     private static DeferredItem<dev.hurtify.relicsaddon.relic.HiveRelicItem> hive(dev.hurtify.relicsaddon.drone.HiveType type) {
         return ITEMS.register(type.role.itemId(), () -> {

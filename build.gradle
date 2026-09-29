@@ -12,7 +12,14 @@ base {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
-sourceSets { releaseProbe }
+sourceSets {
+    releaseProbe
+    // These probes exercise Relics' old native UI and data API. They are retained
+    // as migration reference, but are not part of the standalone build.
+    main {
+        java.exclude 'dev/hurtify/relicsaddon/gametest/**'
+    }
+}
 
 neoForge {
     version = neo_version
@@ -155,10 +162,7 @@ def requiredJar = { String propertyName, String displayName, String filename ->
 
 dependencies {
     testImplementation 'com.google.code.gson:gson:2.10.1'
-    implementation files(requiredJar('relicsJar', 'Relics 1.21.1-0.12.8', 'relics-1.21.1-0.12.8.jar'))
     implementation files(requiredJar('curiosJar', 'Curios 9.5.1+1.21.1', 'curios-neoforge-9.5.1+1.21.1.jar'))
-    implementation files(requiredJar('octolibJar', 'OctoLib 0.6.2+1.21', 'OctoLib-NEOFORGE-0.6.2+1.21.jar'))
-    implementation files(requiredJar('architecturyJar', 'Architectury 13.0.11', 'architectury-13.0.11-neoforge.jar'))
 }
 
 sourceSets.main.resources {

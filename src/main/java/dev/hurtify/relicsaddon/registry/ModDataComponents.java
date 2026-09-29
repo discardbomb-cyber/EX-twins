@@ -43,6 +43,11 @@ public final class ModDataComponents {
                     .persistent(Codec.STRING)
                     .networkSynchronized(ByteBufCodecs.STRING_UTF8));
 
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.relic.DeviceProgression>> DEVICE_PROGRESSION =
+            DATA_COMPONENTS.registerComponentType("device_progression", builder -> builder
+                    .persistent(dev.hurtify.relicsaddon.relic.DeviceProgression.CODEC)
+                    .networkSynchronized(dev.hurtify.relicsaddon.relic.DeviceProgression.STREAM_CODEC));
+
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ShieldStackState>> SHIELD_STACK_STATE =
             DATA_COMPONENTS.registerComponentType("shield_stack_state", builder -> builder
                     .persistent(ShieldStackState.CODEC)

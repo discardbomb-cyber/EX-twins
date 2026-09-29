@@ -23,6 +23,7 @@ public final class RelicsAddon {
         ModItems.ITEMS.register(modEventBus);
         ModCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
         modEventBus.addListener(dev.hurtify.relicsaddon.network.HiveSettingsPayload::register);
+        modEventBus.addListener(dev.hurtify.relicsaddon.network.DeviceControlPayload::register);
         NeoForge.EVENT_BUS.addListener(ShieldController::onIncomingDamage);
         NeoForge.EVENT_BUS.addListener(ShieldController::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(ShieldProjectileInterceptor::onEntityTick);
@@ -48,7 +49,7 @@ public final class RelicsAddon {
             Class<?> registrar = Class.forName("dev.hurtify.relicsaddon.client.ClientEventRegistrar");
             registrar.getMethod("register", IEventBus.class).invoke(null, modEventBus);
         } catch (ReflectiveOperationException exception) {
-            throw new IllegalStateException("Failed to register Relics addon client hooks", exception);
+            throw new IllegalStateException("Failed to register addon client hooks", exception);
         }
     }
 }

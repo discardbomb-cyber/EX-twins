@@ -8,7 +8,7 @@ import net.minecraft.world.item.ItemStack;
 
 public final class ShieldParameters {
     public static int capacity(Player player, ItemStack stack) {
-        return (int) Math.round(RelicRuntime.stat(player, stack, "buffer_capacity", 504, 504, 5000));
+        return (int) Math.round(RelicRuntime.stat(player, stack, "buffer_capacity", 504, 504, 5500));
     }
     public static int totalCapacity(Player player, ItemStack stack) {
         return capacity(player, stack) + ShieldTopology.CELL_COUNT * ShieldStackState.MAX_PANEL_INTEGRITY;

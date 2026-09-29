@@ -24,6 +24,7 @@ public final class ModCreativeTabs {
                         output.accept(ModItems.RF_HIVE.get());
                         output.accept(ModItems.MANA_HIVE.get());
                         output.accept(ModItems.TWINS_HIVE.get());
+                        output.accept(ModItems.DEVICE_MODULE.get());
                     })
                     .build());
 

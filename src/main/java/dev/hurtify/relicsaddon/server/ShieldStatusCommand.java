@@ -41,8 +41,7 @@ public final class ShieldStatusCommand {
                 if (!shield(stack)) continue;
                 ShieldStackState state = stack.getOrDefault(ModDataComponents.SHIELD_STACK_STATE.get(), ShieldStackState.DEFAULT);
                 String reason = !inventory.isSlotActive("charm", slot) ? "inactive_slot" : !state.enabled() ? "disabled"
-                        : !RelicRuntime.ability(player, stack).getResearchData().isResearched() ? "research"
-                        : !RelicRuntime.ability(player, stack).canPlayerUse(player) ? "locked" : active != stack ? "priority"
+                        : active != stack ? "priority"
                         : state.totalIntegrity() == 0 ? "broken" : "active";
                 int index = slot;
                 context.getSource().sendSuccess(() -> Component.translatable("message.relics_addon.shield_status",
