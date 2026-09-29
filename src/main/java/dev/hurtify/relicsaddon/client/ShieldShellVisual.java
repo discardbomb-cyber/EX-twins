@@ -108,8 +108,8 @@ final class ShieldShellVisual {
     // --- hexagonal cells (RF, Twins) ------------------------------------------------------------
 
     /**
-     * A honeycomb of glass: the shield's own hexagonal cells (the gameplay cells, so a broken one is a
-     * hole), each a flat pane tinted dark in the middle and lit towards its edge, joined to its
+     * A honeycomb of glass: even hexagonal cells ({@link ShieldHoneycomb}) over the gameplay cells, so a
+     * broken cell is a hole. Each is a flat pane tinted dark in the middle and lit towards its edge, joined to its
      * neighbours by one bright seam. A slowly circling light leaves a glassy sheen where it reflects
      * towards the viewer. Damaged RF cells warm through yellow and orange to red, damaged Twins cells
      * dim. A hit lights the cells around it and sends a wave of light across the honeycomb; while the
@@ -122,8 +122,9 @@ final class ShieldShellVisual {
         double seam = f.radius() * (low ? .010 : .0068);
         // Twins panes sit a hair above their glass dome.
         double lift = twins ? .004 : 0;
-        for (ShieldTopology.Cell cell : ShieldTopology.INSTANCE.cells()) {
-            int id = cell.id();
+        for (ShieldHoneycomb.Cell cell : ShieldHoneycomb.CELLS) {
+            // Drawn cells are even hexagons; health, holes and motion come from the gameplay cell beneath.
+            int id = cell.gameplay();
             int integrity = state.cellHp(id);
             boolean moving = state.moving(id, time);
             Quaternionf rotation = moving ? ShieldCellVisual.relocation(state, id, time) : null;
