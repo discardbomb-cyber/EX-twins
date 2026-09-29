@@ -6,7 +6,6 @@ import dev.hurtify.relicsaddon.menu.DeviceControlMenu;
 import dev.hurtify.relicsaddon.power.DeviceEnergy;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
-import dev.hurtify.relicsaddon.registry.ModItems;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
 import dev.hurtify.relicsaddon.relic.DeviceProgression;
 import dev.hurtify.relicsaddon.relic.DeviceUpgrade;
@@ -18,6 +17,7 @@ import dev.hurtify.relicsaddon.shield.ShieldParameters;
 import dev.hurtify.relicsaddon.shield.ShieldStackState;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import net.minecraft.ChatFormatting;
@@ -25,101 +25,127 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 
 /**
- * Machine-console screen for one device: a status monitor, XP and integrity gauges, a module bay
- * and side tabs for batteries, upgrades and hive tasks. Every change is a server-validated menu button.
+ * Holographic console for one device. A frosted-glass window holds a labelled tab bar
+ * (overview, batteries, upgrades and, for hives, swarm tasks); every value is written out on
+ * screen, controls say what they do, and the "?" button explains the whole window. Changes are
+ * server-validated menu buttons.
  */
 public final class DeviceControlScreen extends AbstractContainerScreen<DeviceControlMenu> {
-    private enum Tab { MAIN, POWER, UPGRADES, TASKS }
+    private enum Tab {
+        OVERVIEW, POWER, UPGRADES, SWARM;
 
-    private record Control(int x, int y, int w, int h, Supplier<Component> label, BooleanSupplier active, Runnable action,
-                           Supplier<List<Component>> tooltip) { }
+        String key() {
+            return "screen.relics_addon.tab." + name().toLowerCase(Locale.ROOT);
+        }
+    }
 
-    private static final int MONITOR_X = 22, MONITOR_Y = 16, MONITOR_W = 132, MONITOR_H = 50;
-    private static final int XP_GAUGE_X = 7, INTEGRITY_GAUGE_X = 159, GAUGE_Y = 16, GAUGE_W = 10, GAUGE_H = 110;
-    private static final int XP_COLOR = 0xFF7BD35B, HIVE_COLOR = 0xFFE0B04A;
-    private static final int POWER_ROW_Y = 70, POWER_ROW_STEP = 18;
-    private static Tab lastTab = Tab.MAIN;
+    private record Control(int x, int y, int w, int h, Supplier<Component> label, BooleanSupplier active, BooleanSupplier selected,
+                           Runnable action, Supplier<List<Component>> tooltip) { }
+
+    private static final int WIDTH = 232, HEIGHT = 228, WINDOW_H = 130, CUT = 10;
+    private static final int TAB_Y = 20, TAB_H = 13, TAB_W = 50;
+    private static final int CX = 18, CY = 38, CR = WIDTH - 10;
+    private static final int SLIDER_X = 9, SLIDER_TOP = 24, SLIDER_H = 96;
+    private static final int TRAY_X = 28, TRAY_Y = 136, TRAY_W = 176;
+    private static Tab lastTab = Tab.OVERVIEW;
 
     private final List<Control> controls = new ArrayList<>();
     private Tab tab = lastTab;
+    private boolean help;
 
     public DeviceControlScreen(DeviceControlMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
-        imageWidth = 176;
-        imageHeight = 222;
-        inventoryLabelY = DeviceControlMenu.INVENTORY_Y - 11;
-        titleLabelY = 5;
+        imageWidth = WIDTH;
+        imageHeight = HEIGHT;
     }
 
     private ItemStack device() { return menu.device(); }
     private RelicRole role() { return device().getItem() instanceof AutonomousRelicItem item ? item.role() : RelicRole.RF_SHIELD; }
+    private int accent() { return role().color(); }
+
+    private List<Tab> tabs() {
+        return role().isHive() ? List.of(Tab.values()) : List.of(Tab.OVERVIEW, Tab.POWER, Tab.UPGRADES);
+    }
 
     @Override protected void init() {
         super.init();
-        if (!tabs().contains(tab)) tab = Tab.MAIN;
+        if (!tabs().contains(tab)) tab = Tab.OVERVIEW;
         rebuildControls();
     }
 
     private void select(Tab next) {
         tab = lastTab = next;
+        help = false;
         rebuildControls();
     }
 
+    // --- controls ------------------------------------------------------------------------------
+
     private void rebuildControls() {
         controls.clear();
-        menu.setVisibleSlots(tab == Tab.MAIN, tab == Tab.POWER && DevicePower.hasRf(role()));
-        boolean multiple = minecraft != null && minecraft.player != null && DeviceTargets.collect(minecraft.player).size() > 1;
-        controls.add(new Control(MONITOR_X + 3, MONITOR_Y + 3, 11, 11, () -> Component.literal("<"), () -> multiple,
-                () -> DeviceTargets.cycle(menu.charm(), menu.deviceSlot(), -1), () -> List.of(Component.translatable("screen.relics_addon.previous_device"))));
-        controls.add(new Control(MONITOR_X + MONITOR_W - 14, MONITOR_Y + 3, 11, 11, () -> Component.literal(">"), () -> multiple,
-                () -> DeviceTargets.cycle(menu.charm(), menu.deviceSlot(), 1), () -> List.of(Component.translatable("screen.relics_addon.next_device"))));
+        menu.setVisibleSlots(tab == Tab.OVERVIEW && !help, tab == Tab.POWER && !help && DevicePower.hasRf(role()));
+        controls.add(new Control(WIDTH - 36, 6, 13, 11, () -> Component.literal("?"), () -> true, () -> help,
+                () -> { help = !help; rebuildControls(); }, () -> List.of(Component.translatable("screen.relics_addon.help_button"))));
+        controls.add(new Control(WIDTH - 21, 6, 13, 11, () -> Component.literal("×"), () -> true, () -> false,
+                this::onClose, () -> List.of(Component.translatable("screen.relics_addon.close"))));
+        List<Tab> tabs = tabs();
+        for (int index = 0; index < tabs.size(); index++) {
+            Tab value = tabs.get(index);
+            controls.add(new Control(CX + index * (TAB_W + 2), TAB_Y, TAB_W, TAB_H, () -> Component.translatable(value.key()),
+                    () -> true, () -> tab == value, () -> select(value), List::of));
+        }
+        if (help) return;
         switch (tab) {
-            case MAIN -> {
-                controls.add(new Control(MONITOR_X, 98, 60, 18,
-                        () -> Component.translatable(RelicRuntime.enabled(device()) ? "screen.relics_addon.power_off" : "screen.relics_addon.power_on"),
-                        () -> true, () -> press(DeviceControlMenu.BUTTON_TOGGLE), () -> List.of(Component.translatable("screen.relics_addon.toggle"))));
-            }
+            case OVERVIEW -> controls.add(new Control(CX, 78, 110, 16,
+                    () -> Component.translatable(RelicRuntime.enabled(device()) ? "screen.relics_addon.power_off" : "screen.relics_addon.power_on"),
+                    () -> true, () -> RelicRuntime.enabled(device()), () -> press(DeviceControlMenu.BUTTON_TOGGLE),
+                    () -> List.of(Component.translatable("screen.relics_addon.toggle.hint").withStyle(ChatFormatting.GRAY))));
             case POWER -> {
                 int row = 0;
-                for (boolean rf : new boolean[]{true, false}) {
-                    if (rf ? !DevicePower.hasRf(role()) : !DevicePower.hasMana(role())) continue;
-                    int y = POWER_ROW_Y + row++ * POWER_ROW_STEP;
-                    controls.add(new Control(MONITOR_X + MONITOR_W - 32, y, 32, 14,
+                for (boolean rf : batteries()) {
+                    int y = CY + 2 + row++ * 25;
+                    controls.add(new Control(CR - 50, y + 9, 50, 14,
                             () -> Component.translatable(batteryOn(rf) ? "screen.relics_addon.battery_on" : "screen.relics_addon.battery_off"),
-                            () -> true, () -> press(rf ? DeviceControlMenu.BUTTON_RF_BATTERY : DeviceControlMenu.BUTTON_MANA_BATTERY),
-                            () -> batteryTooltip(rf)));
+                            () -> true, () -> batteryOn(rf), () -> press(rf ? DeviceControlMenu.BUTTON_RF_BATTERY : DeviceControlMenu.BUTTON_MANA_BATTERY),
+                            () -> List.of(Component.translatable("screen.relics_addon.battery_toggle.hint").withStyle(ChatFormatting.GRAY))));
                 }
                 if (DevicePower.hasMana(role())) {
-                    controls.add(new Control(MONITOR_X, DeviceControlMenu.CHARGE_Y, 104, 16,
-                            () -> Component.translatable("screen.relics_addon.mana_source", Component.translatable(
-                                    "screen.relics_addon.mana_source." + DevicePower.energy(device()).source().id())),
-                            () -> true, () -> press(DeviceControlMenu.BUTTON_MANA_SOURCE),
-                            () -> List.of(Component.translatable("screen.relics_addon.mana_source.tooltip").withStyle(ChatFormatting.GRAY))));
+                    DeviceEnergy.ManaSource[] sources = DeviceEnergy.ManaSource.values();
+                    for (int index = 0; index < sources.length; index++) {
+                        DeviceEnergy.ManaSource source = sources[index];
+                        controls.add(new Control(CX + index * 52, 102, 50, 14,
+                                () -> Component.translatable("screen.relics_addon.mana_source." + source.id()),
+                                () -> true, () -> DevicePower.energy(device()).source() == source,
+                                () -> press(DeviceControlMenu.BUTTON_MANA_SOURCE_BASE + source.ordinal()),
+                                () -> List.of(Component.translatable("screen.relics_addon.mana_source." + source.id() + ".hint").withStyle(ChatFormatting.GRAY))));
+                    }
                 }
             }
             case UPGRADES -> {
                 List<DeviceUpgrade> upgrades = DeviceUpgrade.availableUpgrades(role());
                 for (int row = 0; row < upgrades.size(); row++) {
                     DeviceUpgrade upgrade = upgrades.get(row);
-                    controls.add(new Control(MONITOR_X + MONITOR_W - 18, 70 + row * 19, 18, 17, () -> Component.literal("+"),
-                            () -> canBuy(upgrade), () -> press(DeviceControlMenu.BUTTON_UPGRADE_BASE + upgrade.ordinal()), () -> upgradeTooltip(upgrade)));
+                    controls.add(new Control(CR - 66, 54 + row * 24, 64, 14, () -> upgradeButton(upgrade),
+                            () -> canBuy(upgrade), () -> false, () -> press(DeviceControlMenu.BUTTON_UPGRADE_BASE + upgrade.ordinal()),
+                            () -> upgradeTooltip(upgrade)));
                 }
             }
-            case TASKS -> {
-                int[] buttons = {DeviceControlMenu.BUTTON_HEALERS_MINUS_10, DeviceControlMenu.BUTTON_HEALERS_MINUS_1,
+            case SWARM -> {
+                int[] ids = {DeviceControlMenu.BUTTON_HEALERS_MINUS_10, DeviceControlMenu.BUTTON_HEALERS_MINUS_1,
                         DeviceControlMenu.BUTTON_HEALERS_PLUS_1, DeviceControlMenu.BUTTON_HEALERS_PLUS_10};
-                String[] labels = {"-10", "-1", "+1", "+10"};
-                for (int index = 0; index < buttons.length; index++) {
-                    int id = buttons[index];
+                String[] labels = {"−10", "−1", "+1", "+10"};
+                int[] xs = {CX, CX + 32, CR - 62, CR - 30};
+                for (int index = 0; index < ids.length; index++) {
+                    int id = ids[index];
                     String label = labels[index];
-                    controls.add(new Control(MONITOR_X + index * 34, 106, 30, 18, () -> Component.literal(label),
+                    controls.add(new Control(xs[index], 70, 30, 14, () -> Component.literal(label),
                             () -> id <= DeviceControlMenu.BUTTON_HEALERS_MINUS_1 ? healers() > 0 : healers() < hiveCapacity(),
-                            () -> press(id), () -> List.of(Component.translatable("screen.relics_addon.healers_adjust", label))));
+                            () -> false, () -> press(id), () -> List.of(Component.translatable("screen.relics_addon.healers_adjust", label))));
                 }
             }
         }
@@ -129,9 +155,9 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
         if (minecraft != null && minecraft.gameMode != null) minecraft.gameMode.handleInventoryButtonClick(menu.containerId, id);
     }
 
-    private boolean canBuy(DeviceUpgrade upgrade) {
-        DeviceProgression state = RelicRuntime.progression(device());
-        return state.points() > 0 && state.level() >= upgrade.requiredLevel() && state.rank(upgrade.id()) < 3;
+    private boolean[] batteries() {
+        boolean rf = DevicePower.hasRf(role()), mana = DevicePower.hasMana(role());
+        return rf && mana ? new boolean[]{true, false} : rf ? new boolean[]{true} : new boolean[]{false};
     }
 
     private boolean batteryOn(boolean rf) {
@@ -139,12 +165,22 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
         return rf ? energy.rfOn() : energy.manaOn();
     }
 
-    private List<Component> batteryTooltip(boolean rf) {
+    private double batteryFraction(boolean rf) {
         DeviceEnergy energy = DevicePower.energy(device());
-        return List.of(Component.translatable(rf ? "screen.relics_addon.battery_rf" : "screen.relics_addon.battery_mana").withStyle(ChatFormatting.AQUA),
-                rf ? Component.translatable("screen.relics_addon.battery_rf_amount", energy.rf(), DevicePower.feCapacity(device()))
-                        : Component.translatable("screen.relics_addon.battery_mana_amount", energy.mana(), DevicePower.capacity(device())),
-                Component.translatable(rf ? "screen.relics_addon.battery_rf.hint" : "screen.relics_addon.battery_mana.hint").withStyle(ChatFormatting.GRAY));
+        return rf ? energy.rf() / (double) DevicePower.feCapacity(device()) : energy.mana() / (double) DevicePower.capacity(device());
+    }
+
+    private boolean canBuy(DeviceUpgrade upgrade) {
+        DeviceProgression state = RelicRuntime.progression(device());
+        return state.points() > 0 && state.level() >= upgrade.requiredLevel() && state.rank(upgrade.id()) < 3;
+    }
+
+    private Component upgradeButton(DeviceUpgrade upgrade) {
+        DeviceProgression state = RelicRuntime.progression(device());
+        if (state.rank(upgrade.id()) >= 3) return Component.translatable("screen.relics_addon.upgrade_maxed");
+        if (state.level() < upgrade.requiredLevel()) return Component.translatable("screen.relics_addon.upgrade_needs_level", upgrade.requiredLevel());
+        if (state.points() <= 0) return Component.translatable("screen.relics_addon.upgrade_no_points");
+        return Component.translatable("screen.relics_addon.upgrade_buy");
     }
 
     private int hiveCapacity() { return minecraft == null || minecraft.player == null ? 0 : HiveController.capacity(minecraft.player, device()); }
@@ -154,174 +190,210 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
 
     private List<Component> upgradeTooltip(DeviceUpgrade upgrade) {
         DeviceProgression state = RelicRuntime.progression(device());
-        List<Component> lines = new ArrayList<>();
-        lines.add(Component.translatable(upgradeKey(role(), upgrade)).withStyle(ChatFormatting.AQUA));
-        lines.add(Component.translatable(upgradeKey(role(), upgrade) + ".desc").withStyle(ChatFormatting.GRAY));
-        lines.add(Component.translatable("screen.relics_addon.upgrade_rank", state.rank(upgrade.id()), 3));
-        lines.add(Component.translatable("screen.relics_addon.upgrade_requirement", upgrade.requiredLevel())
-                .withStyle(state.level() >= upgrade.requiredLevel() ? ChatFormatting.GREEN : ChatFormatting.RED));
-        lines.add(Component.translatable("screen.relics_addon.upgrade_cost", 1)
-                .withStyle(state.points() > 0 ? ChatFormatting.GREEN : ChatFormatting.RED));
-        return lines;
+        return List.of(Component.translatable(upgradeKey(role(), upgrade)).withStyle(ChatFormatting.AQUA),
+                Component.translatable(upgradeKey(role(), upgrade) + ".desc").withStyle(ChatFormatting.GRAY),
+                Component.translatable("screen.relics_addon.upgrade_rank", state.rank(upgrade.id()), 3),
+                Component.translatable("screen.relics_addon.upgrade_requirement", upgrade.requiredLevel())
+                        .withStyle(state.level() >= upgrade.requiredLevel() ? ChatFormatting.GREEN : ChatFormatting.RED),
+                Component.translatable("screen.relics_addon.upgrade_cost", 1).withStyle(state.points() > 0 ? ChatFormatting.GREEN : ChatFormatting.RED));
     }
 
-    // --- rendering -------------------------------------------------------------------------
+    // --- rendering -----------------------------------------------------------------------------
 
     @Override protected void renderBg(GuiGraphics g, float partialTick, int mouseX, int mouseY) {
         int x = leftPos, y = topPos;
-        ConsolePaint.panel(g, x, y, imageWidth, imageHeight);
-        Tab[] tabs = tabs().toArray(Tab[]::new);
-        for (int index = 0; index < tabs.length; index++) {
-            int tx = x + imageWidth - 1, ty = y + 8 + index * 24;
-            ConsolePaint.tab(g, tx, ty, tabs[index] == tab, inside(mouseX, mouseY, tx, ty, 22, 22));
-            g.renderItem(tabIcon(tabs[index]), tx + 2, ty + 3);
+        HoloPaint.window(g, x, y, WIDTH, WINDOW_H, CUT);
+        HoloPaint.panel(g, x + TRAY_X, y + TRAY_Y, TRAY_W, HEIGHT - TRAY_Y, 6);
+        DeviceProgression state = RelicRuntime.progression(device());
+        double xp = state.level() >= DeviceProgression.MAX_LEVEL ? 1 : state.experience() / (double) RelicRuntime.experienceToNext(state.level());
+        HoloPaint.slider(g, x + SLIDER_X, y + SLIDER_TOP, SLIDER_H, xp, accent());
+        HoloPaint.ticks(g, x + 34, y + WINDOW_H - 4, WIDTH - 80, 16);
+        g.fill(x + CX, y + TAB_Y + TAB_H + 1, x + CR, y + TAB_Y + TAB_H + 2, 0x50E6EBF0);
+        if (!help) {
+            switch (tab) {
+                case OVERVIEW -> renderOverview(g, state);
+                case POWER -> renderPower(g);
+                case UPGRADES -> renderUpgrades(g, state);
+                case SWARM -> renderSwarm(g);
+            }
         }
-        ItemStack stack = device();
-        DeviceProgression state = RelicRuntime.progression(stack);
-        int needed = RelicRuntime.experienceToNext(state.level());
-        double xp = state.level() >= DeviceProgression.MAX_LEVEL ? 1 : state.experience() / (double) needed;
-        ConsolePaint.gauge(g, x + XP_GAUGE_X, y + GAUGE_Y, GAUGE_W, GAUGE_H, xp, XP_COLOR);
-        ConsolePaint.gauge(g, x + INTEGRITY_GAUGE_X, y + GAUGE_Y, GAUGE_W, GAUGE_H, integrity(stack),
-                role().isHive() ? HIVE_COLOR : 0xFF000000 | role().color());
-        renderMonitor(g, stack, state);
-        switch (tab) {
-            case MAIN -> renderModules(g, state);
-            case POWER -> renderPower(g);
-            case UPGRADES -> renderUpgrades(g, state);
-            case TASKS -> renderTasks(g);
-        }
-        ConsolePaint.screen(g, x + DeviceControlMenu.INVENTORY_X - 2, y + DeviceControlMenu.INVENTORY_Y - 2, 9 * 18 + 4, 3 * 18 + 4);
         for (int row = 0; row < 3; row++) for (int column = 0; column < 9; column++)
-            ConsolePaint.slot(g, x + DeviceControlMenu.INVENTORY_X + column * 18, y + DeviceControlMenu.INVENTORY_Y + row * 18);
-        for (int column = 0; column < 9; column++) ConsolePaint.slot(g, x + DeviceControlMenu.INVENTORY_X + column * 18, y + DeviceControlMenu.INVENTORY_Y + 58);
+            HoloPaint.slot(g, x + DeviceControlMenu.INVENTORY_X + column * 18, y + DeviceControlMenu.INVENTORY_Y + row * 18);
+        for (int column = 0; column < 9; column++) HoloPaint.slot(g, x + DeviceControlMenu.INVENTORY_X + column * 18, y + DeviceControlMenu.INVENTORY_Y + 58);
         for (Control control : controls) {
             boolean hovered = inside(mouseX, mouseY, x + control.x, y + control.y, control.w, control.h);
             boolean active = control.active.getAsBoolean();
-            ConsolePaint.button(g, x + control.x, y + control.y, control.w, control.h, active, hovered, 0xFF000000 | role().color());
-            g.drawCenteredString(font, control.label.get(), x + control.x + control.w / 2 + 1, y + control.y + (control.h - 8) / 2,
-                    active ? 0xFFFFFF : 0x9A9A9A);
+            HoloPaint.button(g, x + control.x, y + control.y, control.w, control.h, active, hovered, control.selected.getAsBoolean(), accent());
+            g.drawCenteredString(font, control.label.get(), x + control.x + control.w / 2, y + control.y + (control.h - 8) / 2,
+                    active ? HoloPaint.TEXT : HoloPaint.TEXT_FAINT);
         }
     }
 
-    private List<Tab> tabs() {
-        return role().isHive() ? List.of(Tab.values()) : List.of(Tab.MAIN, Tab.POWER, Tab.UPGRADES);
-    }
-
-    private ItemStack tabIcon(Tab value) {
-        return switch (value) {
-            case MAIN -> new ItemStack(ModItems.DEVICE_MODULE.get());
-            case POWER -> new ItemStack(DevicePower.hasRf(role()) ? Items.REDSTONE : Items.LAPIS_LAZULI);
-            case UPGRADES -> new ItemStack(Items.EXPERIENCE_BOTTLE);
-            case TASKS -> new ItemStack(Items.GLISTERING_MELON_SLICE);
-        };
-    }
-
-    private double integrity(ItemStack stack) {
-        if (minecraft == null || minecraft.player == null) return 0;
-        if (role().isHive()) {
-            HiveStackState hive = stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), HiveStackState.DEFAULT);
-            int alive = (int) hive.units().stream().filter(unit -> unit.hp() > 0).count();
-            return alive / (double) Math.max(1, hiveCapacity());
-        }
-        ShieldStackState shield = stack.getOrDefault(ModDataComponents.SHIELD_STACK_STATE.get(), ShieldStackState.DEFAULT);
-        return shield.totalIntegrity() / (double) Math.max(1, ShieldParameters.totalCapacity(minecraft.player, stack));
-    }
-
-    private void renderMonitor(GuiGraphics g, ItemStack stack, DeviceProgression state) {
-        int x = leftPos + MONITOR_X, y = topPos + MONITOR_Y;
-        ConsolePaint.screen(g, x, y, MONITOR_W, MONITOR_H);
-        g.renderItem(stack, x + 5, y + 18);
-        String name = font.plainSubstrByWidth(stack.getHoverName().getString(), MONITOR_W - 36);
-        g.drawCenteredString(font, name, x + MONITOR_W / 2, y + 5, ConsolePaint.SCREEN_TEXT);
+    private void renderOverview(GuiGraphics g, DeviceProgression state) {
+        int x = leftPos, y = topPos;
+        ItemStack stack = device();
+        var pose = g.pose();
+        pose.pushPose();
+        pose.translate(x + CX, y + CY, 0);
+        pose.scale(2, 2, 1);
+        g.renderItem(stack, 0, 0);
+        pose.popPose();
+        g.drawString(font, font.plainSubstrByWidth(stack.getHoverName().getString(), 76), x + CX + 36, y + CY + 2, HoloPaint.TEXT, false);
         boolean enabled = RelicRuntime.enabled(stack);
         boolean powered = minecraft == null || DevicePower.powered(minecraft.player, stack);
-        g.drawString(font, Component.translatable("screen.relics_addon.monitor_level", state.level(), DeviceProgression.MAX_LEVEL), x + 26, y + 18, ConsolePaint.SCREEN_TEXT, false);
-        g.drawString(font, Component.translatable("screen.relics_addon.monitor_points", state.points()), x + 26, y + 28, ConsolePaint.SCREEN_TEXT, false);
         String status = !enabled ? "screen.relics_addon.monitor_offline" : powered ? "screen.relics_addon.monitor_online" : "screen.relics_addon.monitor_no_power";
-        int statusColor = !enabled ? 0xF2837B : powered ? 0x7BF28B : 0xF2C94C;
-        g.drawString(font, Component.translatable(status), x + 26, y + 38, statusColor, false);
-        g.fill(x + MONITOR_W - 8, y + 39, x + MONITOR_W - 4, y + 43, 0xFF000000 | statusColor);
-        String location = Component.translatable(menu.charm() ? "screen.relics_addon.charm_slot" : "screen.relics_addon.inventory_slot", menu.deviceSlot() + 1).getString();
-        g.drawString(font, location, x + MONITOR_W - 4 - font.width(location), y + 28, ConsolePaint.SCREEN_DIM, false);
-    }
+        int color = !enabled ? 0xF2837B : powered ? 0x7BF28B : 0xF2C94C;
+        g.drawString(font, Component.literal("● ").append(Component.translatable(status)), x + CX + 36, y + CY + 13, color, false);
+        g.drawString(font, Component.translatable("screen.relics_addon.overview_level", state.level(), DeviceProgression.MAX_LEVEL, state.points()),
+                x + CX + 36, y + CY + 24, HoloPaint.TEXT_DIM, false);
 
-    private void renderModules(GuiGraphics g, DeviceProgression state) {
-        for (int index = 0; index < DeviceProgression.MODULE_SLOTS; index++) {
-            int sx = leftPos + DeviceControlMenu.MODULE_X + index * DeviceControlMenu.MODULE_SPACING, sy = topPos + DeviceControlMenu.MODULE_Y;
-            ConsolePaint.slot(g, sx, sy);
-            g.fill(sx - 1, sy + 18, sx + 17, sy + 20, state.hasModule(index) ? 0xFF000000 | role().color() : 0xFF4A4E55);
+        // Integrity (shield) or ready drones (hive), then battery charge.
+        int barY = y + 100;
+        if (role().isHive()) {
+            HiveStackState hive = stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), HiveStackState.DEFAULT);
+            long alive = hive.units().stream().filter(unit -> unit.hp() > 0).count();
+            labelledBar(g, x + CX, barY, 110, alive / (double) Math.max(1, hiveCapacity()), 0xFFE0B04A,
+                    Component.translatable("screen.relics_addon.overview_drones", alive, hiveCapacity()));
+        } else if (minecraft != null && minecraft.player != null) {
+            ShieldStackState shield = stack.getOrDefault(ModDataComponents.SHIELD_STACK_STATE.get(), ShieldStackState.DEFAULT);
+            int total = ShieldParameters.totalCapacity(minecraft.player, stack);
+            labelledBar(g, x + CX, barY, 110, shield.totalIntegrity() / (double) Math.max(1, total), 0xFF000000 | accent(),
+                    Component.translatable("screen.relics_addon.overview_integrity", shield.totalIntegrity(), total));
         }
-        g.drawString(font, Component.translatable("screen.relics_addon.module_bay"), leftPos + MONITOR_X, topPos + DeviceControlMenu.MODULE_Y + 4, 0x404040, false);
+        boolean[] batteries = batteries();
+        int width = batteries.length == 2 ? 54 : 110;
+        for (int index = 0; index < batteries.length; index++) {
+            boolean rf = batteries[index];
+            labelledBar(g, x + CX + index * 56, barY + 13, width, batteryFraction(rf), batteryColor(rf),
+                    Component.translatable(rf ? "screen.relics_addon.battery_rf_short" : "screen.relics_addon.battery_mana_short")
+                            .append(" " + Math.round(batteryFraction(rf) * 100) + "%"));
+        }
+
+        // Module bay with what each bay does written under it.
+        int bayX = x + DeviceControlMenu.MODULE_X, bayY = y + DeviceControlMenu.MODULE_Y;
+        g.drawString(font, Component.translatable("screen.relics_addon.module_bay"), bayX - 2, y + CY + 2, HoloPaint.TEXT, false);
+        String kind = role().isHive() ? "hive" : "shield";
+        for (int index = 0; index < DeviceProgression.MODULE_SLOTS; index++) {
+            int sx = bayX + index * DeviceControlMenu.MODULE_SPACING;
+            HoloPaint.slot(g, sx, bayY);
+            boolean installed = state.hasModule(index);
+            if (installed) g.fill(sx - 1, bayY + 17, sx + 17, bayY + 18, 0xFF000000 | accent());
+            small(g, Component.translatable("screen.relics_addon.module_short." + kind + "." + index), sx + 8, bayY + 21,
+                    installed ? HoloPaint.TEXT : HoloPaint.TEXT_FAINT);
+        }
+        List<FormattedCharSequence> hint = font.split(Component.translatable("screen.relics_addon.module_hint"), CR - bayX + 2);
+        for (int line = 0; line < Math.min(3, hint.size()); line++) {
+            g.drawString(font, hint.get(line), bayX - 2, bayY + 34 + line * 10, HoloPaint.TEXT_FAINT, false);
+        }
     }
 
     private void renderPower(GuiGraphics g) {
+        int x = leftPos, y = topPos;
         ItemStack stack = device();
         DeviceEnergy energy = DevicePower.energy(stack);
         int row = 0;
-        for (boolean rf : new boolean[]{true, false}) {
-            if (rf ? !DevicePower.hasRf(role()) : !DevicePower.hasMana(role())) continue;
-            int x = leftPos + MONITOR_X, y = topPos + POWER_ROW_Y + row++ * POWER_ROW_STEP;
-            double fraction = rf ? energy.rf() / (double) DevicePower.feCapacity(stack) : energy.mana() / (double) DevicePower.capacity(stack);
-            boolean on = rf ? energy.rfOn() : energy.manaOn();
-            int width = MONITOR_W - 36;
-            ConsolePaint.screen(g, x, y, width, 14);
-            int fill = (int) Math.round((width - 4) * Math.clamp(fraction, 0, 1));
-            int color = !on ? 0xFF4A4E55 : rf ? 0xFFE0523C : 0xFF3FA9F5;
-            if (fill > 0) {
-                g.fill(x + 2, y + 2, x + 2 + fill, y + 12, color);
-                g.fill(x + 2, y + 2, x + 2 + fill, y + 3, ConsolePaint.brighten(color));
-            }
-            String label = Component.translatable(rf ? "screen.relics_addon.battery_rf_short" : "screen.relics_addon.battery_mana_short").getString()
-                    + " " + Math.round(fraction * 100) + "%";
-            g.drawString(font, label, x + 5, y + 3, on ? 0xFFFFFF : 0xA0A0A0, true);
+        for (boolean rf : batteries()) {
+            int ry = y + CY + 2 + row++ * 25;
+            g.drawString(font, Component.translatable(rf ? "screen.relics_addon.battery_rf" : "screen.relics_addon.battery_mana"), x + CX, ry, HoloPaint.TEXT, false);
+            Component amount = rf ? Component.translatable("screen.relics_addon.battery_rf_amount", energy.rf(), DevicePower.feCapacity(stack))
+                    : Component.translatable("screen.relics_addon.battery_mana_amount", energy.mana(), DevicePower.capacity(stack));
+            labelledBar(g, x + CX, ry + 10, CR - 54 - CX, batteryFraction(rf), batteryOn(rf) ? batteryColor(rf) : 0xFF4A4E55, amount);
+        }
+        if (DevicePower.hasMana(role())) {
+            g.drawString(font, Component.translatable("screen.relics_addon.mana_source_label"), x + CX, y + 92, HoloPaint.TEXT_DIM, false);
+        } else {
+            List<FormattedCharSequence> hint = font.split(Component.translatable("screen.relics_addon.battery_rf.hint"), 170);
+            for (int line = 0; line < Math.min(3, hint.size()); line++) g.drawString(font, hint.get(line), x + CX, y + 92 + line * 10, HoloPaint.TEXT_FAINT, false);
         }
         if (DevicePower.hasRf(role())) {
-            ConsolePaint.slot(g, leftPos + DeviceControlMenu.CHARGE_X, topPos + DeviceControlMenu.CHARGE_Y);
+            int sx = x + DeviceControlMenu.CHARGE_X, sy = y + DeviceControlMenu.CHARGE_Y;
+            small(g, Component.translatable("screen.relics_addon.charge_slot_short"), sx + 8, sy - 9, HoloPaint.TEXT_DIM);
+            HoloPaint.slot(g, sx, sy);
             if (menu.getSlot(DeviceControlMenu.CHARGE_SLOT).getItem().isEmpty()) {
-                g.drawCenteredString(font, "\u26A1", leftPos + DeviceControlMenu.CHARGE_X + 8, topPos + DeviceControlMenu.CHARGE_Y + 4, 0x5A5E66);
+                g.drawCenteredString(font, "⚡", sx + 8, sy + 4, 0x707880);
             }
         }
     }
 
     private void renderUpgrades(GuiGraphics g, DeviceProgression state) {
+        int x = leftPos, y = topPos;
+        g.drawString(font, Component.translatable("screen.relics_addon.upgrade_points", state.points()), x + CX, y + CY + 2, 0xFF000000 | accent(), false);
+        Component level = Component.translatable("screen.relics_addon.monitor_level", state.level(), DeviceProgression.MAX_LEVEL);
+        g.drawString(font, level, x + CR - font.width(level), y + CY + 2, HoloPaint.TEXT_DIM, false);
         List<DeviceUpgrade> upgrades = DeviceUpgrade.availableUpgrades(role());
         for (int row = 0; row < upgrades.size(); row++) {
             DeviceUpgrade upgrade = upgrades.get(row);
-            int rx = leftPos + MONITOR_X, ry = topPos + 70 + row * 19;
-            ConsolePaint.screen(g, rx, ry, MONITOR_W - 20, 17);
+            int ry = y + 50 + row * 24;
+            g.fill(x + CX, ry, x + CR, ry + 22, 0x30FFFFFF);
+            HoloPaint.box(g, x + CX, ry, CR - CX, 22, 0x50E6EBF0);
             ResourceLocation icon = ResourceLocation.fromNamespaceAndPath(RelicsAddon.MOD_ID,
                     "textures/gui/upgrades/" + role().itemId() + "/" + upgrade.id() + ".png");
-            g.blit(icon, rx + 2, ry + 2, 10, 13, 0, 0, 22, 31, 22, 31);
-            boolean unlocked = state.level() >= upgrade.requiredLevel();
-            String name = font.plainSubstrByWidth(Component.translatable(upgradeKey(role(), upgrade)).getString(), MONITOR_W - 62);
-            g.drawString(font, name, rx + 15, ry + 5, unlocked ? ConsolePaint.SCREEN_TEXT : ConsolePaint.SCREEN_DIM, false);
+            g.blit(icon, x + CX + 3, ry + 4, 10, 14, 0, 0, 22, 31, 22, 31);
+            String name = font.plainSubstrByWidth(Component.translatable(upgradeKey(role(), upgrade)).getString(), CR - CX - 90);
+            g.drawString(font, name, x + CX + 17, ry + 3, state.level() >= upgrade.requiredLevel() ? HoloPaint.TEXT : HoloPaint.TEXT_FAINT, false);
             int rank = state.rank(upgrade.id());
             for (int pip = 0; pip < 3; pip++) {
-                int px = rx + MONITOR_W - 42 + pip * 7;
-                g.fill(px, ry + 6, px + 5, ry + 11, pip < rank ? 0xFF000000 | role().color() : 0xFF2F3A45);
+                int px = x + CX + 17 + pip * 8;
+                g.fill(px, ry + 14, px + 6, ry + 18, pip < rank ? 0xFF000000 | accent() : 0x60FFFFFF);
             }
+            small(g, Component.translatable("screen.relics_addon.upgrade_rank", rank, 3), x + CX + 58, ry + 14, HoloPaint.TEXT_FAINT);
         }
     }
 
-    private void renderTasks(GuiGraphics g) {
-        int capacity = hiveCapacity(), healers = healers();
-        int x = leftPos + MONITOR_X, y = topPos + 70;
-        ConsolePaint.screen(g, x, y, MONITOR_W, 32);
-        g.drawString(font, Component.translatable("screen.relics_addon.fighters", capacity - healers), x + 5, y + 5, 0x84DCEA, false);
-        g.drawString(font, Component.translatable("screen.relics_addon.healers", healers), x + 5, y + 18, 0x9DDEAD, false);
-        int bar = MONITOR_W - 70;
-        int filled = capacity == 0 ? 0 : bar * healers / capacity;
-        g.fill(x + 64, y + 20, x + 64 + bar, y + 25, 0xFF2F3A45);
-        g.fill(x + 64, y + 20, x + 64 + filled, y + 25, 0xFF9DDEAD);
+    private void renderSwarm(GuiGraphics g) {
+        int x = leftPos, y = topPos;
+        int capacity = hiveCapacity(), healers = healers(), fighters = capacity - healers;
+        g.drawString(font, Component.translatable("screen.relics_addon.swarm_title"), x + CX, y + CY + 2, HoloPaint.TEXT, false);
+        int barX = x + CX, barY = y + 52, barW = CR - CX;
+        g.fill(barX, barY, barX + barW, barY + 12, 0x80101317);
+        int split = capacity == 0 ? barW : (int) Math.round(barW * fighters / (double) capacity);
+        g.fill(barX + 1, barY + 1, barX + Math.max(1, split), barY + 11, 0xC0000000 | accent() & 0xFFFFFF);
+        g.fill(barX + split, barY + 1, barX + barW - 1, barY + 11, 0xC05FCB7A);
+        HoloPaint.box(g, barX, barY, barW, 12, 0x90E6EBF0);
+        g.drawString(font, Component.translatable("screen.relics_addon.fighters", fighters), barX + 4, barY + 2, HoloPaint.TEXT, true);
+        Component healing = Component.translatable("screen.relics_addon.healers", healers);
+        g.drawString(font, healing, barX + barW - 4 - font.width(healing), barY + 2, HoloPaint.TEXT, true);
+        g.drawCenteredString(font, Component.translatable("screen.relics_addon.healers_move"), x + (CX + CR) / 2, y + 73, HoloPaint.TEXT_DIM);
+        List<FormattedCharSequence> hint = font.split(Component.translatable("screen.relics_addon.swarm_hint"), CR - CX);
+        for (int line = 0; line < Math.min(3, hint.size()); line++) g.drawString(font, hint.get(line), x + CX, y + 92 + line * 10, HoloPaint.TEXT_FAINT, false);
+    }
+
+    private void renderHelp(GuiGraphics g) {
+        int x = leftPos, y = topPos;
+        g.pose().pushPose();
+        g.pose().translate(0, 0, 400);
+        g.fill(x + 6, y + CY - 2, x + WIDTH - 6, y + WINDOW_H - 6, 0xE8202328);
+        List<FormattedCharSequence> lines = font.split(Component.translatable("screen.relics_addon.help"), WIDTH - 28);
+        for (int line = 0; line < Math.min(9, lines.size()); line++) g.drawString(font, lines.get(line), x + 14, y + CY + 2 + line * 10, HoloPaint.TEXT, false);
+        g.pose().popPose();
+    }
+
+    private void labelledBar(GuiGraphics g, int x, int y, int width, double fraction, int color, Component label) {
+        HoloPaint.bar(g, x, y, width, 11, fraction, color);
+        g.drawString(font, font.plainSubstrByWidth(label.getString(), width - 6), x + 3, y + 2, HoloPaint.TEXT, true);
+    }
+
+    private void small(GuiGraphics g, Component text, int centerX, int y, int color) {
+        g.pose().pushPose();
+        g.pose().translate(centerX, y, 0);
+        g.pose().scale(.75F, .75F, 1);
+        g.drawCenteredString(font, text, 0, 0, color);
+        g.pose().popPose();
+    }
+
+    private static int batteryColor(boolean rf) {
+        return rf ? 0xFFE0523C : 0xFF3FA9F5;
     }
 
     @Override protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
-        g.drawString(font, title, (imageWidth - font.width(title)) / 2, titleLabelY, 0x303030, false);
-        g.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, 0x404040, false);
+        Component heading = Component.translatable("screen.relics_addon.console_title", device().getHoverName());
+        g.drawString(font, font.plainSubstrByWidth(heading.getString(), WIDTH - 60), 18, 8, HoloPaint.TEXT, false);
+        g.drawString(font, playerInventoryTitle, DeviceControlMenu.INVENTORY_X, TRAY_Y + 3, HoloPaint.TEXT_DIM, false);
     }
 
     @Override public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         super.render(g, mouseX, mouseY, partialTick);
+        if (help) renderHelp(g);
         renderTooltip(g, mouseX, mouseY);
         if (menu.getCarried().isEmpty() && hoveredSlot == null) {
             List<Component> tooltip = hoverTooltip(mouseX, mouseY);
@@ -333,52 +405,40 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
         for (Control control : controls) {
             if (inside(mouseX, mouseY, leftPos + control.x, topPos + control.y, control.w, control.h)) return control.tooltip.get();
         }
-        ItemStack stack = device();
-        DeviceProgression state = RelicRuntime.progression(stack);
-        if (inside(mouseX, mouseY, leftPos + XP_GAUGE_X, topPos + GAUGE_Y, GAUGE_W, GAUGE_H)) {
+        if (help) return List.of();
+        DeviceProgression state = RelicRuntime.progression(device());
+        if (inside(mouseX, mouseY, leftPos + SLIDER_X - 3, topPos + SLIDER_TOP - 3, 7, SLIDER_H + 6)) {
             return state.level() >= DeviceProgression.MAX_LEVEL ? List.of(Component.translatable("screen.relics_addon.max_level"))
-                    : List.of(Component.translatable("screen.relics_addon.experience", state.experience(), RelicRuntime.experienceToNext(state.level())));
+                    : List.of(Component.translatable("screen.relics_addon.experience", state.experience(), RelicRuntime.experienceToNext(state.level())),
+                            Component.translatable("screen.relics_addon.experience.hint").withStyle(ChatFormatting.GRAY));
         }
-        if (inside(mouseX, mouseY, leftPos + INTEGRITY_GAUGE_X, topPos + GAUGE_Y, GAUGE_W, GAUGE_H) && minecraft != null && minecraft.player != null) {
-            if (role().isHive()) {
-                HiveStackState hive = stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), HiveStackState.DEFAULT);
-                long alive = hive.units().stream().filter(unit -> unit.hp() > 0).count();
-                return List.of(Component.translatable("screen.relics_addon.drones_alive", alive, hiveCapacity()));
-            }
-            ShieldStackState shield = stack.getOrDefault(ModDataComponents.SHIELD_STACK_STATE.get(), ShieldStackState.DEFAULT);
-            return List.of(Component.translatable("screen.relics_addon.shield_integrity", shield.totalIntegrity(), ShieldParameters.totalCapacity(minecraft.player, stack)));
-        }
-        if (tab == Tab.MAIN) {
+        if (tab == Tab.OVERVIEW) {
+            String kind = role().isHive() ? "hive" : "shield";
             for (int index = 0; index < DeviceProgression.MODULE_SLOTS; index++) {
                 int sx = leftPos + DeviceControlMenu.MODULE_X + index * DeviceControlMenu.MODULE_SPACING, sy = topPos + DeviceControlMenu.MODULE_Y;
-                if (inside(mouseX, mouseY, sx - 1, sy - 1, 18, 21)) {
-                    String kind = role().isHive() ? "hive" : "shield";
+                if (inside(mouseX, mouseY, sx - 1, sy - 1, 18, 28)) {
                     return List.of(Component.translatable("screen.relics_addon.module", index + 1).withStyle(ChatFormatting.AQUA),
                             Component.translatable("screen.relics_addon.module_effect." + kind + "." + index).withStyle(ChatFormatting.GRAY));
                 }
             }
         }
+        if (tab == Tab.POWER && DevicePower.hasRf(role()) && inside(mouseX, mouseY, leftPos + DeviceControlMenu.CHARGE_X - 1, topPos + DeviceControlMenu.CHARGE_Y - 1, 18, 18)) {
+            return List.of(Component.translatable("screen.relics_addon.charge_slot").withStyle(ChatFormatting.AQUA),
+                    Component.translatable("screen.relics_addon.charge_slot.hint").withStyle(ChatFormatting.GRAY));
+        }
         if (tab == Tab.POWER) {
             int row = 0;
-            for (boolean rf : new boolean[]{true, false}) {
-                if (rf ? !DevicePower.hasRf(role()) : !DevicePower.hasMana(role())) continue;
-                if (inside(mouseX, mouseY, leftPos + MONITOR_X, topPos + POWER_ROW_Y + row++ * POWER_ROW_STEP, MONITOR_W - 36, 14)) return batteryTooltip(rf);
-            }
-            if (DevicePower.hasRf(role()) && inside(mouseX, mouseY, leftPos + DeviceControlMenu.CHARGE_X - 1, topPos + DeviceControlMenu.CHARGE_Y - 1, 18, 18)) {
-                return List.of(Component.translatable("screen.relics_addon.charge_slot").withStyle(ChatFormatting.AQUA),
-                        Component.translatable("screen.relics_addon.charge_slot.hint").withStyle(ChatFormatting.GRAY));
+            for (boolean rf : batteries()) {
+                if (inside(mouseX, mouseY, leftPos + CX, topPos + CY + 2 + row++ * 25, CR - 54 - CX, 22)) {
+                    return List.of(Component.translatable(rf ? "screen.relics_addon.battery_rf.hint" : "screen.relics_addon.battery_mana.hint").withStyle(ChatFormatting.GRAY));
+                }
             }
         }
         if (tab == Tab.UPGRADES) {
             List<DeviceUpgrade> upgrades = DeviceUpgrade.availableUpgrades(role());
             for (int row = 0; row < upgrades.size(); row++) {
-                if (inside(mouseX, mouseY, leftPos + MONITOR_X, topPos + 70 + row * 19, MONITOR_W - 20, 17)) return upgradeTooltip(upgrades.get(row));
+                if (inside(mouseX, mouseY, leftPos + CX, topPos + 50 + row * 24, CR - CX, 22)) return upgradeTooltip(upgrades.get(row));
             }
-        }
-        Tab[] tabs = tabs().toArray(Tab[]::new);
-        for (int index = 0; index < tabs.length; index++) {
-            if (inside(mouseX, mouseY, leftPos + imageWidth - 1, topPos + 8 + index * 24, 22, 22))
-                return List.of(Component.translatable("screen.relics_addon.tab." + tabs[index].name().toLowerCase(java.util.Locale.ROOT)));
         }
         return List.of();
     }
@@ -392,20 +452,13 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
                     return true;
                 }
             }
-            Tab[] tabs = tabs().toArray(Tab[]::new);
-            for (int index = 0; index < tabs.length; index++) {
-                if (inside(mouseX, mouseY, leftPos + imageWidth - 1, topPos + 8 + index * 24, 22, 22)) {
-                    if (tab != tabs[index]) { select(tabs[index]); playClick(); }
-                    return true;
-                }
+            if (help && inside(mouseX, mouseY, leftPos, topPos, WIDTH, WINDOW_H)) {
+                help = false;
+                rebuildControls();
+                return true;
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    @Override protected boolean hasClickedOutside(double mouseX, double mouseY, int left, int top, int button) {
-        boolean onTabs = mouseX >= left + imageWidth - 1 && mouseX < left + imageWidth + 22 && mouseY >= top + 8 && mouseY < top + 8 + tabs().size() * 24;
-        return !onTabs && super.hasClickedOutside(mouseX, mouseY, left, top, button);
     }
 
     private void playClick() {

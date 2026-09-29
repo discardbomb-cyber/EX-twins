@@ -43,15 +43,6 @@ public final class DeviceTargets {
         open(targets.contains(last) ? last : targets.getFirst());
     }
 
-    public static void cycle(boolean charm, int slot, int delta) {
-        Player player = Minecraft.getInstance().player;
-        if (player == null) return;
-        List<Target> targets = collect(player);
-        if (targets.size() < 2) return;
-        int index = Math.max(0, targets.indexOf(new Target(charm, slot)));
-        open(targets.get(Math.floorMod(index + delta, targets.size())));
-    }
-
     /** Finds where a stack instance lives on the player: a Curios charm slot or the inventory. */
     public static Target locate(Player player, ItemStack stack) {
         var charm = CuriosApi.getCuriosInventory(player).flatMap(handler -> handler.getStacksHandler(RelicRole.EQUIPMENT_SLOT));

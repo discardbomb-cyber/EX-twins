@@ -34,13 +34,15 @@ import net.neoforged.neoforge.energy.IEnergyStorage;
 public final class DeviceControlMenu extends AbstractContainerMenu {
     public static final int BUTTON_TOGGLE = 0;
     public static final int BUTTON_HEALERS_MINUS_10 = 1, BUTTON_HEALERS_MINUS_1 = 2, BUTTON_HEALERS_PLUS_1 = 3, BUTTON_HEALERS_PLUS_10 = 4;
-    public static final int BUTTON_RF_BATTERY = 5, BUTTON_MANA_BATTERY = 6, BUTTON_MANA_SOURCE = 7;
-    public static final int BUTTON_UPGRADE_BASE = 10;
-    public static final int CHARGE_X = 136, CHARGE_Y = 108;
+    public static final int BUTTON_RF_BATTERY = 5, BUTTON_MANA_BATTERY = 6;
+    /** One button per {@link DeviceEnergy.ManaSource}, in ordinal order. */
+    public static final int BUTTON_MANA_SOURCE_BASE = 7;
+    public static final int BUTTON_UPGRADE_BASE = 20;
+    public static final int CHARGE_X = 204, CHARGE_Y = 102;
     /** Menu slot layout: module bays, the charge slot, then the player inventory. */
     public static final int CHARGE_SLOT = DeviceProgression.MODULE_SLOTS, INVENTORY_START = CHARGE_SLOT + 1;
-    public static final int MODULE_X = 62, MODULE_Y = 72, MODULE_SPACING = 26;
-    public static final int INVENTORY_X = 8, INVENTORY_Y = 140;
+    public static final int MODULE_X = 140, MODULE_Y = 54, MODULE_SPACING = 28;
+    public static final int INVENTORY_X = 36, INVENTORY_Y = 146;
 
     private final Player player;
     private final boolean charm;
@@ -122,8 +124,9 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
             RelicSounds.ui(player, RelicSounds.Ui.TOGGLE);
             return true;
         }
-        if (id == BUTTON_MANA_SOURCE && DevicePower.hasMana(role)) {
-            DevicePower.cycleManaSource(stack);
+        int source = id - BUTTON_MANA_SOURCE_BASE;
+        if (source >= 0 && source < DeviceEnergy.ManaSource.values().length && DevicePower.hasMana(role)) {
+            DevicePower.setManaSource(stack, DeviceEnergy.ManaSource.values()[source]);
             return true;
         }
         int upgrade = id - BUTTON_UPGRADE_BASE;

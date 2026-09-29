@@ -143,9 +143,8 @@ public final class DevicePower {
         stack.set(ModDataComponents.DEVICE_ENERGY.get(), rf ? energy.withRfOn(on) : energy.withManaOn(on));
     }
 
-    public static void cycleManaSource(ItemStack stack) {
-        DeviceEnergy energy = energy(stack);
-        stack.set(ModDataComponents.DEVICE_ENERGY.get(), energy.withSource(energy.source().next()));
+    public static void setManaSource(ItemStack stack, DeviceEnergy.ManaSource source) {
+        stack.set(ModDataComponents.DEVICE_ENERGY.get(), energy(stack).withSource(source));
     }
 
     /** Upkeep once a second, and mana refills twice a second for every equipped device. */

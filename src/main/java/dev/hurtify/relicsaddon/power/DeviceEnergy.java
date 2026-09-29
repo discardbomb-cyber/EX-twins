@@ -15,10 +15,6 @@ public record DeviceEnergy(int rf, int mana, boolean rfOn, boolean manaOn, ManaS
     public enum ManaSource {
         AUTO, MAGIC, EXPERIENCE;
 
-        public ManaSource next() {
-            return values()[(ordinal() + 1) % values().length];
-        }
-
         public String id() {
             return name().toLowerCase(Locale.ROOT);
         }
