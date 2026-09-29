@@ -1,5 +1,6 @@
 package dev.hurtify.relicsaddon.server;
 
+import dev.hurtify.relicsaddon.AddonConfig;
 import dev.hurtify.relicsaddon.RelicsAddon;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.RelicRole;
@@ -10,6 +11,7 @@ import dev.hurtify.relicsaddon.shield.ShieldStackState;
 import dev.hurtify.relicsaddon.shield.ShieldCellDefense;
 import dev.hurtify.relicsaddon.shield.ShieldParameters;
 import dev.hurtify.relicsaddon.relic.ShieldUpgrades;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -36,9 +38,19 @@ public final class ShieldProjectileInterceptor {
     public static final TagKey<EntityType<?>> INTERCEPTABLE = TagKey.create(Registries.ENTITY_TYPE,
             ResourceLocation.fromNamespaceAndPath(RelicsAddon.MOD_ID, "shield_interceptable_projectiles"));
 
+    /**
+     * Projectiles the field stops in flight: arrows and the {@link #INTERCEPTABLE} tag, never tridents.
+     * The server's ignore list overrides everything; its intercept list adds types, tridents included.
+     */
     public static boolean supported(Projectile projectile) {
-        if (projectile.isRemoved() || projectile instanceof ThrownTrident) return false;
-        return projectile instanceof AbstractArrow arrow ? !arrow.isNoPhysics() : projectile.getType().is(INTERCEPTABLE);
+        if (projectile.isRemoved()) return false;
+        EntityType<?> type = projectile.getType();
+        if (AddonConfig.IGNORED_PROJECTILES.matches(BuiltInRegistries.ENTITY_TYPE, type)) return false;
+        // A no-physics arrow is a loyalty trident flying home, not an attack.
+        if (projectile instanceof AbstractArrow arrow && arrow.isNoPhysics()) return false;
+        if (AddonConfig.INTERCEPTED_PROJECTILES.matches(BuiltInRegistries.ENTITY_TYPE, type)) return true;
+        if (projectile instanceof ThrownTrident) return false;
+        return projectile instanceof AbstractArrow || type.is(INTERCEPTABLE);
     }
 
     public static boolean threatens(Projectile projectile, Player player) {
@@ -54,7 +66,7 @@ public final class ShieldProjectileInterceptor {
         record Candidate(Player player, double time) { }
         var candidates = new java.util.ArrayList<Candidate>();
         var vicinity = projectile.getBoundingBox().expandTowards(projectile.getDeltaMovement())
-                .inflate(dev.hurtify.relicsaddon.AddonConfig.SHIELD_MAX_RADIUS.get() + 1);
+                .inflate(AddonConfig.SHIELD_MAX_RADIUS.get() + 1);
         for (Player player : level.players()) {
             if (!vicinity.contains(player.position()) || !EquippedRelicSetResolver.isRealPlayer(player) || !player.isAlive() || player.isSpectator()
                     || !threatens(projectile, player)) continue;
