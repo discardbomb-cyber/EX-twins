@@ -105,7 +105,7 @@ public final class ShieldProjectileInterceptor {
             projectile.getPersistentData().putBoolean(PASSED_FOR + player.getUUID(), true);
             return false;
         }
-        int cost = HiveController.remainingCost(projectile, player, impactCost(projectile));
+        int cost = impactCost(projectile);
         var damage = ShieldCellDefense.damage(state, cell, cost, ShieldUpgrades.sharing(player, shield), player.level().getGameTime());
         boolean stopped = damage.spent() >= cost;
         float absorbed = stopped ? cost : projectile instanceof AbstractArrow ? damage.spent() : 0;

@@ -17,7 +17,15 @@ public final class AddonClientConfig {
             .comment("How strongly the refraction band bends the image behind the wave.")
             .defineInRange("shield.refractionStrength", 1.0, 0.0, 3.0);
 
+    public static final ModConfigSpec.DoubleValue SHIELD_IDLE_OPACITY = BUILDER
+            .comment("How visible a shield is when nothing is attacking (0 hides it until a hit, 1 is as bright as in combat).")
+            .defineInRange("shield.idleOpacity", .35, 0.0, 1.0);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
+
+    static double idleOpacity() {
+        return SPEC.isLoaded() ? SHIELD_IDLE_OPACITY.get() : .35;
+    }
 
     static double rippleStrength() {
         return SPEC.isLoaded() ? SHIELD_RIPPLE_STRENGTH.get() : 1.0;
