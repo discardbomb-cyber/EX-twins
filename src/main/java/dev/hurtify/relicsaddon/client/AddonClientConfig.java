@@ -21,6 +21,11 @@ public final class AddonClientConfig {
             .comment("How visible a shield is when nothing is attacking (0 hides it until a hit, 1 is as bright as in combat).")
             .defineInRange("shield.idleOpacity", 0.0, 0.0, 1.0);
 
+    public static final ModConfigSpec.BooleanValue DYNAMIC_LIGHTS = BUILDER
+            .comment("Let visible shields, swarm strike groups, charges, blasts and constructs light up the world around them.",
+                    "Needs LambDynamicLights; without it this does nothing.")
+            .define("lights.dynamic", true);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     static double idleOpacity() {
@@ -37,6 +42,10 @@ public final class AddonClientConfig {
 
     static double refractionStrength() {
         return SPEC.isLoaded() ? SHIELD_REFRACTION_STRENGTH.get() : 1.0;
+    }
+
+    static boolean dynamicLights() {
+        return !SPEC.isLoaded() || DYNAMIC_LIGHTS.get();
     }
 
     private AddonClientConfig() {

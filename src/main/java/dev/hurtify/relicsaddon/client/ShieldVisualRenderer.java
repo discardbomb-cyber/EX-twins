@@ -139,13 +139,17 @@ public final class ShieldVisualRenderer {
             if (level.getGameTime() - impact.gameTime() > 3) continue;
             if (impact.isStrike()) {
                 dev.hurtify.relicsaddon.client.fx.ExFx.shieldStrike(level, center, radius, impact.normal(), impact.strike(), role, impact.absorbed());
+                EffectLights.flash(center.add(impact.normal().normalize().scale(radius)), 12, 1, 6);
                 continue;
             }
             Vec3 point = center.add(impact.normal().scale(impact.distance() >= 0 ? impact.distance() : radius));
             if (impact.absorbed() > 0) dev.hurtify.relicsaddon.client.fx.ExFx.shieldAbsorb(level, point, impact.normal(), role, impact.absorbed());
             if (impact.broken()) dev.hurtify.relicsaddon.client.fx.ExFx.shieldCellBreak(level, point, impact.normal(), role);
         }
-        if (state.totalIntegrity() == 0) dev.hurtify.relicsaddon.client.fx.ExFx.shieldCollapse(level, center, radius, role);
+        if (state.totalIntegrity() == 0) {
+            dev.hurtify.relicsaddon.client.fx.ExFx.shieldCollapse(level, center, radius, role);
+            EffectLights.flash(center, 15, radius, 10);
+        }
         cache.fresh.clear();
     }
 
@@ -213,8 +217,14 @@ public final class ShieldVisualRenderer {
         Vec3 eyeDirection = originX * originX + originY * originY + originZ * originZ > radius * radius
                 ? new Vec3(-originX, -originY, -originZ).normalize() : Vec3.ZERO;
         ShieldRefraction.queue(role, originX, originY, originZ, radius, impacts, time, quality == ShieldVisualQuality.LOW);
-        renderField(role, state, impacts, threats, time, consumer, matrix, originX, originY, originZ,
+        double presence = renderField(role, state, impacts, threats, time, consumer, matrix, originX, originY, originZ,
                 forwardX, forwardZ, quality == ShieldVisualQuality.LOW, eyeDirection, radius, bufferRatio, true);
+        if (presence > 0 && EffectLights.enabled()) {
+            // The shell lights the ground under it as strongly as it shows; a fresh hit flares brighter for half a second.
+            double flare = impacts.stream().mapToDouble(hit -> ShieldField.fade(time - hit.gameTime(), 10)).max().orElse(0);
+            EffectLights.glow(new Vec3(originX + camera.x(), originY + camera.y(), originZ + camera.z()),
+                    10 * presence + 5 * flare, radius * .75);
+        }
     }
 
     /** Flushes the additive light layer; callers drawing shells outside the world pass (galleries) need it. */
@@ -249,20 +259,22 @@ public final class ShieldVisualRenderer {
                 state.sharedBuffer() / (double) ShieldStackState.MAX_SHARED_BUFFER, false);
     }
 
-    private static void renderField(RelicRole role, ShieldStackState state, List<ShieldImpact> impacts,
+    /** Draws one shell and returns how strongly it shows (0 when it is not drawn at all). */
+    private static double renderField(RelicRole role, ShieldStackState state, List<ShieldImpact> impacts,
             List<ShieldResponse.Threat> threats, double time, VertexConsumer consumer, Matrix4f matrix,
             double originX, double originY, double originZ, double forwardX, double forwardZ, boolean low, Vec3 eyeDirection,
             double radius, double bufferRatio, boolean world) {
         double idle = AddonClientConfig.idleOpacity();
-        if (idle <= 0 && !state.gathering(time) && threats.isEmpty() && impacts.isEmpty()) return;
+        if (idle <= 0 && !state.gathering(time) && threats.isEmpty() && impacts.isEmpty()) return 0;
         boolean rippling = role == RelicRole.MANA_SHIELD || role == RelicRole.TWINS_SHIELD;
         if (rippling) ShieldRipple.begin(impacts, time, ShieldRipple.roleScale(role));
+        double presence;
         try {
             double activity = threats.isEmpty() ? impacts.stream().mapToDouble(hit ->
                     ShieldField.fade(time - hit.gameTime(), ShieldResponse.IMPACT_TICKS)).max().orElse(0) : 1;
             if (state.gathering(time)) activity = Math.max(activity, .6);
             // The shell is always faintly there; combat brings it to full strength.
-            double presence = Math.max(idle, activity);
+            presence = Math.max(idle, activity);
             ShieldShellVisual.render(role, consumer, new ShieldShellVisual.Frame(matrix, originX, originY, originZ, radius, forwardX, forwardZ,
                     eyeDirection, world), state, impacts, threats, time, presence, low);
             ShieldGlow.halo(matrix, role, originX, originY, originZ, radius, activity, impacts, time, eyeDirection, low);
@@ -276,6 +288,7 @@ public final class ShieldVisualRenderer {
         for (ShieldImpact impact : impacts) {
             renderInnerImpactPatch(role, impact, time, consumer, matrix, originX, originY, originZ, eyeDirection, radius, bufferRatio);
         }
+        return presence;
     }
 
     private static void renderInnerImpactPatch(RelicRole role, ShieldImpact impact, double time, VertexConsumer consumer,
