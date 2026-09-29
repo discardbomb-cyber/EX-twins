@@ -74,6 +74,7 @@ public final class HiveVisualRenderer {
         }
         buffers.endBatch();
         for (HiveModeVisual.Scene scene : scenes) HiveModeVisual.render(scene, camera, glow, fill, matrix);
+        if (EffectLights.enabled()) scenes.forEach(HiveModeVisual::light);
         // Space bends before the glass and light are laid over it.
         ShieldRefraction.flush(matrix);
         buffers.endBatch(ShieldVisualRenderer.renderType());

@@ -17,7 +17,8 @@ import org.joml.Matrix4f;
 /**
  * The swarm's synchronized events brought to life: each one starts its Photon effect once (keys expire
  * with the event, so replays of the same list never repeat it), and blasts keep bending space for a
- * few ticks after they land. Charges in flight carry their own glow.
+ * few ticks after they land. Charges in flight carry their own glow. Every blow and charge also lights
+ * the world through {@link EffectLights}.
  */
 public final class HiveCombatVisual {
     private static final RenderType TYPE = RenderType.create("relic_hive_combat", DefaultVertexFormat.POSITION_COLOR,
@@ -55,6 +56,7 @@ public final class HiveCombatVisual {
             if (state[1] == 0 && time >= shot.impactAt() && shot.kind() == HiveCombatState.BALL) {
                 state[1] = 1;
                 ExFx.swarmBlast(level, end, type, 1.2f);
+                EffectLights.flash(end, 15, 1.2, 8);
                 if (type == HiveType.TWINS) ExFx.swarmSmoke(level, end);
             }
             // Blasts ring out through space for a moment after they land.
@@ -67,9 +69,11 @@ public final class HiveCombatVisual {
             // A charge in flight glows along its path.
             if (shot.kind() == HiveCombatState.BALL && time < shot.impactAt()) {
                 double t = (time - shot.firedAt()) / Math.max(1, shot.impactAt() - shot.firedAt());
-                Vec3 at = start.lerp(end, Math.clamp(t, 0, 1)).subtract(camera);
+                Vec3 flying = start.lerp(end, Math.clamp(t, 0, 1));
+                Vec3 at = flying.subtract(camera);
                 GlowBrush.dot(glow, matrix, at, .55, HiveModeVisual.color(type), 150);
                 GlowBrush.dot(glow, matrix, at, .22, 0xFFFFFF, 200);
+                EffectLights.glow(flying, 12, .55);
             }
         }
     }
@@ -78,16 +82,29 @@ public final class HiveCombatVisual {
         switch (shot.kind()) {
             case HiveCombatState.DROPLET -> {
                 ExFx.swarmBlast(level, end, type, 1.5f);
+                EffectLights.flash(end, 15, 1, 8);
                 if (type == HiveType.TWINS) ExFx.voidPulse(level, end);
             }
             case HiveCombatState.BALL -> {
                 ExFx.chargeBall(level, start, end, (int) Math.max(1, shot.impactAt() - shot.firedAt()), type);
                 if (type == HiveType.TWINS) ExFx.swarmSmoke(level, start);
             }
-            case HiveCombatState.ZAP -> ExFx.swarmZap(level, start, end, type);
-            case HiveCombatState.VOID -> ExFx.voidPulse(level, end);
-            case HiveCombatState.WARD -> ExFx.wardFlash(level, end);
-            case HiveCombatState.INTERCEPT, HiveCombatState.DRONE_HIT -> ExFx.swarmSpark(level, end, type);
+            case HiveCombatState.ZAP -> {
+                ExFx.swarmZap(level, start, end, type);
+                EffectLights.flash(end, 10, .5, 4);
+            }
+            case HiveCombatState.VOID -> {
+                ExFx.voidPulse(level, end);
+                EffectLights.flash(end, 9, 1, 6);
+            }
+            case HiveCombatState.WARD -> {
+                ExFx.wardFlash(level, end);
+                EffectLights.flash(end, 10, 1, 5);
+            }
+            case HiveCombatState.INTERCEPT, HiveCombatState.DRONE_HIT -> {
+                ExFx.swarmSpark(level, end, type);
+                EffectLights.flash(end, 7, .3, 4);
+            }
             default -> { }
         }
     }

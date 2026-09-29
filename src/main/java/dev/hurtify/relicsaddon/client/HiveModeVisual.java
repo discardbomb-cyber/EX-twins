@@ -42,6 +42,41 @@ public final class HiveModeVisual {
         }
     }
 
+    /**
+     * The light these constructs cast on the world ({@link EffectLights}): each strike group's shape,
+     * each charge while it builds, the containment construct and the Twins black hole's disk. Only the
+     * world renderer calls this; gallery scenes have no world to light.
+     */
+    public static void light(Scene s) {
+        switch (s.mode()) {
+            case DROPLET -> {
+                for (int group = 0; group < s.groups(); group++) {
+                    if (s.members()[group] == 0) continue;
+                    Vec3 centre = HiveFormation.dropletCentre(s.target(), s.width(), s.height(), group, s.groups(), s.time(), s.cycleStart(), s.interval());
+                    EffectLights.glow(centre, 7 + 6 * heat(s, group), HiveFormation.shapeSize(s.members()[group]));
+                }
+            }
+            case BARRAGE -> {
+                for (int group = 0; group < s.groups(); group++) {
+                    double charge = charge(s, group);
+                    if (s.members()[group] == 0 || charge <= .02) continue;
+                    Vec3 centre = HiveFormation.clusterCentre(s.target(), s.width(), s.height(), group, s.groups(), s.time());
+                    EffectLights.glow(centre, 3 + 11 * charge, .12 + .38 * charge);
+                }
+            }
+            case CONTAINMENT -> {
+                if (!s.formed()) return;
+                Vec3 core = HiveFormation.core(s.target(), s.height());
+                switch (s.type()) {
+                    case RF -> EffectLights.glow(core, 9, Math.max(.8, s.width()));
+                    case MANA -> EffectLights.glow(core, 9, 1.45 * Math.max(1, s.height() / 1.8));
+                    // The accretion disk reaches about four horizons out.
+                    case TWINS -> EffectLights.glow(core, 11, horizon(s) * 4);
+                }
+            }
+        }
+    }
+
     public static int color(HiveType type) {
         return switch (type) {
             case RF -> 0x38E8FF;
@@ -59,9 +94,8 @@ public final class HiveModeVisual {
             Vec3 post = HiveFormation.post(s.target(), s.width(), s.height(), group, s.groups(), s.time(), 4.2);
             Vec3 core = HiveFormation.core(s.target(), s.height());
             Vec3 facing = core.subtract(post);
-            double phase = HiveFormation.groupPhase(s.time(), s.cycleStart(), s.interval(), group, s.groups());
-            boolean diving = s.time() >= s.cycleStart() && phase >= HiveFormation.DIVE && phase < HiveFormation.IMPACT;
-            double heat = diving ? .5 + .5 * (phase - HiveFormation.DIVE) / (HiveFormation.IMPACT - HiveFormation.DIVE) : .35;
+            double heat = heat(s, group);
+            boolean diving = heat >= .5;
             double size = HiveFormation.shapeSize(s.members()[group]);
             Vec3 c = centre.subtract(camera);
             switch (s.type()) {
@@ -105,6 +139,13 @@ public final class HiveModeVisual {
         }
     }
 
+    /** How hot a droplet group burns: .35 at its post, rising from .5 to 1 only while it dives. */
+    private static double heat(Scene s, int group) {
+        double phase = HiveFormation.groupPhase(s.time(), s.cycleStart(), s.interval(), group, s.groups());
+        boolean diving = s.time() >= s.cycleStart() && phase >= HiveFormation.DIVE && phase < HiveFormation.IMPACT;
+        return diving ? .5 + .5 * (phase - HiveFormation.DIVE) / (HiveFormation.IMPACT - HiveFormation.DIVE) : .35;
+    }
+
     /** A glass drop around a Mana group: a lit rim and a faint body, tip towards the target. */
     private static void dropletShell(VertexConsumer fill, VertexConsumer glow, Matrix4f m, Vec3 c, Vec3 facing, double size, double time, int color, double heat) {
         Vec3[] axes = HiveShapes.axes(facing);
@@ -138,9 +179,7 @@ public final class HiveModeVisual {
         for (int group = 0; group < s.groups(); group++) {
             if (s.members()[group] == 0) continue;
             Vec3 centre = HiveFormation.clusterCentre(s.target(), s.width(), s.height(), group, s.groups(), s.time()).subtract(camera);
-            double phase = HiveFormation.groupPhase(s.time(), s.cycleStart(), s.interval(), group, s.groups());
-            double charge = phase < 0 ? 0 : phase < HiveFormation.FIRE ? phase / HiveFormation.FIRE
-                    : Math.max(0, 1 - (phase - HiveFormation.FIRE) / .06);
+            double charge = charge(s, group);
             // The cluster's own outline: members joined in order around their ring or octagon.
             Vec3 previous = null, first = null;
             int links = 0;
@@ -171,6 +210,13 @@ public final class HiveModeVisual {
                 }
             }
         }
+    }
+
+    /** A barrage cluster's charge, 0 to 1: it builds until the cluster fires, then collapses within a few ticks. */
+    private static double charge(Scene s, int group) {
+        double phase = HiveFormation.groupPhase(s.time(), s.cycleStart(), s.interval(), group, s.groups());
+        return phase < 0 ? 0 : phase < HiveFormation.FIRE ? phase / HiveFormation.FIRE
+                : Math.max(0, 1 - (phase - HiveFormation.FIRE) / .06);
     }
 
     /**
@@ -262,7 +308,12 @@ public final class HiveModeVisual {
             }
             GlowBrush.dot(glow, m, centre, .45, 0x2A0F45, 90);
         }
-        blackHole(glow, fill, m, core, .42 + .08 * Math.max(0, s.width() - .6), s.time());
+        blackHole(glow, fill, m, core, horizon(s), s.time());
+    }
+
+    /** The black hole's horizon grows a little with the target it holds. */
+    private static double horizon(Scene s) {
+        return .42 + .08 * Math.max(0, s.width() - .6);
     }
 
     /**
