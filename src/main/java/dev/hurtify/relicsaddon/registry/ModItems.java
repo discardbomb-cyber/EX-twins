@@ -3,6 +3,7 @@ package dev.hurtify.relicsaddon.registry;
 import dev.hurtify.relicsaddon.RelicsAddon;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
 import dev.hurtify.relicsaddon.relic.RelicRole;
+import java.util.List;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -14,8 +15,24 @@ public final class ModItems {
     public static final DeferredItem<dev.hurtify.relicsaddon.relic.HiveRelicItem> RF_HIVE = hive(dev.hurtify.relicsaddon.drone.HiveType.RF);
     public static final DeferredItem<dev.hurtify.relicsaddon.relic.HiveRelicItem> MANA_HIVE = hive(dev.hurtify.relicsaddon.drone.HiveType.MANA);
     public static final DeferredItem<dev.hurtify.relicsaddon.relic.HiveRelicItem> TWINS_HIVE = hive(dev.hurtify.relicsaddon.drone.HiveType.TWINS);
-    public static final DeferredItem<dev.hurtify.relicsaddon.relic.DeviceModuleItem> DEVICE_MODULE = ITEMS.register(
-            "device_module", () -> new dev.hurtify.relicsaddon.relic.DeviceModuleItem(new Item.Properties()));
+
+    // Crafting parts: a shared circuit, one battery per energy family, a core per shield and drone parts per hive.
+    public static final DeferredItem<Item> RESONANT_CIRCUIT = component("resonant_circuit", Rarity.COMMON);
+    public static final DeferredItem<Item> ENERGY_CELL = component("energy_cell", Rarity.UNCOMMON);
+    public static final DeferredItem<Item> MANA_CELL = component("mana_cell", Rarity.UNCOMMON);
+    public static final DeferredItem<Item> RF_SHIELD_CORE = component("rf_shield_core", Rarity.UNCOMMON);
+    public static final DeferredItem<Item> MANA_SHIELD_CORE = component("mana_shield_core", Rarity.UNCOMMON);
+    public static final DeferredItem<Item> TWINS_SHIELD_CORE = component("twins_shield_core", Rarity.RARE);
+    public static final DeferredItem<Item> RF_DRONE_FRAME = component("rf_drone_frame", Rarity.COMMON);
+    public static final DeferredItem<Item> MANA_DRONE_SHELL = component("mana_drone_shell", Rarity.COMMON);
+    public static final DeferredItem<Item> TWINS_DRONE_PLATE = component("twins_drone_plate", Rarity.UNCOMMON);
+
+    public static final List<DeferredItem<Item>> COMPONENTS = List.of(RESONANT_CIRCUIT, ENERGY_CELL, MANA_CELL,
+            RF_SHIELD_CORE, MANA_SHIELD_CORE, TWINS_SHIELD_CORE, RF_DRONE_FRAME, MANA_DRONE_SHELL, TWINS_DRONE_PLATE);
+
+    private static DeferredItem<Item> component(String id, Rarity rarity) {
+        return ITEMS.register(id, () -> new dev.hurtify.relicsaddon.relic.ComponentItem(new Item.Properties().rarity(rarity)));
+    }
 
     private static DeferredItem<dev.hurtify.relicsaddon.relic.HiveRelicItem> hive(dev.hurtify.relicsaddon.drone.HiveType type) {
         return ITEMS.register(type.role.itemId(), () -> {

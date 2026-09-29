@@ -1,0 +1,7 @@
+{
+  "replace": false,
+  "values": [
+    "#relics_addon:shield_strike",
+    "#relics_addon:swarm_damage"
+  ]
+}

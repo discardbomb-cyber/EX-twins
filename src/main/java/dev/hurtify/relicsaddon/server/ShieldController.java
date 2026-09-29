@@ -1,5 +1,6 @@
 package dev.hurtify.relicsaddon.server;
 
+import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
 
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
@@ -14,7 +15,12 @@ import dev.hurtify.relicsaddon.shield.ShieldParameters;
 import dev.hurtify.relicsaddon.sound.RelicSounds;
 import dev.hurtify.relicsaddon.relic.ShieldUpgrades;
 import net.minecraft.network.chat.Component;
-import net.minecraft.tags.DamageTypeTags;
+import java.util.Map;
+import java.util.WeakHashMap;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.player.Player;
@@ -28,13 +34,19 @@ import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import java.util.Locale;
 
 public final class ShieldController {
+    /** Damage the field never takes: starvation, drowning, suffocation, the void and similar. Everything else is absorbed. */
+    public static final TagKey<DamageType> PASSES_SHIELD = TagKey.create(Registries.DAMAGE_TYPE,
+            ResourceLocation.fromNamespaceAndPath(dev.hurtify.relicsaddon.RelicsAddon.MOD_ID, "shield_passes"));
+    /** Absorbed hits are cancelled outright, so vanilla hurt-immunity never starts; the field keeps its own. */
+    private static final int IMMUNITY_TICKS = 10;
+    private static final Map<LivingEntity, float[]> RECENT_HITS = new WeakHashMap<>();
+
     public static void onIncomingDamage(LivingIncomingDamageEvent event) {
         LivingEntity victim = event.getEntity();
         if (victim.level().isClientSide() || !victim.isAlive() || victim.isSpectator()
                 || (victim instanceof Player player && !EquippedRelicSetResolver.isRealPlayer(player))
                 || event.isCanceled() || !(event.getAmount() > 0) || !Float.isFinite(event.getAmount())
-                || event.getSource().is(DamageTypeTags.BYPASSES_INVULNERABILITY)
-                || event.getSource().is(DamageTypeTags.BYPASSES_SHIELD)) {
+                || event.getSource().is(PASSES_SHIELD)) {
             return;
         }
         // Select one coverage owner. Overlapping fields never spend twice on the same melee event.
@@ -49,14 +61,45 @@ public final class ShieldController {
             if (event.getSource().getDirectEntity() instanceof Projectile projectile) {
             float prepaid = ShieldProjectileInterceptor.consumePaidDamage(projectile, owner, event.getAmount());
             if (prepaid > 0) {
-                event.setAmount(event.getAmount() - prepaid);
+                settle(event, victim, prepaid);
                 return;
             }
             if (ShieldProjectileInterceptor.alreadyAbsorbed(projectile, owner)
                     || ShieldProjectileInterceptor.passedThrough(projectile, owner)) continue;
             }
+            if (withinImmunity(event, victim)) return;
             if (tryShieldBlock(event, owner, shield)) return;
         }
+    }
+
+    /**
+     * Vanilla ignores a hit landing within half a second of a stronger one. Because absorbed hits are
+     * cancelled, that immunity never starts, so the field applies the same rule itself: repeated
+     * fire, lava or cactus ticks do not drain it twenty times a second.
+     */
+    private static boolean withinImmunity(LivingIncomingDamageEvent event, LivingEntity victim) {
+        float[] last = RECENT_HITS.get(victim);
+        long now = victim.level().getGameTime();
+        if (last == null || now - (long) last[0] >= IMMUNITY_TICKS || now < (long) last[0]) return false;
+        if (event.getAmount() <= last[1]) {
+            event.setCanceled(true);
+            return true;
+        }
+        event.setAmount(event.getAmount() - last[1]);
+        return false;
+    }
+
+    /** Applies an absorbed amount: a fully absorbed hit is cancelled so it causes no knockback, flash or on-hit effects. */
+    private static void settle(LivingIncomingDamageEvent event, LivingEntity victim, float absorbed) {
+        var source = event.getSource();
+        ShieldEffectGuard.recordHit(victim, source.getEntity() != null ? source.getEntity() : source.getDirectEntity(),
+                absorbed, event.getAmount() - absorbed);
+        float[] last = RECENT_HITS.get(victim);
+        long now = victim.level().getGameTime();
+        float previous = last != null && now - (long) last[0] < IMMUNITY_TICKS && now >= (long) last[0] ? last[1] : 0;
+        RECENT_HITS.put(victim, new float[]{now, previous + absorbed});
+        if (absorbed >= event.getAmount()) event.setCanceled(true);
+        else event.setAmount(event.getAmount() - absorbed);
     }
 
     private static boolean tryShieldBlock(LivingIncomingDamageEvent event, Player player, ItemStack shield) {
@@ -76,7 +119,7 @@ public final class ShieldController {
         if (absorbed <= 0) {
             return false;
         }
-        event.setAmount(event.getAmount() - absorbed);
+        settle(event, event.getEntity(), absorbed);
         ShieldStackState next = damage.apply(state, cell, absorbed, player.level().getGameTime());
         shield.set(ModDataComponents.SHIELD_STACK_STATE.get(), next);
         ShieldImpact impact = ShieldImpact.of(direction, player.level().getGameTime(), cell, absorbed, state, next);
@@ -88,6 +131,7 @@ public final class ShieldController {
                 .add(impact.normal().scale(impact.distance() >= 0 ? impact.distance() : ShieldParameters.radius(player, shield))),
                 ((AutonomousRelicItem) shield.getItem()).role(), impact.broken(), next.totalIntegrity() == 0);
         RelicRuntime.awardAbsorption(player, shield, absorbed);
+        DevicePower.drain(player, shield, Mth.ceil(absorbed * DevicePower.ABSORB_PER_HP));
         player.displayClientMessage(Component.translatable("message.relics_addon.shield_blocked",
                 formatDamage(absorbed), next.sharedBuffer(), ShieldParameters.capacity(player, shield),
                 next.cellHp(cell), ShieldStackState.MAX_PANEL_INTEGRITY), true);
@@ -112,11 +156,15 @@ public final class ShieldController {
             state = state.withCellsAndBuffer(state.cells(), capacity, state.moves(), state.gatherTime());
             shield.set(ModDataComponents.SHIELD_STACK_STATE.get(), state);
         }
-        if (now % role.repairInterval() != 0 || !state.needsRepair(capacity)) {
+        int interval = role.repairInterval();
+        if (now % interval != 0 || !state.needsRepair(capacity)) {
             return;
         }
-        shield.set(ModDataComponents.SHIELD_STACK_STATE.get(), ShieldCellDefense.repair(state, now, capacity,
-                ShieldUpgrades.quietTicks(player, shield), ShieldUpgrades.repairSteps(player, shield)));
+        ShieldStackState repaired = ShieldCellDefense.repair(state, now, capacity,
+                ShieldUpgrades.quietTicks(player, shield), ShieldUpgrades.repairSteps(player, shield));
+        int restored = repaired.totalIntegrity() - state.totalIntegrity();
+        if (restored > 0 && !DevicePower.drain(player, shield, restored * DevicePower.REPAIR_PER_HP)) return;
+        shield.set(ModDataComponents.SHIELD_STACK_STATE.get(), repaired);
     }
 
     public static float reduction(float damage, double ratio, float capacity) {

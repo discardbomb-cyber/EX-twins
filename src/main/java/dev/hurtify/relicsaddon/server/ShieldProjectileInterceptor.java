@@ -105,7 +105,7 @@ public final class ShieldProjectileInterceptor {
             projectile.getPersistentData().putBoolean(PASSED_FOR + player.getUUID(), true);
             return false;
         }
-        int cost = HiveController.remainingCost(projectile, player, impactCost(projectile));
+        int cost = impactCost(projectile);
         var damage = ShieldCellDefense.damage(state, cell, cost, ShieldUpgrades.sharing(player, shield), player.level().getGameTime());
         boolean stopped = damage.spent() >= cost;
         float absorbed = stopped ? cost : projectile instanceof AbstractArrow ? damage.spent() : 0;
@@ -125,6 +125,8 @@ public final class ShieldProjectileInterceptor {
             projectile.getPersistentData().putUUID(ABSORBED_FOR, player.getUUID());
             projectile.getPersistentData().putBoolean(ABSORBED_FOR + player.getUUID(), true);
             RelicRuntime.awardAbsorption(player, shield, absorbed);
+            dev.hurtify.relicsaddon.power.DevicePower.drain(player, shield,
+                    net.minecraft.util.Mth.ceil(absorbed * dev.hurtify.relicsaddon.power.DevicePower.ABSORB_PER_HP));
         }
         if (stopped) {
             projectile.setPos(projectile.position().add(projectile.getDeltaMovement().scale(crossing.time())));

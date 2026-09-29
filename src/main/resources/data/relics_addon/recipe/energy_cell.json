@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " T ",
+    "IBI",
+    "IXI"
+  ],
+  "key": {
+    "T": {
+      "item": "minecraft:copper_ingot"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "B": {
+      "item": "minecraft:redstone_block"
+    },
+    "X": {
+      "item": "relics_addon:resonant_circuit"
+    }
+  },
+  "result": {
+    "id": "relics_addon:energy_cell",
+    "count": 1
+  }
+}

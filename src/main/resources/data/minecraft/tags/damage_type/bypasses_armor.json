@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "relics_addon:shield_mana_burst",
+    "relics_addon:shield_twin_surge",
+    "relics_addon:swarm_void",
+    "relics_addon:swarm_reflect"
+  ]
+}

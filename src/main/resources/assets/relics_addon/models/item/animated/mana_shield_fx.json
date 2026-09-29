@@ -1,44 +1,20 @@
 {
+  "loader": "neoforge:obj",
+  "model": "relics_addon:models/item/mana_shield.obj",
+  "automatic_culling": false,
+  "shade_quads": true,
+  "emissive_ambient": true,
+  "render_type": "minecraft:translucent",
   "textures": {
-    "surface": "relics_addon:item/materials/mana_shield",
-    "fx": "relics_addon:item/fx/mana_shield",
     "particle": "relics_addon:item/mana_shield"
   },
-  "ambientocclusion": false,
-  "render_type": "minecraft:translucent",
-  "elements": [
-    {
-      "from": [
-        0,
-        0,
-        1.4
-      ],
-      "to": [
-        16,
-        16,
-        14.6
-      ],
-      "shade": false,
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": "#fx"
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": "#fx"
-        }
-      }
-    }
-  ]
+  "visibility": {
+    "body": false,
+    "core": false,
+    "fx": true,
+    "shell_0": false,
+    "shell_1": false,
+    "shell_2": false,
+    "shell_3": false
+  }
 }

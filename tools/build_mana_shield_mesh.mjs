@@ -1,0 +1,242 @@
+#!/usr/bin/env node
+// Mana shield amulet: a closed navy orb with a gold strap frame, a spinning front lens with a glowing
+// diamond glyph, an equatorial gold belt with side pods and two open gold arcs that breathe
+// around it. Writes models/item/mana_shield.{obj,mtl}; groups match AnimatedRelicItemRenderer
+// parts (body, core, fx, shell_0..3; shells sit at +X, +Y, -X, -Y).
+//   node tools/build_mana_shield_mesh.mjs
+import { writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const OUT = join(ROOT, "src/main/resources/assets/relics_addon/models/item");
+const C = [.5, .5, .5];
+const R = .285;                     // orb radius in block units
+const FRONT = [0, 0, -1];           // the lens faces north, toward the GUI camera
+
+const MATERIALS = {
+  navy: [[.035, .05, .12], 0],
+  navy_gloss: [[.07, .09, .2], .05],
+  gold: [[.62, .43, .15], 0],
+  gold_edge: [[.93, .74, .34], .08],
+  chrome: [[.62, .66, .72], .05],
+  lens_glass: [[.03, .08, .16], .1],
+  mana_light: [[.3, .78, 1], .9],
+};
+
+const add = (a, b) => a.map((v, i) => v + b[i]);
+const sub = (a, b) => a.map((v, i) => v - b[i]);
+const mul = (a, s) => a.map(v => v * s);
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const norm = a => { const l = Math.hypot(...a) || 1; return a.map(v => v / l); };
+const sph = (theta, phi) => [Math.sin(theta) * Math.cos(phi), Math.cos(theta), Math.sin(theta) * Math.sin(phi)];
+
+class Mesh {
+  constructor() { this.v = []; this.n = []; this.groups = new Map(); }
+  vert(p, n) { this.v.push(p); this.n.push(norm(n)); return this.v.length; }
+  face(group, material, ...ids) {
+    if (!this.groups.has(group)) this.groups.set(group, []);
+    this.groups.get(group).push([material, ids]);
+  }
+  /**
+   * Flat-shaded convex polygon, emitted double-sided: item rendering culls back faces and the
+   * procedural winding of lathes and ribbons is not guaranteed to face outward.
+   */
+  poly(group, material, points) {
+    // Newell normal: robust when a lathe pole collapses two corners into one point.
+    const n = norm(points.reduce((acc, p, i) => {
+      const q = points[(i + 1) % points.length];
+      return [acc[0] + (p[1] - q[1]) * (p[2] + q[2]), acc[1] + (p[2] - q[2]) * (p[0] + q[0]), acc[2] + (p[0] - q[0]) * (p[1] + q[1])];
+    }, [0, 0, 0]));
+    const front = points.map(p => this.vert(p, n));
+    const back = points.map(p => this.vert(p, mul(n, -1)));
+    for (let i = 1; i + 1 < front.length; i++) {
+      this.face(group, material, front[0], front[i], front[i + 1]);
+      this.face(group, material, back[0], back[i + 1], back[i]);
+    }
+  }
+  /** Smooth quad with explicit per-corner normals. */
+  quad(group, material, points, normals) {
+    const ids = points.map((p, i) => this.vert(p, normals[i]));
+    this.face(group, material, ids[0], ids[1], ids[2]);
+    this.face(group, material, ids[0], ids[2], ids[3]);
+  }
+  /** Extruded ribbon along a polyline: rectangular cross-section, open ends capped. */
+  ribbon(group, path, side, width, depth, faceMaterial, edgeMaterial) {
+    const rings = path.map((p, i) => {
+      const s = side[i], out = norm(cross(s, sub(path[Math.min(i + 1, path.length - 1)], path[Math.max(i - 1, 0)])));
+      const h = mul(s, width / 2), d = mul(out, depth / 2);
+      return [add(add(p, h), d), add(sub(p, h), d), sub(sub(p, h), d), sub(add(p, h), d)];
+    });
+    for (let i = 0; i + 1 < rings.length; i++) {
+      const a = rings[i], b = rings[i + 1];
+      for (let k = 0; k < 4; k++) {
+        const k2 = (k + 1) % 4;
+        this.poly(group, k === 0 || k === 2 ? faceMaterial : edgeMaterial, [a[k], b[k], b[k2], a[k2]]);
+      }
+    }
+    this.poly(group, edgeMaterial, [...rings[0]].reverse());
+    this.poly(group, edgeMaterial, rings[rings.length - 1]);
+  }
+  /** Surface of revolution around an axis: profile is [[radius, along]]. */
+  lathe(group, material, center, axis, profile, segments = 40) {
+    const a = norm(axis), u = norm(cross(a, Math.abs(a[1]) > .9 ? [1, 0, 0] : [0, 1, 0])), w = cross(a, u);
+    const ring = ([radius, along], t) => add(add(center, mul(a, along)), add(mul(u, Math.cos(t) * radius), mul(w, Math.sin(t) * radius)));
+    for (let s = 0; s < segments; s++) {
+      const t0 = 2 * Math.PI * s / segments, t1 = 2 * Math.PI * (s + 1) / segments;
+      for (let i = 0; i + 1 < profile.length; i++) {
+        const quad = [ring(profile[i], t0), ring(profile[i], t1), ring(profile[i + 1], t1), ring(profile[i + 1], t0)];
+        if (Math.hypot(...sub(quad[0], quad[3])) < 1e-6 && Math.hypot(...sub(quad[1], quad[2])) < 1e-6) continue;
+        this.poly(group, typeof material === "function" ? material(i) : material, quad);
+      }
+    }
+  }
+  write(name) {
+    const lines = [`# Generated by tools/build_mana_shield_mesh.mjs`, `mtllib ${name}.mtl`, "vt 0.5 0.5"];
+    for (const p of this.v) lines.push(`v ${p.map(x => x.toFixed(6)).join(" ")}`);
+    for (const n of this.n) lines.push(`vn ${n.map(x => x.toFixed(6)).join(" ")}`);
+    for (const group of ["body", "core", "fx", "shell_0", "shell_1", "shell_2", "shell_3"]) {
+      lines.push(`g ${group}`);
+      let current = null;
+      for (const [material, ids] of this.groups.get(group) ?? []) {
+        if (material !== current) { lines.push(`usemtl ${material}`); current = material; }
+        lines.push(`f ${ids.map(i => `${i}/1/${i}`).join(" ")}`);
+      }
+    }
+    writeFileSync(join(OUT, `${name}.obj`), lines.join("\n") + "\n");
+    const mtl = Object.entries(MATERIALS).map(([id, [kd, ka]]) =>
+      `newmtl ${id}\nKd ${kd.join(" ")}\nKa ${ka} ${ka} ${ka}\nmap_Kd relics_addon:item/materials/rf_mesh_white\n`);
+    writeFileSync(join(OUT, `${name}.mtl`), mtl.join("\n"));
+    return this.groups;
+  }
+}
+
+const mesh = new Mesh();
+const P = (dir, radius = R) => add(C, mul(dir, radius));
+const ARC_RADIUS = .43;
+/** In-plane horizontal axis of the arc on each side; the arcs lean around the vertical axis. */
+const arcAxis = sign => { const tilt = sign * .38; return [sign * Math.cos(tilt), 0, Math.sin(tilt)]; };
+
+// --- body: a closed navy orb -----------------------------------------------------------------
+// The orb is one unbroken sphere; everything else is mounted on top of it or sunk into it, so
+// no view can look through a seam, the belt or the lens socket.
+const ROWS = 30, COLS = 60;
+for (let row = 0; row < ROWS; row++) for (let col = 0; col < COLS; col++) {
+  const t0 = Math.PI * row / ROWS, t1 = Math.PI * (row + 1) / ROWS;
+  const p0 = 2 * Math.PI * col / COLS, p1 = 2 * Math.PI * (col + 1) / COLS;
+  const dirs = [sph(t0, p0), sph(t0, p1), sph(t1, p1), sph(t1, p0)];
+  mesh.quad("body", row % 6 === 0 ? "navy_gloss" : "navy", dirs.map(d => P(d)), dirs);
+}
+// Gold frame: two great-circle straps crossing over the poles, solid ribbons half sunk into the
+// orb. They stop short of the lens, which sits over their front crossing.
+for (const normal of [norm([1, 0, .42]), norm([-1, 0, .42])]) {
+  const u = norm(cross(normal, [0, 1, 0])), w = cross(normal, u);
+  const steps = 96;
+  let path = [], side = [];
+  const flush = () => {
+    if (path.length > 1) mesh.ribbon("body", path, side, .032, .016, "gold_edge", "gold");
+    path = [];
+    side = [];
+  };
+  for (let s = 0; s <= steps; s++) {
+    const a = 2 * Math.PI * s / steps;
+    const dir = norm(add(mul(u, Math.cos(a)), mul(w, Math.sin(a))));
+    if (dot(dir, FRONT) > Math.cos(.47)) { flush(); continue; }
+    path.push(P(dir, R + .002));
+    side.push(normal);
+  }
+  flush();
+}
+// Equatorial belt: a flat gold band with an inset navy channel; its ends tuck into the lens bezel.
+{
+  const steps = 96, gap = .55, path = [], side = [];
+  for (let s = 0; s <= steps; s++) {
+    const phi = -Math.PI / 2 + gap + (2 * Math.PI - 2 * gap) * s / steps;
+    path.push(P([Math.cos(phi), 0, Math.sin(phi)], R + .01));
+    side.push([0, 1, 0]);
+  }
+  mesh.ribbon("body", path, side, .07, .034, "gold", "gold_edge");
+  const inset = path.map(p => add(p, mul(norm(sub(p, C)), .017)));
+  mesh.ribbon("body", inset, side, .026, .006, "navy", "gold");
+  // Glowing slits along the belt channel.
+  for (let s = 8; s < steps - 8; s += 10) {
+    const a = inset[s], b = inset[s + 5];
+    mesh.ribbon("fx", [add(a, mul(norm(sub(a, C)), .004)), add(b, mul(norm(sub(b, C)), .004))], [[0, 1, 0], [0, 1, 0]], .01, .003, "mana_light", "mana_light");
+  }
+}
+// Side pods: gold stems from the belt out to the arcs, where they seat in the arcs' sockets.
+for (const sign of [1, -1]) {
+  const axis = arcAxis(sign);
+  const base = add(C, mul(axis, R - .03));
+  const reach = ARC_RADIUS + .015 - (R - .03);
+  mesh.lathe("body", i => (i === 3 ? "navy" : i >= 4 ? "gold_edge" : "gold"), base, axis,
+    [[0, 0], [.058, 0], [.058, .07], [.048, .105], [.04, .12], [.034, reach], [0, reach]], 28);
+  mesh.lathe("fx", "mana_light", add(base, mul(axis, .122)), axis, [[.042, 0], [.042, .01]], 20);
+}
+
+// --- core: front lens (spins about the view axis) -------------------------------------------
+// The lens stands proud of the orb and its bezel reaches back into it, so the socket is closed.
+{
+  const lensCenter = add(C, mul(FRONT, R - .02));
+  mesh.lathe("core", i => (i <= 2 ? "gold" : i <= 4 ? "gold_edge" : i <= 6 ? "chrome" : "lens_glass"), lensCenter, FRONT, [
+    [.172, -.08], [.172, .02], [.165, .045], [.15, .058], [.135, .06], [.128, .05], [.112, .054], [.1, .05], [.1, .042], [0, .042],
+  ], 48);
+  // Notches on the bezel give the spin something to read against.
+  for (let k = 0; k < 6; k++) {
+    const a = k * Math.PI / 3, u = [Math.cos(a), Math.sin(a), 0], v = [-Math.sin(a), Math.cos(a), 0];
+    // Sits on the flat front ring of the bezel (radius .135-.15), not over its sloped rim.
+    const at = add(lensCenter, add(mul(FRONT, .0605), mul(u, .137)));
+    mesh.poly("core", "navy", [add(at, mul(v, -.01)), add(at, mul(v, .01)), add(add(at, mul(v, .01)), mul(u, .011)), add(add(at, mul(v, -.01)), mul(u, .011))]);
+  }
+  // Diamond glyph: an outlined rhombus with a small square pupil, floating over the glass.
+  const g = add(lensCenter, mul(FRONT, .046));
+  const diamond = (size, lift) => [[0, size], [-size, 0], [0, -size], [size, 0]].map(([x, y]) => add(g, [x, y, -lift]));
+  const outer = diamond(.062, .002), inner = diamond(.044, .002);
+  for (let k = 0; k < 4; k++) mesh.poly("fx", "mana_light", [outer[k], outer[(k + 1) % 4], inner[(k + 1) % 4], inner[k]]);
+  mesh.poly("fx", "mana_light", [[0, .013], [-.013, 0], [0, -.013], [.013, 0]].map(([x, y]) => add(g, [x, y, -.003])));
+}
+
+// --- shells 0 and 2: open gold arcs at +X and -X --------------------------------------------
+for (const [group, sign] of [["shell_0", 1], ["shell_2", -1]]) {
+  const u = arcAxis(sign), v = [0, 1, 0], n = cross(u, v);
+  const steps = 60, from = -1.18, to = 1.18;
+  const path = [], side = [];
+  for (let s = 0; s <= steps; s++) {
+    const a = from + (to - from) * s / steps;
+    path.push(add(C, add(mul(u, Math.cos(a) * ARC_RADIUS), mul(v, Math.sin(a) * ARC_RADIUS))));
+    side.push(n);
+  }
+  mesh.ribbon(group, path, side, .026, .05, "gold", "gold_edge");
+  // Navy inlay and two glowing strips on the arc's outer face.
+  const outer = path.map(p => add(p, mul(norm(sub(p, C)), .026)));
+  mesh.ribbon(group, outer.slice(8, steps - 7), side.slice(8, steps - 7), .014, .004, "navy", "gold");
+  for (const [a, b] of [[14, 24], [37, 47]]) {
+    mesh.ribbon(group, outer.slice(a, b).map(p => add(p, mul(norm(sub(p, C)), .003))), side.slice(a, b), .006, .002, "mana_light", "mana_light");
+  }
+  // Socket at the arc's middle that receives the pod stem, with a glowing collar.
+  const middle = add(C, mul(u, ARC_RADIUS));
+  mesh.lathe(group, i => (i === 1 ? "gold" : "gold_edge"), middle, u,
+    [[0, -.04], [.05, -.04], [.056, -.02], [.056, .02], [.05, .04], [0, .04]], 24);
+  mesh.lathe(group, "mana_light", middle, u, [[.058, -.006], [.058, .006]], 24);
+  // End clamps.
+  for (const end of [path[0], path[steps]]) {
+    const out = norm(sub(end, C));
+    mesh.lathe(group, "gold_edge", end, n, [[0, -.02], [.022, -.02], [.022, .02], [0, .02]], 12);
+    mesh.lathe(group, "mana_light", add(end, mul(out, .001)), n, [[.008, .021], [0, .021]], 10);
+  }
+}
+
+// --- shells 1 and 3: pole clasps where the straps cross -------------------------------------
+// The clasp skirt reaches well into the orb so its breathing motion never opens a gap.
+for (const [group, sign] of [["shell_1", 1], ["shell_3", -1]]) {
+  const pole = [0, sign, 0];
+  mesh.lathe(group, i => (i >= 2 ? "gold_edge" : "gold"), add(C, mul(pole, R - .005)), pole,
+    [[.085, -.05], [.085, .016], [.07, .026], [.05, .03], [0, .03]], 32);
+  mesh.lathe(group, "navy", add(C, mul(pole, R + .026)), pole, [[.028, 0], [.028, .006], [0, .006]], 20);
+  mesh.lathe(group, "mana_light", add(C, mul(pole, R + .032)), pole, [[.012, 0], [0, .002]], 12);
+}
+
+const groups = mesh.write("mana_shield");
+const faces = [...groups.values()].reduce((sum, list) => sum + list.length, 0);
+console.log(`mana_shield.obj: ${mesh.v.length} vertices, ${faces} triangles in ${groups.size} groups`);

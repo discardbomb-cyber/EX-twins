@@ -104,6 +104,7 @@ final class NativeShieldGallery extends Screen {
                     buffers.getBuffer(ShieldVisualRenderer.renderType()), graphics.pose().last().pose(), 0, 0, 0, 0, 1, false,
                     new Vec3(-Math.sin(.20), 0, Math.cos(.20)));
             buffers.endBatch(ShieldVisualRenderer.renderType());
+            ShieldVisualRenderer.flushGlow();
             graphics.pose().popPose();
         }
     }

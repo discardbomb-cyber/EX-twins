@@ -2,15 +2,26 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    "OAO",
-    "EDE",
-    "OAO"
+    "XEX",
+    "OKO",
+    "XMX"
   ],
   "key": {
-    "O": { "item": "minecraft:obsidian" },
-    "A": { "item": "minecraft:amethyst_shard" },
-    "E": { "item": "minecraft:ender_pearl" },
-    "D": { "item": "minecraft:diamond" }
+    "X": {
+      "item": "relics_addon:resonant_circuit"
+    },
+    "E": {
+      "item": "relics_addon:energy_cell"
+    },
+    "M": {
+      "item": "relics_addon:mana_cell"
+    },
+    "O": {
+      "item": "minecraft:crying_obsidian"
+    },
+    "K": {
+      "item": "relics_addon:twins_shield_core"
+    }
   },
   "result": {
     "id": "relics_addon:twins_shield",

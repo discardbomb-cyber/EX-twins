@@ -42,6 +42,7 @@ public abstract class AutonomousRelicItem extends Item {
     public static void ensureState(ItemStack stack) {
         if (!stack.has(ModDataComponents.INSTANCE_ID.get())) stack.set(ModDataComponents.INSTANCE_ID.get(), UUID.randomUUID().toString());
         if (!stack.has(ModDataComponents.DEVICE_PROGRESSION.get())) stack.set(ModDataComponents.DEVICE_PROGRESSION.get(), DeviceProgression.DEFAULT);
+        if (!stack.has(ModDataComponents.DEVICE_ENERGY.get())) stack.set(ModDataComponents.DEVICE_ENERGY.get(), dev.hurtify.relicsaddon.power.DevicePower.full(stack));
         if (stack.getItem() instanceof AutonomousRelicItem item && item.role().isHive()) {
             stack.set(ModDataComponents.HIVE_STACK_STATE.get(), stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), dev.hurtify.relicsaddon.drone.HiveStackState.DEFAULT));
         } else if (stack.getItem() instanceof AutonomousRelicItem item && item.role().isShield()) {
@@ -59,6 +60,15 @@ public abstract class AutonomousRelicItem extends Item {
         super.appendHoverText(stack, context, lines, flag);
         DeviceProgression progression = stack.getOrDefault(ModDataComponents.DEVICE_PROGRESSION.get(), DeviceProgression.DEFAULT);
         lines.add(Component.translatable("tooltip.relics_addon.device_level", progression.level(), DeviceProgression.MAX_LEVEL, progression.points()).withStyle(style()));
+        var energy = dev.hurtify.relicsaddon.power.DevicePower.energy(stack);
+        if (dev.hurtify.relicsaddon.power.DevicePower.hasRf(role())) {
+            lines.add(Component.translatable(energy.rfOn() ? "tooltip.relics_addon.battery_rf" : "tooltip.relics_addon.battery_rf_off",
+                    energy.rf(), dev.hurtify.relicsaddon.power.DevicePower.feCapacity(stack)).withStyle(ChatFormatting.RED));
+        }
+        if (dev.hurtify.relicsaddon.power.DevicePower.hasMana(role())) {
+            lines.add(Component.translatable(energy.manaOn() ? "tooltip.relics_addon.battery_mana" : "tooltip.relics_addon.battery_mana_off",
+                    energy.mana(), dev.hurtify.relicsaddon.power.DevicePower.capacity(stack)).withStyle(ChatFormatting.BLUE));
+        }
         if (role().isHive()) {
             var state = stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), dev.hurtify.relicsaddon.drone.HiveStackState.DEFAULT);
             long now = context.level() == null ? 0 : context.level().getGameTime();
@@ -68,6 +78,12 @@ public abstract class AutonomousRelicItem extends Item {
         ShieldStackState state = stack.getOrDefault(ModDataComponents.SHIELD_STACK_STATE.get(), ShieldStackState.DEFAULT);
         lines.add(Component.translatable("tooltip.relics_addon.shield.autonomous", Component.translatable("tooltip.relics_addon.state." + (state.enabled() ? "enabled" : "disabled")), state.livingCells(), ShieldTopology.CELL_COUNT, state.totalIntegrity(), ShieldParameters.totalCapacity(null, stack)).withStyle(style()));
         lines.add(Component.translatable("tooltip.relics_addon.shield.buffer", state.sharedBuffer(), ShieldParameters.capacity(null, stack)).withStyle(style()));
+        float strike = ShieldParameters.strikeDamage(stack);
+        if (strike > 0) {
+            String kind = role() == RelicRole.RF_SHIELD ? "rf" : role() == RelicRole.MANA_SHIELD ? "mana" : "twins";
+            lines.add(Component.translatable("tooltip.relics_addon.shield.strike", String.format(java.util.Locale.ROOT, "%.1f", strike),
+                    Component.translatable("tooltip.relics_addon.strike." + kind)).withStyle(style()));
+        }
     }
     private int integrity(ItemStack stack) { return stack.getOrDefault(ModDataComponents.SHIELD_STACK_STATE.get(), ShieldStackState.DEFAULT).totalIntegrity(); }
     private ChatFormatting style() { return switch (role()) {

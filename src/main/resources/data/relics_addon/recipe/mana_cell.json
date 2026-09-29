@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "AGA",
+    "ALA",
+    "GXG"
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:amethyst_shard"
+    },
+    "G": {
+      "item": "minecraft:gold_ingot"
+    },
+    "L": {
+      "item": "minecraft:lapis_block"
+    },
+    "X": {
+      "item": "relics_addon:resonant_circuit"
+    }
+  },
+  "result": {
+    "id": "relics_addon:mana_cell",
+    "count": 1
+  }
+}

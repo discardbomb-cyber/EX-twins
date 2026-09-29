@@ -1,22 +1,21 @@
 # EX-twins
 
-Expandable autonomous shields and combat hives for Minecraft 1.21.1, NeoForge and Curios. Progression, modules and upgrades are built into this mod; Relics is not required.
+Expandable autonomous shields and combat hives for Minecraft 1.21.1, NeoForge and Curios. Progression and upgrades are built into this mod; Relics is not required. Effects use [Photon](https://github.com/Low-Drag-MC/Photon).
 
 ![Hives and swarms: deployment, combat and belt recall](docs/images/hives-and-swarms.gif)
 
-[Full feature showcase, 46.5-second GIF](https://github.com/discardbomb-cyber/EX-twins/releases/download/v1.0.0-beta.1/EX-twins-showcase.gif): shields, impact waves, damage, gathering, swarm attacks, belt recall, healer formations and research UI. These are native renderer demonstrations and seeded interface captures, not a live-world battle recording. GIF has no audio.
+![EX-twins showcase: glass honeycomb shield, strikes, and the hive's droplet, barrage and containment modes](docs/images/ex-twins-showcase.gif)
+
+The showcase above is rendered in-game by the capture galleries: shield impacts on the honeycomb, then a 750-drone hive deploying 250 drones in each attack mode. It is not a live-world battle recording, and the GIF has no audio. The older [46.5-second showcase](https://github.com/discardbomb-cyber/EX-twins/releases/download/v1.0.0-beta.1/EX-twins-showcase.gif) is still attached to the 1.0.0-beta.1 release.
 
 ## Installation
 
-Install `EX-twins-1.0.0-beta.1.jar` on both the client and server alongside the dependencies below. This is a beta release; back up existing worlds before upgrading. No generators, batteries or external energy are required.
+Install `EX-twins-1.0.0-beta.1.jar` on both the client and server alongside Curios, Photon, LDLib2 and KilaGraph (Photon 2.2.7+, LDLib2 2.2.40+). This is a beta release; back up existing worlds before upgrading. Devices run on built-in batteries; Botania, Ars Nouveau and Iron's Spells are optional mana sources.
 
 ## Build From Source
 
-Use Java 21 and the included Gradle wrapper. Obtain these dependencies separately and put them in `libs/`:
+Use Java 21 and the included Gradle wrapper. Curios, Photon, LDLib2 and KilaGraph are resolved from their Maven repositories (`maven.theillusivec4.top`, `maven.firstdark.dev/snapshots`); nothing has to be placed in `libs/`.
 
-- `curios-neoforge-9.5.1+1.21.1.jar`
-
-Dependencies are not bundled or redistributed. An optional Curios path can be set in an untracked `gradle.local.properties` using `curiosJar`; `-P` command-line values take priority.
 Run `./gradlew build` on Linux/macOS or `.\gradlew.bat build` on Windows. The result is `build/libs/EX-twins-1.0.0-beta.1.jar`. The first build requires internet access for Gradle and NeoForge artifacts.
 
 ## Items
@@ -34,54 +33,90 @@ Standalone drone item IDs are no longer registered. Hives deploy their existing 
 
 Version `1.0.0-beta.1` targets Minecraft 1.21.1, Java 21 and NeoForge 21.1.212.
 The three shields and three hives use the charm (Amulet) slot. Slot count remains controlled by the modpack. Each has a recipe and recipe-book unlock.
-Press `H` (rebindable in Controls) to open Device Control for all carried or equipped shields and hives. The screen toggles each device, displays its level and points, and manages its three module slots and upgrades. Using a held device also toggles it.
-Each of the six items stores its own experience, levels, upgrade points, modules and upgrade ranks in its item data. Combat awards bounded experience; each new level grants one upgrade point.
-Craft Device Modules from an amethyst shard, redstone and an iron nugget, then install them in the console. Slot one expands shield buffer / hive count, slot two expands shield radius (subject to the server cap) / hive health, and slot three improves hive attack timing. Removing a module returns it to the player inventory (or drops it if full).
+Press `H` (rebindable in Controls) or hold Shift over a device to open its console: a holographic window with Overview (power switch, level, integrity, charge and the device's main stats), Batteries, Upgrades and, on hives, Swarm tabs. Labels shrink to fit their buttons; anything still cut short shows in full when hovered. Using a held device also toggles it.
+Each of the six items stores its own experience, levels, upgrade points and upgrade ranks in its item data. Combat awards bounded experience; each new level grants one upgrade point.
 
 - Shields have a shared 504 HP buffer, upgraded to 5000 HP over ten protection levels, plus 420 independent cells with 12 HP each. Incoming damage spends the buffer first, then local HP; empty regions become real holes when the buffer is exhausted. Total maximum at full progression: 10040 HP. Upgrading, toggling and changing settings do not refill HP.
+- The shell hits back: an aggressive mob touching it is thrown clear and takes the shield's own damage, 3-7 RF discharge (softened by armour), 2.5-6 Mana burst or 4-9 Twins surge (both through armour) from level 0 to 10. One mob is struck at most once a second; each strike costs 6 battery points. Neutral mobs such as endermen and zombified piglins are only struck once they attack the wearer. Server config: `shield.strikeDamage`, `shield.strikeKnockback`, `shield.strikeCooldownTicks`.
+- RF and Twins shells are a honeycomb of the 420 gameplay cells: flat glass panes joined by bright seams, with a sheen that follows the light; damaged RF cells warm through yellow to red, Twins cells dim, and a broken cell is a hole. Mana is one seamless teal dome. A shield is invisible until it is struck (client config `shield.idleOpacity` can keep it faintly visible).
 - After 40 quiet ticks, type-specific repair restores damaged cells before refilling the shared buffer. New topology and neighbors are cached once, not rebuilt during combat.
-- Shield radius starts at 2 blocks and unlocks up to 12 with protection upgrades. Choose the actual radius with `/relics_addon shield_radius <radius>`. Server config can impose a lower ceiling. RF plates have deterministic radial relief. Mana forms a smooth turquoise glass hemisphere facing the incoming projectile, with a luminous rim and traveling waves. Twins combines a continuous violet-black membrane, raised honeycomb segments and suspended violet motes.
+- Shield radius starts at 2 blocks and unlocks up to 12 with protection upgrades. Choose the actual radius with `/relics_addon shield_radius <radius>`. Server config can impose a lower ceiling. RF plates have deterministic radial relief. Mana forms a smooth turquoise glass hemisphere facing the incoming projectile, with a luminous rim and traveling waves. Twins combines a continuous violet-black membrane, raised honeycomb segments and suspended violet motes. Hits on the Mana and Twins shields send a travelling wave across the shell: the surface bends into a crest and trough, and a refraction band on the wave front distorts the world behind it (client config `shield.refraction`, disabled automatically under Iris/Oculus shader packs).
 - Every impact brightens its region and launches an expanding wave across the visible field. Up to twelve recent impacts are retained, including hits during the same server tick; later waves do not reset earlier animation. Mana hemispheres clip to the incoming side and merge without double opacity. Idle fields remain invisible. Supported hostile projectiles born inside the shield are intercepted immediately beside the projectile; friendly shots are excluded.
 - `/relics_addon shield_coverage owner|allies|all` controls protection of creatures inside the sphere. The default is the owner, teams and tamed allies; `all` explicitly includes other living creatures. Melee and explosion protection use the covering owner's HP and incoming direction. These commands require no operator privilege and never change another player's item.
 - Unknown mod bullets require the `relics_addon:shield_interceptable_projectiles` entity-type tag; hitscan weapons need an adapter. Tridents and utility pearls/potions are not removed.
 - Eligible damage first spends common buffer HP, then the struck cell and the configured neighbor share. There is no baseline percentage leak. Any excess after this protection is exhausted reaches the wearer immediately; later hits through that hole pass until repair or gathering. Other intact cells continue protecting.
 - Explosion protection spends the common buffer first and then local HP on the explosion side. Terrain destruction and knockback remain vanilla behavior.
-- Each shield has its own native research constellation and illustrated 22x31 ability cards. Main protection now requires completing its constellation; inventory item views remain 3D.
+- Upgrades are bought in the console's Upgrades tab with points earned from levels (one point per rank, three ranks each). Each shield and hive uses its own illustrated 22x31 upgrade cards; inventory item views remain 3D.
 - Distribution: RF 25-45% from relic level 2, Mana 20-35% from level 3, Ex-Twins 35-50% from level 2. Each has three upgrade levels and uses the same two-neighbor HP-conserving mechanic.
-- Gathering: RF 1-2 cells from level 4; Mana 1-3 from level 2; no Ex-Twins gathering. Travel remains 10 ticks with a 40-tick cooldown. Moving cells cannot protect until arrival, retain HP and leave donor holes. All upgrades require native unlocking and research.
+- Gathering: RF 1-2 cells from level 4; Mana 1-3 from level 2; no Ex-Twins gathering. Travel remains 10 ticks with a 40-tick cooldown. Moving cells cannot protect until arrival, retain HP and leave donor holes.
 - Restoration unlocks at relic levels 5/4/3 for RF/Mana/Twins and upgrades passive recovery to 2/3/2 HP per repair step. Twins additionally unlocks barrier stabilization at level 4, reducing the post-hit recovery pause from 40 to 16 ticks. Neither upgrade raises the 5000 HP buffer limit or refills protection on purchase.
-- Ex-Twins retains subtle arcane seals beneath its raised segments. Its circuit-board-like mana tracks activate only on confirmed absorption, never at idle or merely on projectile approach. Every stroke is clipped to the authoritative cells, so broken cells remain holes after the common buffer is exhausted.
+- Ex-Twins retains subtle arcane seals beneath its raised segments. On a confirmed absorption, violet circuit-board traces grow out from the hit point across the shell, forking and ending in pads, with a signal pulse running along them. Every shield also gets an additive glow that flares at hits and along the wave crest.
 - The hit-time damage fallback respects vanilla shield-bypass tags. Fake players, spectators and disabled slots do not operate the relics.
 - The main shield ability keeps fixed full absorption while upgrading buffer capacity and radius. Distribution/gathering remain separate upgrades. Successful combat and absorption award bounded experience; idle time and repair do not.
 - Shield inventory and world views reuse the same animated 3D models.
 
-No batteries, generators, energy network or additional rendering-library mod is required.
+## Crafting
+
+Devices are built from the mod's own parts rather than raw vanilla items (all use vanilla materials, so any pack can craft them):
+
+| Part | Made from | Goes into |
+| --- | --- | --- |
+| Resonant Circuit (x2) | gold nuggets, redstone, quartz, copper ingot | every part and device |
+| Energy Cell | copper, iron, redstone block, circuit | RF and Twins devices (RF battery) |
+| Mana Cell | amethyst shards, gold, lapis block, circuit | Mana and Twins devices (mana battery) |
+| RF / Mana / Twins Shield Core | a vanilla shield, iron and diamond / gold, amethyst block and diamond / crying obsidian, echo shards and diamond, plus circuits | the matching shield |
+| RF Drone Frame (x2) | iron, copper, redstone, circuit | RF Hive (six frames) |
+| Mana Drone Shell (x2) | gold nuggets, amethyst shards, circuit | Mana Hive (six shells) |
+| Twins Drone Plate (x2) | obsidian, amethyst shards, circuit | Twins Hive (four plates, both cells and an end crystal) |
+
+Recipes unlock in the recipe book once you hold the key part. Icons are drawn by `tools/draw_component_icons.mjs`.
+
+## Batteries
+
+Every device has built-in batteries: RF shields and hives an RF battery, Mana devices a mana battery, and Twins devices both. A switched-on device only works while one of its switched-on batteries holds charge; the console monitor shows NO POWER otherwise. New devices ship fully charged, and capacity grows with the device level (25 000 to 100 000 points; one point is 10 FE).
+
+- Upkeep: 20 points per second for a running shield, 20 plus one per ten drones for a hive. Absorbing damage costs 10 points per HP, shield repair 2 per HP, each drone shot 3, healing 5 per HP and drone repair 1 per HP. Twins split every cost between their two batteries and fall back to whichever still has charge. Creative players pay nothing.
+- The RF battery is a Forge Energy item: any FE charger (Mekanism, Thermal, Flux Networks and similar) can fill it, and a charged FE item placed in the console's charge slot pours its energy in. Machines cannot drain it.
+- The mana battery refills twice a second while the device is on. Its source is chosen in the console: Auto (magic mods first, then experience), Magic (Botania mana items such as tablets and rings, the player's own Ars Nouveau or Iron's Spells mana) or Experience. Player mana keeps a 25% reserve for spellcasting. All rates are server config (`power.*`), and `power.requireBatteries = false` makes devices free.
+- Each battery has its own on/off switch in the console's Batteries tab.
+
+Hover a device in any inventory screen (including the Curios screen) and hold Shift to open its console; any click cancels the hold, so shift-clicking still moves the item.
+
+Photon (with LDLib2 and KilaGraph) is required for particle effects.
 
 ## Combat Hives
 
-Each type has its own native constellation, 22x31 ability card and animated 3D hive amulet. Complete its research and enable the ability while equipped. The deployed defenders reuse the existing RF/Mana/Ex-Twins drone models.
+Each type has its own 22x31 upgrade cards and animated 3D hive amulet. Equip it in a charm slot and switch it on. Only one hive can be worn at a time. The deployed defenders reuse the existing RF/Mana/Ex-Twins drone models.
 
 RF hives have four silver mechanical bay doors, Mana has six ivory/gold shells, and Ex-Twins has twelve black pentagonal plates with violet circuit inlays. Inventory icons render these same animated OBJ models. Generator: `tools/build_hive_meshes.py`.
 
-| Type | Initial drones -> upgraded | HP per drone -> upgraded | Reconstruction delay -> upgraded |
-| --- | --- | --- | --- |
-| RF | 12 -> 250 | 12 -> 40 | 4 -> 2 seconds |
-| Mana | 12 -> 250 | 8 -> 30 | 2.5 -> 1 second |
-| Ex-Twins | 12 -> 250 | 18 -> 60 | 6 -> 3 seconds |
+| Type | Drones: level 0 -> 10 | Flying at once | HP per drone | Repair delay -> upgraded | Blow damage -> upgraded |
+| --- | --- | --- | --- | --- | --- |
+| RF | 12 -> 750 | up to 250 | 3 | 4 -> 2 seconds | 2 -> 3 |
+| Mana | 12 -> 750 | up to 250 | 3 | 2.5 -> 1 second | 2 -> 3 |
+| Ex-Twins | 12 -> 750 | up to 250 | 3 | 6 -> 3 seconds | 3 -> 4 |
 
-Ten native ability upgrade levels reach those targets. The hard cap is 250 drones per type per wearer, or 750 active virtual helpers when all three types are equipped. Only the first active functional hive of each type participates, so duplicate amulets cannot multiply the limit. Different types coexist only if the modpack provides enough charm slots.
+Ten levels grow the swarm to 750 drones. At most 250 fly at once; the rest wait in the hive as replacements. Only one hive can be equipped (Curios rejects a second one), and only one operates.
 
-- Hives summon combat helpers which assist against a recently attacked target or an aggressor. RF uses cyan electricity; Mana fires traveling blue mana bolts; Twins uses violet lightning and mana bolts. Lightning checks line of sight and creates no fire. Mana bolts are server-simulated swept projectiles with block and entity collisions. Vanilla hurt invulnerability is respected.
-- Once acquired, a target stays locked until it dies; losing sight or attacking another creature does not reset the swarm. Shots still respect walls. Disabling the hive, assigning all drones to healing, a target becoming allied, changing dimensions or exceeding the configured pursuit range cancels pursuit.
-- Each drone has an independent 1-5 second attack interval, upgraded to 1-2 seconds. Initial volleys are staggered. RF/Mana damage upgrades from 2 to 3, Twins from 3 to 4 before the target's armor and effects.
-- In transit, the swarm morphs into a softly pulsing droplet with faint moving wave bands. It then surrounds its target: RF inward-facing hexagonal emitters, Mana rotating rings, Twins a polygonal sphere. When a task ends, drones fly into the owner's belt and disappear. There are no idle formations behind the player.
-- Press `H` (rebindable in Controls) to open Device Control, select a hive, then open Hive Tasks to assign healers. Remaining slots defend and attack. Assignments persist separately on each item. Healers restore only their owner and neither attack nor intercept. Healing is capped at 4 HP/second across all equipped hives by default, configurable by the server.
-- Each hive has three optional research upgrades: combat damage, healing strength, and repair/reconstruction. The families use different bonus ranges. These upgrades never increase the 250-drone cap or the shared healing limit, and changing tasks does not reset combat cooldowns.
-- Optional legacy interception remains available through server config `hive.interceptProjectiles`. Idle defenders intercept supported hostile projectiles at a 2.65-block boundary and spend their individual HP. Drones away in combat do not simultaneously shield their owner's location. Arrow overflow continues with reduced damage.
-- Surviving defenders retain their remaining HP, recover for eight ticks, then can intercept again. After 40 quiet ticks they repair one HP each second. Destroyed defenders reconstruct after their type's delay. Repair/reconstruction earns no XP.
+- The flying drones are split into 2 to 16 strike groups. Pick one of three attack modes in the console's Swarm tab:
+  - **Droplet.** Each group strikes as a single shape: a Mana drop, an RF tesseract turning through the fourth dimension, or Ex-Twins hexagons with lightning arcing between them.
+  - **Barrage.** Groups gather into clusters around the target and trade drones between them. Each cluster charges a glowing ball of lightning and fires it, and the ball bursts with a lightning blast that warps the space around it. Ex-Twins clusters form octagons that shed violet smoke.
+  - **Containment.** Every family stuns what it holds:
+    - RF seals the target in a torus of hexagons that zaps it and swallows its shots.
+    - Mana builds a ward of three rhombi and two rings. Drones keep a reflection buffer charged, and the ward turns blows back on the attacker.
+    - Ex-Twins spins hexagonal rift spheres that lift the target about 4 blocks into the air around a black hole with a violet accretion disk.
+    - Players and bosses cannot be held.
+- Swarm blows land as the swarm's own damage type, which may knock the target back. Containment zaps never knock it about.
+- The hive fights within 128 blocks of its owner by default. Once acquired, a target stays locked until it dies, leaves that range, becomes allied or changes dimension, or the hive is switched off.
+- Each drone has 3 HP. Targets in reach swing at nearby drones, and explosions damage them too. A hit drone flies home for repair, and the next drone in its lane launches at once to take its place. A repaired drone waits in reserve.
+- Drones pour out of the hive along their own curved paths and stream back when a task ends. Healers ring their owner's chest.
+- Open the console with `H`, select a hive and use the Swarm tab to set the attack mode and to move drones between fighters and healers (±1 / ±10). Assignments persist on the item. Healers restore only their owner and never attack. Healing is capped at 4 HP/second by default, which the server can configure.
+- Each hive has three upgrades: combat damage, healing strength, and repair/reconstruction. They never raise the 750-drone cap or the healing limit.
+- Drones do not absorb damage for their owner; protection is the shield's job. Hives only attack and heal.
+- Drone hits use their own damage type: the owner gets the kill credit, but hundreds of hits never knock the target around.
 - Drones cannot target or damage their wearer, teammates or allied pets. They have no attackable projectile entities of their own, so swarms never damage each other. Creative/spectator players and disallowed PvP targets are excluded.
-- Swarms contain no server-side drone entities or pathfinding. Damage/repair updates synchronize a bounded item component; visual flight is deterministic on the client. Only changed state is sent. Once a swarm exceeds 50 drones, or is rendered at distance, small helpers use lower-detail versions of the same silhouettes, with frustum/distance culling, a 750-model global visual budget and dense swarm LODs capped at 100 faces per model; all server-side defenders remain active.
-- Hives are not a substitute for the shield's melee/explosion protection. Each family has original synthesized attack/impact and summon/dismiss sounds; shields have absorption, cell-break and collapse sounds. Playback is spatially rate-limited to avoid hundreds of simultaneous voices.
+- Swarms contain no server-side drone entities or pathfinding. The item stores a compact drone array, and the network sends about one byte per resting drone. Flight is deterministic and computed identically on server and client, so blows land exactly where the shapes are drawn. Distant drones render as glowing points, and the renderer culls by frustum and distance.
+- Hives are not a substitute for the shield's melee/explosion protection. Every family has original synthesized attack/impact and summon/dismiss sounds, shields have absorption, cell-break, collapse and ripple sounds, and the console has its own feedback sounds (`tools/build_combat_sounds.mjs`). Playback is spatially rate-limited to avoid hundreds of simultaneous voices.
 
 ## Verification
 
@@ -97,7 +132,7 @@ The interactive test client uses `run-visual` and opens the normal Minecraft mai
 These runs use isolated development directories. Development tests and the model gallery are excluded from the release JAR.
 
 Existing customized config files are not automatically overwritten. Relics ability templates and extended configs are no longer read. Shield HP and hive state remain on the item; devices begin using the standalone progression component when they next enter an inventory.
-Use `/relics_addon shield_status` for read-only diagnosis of your equipped shields: disabled state, native research/locks, slot activity, shield priority and HP. This command does not unlock or repair anything.
+Use `/relics_addon shield_status` for read-only diagnosis of your equipped shields: disabled state, slot activity, shield priority and HP. This command does not unlock or repair anything.
 
 ## Models And Assets
 
@@ -107,7 +142,7 @@ The `tools/` directory includes the current mesh generators, ability-card drawin
 
 `./gradlew runReleaseCheckClient` verifies the packaged release from `run-release-check/mods`, captures the ordinary title screen and exits. It does not load the main source-set classes or any preview screens. The separate startup probe is never packaged in the addon. Keep development clients in a separate checkout while recompiling: a running development client can fail to load a class if its compiler output changes during startup.
 
-To reproduce the extended showcase, run `runFeatureGifClient` and `runUiCaptureClient`, then `python tools/assemble_feature_preview.py run-feature-gif/screenshots run-ui-capture/screenshots outputs/EX-twins-showcase.gif --font /path/to/a-cyrillic-font.ttf`. Recording is explicitly opt-in and never runs in a release client.
+To rebuild `docs/images/ex-twins-showcase.gif`, run `runFeatureGifClient`, then `cd tools && npm install && node build_showcase_gif.mjs --segment "../run-feature-gif/screenshots/relics-shield-gif-*.png:2:80" --segment "../run-feature-gif/screenshots/relics-hive-gif-*.png:1:64"`. The older release GIF came from `runFeatureGifClient` plus `runUiCaptureClient` through `python tools/assemble_feature_preview.py run-feature-gif/screenshots run-ui-capture/screenshots outputs/EX-twins-showcase.gif --font /path/to/a-cyrillic-font.ttf`. Recording is opt-in and never runs in a release client.
 
 ## Beta Limitations
 

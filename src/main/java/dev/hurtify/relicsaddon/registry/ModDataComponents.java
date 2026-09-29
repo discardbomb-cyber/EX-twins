@@ -48,6 +48,11 @@ public final class ModDataComponents {
                     .persistent(dev.hurtify.relicsaddon.relic.DeviceProgression.CODEC)
                     .networkSynchronized(dev.hurtify.relicsaddon.relic.DeviceProgression.STREAM_CODEC));
 
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.power.DeviceEnergy>> DEVICE_ENERGY =
+            DATA_COMPONENTS.registerComponentType("device_energy", builder -> builder
+                    .persistent(dev.hurtify.relicsaddon.power.DeviceEnergy.CODEC)
+                    .networkSynchronized(dev.hurtify.relicsaddon.power.DeviceEnergy.STREAM_CODEC));
+
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ShieldStackState>> SHIELD_STACK_STATE =
             DATA_COMPONENTS.registerComponentType("shield_stack_state", builder -> builder
                     .persistent(ShieldStackState.CODEC)

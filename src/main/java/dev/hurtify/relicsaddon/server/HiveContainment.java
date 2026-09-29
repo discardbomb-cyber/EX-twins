@@ -1,0 +1,208 @@
+package dev.hurtify.relicsaddon.server;
+
+import dev.hurtify.relicsaddon.RelicsAddon;
+import dev.hurtify.relicsaddon.drone.HiveType;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.WeakHashMap;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.monster.Creeper;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.Tags;
+import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.entity.EntityTeleportEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.tick.LevelTickEvent;
+
+/**
+ * Containment: the swarm holds its target fast. Every family roots it where it stands; RF and Twins
+ * also smother its attacks (and RF eats every shot it fires), Mana lets it strike but turns each blow
+ * back on it from a ward the drones keep topping up, and Twins lift it four blocks into the air over a
+ * black hole. Bosses and players are never pinned, only hurt.
+ */
+public final class HiveContainment {
+    public static final int LIFT = 4;
+    private static final int LIFT_TICKS = 30;
+    /** Marks a held creature whose gravity we switched off, so a crash or reload can never leave it floating. */
+    private static final String GRAVITY = RelicsAddon.MOD_ID + ":held_gravity";
+    private static final Map<LivingEntity, Hold> HELD = new WeakHashMap<>();
+
+    /** A creature held by one owner's hive. {@code ward} is Mana's store of damage it can still turn back. */
+    public static final class Hold {
+        final UUID owner;
+        final HiveType type;
+        final Vec3 anchor;
+        final long since;
+        long seen;
+        double ward, wardMax;
+        final List<Vec3> intercepted = new ArrayList<>();
+        final List<Vec3> reflected = new ArrayList<>();
+
+        Hold(UUID owner, HiveType type, Vec3 anchor, long since) {
+            this.owner = owner;
+            this.type = type;
+            this.anchor = anchor;
+            this.since = since;
+            this.seen = since;
+        }
+
+        public HiveType type() { return type; }
+        public double ward() { return ward; }
+        public double wardMax() { return wardMax; }
+    }
+
+    /** Keeps {@code target} held this tick by {@code owner}'s {@code type} hive of {@code drones} flying drones. */
+    public static Hold hold(Player owner, LivingEntity target, HiveType type, int drones, long now) {
+        Hold hold = HELD.get(target);
+        if (hold == null || !hold.owner.equals(owner.getUUID()) || hold.type != type) {
+            release(target);
+            hold = new Hold(owner.getUUID(), type, target.position(), now);
+            HELD.put(target, hold);
+        }
+        hold.seen = now;
+        hold.wardMax = Math.max(1, drones);
+        if (!immune(target)) pin(target, hold, now);
+        return hold;
+    }
+
+    public static Hold held(Entity entity) {
+        return entity instanceof LivingEntity living ? HELD.get(living) : null;
+    }
+
+    /** Whether a hold should stop this creature: it is held and not a boss or player. */
+    public static boolean pinned(Entity entity) {
+        return held(entity) != null && !immune((LivingEntity) entity);
+    }
+
+    /** Charges Mana's ward by {@code amount}, up to its capacity; returns how much was added. */
+    static double refill(Hold hold, double amount) {
+        double before = hold.ward;
+        hold.ward = Math.min(hold.wardMax, hold.ward + Math.max(0, amount));
+        return hold.ward - before;
+    }
+
+    /** Positions of shots the hold ate and blows it turned back since the last call, for the swarm's visual events. */
+    static List<Vec3> drainIntercepted(Hold hold) {
+        List<Vec3> result = List.copyOf(hold.intercepted);
+        hold.intercepted.clear();
+        return result;
+    }
+
+    static List<Vec3> drainReflected(Hold hold) {
+        List<Vec3> result = List.copyOf(hold.reflected);
+        hold.reflected.clear();
+        return result;
+    }
+
+    public static void release(LivingEntity target) {
+        if (HELD.remove(target) != null) restoreGravity(target);
+    }
+
+    /** Releases everything held by one owner's hive of {@code type} (null: any type). */
+    public static void releaseAll(UUID owner, HiveType type) {
+        for (LivingEntity target : List.copyOf(HELD.keySet())) {
+            Hold hold = HELD.get(target);
+            if (hold != null && hold.owner.equals(owner) && (type == null || hold.type == type)) release(target);
+        }
+    }
+
+    private static boolean immune(LivingEntity target) {
+        return target instanceof Player || target.getType().is(Tags.EntityTypes.BOSSES);
+    }
+
+    private static void pin(LivingEntity target, Hold hold, long now) {
+        Vec3 at = hold.anchor;
+        if (hold.type == HiveType.TWINS) {
+            double t = Math.min(1, (now - hold.since) / (double) LIFT_TICKS);
+            at = at.add(0, LIFT * t * t * (3 - 2 * t), 0);
+            CompoundTag data = target.getPersistentData();
+            if (!data.contains(GRAVITY)) data.putBoolean(GRAVITY, target.isNoGravity());
+            target.setNoGravity(true);
+        }
+        target.setDeltaMovement(Vec3.ZERO);
+        if (target.position().distanceToSqr(at) > 1e-4) target.teleportTo(at.x, at.y, at.z);
+        target.fallDistance = 0;
+        target.hurtMarked = true;
+        if (target instanceof Mob mob) {
+            mob.getNavigation().stop();
+            mob.setJumping(false);
+            if (hold.type != HiveType.MANA) {
+                mob.setTarget(null);
+                mob.setAggressive(false);
+                if (mob.getBrain().hasMemoryValue(MemoryModuleType.ATTACK_TARGET)) mob.getBrain().eraseMemory(MemoryModuleType.ATTACK_TARGET);
+                if (mob instanceof Creeper creeper) creeper.setSwellDir(-1);
+            }
+        }
+    }
+
+    private static void restoreGravity(LivingEntity target) {
+        CompoundTag data = target.getPersistentData();
+        if (data.contains(GRAVITY)) {
+            target.setNoGravity(data.getBoolean(GRAVITY));
+            data.remove(GRAVITY);
+        }
+    }
+
+    /** Releases holds their hive stopped refreshing (target lost, hive off, owner gone). */
+    public static void onLevelTick(LevelTickEvent.Post event) {
+        if (!(event.getLevel() instanceof ServerLevel level) || HELD.isEmpty()) return;
+        long now = level.getGameTime();
+        for (LivingEntity target : List.copyOf(HELD.keySet())) {
+            Hold hold = HELD.get(target);
+            if (hold == null || target.level() != level) continue;
+            if (!target.isAlive() || now - hold.seen > 2 || now < hold.seen) release(target);
+        }
+    }
+
+    /** A held creature's own blows: smothered (RF, Twins) or turned back on it while Mana's ward lasts. */
+    public static void onIncomingDamage(LivingIncomingDamageEvent event) {
+        Entity attacker = event.getSource().getEntity();
+        if (attacker == null || attacker.level().isClientSide() || attacker == event.getEntity()) return;
+        Hold hold = held(attacker);
+        if (hold == null || immune((LivingEntity) attacker)) return;
+        float amount = event.getAmount();
+        if (hold.type != HiveType.MANA) {
+            event.setCanceled(true);
+            return;
+        }
+        if (hold.ward < amount) return;
+        hold.ward -= amount;
+        event.setCanceled(true);
+        Player owner = attacker.level().getPlayerByUUID(hold.owner);
+        LivingEntity self = (LivingEntity) attacker;
+        self.hurt(attacker.level().damageSources().source(HiveCombatController.SWARM_REFLECT, owner), amount);
+        hold.reflected.add(self.getBoundingBox().getCenter());
+    }
+
+    /** RF and Twins holds swallow every projectile the held creature fires. */
+    public static void onEntityJoin(EntityJoinLevelEvent event) {
+        if (event.getLevel().isClientSide()) return;
+        if (event.getEntity() instanceof Projectile projectile) {
+            Hold hold = held(projectile.getOwner());
+            if (hold != null && hold.type != HiveType.MANA && !immune((LivingEntity) projectile.getOwner())) {
+                hold.intercepted.add(projectile.position());
+                event.setCanceled(true);
+            }
+            return;
+        }
+        // A creature saved while lifted gets its own gravity back on load.
+        if (event.getEntity() instanceof LivingEntity living && !HELD.containsKey(living)) restoreGravity(living);
+    }
+
+    /** Endermen and shulkers cannot blink out of a hold. */
+    public static void onTeleport(EntityTeleportEvent.EnderEntity event) {
+        if (pinned(event.getEntity())) event.setCanceled(true);
+    }
+
+    private HiveContainment() {
+    }
+}

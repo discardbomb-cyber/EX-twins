@@ -2,15 +2,23 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    "IRI",
-    "RDR",
-    "ICI"
+    "XEX",
+    "IKI",
+    "XIX"
   ],
   "key": {
-    "I": { "item": "minecraft:iron_ingot" },
-    "R": { "item": "minecraft:redstone" },
-    "D": { "item": "minecraft:diamond" },
-    "C": { "item": "minecraft:copper_ingot" }
+    "X": {
+      "item": "relics_addon:resonant_circuit"
+    },
+    "E": {
+      "item": "relics_addon:energy_cell"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "K": {
+      "item": "relics_addon:rf_shield_core"
+    }
   },
   "result": {
     "id": "relics_addon:rf_shield",

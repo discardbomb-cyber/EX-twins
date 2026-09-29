@@ -14,11 +14,8 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 sourceSets {
     releaseProbe
-    // These probes exercise Relics' old native UI and data API. They are retained
-    // as migration reference, but are not part of the standalone build.
-    main {
-        java.exclude 'dev/hurtify/relicsaddon/gametest/**'
-    }
+    // GameTests under gametest/** compile with the mod and run with runGameTestServer;
+    // the jar task below keeps them out of release jars.
 }
 
 neoForge {
@@ -145,24 +142,25 @@ neoForge {
     }
 }
 
-def localProperties = new Properties()
-if (file('gradle.local.properties').isFile()) {
-    file('gradle.local.properties').withInputStream { localProperties.load(it) }
-}
-def requiredJar = { String propertyName, String displayName, String filename ->
-    def raw = providers.gradleProperty(propertyName).orNull ?: localProperties.getProperty(propertyName) ?: "libs/${filename}"
-
-    def jar = file(raw)
-    if (!jar.isFile()) {
-        throw new GradleException("${displayName} jar not found: ${jar}. Put it in libs/ or set ${propertyName} in gradle.local.properties.")
+repositories {
+    maven {
+        name = "Curios"
+        url = "https://maven.theillusivec4.top/"
+        content { includeGroup "top.theillusivec4.curios" }
     }
-
-    jar
+    maven {
+        name = "LowDragMC"
+        url = "https://maven.firstdark.dev/snapshots"
+        content { includeGroupByRegex 'com\\.lowdragmc.*' }
+    }
 }
 
 dependencies {
     testImplementation 'com.google.code.gson:gson:2.10.1'
-    implementation files(requiredJar('curiosJar', 'Curios 9.5.1+1.21.1', 'curios-neoforge-9.5.1+1.21.1.jar'))
+    implementation "top.theillusivec4.curios:curios-neoforge:${curios_version}"
+    implementation("com.lowdragmc.photon:photon-neoforge-1.21.1:${photon_version}:all") { transitive = false }
+    implementation "com.lowdragmc.ldlib2:ldlib2-neoforge-1.21.1:${ldlib2_version}:all"
+    implementation "com.lowdragmc.kilagraph:kilagraph-neoforge-1.21.1:${kilagraph_version}"
 }
 
 sourceSets.main.resources {
@@ -178,6 +176,10 @@ tasks.named('processResources', ProcessResources).configure {
             mod_version      : mod_version,
             mod_authors      : mod_authors,
             mod_description  : mod_description,
+            curios_version   : curios_version,
+            photon_version   : photon_version,
+            ldlib2_version   : ldlib2_version,
+            kilagraph_version: kilagraph_version,
     ]
 
     inputs.properties replaceProperties
@@ -209,18 +211,13 @@ tasks.named('check') {
     dependsOn tasks.named('verifyShieldMesh')
     dependsOn 'verifyRelicAnimation'
     dependsOn 'verifyTwinsFacets'
-    dependsOn 'verifyTwinsGlyphs'
     dependsOn 'verifyShieldImpact'
+    dependsOn 'verifyShieldRipple'
+    dependsOn 'verifyDevicePower'
+    dependsOn 'verifyNetworkCodecs'
     dependsOn 'verifyHiveFormation'
     dependsOn 'verifyHiveLayers'
-    dependsOn 'verifyManaDome'
     dependsOn 'verifyReleaseContents'
-}
-
-tasks.register('verifyManaDome', JavaExec) {
-    dependsOn tasks.named('testClasses')
-    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
-    mainClass = 'dev.hurtify.relicsaddon.client.ManaDomeSurfaceCheck'
 }
 
 tasks.register('verifyHiveLayers', JavaExec) {
@@ -245,10 +242,22 @@ tasks.register('verifyShieldImpact', JavaExec) {
     mainClass = 'dev.hurtify.relicsaddon.client.ShieldImpactPulseCheck'
 }
 
-tasks.register('verifyTwinsGlyphs', JavaExec) {
+tasks.register('verifyShieldRipple', JavaExec) {
     dependsOn tasks.named('testClasses')
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'dev.hurtify.relicsaddon.client.TwinsShieldGlyphMeshCheck'
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.client.ShieldRippleCheck'
+}
+
+tasks.register('verifyDevicePower', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.power.DevicePowerCheck'
+}
+
+tasks.register('verifyNetworkCodecs', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.drone.NetworkCodecCheck'
 }
 
 tasks.register('inspectShieldSave', JavaExec) {

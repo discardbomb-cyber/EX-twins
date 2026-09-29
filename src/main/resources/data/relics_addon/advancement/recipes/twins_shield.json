@@ -1,19 +1,32 @@
 {
   "parent": "minecraft:recipes/root",
   "criteria": {
-    "has_ender_pearl": {
+    "has_ingredient": {
       "trigger": "minecraft:inventory_changed",
       "conditions": {
         "items": [
-          { "items": "minecraft:ender_pearl" }
+          {
+            "items": "relics_addon:twins_shield_core"
+          }
         ]
+      }
+    },
+    "has_the_recipe": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "relics_addon:twins_shield"
       }
     }
   },
   "requirements": [
-    ["has_ender_pearl"]
+    [
+      "has_ingredient",
+      "has_the_recipe"
+    ]
   ],
   "rewards": {
-    "recipes": ["relics_addon:twins_shield"]
+    "recipes": [
+      "relics_addon:twins_shield"
+    ]
   }
 }
