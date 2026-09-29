@@ -52,7 +52,10 @@ export JAVA_HOME="/c/Program Files/Eclipse Adoptium/jdk-21.0.12.8-hotspot"
   `RelicRuntime.canOperate` = enabled && powered.
 - Shield server: `server/ShieldController` (absorb; fully absorbed hits are CANCELLED; own
   10-tick hit immunity; damage tag `relics_addon:shield_passes` lists what passes),
-  `ShieldProjectileInterceptor`, `ShieldBarrier` (pushes hostile mobs out).
+  `ShieldProjectileInterceptor`, `ShieldBarrier` (pushes hostile mobs out). Server config lists
+  `shield.passingDamageTypes/absorbedDamageTypes/interceptedProjectiles/ignoredProjectiles/keptEffects`
+  are matched through cached `RegistryFilter`s in `AddonConfig`; `ConfigValue.set` fires no event,
+  so a filter re-parses whenever the list object changes (GameTests swap lists and restore them).
 - Leveling: `RelicRuntime.experienceToNext` (60..2040), `ExperienceLimiter` (config
   `progression.maxExperiencePerMinute`).
 - Hive server: `HiveController` (active hive, repair costs), `HiveCombatController` (volleys, max 24

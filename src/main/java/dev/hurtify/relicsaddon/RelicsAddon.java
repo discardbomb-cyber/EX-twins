@@ -19,6 +19,8 @@ public final class RelicsAddon {
     public RelicsAddon(IEventBus modEventBus, net.neoforged.fml.ModContainer container) {
         container.registerConfig(net.neoforged.fml.config.ModConfig.Type.SERVER, AddonConfig.SPEC);
         container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT, dev.hurtify.relicsaddon.client.AddonClientConfig.SPEC);
+        modEventBus.addListener(net.neoforged.fml.event.config.ModConfigEvent.Loading.class, AddonConfig::onConfigLoad);
+        modEventBus.addListener(net.neoforged.fml.event.config.ModConfigEvent.Reloading.class, AddonConfig::onConfigLoad);
         dev.hurtify.relicsaddon.sound.RelicSounds.register(modEventBus);
         ModDataComponents.DATA_COMPONENTS.register(modEventBus);
         ModItems.ITEMS.register(modEventBus);

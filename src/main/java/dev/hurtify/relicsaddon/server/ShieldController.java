@@ -1,5 +1,6 @@
 package dev.hurtify.relicsaddon.server;
 
+import dev.hurtify.relicsaddon.AddonConfig;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
 
@@ -17,6 +18,7 @@ import dev.hurtify.relicsaddon.relic.ShieldUpgrades;
 import net.minecraft.network.chat.Component;
 import java.util.Map;
 import java.util.WeakHashMap;
+import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
@@ -34,7 +36,7 @@ import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import java.util.Locale;
 
 public final class ShieldController {
-    /** Damage the field never takes: starvation, drowning, suffocation, the void and similar. Everything else is absorbed. */
+    /** Damage the field lets through: starvation, drowning, suffocation, the void and similar. Server config adjusts it, see {@link #passesField}. */
     public static final TagKey<DamageType> PASSES_SHIELD = TagKey.create(Registries.DAMAGE_TYPE,
             ResourceLocation.fromNamespaceAndPath(dev.hurtify.relicsaddon.RelicsAddon.MOD_ID, "shield_passes"));
     /** Absorbed hits are cancelled outright, so vanilla hurt-immunity never starts; the field keeps its own. */
@@ -46,7 +48,7 @@ public final class ShieldController {
         if (victim.level().isClientSide() || !victim.isAlive() || victim.isSpectator()
                 || (victim instanceof Player player && !EquippedRelicSetResolver.isRealPlayer(player))
                 || event.isCanceled() || !(event.getAmount() > 0) || !Float.isFinite(event.getAmount())
-                || event.getSource().is(PASSES_SHIELD)) {
+                || passesField(event.getSource())) {
             return;
         }
         // Select one coverage owner. Overlapping fields never spend twice on the same melee event.
@@ -70,6 +72,17 @@ public final class ShieldController {
             if (withinImmunity(event, victim)) return;
             if (tryShieldBlock(event, owner, shield)) return;
         }
+    }
+
+    /**
+     * Damage no field takes. The server's pass list wins outright; its absorb list overrides the
+     * {@code shield_passes} tag, except for strikes and swarm blows, which a field must never eat.
+     */
+    public static boolean passesField(DamageSource source) {
+        Holder<DamageType> type = source.typeHolder();
+        if (AddonConfig.PASSING_DAMAGE.matches(type)) return true;
+        if (!type.is(PASSES_SHIELD)) return false;
+        return !AddonConfig.ABSORBED_DAMAGE.matches(type) || type.is(ShieldStrike.STRIKES) || type.is(HiveCombatController.SWARM_DAMAGE);
     }
 
     /**

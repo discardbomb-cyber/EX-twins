@@ -215,6 +215,7 @@ tasks.named('check') {
     dependsOn 'verifyShieldRipple'
     dependsOn 'verifyDevicePower'
     dependsOn 'verifyNetworkCodecs'
+    dependsOn 'verifyRegistryFilter'
     dependsOn 'verifyHiveFormation'
     dependsOn 'verifyHiveLayers'
     dependsOn 'verifyReleaseContents'
@@ -258,6 +259,12 @@ tasks.register('verifyNetworkCodecs', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
     mainClass = 'dev.hurtify.relicsaddon.drone.NetworkCodecCheck'
+}
+
+tasks.register('verifyRegistryFilter', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.RegistryFilterCheck'
 }
 
 tasks.register('inspectShieldSave', JavaExec) {
