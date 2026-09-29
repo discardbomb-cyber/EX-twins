@@ -34,13 +34,13 @@ public final class RelicRuntime {
         DeviceProgression progression = progression(stack);
         int level = progression.level();
         double value = switch (id) {
-            case "buffer_capacity" -> 504 + (5000 - 504) * level / 10.0 + (progression.hasModule(0) ? 500 : 0);
-            case "radius" -> 2 + level + (progression.hasModule(1) ? 1 : 0);
-            case "drone_count" -> 12 + (480 - 12) * level / 10.0 + (progression.hasModule(0) ? 20 : 0);
-            case "drone_health" -> hiveValue(stack, level, 1) * (progression.hasModule(1) ? 1.15 : 1);
-            case "attack_damage" -> hiveValue(stack, level, 2) * (progression.hasModule(2) ? 1.10 : 1);
-            case "attack_interval_max" -> 100 - 60 * level / 10.0 - (progression.hasModule(2) ? 8 : 0);
-            case "cooldown" -> hiveValue(stack, level, 3) * (progression.hasModule(2) ? .9 : 1);
+            case "buffer_capacity" -> 504 + (5000 - 504) * level / 10.0;
+            case "radius" -> 2 + level;
+            case "drone_count" -> 12 + (500 - 12) * level / 10.0;
+            case "drone_health" -> hiveValue(stack, level, 1);
+            case "attack_damage" -> hiveValue(stack, level, 2);
+            case "attack_interval_max" -> 100 - 60 * level / 10.0;
+            case "cooldown" -> hiveValue(stack, level, 3);
             default -> fallback;
         };
         return Double.isFinite(value) ? Math.clamp(value, minimum, maximum) : fallback;
@@ -68,11 +68,6 @@ public final class RelicRuntime {
     }
     /** Experience from one level to the next: 60, 120, 220 ... 2 040; 8 100 in total to reach level 10. */
     public static int experienceToNext(int level) { return 60 + 40 * level + 20 * level * level; }
-    public static boolean setModule(ItemStack stack, int slot, boolean installed) {
-        if (!(stack.getItem() instanceof AutonomousRelicItem) || slot < 0 || slot >= DeviceProgression.MODULE_SLOTS) return false;
-        stack.set(ModDataComponents.DEVICE_PROGRESSION.get(), progression(stack).withModule(slot, installed));
-        return true;
-    }
     public static void awardAbsorption(Player player, ItemStack stack, float value) { awardCombatExperience(player, stack, value); }
     public static void awardCombatExperience(Player player, ItemStack stack, float value) {
         if (!(value > 0) || !Float.isFinite(value) || player.isCreative() || !(stack.getItem() instanceof AutonomousRelicItem)) return;
@@ -82,7 +77,7 @@ public final class RelicRuntime {
         int experience = before.experience() + gain;
         int level = before.level(), points = before.points();
         while (level < DeviceProgression.MAX_LEVEL && experience >= experienceToNext(level)) { experience -= experienceToNext(level); level++; points++; }
-        stack.set(ModDataComponents.DEVICE_PROGRESSION.get(), new DeviceProgression(experience, level, points, before.modules(), before.upgrades()));
+        stack.set(ModDataComponents.DEVICE_PROGRESSION.get(), new DeviceProgression(experience, level, points, before.upgrades()));
     }
     private RelicRuntime() { }
 }

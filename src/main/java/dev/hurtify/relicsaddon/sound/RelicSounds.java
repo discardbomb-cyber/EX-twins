@@ -63,8 +63,6 @@ public final class RelicSounds {
 
     private static final DeferredHolder<SoundEvent, SoundEvent> UI_TOGGLE = sound("ui.toggle");
     private static final DeferredHolder<SoundEvent, SoundEvent> UI_UPGRADE = sound("ui.upgrade");
-    private static final DeferredHolder<SoundEvent, SoundEvent> UI_MODULE_INSERT = sound("ui.module_insert");
-    private static final DeferredHolder<SoundEvent, SoundEvent> UI_MODULE_REMOVE = sound("ui.module_remove");
     private static final DeferredHolder<SoundEvent, SoundEvent> MANA_SHIELD_RIPPLE = sound("shield.mana_ripple");
     private static final DeferredHolder<SoundEvent, SoundEvent> TWINS_SHIELD_RIPPLE = sound("shield.twins_ripple");
     private static final DeferredHolder<SoundEvent, SoundEvent> RF_SHIELD_STRIKE = sound("shield.rf_strike");
@@ -133,8 +131,6 @@ public final class RelicSounds {
         DeferredHolder<SoundEvent, SoundEvent> event = switch (sound) {
             case TOGGLE -> UI_TOGGLE;
             case UPGRADE -> UI_UPGRADE;
-            case MODULE_INSERT -> UI_MODULE_INSERT;
-            case MODULE_REMOVE -> UI_MODULE_REMOVE;
         };
         serverPlayer.playNotifySound(event.get(), SoundSource.PLAYERS, .7F, 1F);
     }
@@ -253,9 +249,7 @@ public final class RelicSounds {
 
     public enum Ui {
         TOGGLE,
-        UPGRADE,
-        MODULE_INSERT,
-        MODULE_REMOVE
+        UPGRADE
     }
 
     private record SpatialKey(int x, int y, int z, Category category) {

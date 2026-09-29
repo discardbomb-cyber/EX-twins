@@ -22,7 +22,7 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import top.theillusivec4.curios.api.SlotContext;
 
-/** Progression, batteries, the one-hive rule and the console's module bay, driven directly. */
+/** Progression, batteries, the one-hive rule and the console, driven directly. */
 @GameTestHolder("relics_addon")
 @PrefixGameTestTemplate(false)
 public final class DeviceGameTests {
@@ -98,17 +98,20 @@ public final class DeviceGameTests {
     }
 
     @GameTest(template = TEMPLATE)
-    public static void consoleModuleBayInstallsAndReturnsModules(GameTestHelper helper) {
+    public static void consoleBuysUpgradesAndSwitchesPower(GameTestHelper helper) {
         ServerPlayer player = DeviceTestSupport.player(helper);
         ItemStack shield = DeviceTestSupport.equip(helper, player, RelicRole.RF_SHIELD, 0);
+        shield.set(ModDataComponents.DEVICE_PROGRESSION.get(), new DeviceProgression(0, 3, 2, 0));
         DeviceControlMenu menu = new DeviceControlMenu(1, player.getInventory(), true, 0);
         helper.assertTrue(menu.stillValid(player), "The console tracks the worn shield");
-        menu.getSlot(0).set(new ItemStack(ModItems.DEVICE_MODULE.get()));
-        helper.assertTrue(RelicRuntime.progression(shield).hasModule(0), "A module placed in bay one is installed");
-        ItemStack taken = menu.getSlot(0).remove(1);
-        helper.assertTrue(taken.is(ModItems.DEVICE_MODULE.get()) && !RelicRuntime.progression(shield).hasModule(0),
-                "Taking the module out uninstalls it and hands the item back");
-        helper.assertFalse(menu.getSlot(0).mayPlace(new ItemStack(net.minecraft.world.item.Items.DIRT)), "Bays only take modules");
+        int restoration = DeviceControlMenu.BUTTON_UPGRADE_BASE + DeviceUpgrade.RESTORATION.ordinal();
+        helper.assertTrue(menu.clickMenuButton(player, restoration), "A point buys an upgrade rank");
+        helper.assertTrue(RelicRuntime.progression(shield).rank(DeviceUpgrade.RESTORATION.id()) == 1
+                && RelicRuntime.progression(shield).points() == 1, "The rank rises and the point is spent");
+        int stabilization = DeviceControlMenu.BUTTON_UPGRADE_BASE + DeviceUpgrade.STABILIZATION.ordinal();
+        helper.assertFalse(menu.clickMenuButton(player, stabilization), "An RF shield cannot buy a Twins-only upgrade");
+        helper.assertTrue(menu.getSlot(DeviceControlMenu.CHARGE_SLOT).mayPlace(new ItemStack(net.minecraft.world.item.Items.DIRT)) == false,
+                "The charge slot only takes FE items");
         helper.assertTrue(menu.clickMenuButton(player, DeviceControlMenu.BUTTON_TOGGLE) && !RelicRuntime.enabled(shield),
                 "The power button switches the shield off");
         helper.succeed();

@@ -47,14 +47,21 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
     private record Control(int x, int y, int w, int h, Supplier<Component> label, BooleanSupplier active, BooleanSupplier selected,
                            Runnable action, Supplier<List<Component>> tooltip) { }
 
+    /** Screen area where text had to be cut this frame, and the full text shown when hovering it. */
+    private record Clipped(int x, int y, int w, int h, Component text) { }
+
     private static final int WIDTH = 232, HEIGHT = 228, WINDOW_H = 130, CUT = 10;
     private static final int TAB_Y = 20, TAB_H = 13, TAB_W = 50;
     private static final int CX = 18, CY = 38, CR = WIDTH - 10;
     private static final int SLIDER_X = 9, SLIDER_TOP = 24, SLIDER_H = 96;
     private static final int TRAY_X = 28, TRAY_Y = 136, TRAY_W = 176;
+    /** Labels shrink down to this size to fit their box before they are cut with an ellipsis. */
+    private static final float MIN_TEXT_SCALE = .62F;
+    private static final int STATS_X = 136;
     private static Tab lastTab = Tab.OVERVIEW;
 
     private final List<Control> controls = new ArrayList<>();
+    private final List<Clipped> clipped = new ArrayList<>();
     private Tab tab = lastTab;
     private boolean help;
 
@@ -88,7 +95,7 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
 
     private void rebuildControls() {
         controls.clear();
-        menu.setVisibleSlots(tab == Tab.OVERVIEW && !help, tab == Tab.POWER && !help && DevicePower.hasRf(role()));
+        menu.setChargeVisible(tab == Tab.POWER && !help && DevicePower.hasRf(role()));
         controls.add(new Control(WIDTH - 36, 6, 13, 11, () -> Component.literal("?"), () -> true, () -> help,
                 () -> { help = !help; rebuildControls(); }, () -> List.of(Component.translatable("screen.relics_addon.help_button"))));
         controls.add(new Control(WIDTH - 21, 6, 13, 11, () -> Component.literal("×"), () -> true, () -> false,
@@ -224,8 +231,8 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
             boolean hovered = inside(mouseX, mouseY, x + control.x, y + control.y, control.w, control.h);
             boolean active = control.active.getAsBoolean();
             HoloPaint.button(g, x + control.x, y + control.y, control.w, control.h, active, hovered, control.selected.getAsBoolean(), accent());
-            g.drawCenteredString(font, control.label.get(), x + control.x + control.w / 2, y + control.y + (control.h - 8) / 2,
-                    active ? HoloPaint.TEXT : HoloPaint.TEXT_FAINT);
+            fit(g, control.label.get(), x + control.x + 2, y + control.y + (control.h - 8) / 2, control.w - 4,
+                    active ? HoloPaint.TEXT : HoloPaint.TEXT_FAINT, false, true);
         }
     }
 
@@ -238,14 +245,15 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
         pose.scale(2, 2, 1);
         g.renderItem(stack, 0, 0);
         pose.popPose();
-        g.drawString(font, font.plainSubstrByWidth(stack.getHoverName().getString(), 76), x + CX + 36, y + CY + 2, HoloPaint.TEXT, false);
+        int textWidth = STATS_X - CX - 42;
+        fit(g, stack.getHoverName(), x + CX + 36, y + CY + 2, textWidth, HoloPaint.TEXT, false, false);
         boolean enabled = RelicRuntime.enabled(stack);
         boolean powered = minecraft == null || DevicePower.powered(minecraft.player, stack);
         String status = !enabled ? "screen.relics_addon.monitor_offline" : powered ? "screen.relics_addon.monitor_online" : "screen.relics_addon.monitor_no_power";
         int color = !enabled ? 0xF2837B : powered ? 0x7BF28B : 0xF2C94C;
-        g.drawString(font, Component.literal("● ").append(Component.translatable(status)), x + CX + 36, y + CY + 13, color, false);
-        g.drawString(font, Component.translatable("screen.relics_addon.overview_level", state.level(), DeviceProgression.MAX_LEVEL, state.points()),
-                x + CX + 36, y + CY + 24, HoloPaint.TEXT_DIM, false);
+        fit(g, Component.literal("● ").append(Component.translatable(status)), x + CX + 36, y + CY + 13, textWidth, color, false, false);
+        fit(g, Component.translatable("screen.relics_addon.overview_level", state.level(), DeviceProgression.MAX_LEVEL, state.points()),
+                x + CX + 36, y + CY + 24, textWidth, HoloPaint.TEXT_DIM, false, false);
 
         // Integrity (shield) or ready drones (hive), then battery charge.
         int barY = y + 100;
@@ -269,22 +277,36 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
                             .append(" " + Math.round(batteryFraction(rf) * 100) + "%"));
         }
 
-        // Module bay with what each bay does written under it.
-        int bayX = x + DeviceControlMenu.MODULE_X, bayY = y + DeviceControlMenu.MODULE_Y;
-        g.drawString(font, Component.translatable("screen.relics_addon.module_bay"), bayX - 2, y + CY + 2, HoloPaint.TEXT, false);
-        String kind = role().isHive() ? "hive" : "shield";
-        for (int index = 0; index < DeviceProgression.MODULE_SLOTS; index++) {
-            int sx = bayX + index * DeviceControlMenu.MODULE_SPACING;
-            HoloPaint.slot(g, sx, bayY);
-            boolean installed = state.hasModule(index);
-            if (installed) g.fill(sx - 1, bayY + 17, sx + 17, bayY + 18, 0xFF000000 | accent());
-            small(g, Component.translatable("screen.relics_addon.module_short." + kind + "." + index), sx + 8, bayY + 21,
-                    installed ? HoloPaint.TEXT : HoloPaint.TEXT_FAINT);
+        // What the device does at its current level, in plain words.
+        int statsX = x + STATS_X, statsWidth = CR - STATS_X;
+        HoloPaint.box(g, statsX - 4, y + CY - 2, statsWidth + 6, 94, 0x40E6EBF0);
+        fit(g, Component.translatable("screen.relics_addon.stats"), statsX, y + CY + 2, statsWidth, HoloPaint.TEXT, false, false);
+        List<Component> stats = stats();
+        for (int line = 0; line < stats.size(); line++) {
+            fit(g, stats.get(line), statsX, y + CY + 15 + line * 11, statsWidth, HoloPaint.TEXT_DIM, false, false);
         }
-        List<FormattedCharSequence> hint = font.split(Component.translatable("screen.relics_addon.module_hint"), CR - bayX + 2);
-        for (int line = 0; line < Math.min(3, hint.size()); line++) {
-            g.drawString(font, hint.get(line), bayX - 2, bayY + 34 + line * 10, HoloPaint.TEXT_FAINT, false);
+    }
+
+    private List<Component> stats() {
+        ItemStack stack = device();
+        if (minecraft == null || minecraft.player == null) return List.of();
+        var player = minecraft.player;
+        if (role().isHive()) {
+            return List.of(
+                    Component.translatable("screen.relics_addon.stat.drones", hiveCapacity()),
+                    Component.translatable("screen.relics_addon.stat.damage", decimal(RelicRuntime.stat(player, stack, "attack_damage", 2, 1, 100))),
+                    Component.translatable("screen.relics_addon.stat.interval", decimal(RelicRuntime.stat(player, stack, "attack_interval_max", 100, 20, 100) / 20)),
+                    Component.translatable("screen.relics_addon.stat.drone_health", decimal(RelicRuntime.stat(player, stack, "drone_health", 12, 1, 1000))));
         }
+        return List.of(
+                Component.translatable("screen.relics_addon.stat.radius", decimal(ShieldParameters.radius(player, stack))),
+                Component.translatable("screen.relics_addon.stat.buffer", ShieldParameters.capacity(player, stack)),
+                Component.translatable("screen.relics_addon.stat.strike", decimal(ShieldParameters.strikeDamage(stack))),
+                Component.translatable("screen.relics_addon.stat.repair", decimal(role().repairInterval() / 20.0)));
+    }
+
+    private static String decimal(double value) {
+        return Math.abs(value - Math.rint(value)) < .05 ? String.valueOf((long) Math.rint(value)) : String.format(Locale.ROOT, "%.1f", value);
     }
 
     private void renderPower(GuiGraphics g) {
@@ -302,8 +324,7 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
         if (DevicePower.hasMana(role())) {
             g.drawString(font, Component.translatable("screen.relics_addon.mana_source_label"), x + CX, y + 92, HoloPaint.TEXT_DIM, false);
         } else {
-            List<FormattedCharSequence> hint = font.split(Component.translatable("screen.relics_addon.battery_rf.tab_hint"), 176);
-            for (int line = 0; line < Math.min(3, hint.size()); line++) g.drawString(font, hint.get(line), x + CX, y + 92 + line * 10, HoloPaint.TEXT_FAINT, false);
+            paragraph(g, Component.translatable("screen.relics_addon.battery_rf.tab_hint"), x + CX, y + 92, 176, 30, HoloPaint.TEXT_FAINT);
         }
         if (DevicePower.hasRf(role())) {
             int sx = x + DeviceControlMenu.CHARGE_X, sy = y + DeviceControlMenu.CHARGE_Y;
@@ -329,8 +350,8 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
             ResourceLocation icon = ResourceLocation.fromNamespaceAndPath(RelicsAddon.MOD_ID,
                     "textures/gui/upgrades/" + role().itemId() + "/" + upgrade.id() + ".png");
             g.blit(icon, x + CX + 3, ry + 4, 10, 14, 0, 0, 22, 31, 22, 31);
-            String name = font.plainSubstrByWidth(Component.translatable(upgradeKey(role(), upgrade)).getString(), CR - CX - 90);
-            g.drawString(font, name, x + CX + 17, ry + 3, state.level() >= upgrade.requiredLevel() ? HoloPaint.TEXT : HoloPaint.TEXT_FAINT, false);
+            fit(g, Component.translatable(upgradeKey(role(), upgrade)), x + CX + 17, ry + 3, CR - CX - 88,
+                    state.level() >= upgrade.requiredLevel() ? HoloPaint.TEXT : HoloPaint.TEXT_FAINT, false, false);
             int rank = state.rank(upgrade.id());
             for (int pip = 0; pip < 3; pip++) {
                 int px = x + CX + 17 + pip * 8;
@@ -354,8 +375,7 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
         Component healing = Component.translatable("screen.relics_addon.healers", healers);
         g.drawString(font, healing, barX + barW - 4 - font.width(healing), barY + 2, HoloPaint.TEXT, true);
         g.drawCenteredString(font, Component.translatable("screen.relics_addon.healers_move"), x + (CX + CR) / 2, y + 73, HoloPaint.TEXT_DIM);
-        List<FormattedCharSequence> hint = font.split(Component.translatable("screen.relics_addon.swarm_hint"), CR - CX);
-        for (int line = 0; line < Math.min(3, hint.size()); line++) g.drawString(font, hint.get(line), x + CX, y + 92 + line * 10, HoloPaint.TEXT_FAINT, false);
+        paragraph(g, Component.translatable("screen.relics_addon.swarm_hint"), x + CX, y + 92, CR - CX, 30, HoloPaint.TEXT_FAINT);
     }
 
     private void renderHelp(GuiGraphics g) {
@@ -370,7 +390,47 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
 
     private void labelledBar(GuiGraphics g, int x, int y, int width, double fraction, int color, Component label) {
         HoloPaint.bar(g, x, y, width, 11, fraction, color);
-        g.drawString(font, font.plainSubstrByWidth(label.getString(), width - 6), x + 3, y + 2, HoloPaint.TEXT, true);
+        fit(g, label, x + 3, y + 2, width - 6, HoloPaint.TEXT, true, false);
+    }
+
+    /**
+     * Draws one line of text within {@code width} pixels. It shrinks to fit (down to {@link #MIN_TEXT_SCALE});
+     * if it still does not fit it is cut with an ellipsis and the whole text shows when hovering it.
+     */
+    private void fit(GuiGraphics g, Component text, int x, int y, int width, int color, boolean shadow, boolean centered) {
+        if (width <= 0) return;
+        int full = font.width(text);
+        float scale = full <= width ? 1 : Math.max(MIN_TEXT_SCALE, width / (float) full);
+        String shown = text.getString();
+        if (full * scale > width + .5F) {
+            int room = (int) (width / scale) - font.width("…");
+            shown = font.plainSubstrByWidth(shown, Math.max(0, room)) + "…";
+            clipped.add(new Clipped(x, y - 1, width, 10, text));
+        }
+        float drawn = font.width(shown) * scale;
+        float left = centered ? x + (width - drawn) / 2F : x;
+        g.pose().pushPose();
+        g.pose().translate(left, y + (1 - scale) * 4, 0);
+        g.pose().scale(scale, scale, 1);
+        g.drawString(font, shown, 0, 0, color, shadow);
+        g.pose().popPose();
+    }
+
+    /** A block of wrapped text that shrinks until it fits {@code width} x {@code height}; a remainder is cut and shown on hover. */
+    private void paragraph(GuiGraphics g, Component text, int x, int y, int width, int height, int color) {
+        float scale = 1;
+        List<FormattedCharSequence> lines = font.split(text, width);
+        while (scale > MIN_TEXT_SCALE && lines.size() * 10 * scale > height) {
+            scale = Math.max(MIN_TEXT_SCALE, scale - .06F);
+            lines = font.split(text, (int) (width / scale));
+        }
+        int fits = Math.max(1, (int) (height / (10 * scale)));
+        if (lines.size() > fits) clipped.add(new Clipped(x, y, width, height, text));
+        g.pose().pushPose();
+        g.pose().translate(x, y, 0);
+        g.pose().scale(scale, scale, 1);
+        for (int line = 0; line < Math.min(fits, lines.size()); line++) g.drawString(font, lines.get(line), 0, line * 10, color, false);
+        g.pose().popPose();
     }
 
     private void small(GuiGraphics g, Component text, int centerX, int y, int color) {
@@ -387,11 +447,18 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
 
     @Override protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
         Component heading = Component.translatable("screen.relics_addon.console_title", device().getHoverName());
-        g.drawString(font, font.plainSubstrByWidth(heading.getString(), WIDTH - 60), 18, 8, HoloPaint.TEXT, false);
-        g.drawString(font, playerInventoryTitle, DeviceControlMenu.INVENTORY_X, TRAY_Y + 3, HoloPaint.TEXT_DIM, false);
+        int before = clipped.size();
+        fit(g, heading, 18, 8, WIDTH - 60, HoloPaint.TEXT, false, false);
+        fit(g, playerInventoryTitle, DeviceControlMenu.INVENTORY_X, TRAY_Y + 3, TRAY_W - 12, HoloPaint.TEXT_DIM, false, false);
+        // Labels are drawn relative to the window; clipped areas are kept in screen space.
+        for (int index = before; index < clipped.size(); index++) {
+            Clipped area = clipped.get(index);
+            clipped.set(index, new Clipped(area.x() + leftPos, area.y() + topPos, area.w(), area.h(), area.text()));
+        }
     }
 
     @Override public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        clipped.clear();
         super.render(g, mouseX, mouseY, partialTick);
         if (help) renderHelp(g);
         renderTooltip(g, mouseX, mouseY);
@@ -402,6 +469,16 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
     }
 
     private List<Component> hoverTooltip(int mouseX, int mouseY) {
+        for (Clipped area : clipped) {
+            if (inside(mouseX, mouseY, area.x(), area.y(), area.w(), area.h())) {
+                List<Component> tooltip = new ArrayList<>();
+                for (Control control : controls) {
+                    if (inside(mouseX, mouseY, leftPos + control.x, topPos + control.y, control.w, control.h)) tooltip.addAll(control.tooltip.get());
+                }
+                tooltip.addFirst(area.text());
+                return tooltip;
+            }
+        }
         for (Control control : controls) {
             if (inside(mouseX, mouseY, leftPos + control.x, topPos + control.y, control.w, control.h)) return control.tooltip.get();
         }
@@ -411,16 +488,6 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
             return state.level() >= DeviceProgression.MAX_LEVEL ? List.of(Component.translatable("screen.relics_addon.max_level"))
                     : List.of(Component.translatable("screen.relics_addon.experience", state.experience(), RelicRuntime.experienceToNext(state.level())),
                             Component.translatable("screen.relics_addon.experience.hint").withStyle(ChatFormatting.GRAY));
-        }
-        if (tab == Tab.OVERVIEW) {
-            String kind = role().isHive() ? "hive" : "shield";
-            for (int index = 0; index < DeviceProgression.MODULE_SLOTS; index++) {
-                int sx = leftPos + DeviceControlMenu.MODULE_X + index * DeviceControlMenu.MODULE_SPACING, sy = topPos + DeviceControlMenu.MODULE_Y;
-                if (inside(mouseX, mouseY, sx - 1, sy - 1, 18, 28)) {
-                    return List.of(Component.translatable("screen.relics_addon.module", index + 1).withStyle(ChatFormatting.AQUA),
-                            Component.translatable("screen.relics_addon.module_effect." + kind + "." + index).withStyle(ChatFormatting.GRAY));
-                }
-            }
         }
         if (tab == Tab.POWER && DevicePower.hasRf(role()) && inside(mouseX, mouseY, leftPos + DeviceControlMenu.CHARGE_X - 1, topPos + DeviceControlMenu.CHARGE_Y - 1, 18, 18)) {
             return List.of(Component.translatable("screen.relics_addon.charge_slot").withStyle(ChatFormatting.AQUA),

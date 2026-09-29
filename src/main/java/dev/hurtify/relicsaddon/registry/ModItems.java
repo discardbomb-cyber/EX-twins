@@ -15,8 +15,6 @@ public final class ModItems {
     public static final DeferredItem<dev.hurtify.relicsaddon.relic.HiveRelicItem> RF_HIVE = hive(dev.hurtify.relicsaddon.drone.HiveType.RF);
     public static final DeferredItem<dev.hurtify.relicsaddon.relic.HiveRelicItem> MANA_HIVE = hive(dev.hurtify.relicsaddon.drone.HiveType.MANA);
     public static final DeferredItem<dev.hurtify.relicsaddon.relic.HiveRelicItem> TWINS_HIVE = hive(dev.hurtify.relicsaddon.drone.HiveType.TWINS);
-    public static final DeferredItem<dev.hurtify.relicsaddon.relic.DeviceModuleItem> DEVICE_MODULE = ITEMS.register(
-            "device_module", () -> new dev.hurtify.relicsaddon.relic.DeviceModuleItem(new Item.Properties()));
 
     // Crafting parts: a shared circuit, one battery per energy family, a core per shield and drone parts per hive.
     public static final DeferredItem<Item> RESONANT_CIRCUIT = component("resonant_circuit", Rarity.COMMON);

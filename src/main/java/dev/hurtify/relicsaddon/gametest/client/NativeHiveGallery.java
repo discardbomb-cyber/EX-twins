@@ -57,7 +57,7 @@ final class NativeHiveGallery extends Screen {
             graphics.pose().scale(scale, scale, scale);
             graphics.renderItem(items[family], 0, 0);
             graphics.pose().popPose();
-            graphics.drawString(font, (healing ? "owner-only support / " : combat ? "combat formation / " : transit ? "droplet flight / " : returning ? "return to belt / " : "docked / ")
+            graphics.drawString(font, (healing ? "owner-only support / " : combat ? "combat formation / " : transit ? "streaming out / " : returning ? "return to belt / " : "docked / ")
                     + population, x + 9, height / 2, 0xFFD5DBE2, false);
             var owner = new net.minecraft.world.phys.Vec3(healing ? -1 : -3, 0, 0);
             var target = new net.minecraft.world.phys.Vec3(.5, 0, 0);
@@ -101,8 +101,6 @@ final class NativeHiveGallery extends Screen {
                 }
                 HiveCombatVisual.renderShots(shots, net.minecraft.world.phys.Vec3.ZERO, graphics.bufferSource(), graphics.pose().last().pose(), time);
             }
-            if (transit || returning) HiveCombatVisual.renderTravel(HiveType.values()[family], owner, 0, target, 1.8, progress,
-                    net.minecraft.world.phys.Vec3.ZERO, graphics.bufferSource(), graphics.pose().last().pose(), time);
             graphics.flush();
             graphics.pose().popPose();
         }

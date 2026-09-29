@@ -287,22 +287,6 @@
       }
     ]
   },
-  "ui.module_insert": {
-    "subtitle": "subtitles.relics_addon.ui_module_insert",
-    "sounds": [
-      {
-        "name": "relics_addon:combat/ui_module_insert"
-      }
-    ]
-  },
-  "ui.module_remove": {
-    "subtitle": "subtitles.relics_addon.ui_module_remove",
-    "sounds": [
-      {
-        "name": "relics_addon:combat/ui_module_remove"
-      }
-    ]
-  },
   "shield.mana_ripple": {
     "subtitle": "subtitles.relics_addon.mana_shield_ripple",
     "sounds": [

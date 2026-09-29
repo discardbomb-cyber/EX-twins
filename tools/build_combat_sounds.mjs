@@ -41,7 +41,6 @@ const SPECS = [
   ["shield_rf_strike", "shield_strike:rf", .34], ["shield_mana_strike", "shield_strike:mana", .46],
   ["shield_twins_strike", "shield_strike:twins", .52],
   ["ui_toggle", "ui_toggle", .20], ["ui_upgrade", "ui_upgrade", .55],
-  ["ui_module_insert", "ui_module_insert", .24], ["ui_module_remove", "ui_module_remove", .22],
 ];
 
 // Base pitch per family: RF is metallic and bright, Mana glassy and high, Twins dark and low.
@@ -308,14 +307,6 @@ function synthesize(name, family, seconds) {
       [1, 1.26, 1.5, 2].forEach((step, k) => v.add(mul(fm(n, 523 * step, 2, 1.2, .08), env(n, .003, .12)), .22, k * .07));
       v.add(mul(bandpass(v.noise(), (t, x) => 2000 + 6000 * x, 6), env(n, seconds * .5, .1)), .12);
       space = .3;
-      break;
-    }
-    case "ui_module_insert": case "ui_module_remove": {
-      // Mechanical latch: a knock and a pitched click, rising on insert and falling on removal.
-      const up = kind === "ui_module_insert";
-      v.add(mul(osc(n, t => 240 * Math.exp(-t * 30) + 90), env(n, .001, .03)), .6);
-      v.add(mul(bandpass(v.noise(), 2600, 5), env(n, .0005, .012)), .5, up ? .06 : 0);
-      v.add(mul(osc(n, t => (up ? 700 + 1600 * t : 1400 - 1600 * t)), env(n, .002, .04)), .22, up ? .07 : .02);
       break;
     }
     default:

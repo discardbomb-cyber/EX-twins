@@ -9,9 +9,13 @@ import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.relic.HiveUpgrades;
 import dev.hurtify.relicsaddon.sound.RelicSounds;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
+import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.TamableAnimal;
@@ -39,6 +43,9 @@ public final class HiveCombatController {
     private static final int SHOT_VISUAL_TICKS = 20;
     private static final double BOLT_SPEED = 1.15;
     private static final int MAX_SHOTS_PER_TICK = 24;
+    /** Drone hits: credited to the owner, but never knock the target around (hundreds of hits would juggle it). */
+    public static final ResourceKey<DamageType> DRONE_SHOT = ResourceKey.create(Registries.DAMAGE_TYPE,
+            ResourceLocation.fromNamespaceAndPath(dev.hurtify.relicsaddon.RelicsAddon.MOD_ID, "drone_shot"));
     private static final Map<UUID, EnumMap<HiveType, List<Flight>>> FLIGHTS = new HashMap<>();
 
     /** Called once per server player tick by {@link HiveController}. */
@@ -238,7 +245,7 @@ public final class HiveCombatController {
     }
 
     public static boolean damage(ServerPlayer owner, LivingEntity target, float damage, HiveType type, int kind, Vec3 point) {
-        if (!validTarget(owner, target, true) || !target.hurt(owner.level().damageSources().playerAttack(owner), damage)) return false;
+        if (!validTarget(owner, target, true) || !target.hurt(owner.level().damageSources().source(DRONE_SHOT, owner), damage)) return false;
         RelicSounds.impact(owner.serverLevel(), point, type, kind);
         return true;
     }

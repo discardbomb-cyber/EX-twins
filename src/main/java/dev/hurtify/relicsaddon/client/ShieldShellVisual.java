@@ -108,18 +108,20 @@ final class ShieldShellVisual {
     // --- hexagonal cells (RF, Twins) ------------------------------------------------------------
 
     /**
-     * The shield's own hexagonal cells. They are the gameplay cells, so a broken one is a hole. Each is a
-     * translucent panel raised to its own height, with a soft glowing rim just inside its edge; damaged
-     * RF cells warm through yellow and orange to red, damaged Twins cells dim. A hit lights the cells
-     * around it and sends a wave of light across the rest, and while the shell is awake every cell glows
-     * faintly. On RF a slow glint sweeps the panels and a scan line runs up and down the rims.
+     * A honeycomb of glass: the shield's own hexagonal cells (the gameplay cells, so a broken one is a
+     * hole), each a flat pane tinted dark in the middle and lit towards its edge, joined to its
+     * neighbours by one bright seam. A slowly circling light leaves a glassy sheen where it reflects
+     * towards the viewer. Damaged RF cells warm through yellow and orange to red, damaged Twins cells
+     * dim. A hit lights the cells around it and sends a wave of light across the honeycomb; while the
+     * shell is awake every cell glows faintly.
      */
     private static void hexCells(VertexConsumer fill, VertexConsumer glow, Frame f, ShieldStackState state, List<ShieldImpact> impacts,
             List<ShieldResponse.Threat> threats, double time, double presence, Palette p, boolean twins, boolean low) {
         int averageHp = (int) Math.ceil(state.totalIntegrity() / (double) ShieldTopology.CELL_COUNT);
-        double scanY = Math.sin(time * .045) * 1.05;
-        double lx = Math.cos(time * .012), lz = Math.sin(time * .012), ly = .55, ll = Math.sqrt(lx * lx + ly * ly + lz * lz);
-        double rim = f.radius() * (low ? .011 : .0075);
+        double[] sun = normalize(Math.cos(time * .011), .62, Math.sin(time * .011));
+        double seam = f.radius() * (low ? .010 : .0068);
+        // Twins panes sit a hair above their glass dome.
+        double lift = twins ? .004 : 0;
         for (ShieldTopology.Cell cell : ShieldTopology.INSTANCE.cells()) {
             int id = cell.id();
             int integrity = state.cellHp(id);
@@ -139,58 +141,48 @@ final class ShieldShellVisual {
             int hp = Math.min(averageHp, visual);
             int healthy = twins ? ShieldCellVisual.dim(p.edge(), hp) : ShieldCellVisual.warm(p.edge(), hp);
             double flare = Math.max(response.absorption() * .78, response.destruction());
-            int color = mix(healthy, twins || response.destruction() < response.absorption() ? 0xFFFFFF : 0xFFE08A, flare);
-            double glint = twins ? 0 : Math.pow(Math.max(0, (normal[0] * lx + normal[1] * ly + normal[2] * lz) / ll), 14);
-            double scan = twins ? 0 : Math.max(0, 1 - Math.abs(normal[1] - scanY) / .12);
-            double lift = (ShieldImpactPulse.relief(id) + response.absorption() * .025 + (twins ? .035 : 0)) * .5;
+            int seamColor = mix(healthy, twins || response.destruction() < response.absorption() ? 0xFFFFFF : 0xFFE08A, flare);
+            int tint = mix(p.fill(), healthy, .35);
 
             int corners = perimeter.length / 3;
-            double[][] outer = new double[corners][], base = new double[corners][], inset = new double[corners][];
+            double[][] corner = new double[corners][], cornerDir = new double[corners][];
             for (int k = 0; k < corners; k++) {
-                double[] corner = f.world(new double[]{perimeter[k * 3], perimeter[k * 3 + 1], perimeter[k * 3 + 2]});
-                outer[k] = f.point(corner, lift);
-                base[k] = f.point(corner, 0);
-                inset[k] = f.point(normalize(corner[0] + (normal[0] - corner[0]) * .09, corner[1] + (normal[1] - corner[1]) * .09,
-                        corner[2] + (normal[2] - corner[2]) * .09), lift + .001);
+                cornerDir[k] = f.world(new double[]{perimeter[k * 3], perimeter[k * 3 + 1], perimeter[k * 3 + 2]});
+                corner[k] = f.point(cornerDir[k], lift);
             }
             double[] hub = f.point(normal, lift);
 
-            // Panel: a flat translucent fill that brightens with hits, breaks and the passing glint.
-            double fillAlpha = (light * 42 + response.absorption() * 52 + response.destruction() * 48 + light * glint * 40) * vis;
-            int fillColor = mix(mix(p.fill(), healthy, .55), p.bright(), glint * .7);
-            if (fillAlpha >= 1) for (int k = 0; k < corners; k++) {
-                vertex(fill, f.matrix(), hub, fillColor, fillAlpha * .7);
-                vertex(fill, f.matrix(), outer[k], fillColor, fillAlpha);
-                vertex(fill, f.matrix(), outer[(k + 1) % corners], fillColor, fillAlpha);
-            }
-            // Short walls down to the shell make the staggered panel heights read at grazing angles.
-            double wallAlpha = (light * 40 + response.absorption() * 20) * vis;
-            if (!low && wallAlpha >= 1) for (int k = 0; k < corners; k++) {
+            // Pane: darker in the middle, brighter at the rim, with the sheen of the circling light.
+            double base = light * (1 + .6 * f.fresnel(normal)) + response.absorption() * .9 + response.destruction();
+            double hubSheen = sheen(normal, sun, f.view(hub));
+            double hubAlpha = (base * 22 + hubSheen * 150 * light) * vis;
+            int hubColor = mix(tint, 0xFFFFFF, hubSheen * .7);
+            for (int k = 0; k < corners; k++) {
                 int next = (k + 1) % corners;
-                vertex(fill, f.matrix(), outer[k], color, wallAlpha);
-                vertex(fill, f.matrix(), outer[next], color, wallAlpha);
-                vertex(fill, f.matrix(), base[next], color, 0);
-                vertex(fill, f.matrix(), outer[k], color, wallAlpha);
-                vertex(fill, f.matrix(), base[next], color, 0);
-                vertex(fill, f.matrix(), base[k], color, 0);
+                double sheenA = sheen(cornerDir[k], sun, f.view(corner[k])), sheenB = sheen(cornerDir[next], sun, f.view(corner[next]));
+                double rimA = (base * 58 + sheenA * 150 * light) * vis, rimB = (base * 58 + sheenB * 150 * light) * vis;
+                if (hubAlpha + rimA + rimB < 1.5) continue;
+                vertex(fill, f.matrix(), hub, hubColor, hubAlpha);
+                vertex(fill, f.matrix(), corner[k], mix(mix(tint, healthy, .3), 0xFFFFFF, sheenA * .7), rimA);
+                vertex(fill, f.matrix(), corner[next], mix(mix(tint, healthy, .3), 0xFFFFFF, sheenB * .7), rimB);
             }
-            // Rim: a hot core line inside a wide soft glow, just inside the panel edge.
-            double rimAlpha = (light * (160 + 90 * scan) + response.absorption() * 75 + response.destruction() * 80) * vis;
-            if (rimAlpha >= 1) for (int k = 0; k < corners; k++) {
-                double[] a = inset[k], b = inset[(k + 1) % corners];
-                line(glow, f, a, b, rim, mix(color, 0xFFFFFF, .3 + .3 * scan), rimAlpha * 1.1);
-                if (!low) line(glow, f, a, b, rim * 3.2, color, rimAlpha * .32);
-            }
-            // RF data nodes: a few corners twinkle.
-            if (!twins && !low && light > .05) {
-                int hash = id * 0x9E3779B1;
-                if ((hash >>> 29) <= 1) {
-                    double twinkle = .5 + .5 * Math.sin(time * .21 + (hash & 1023) * .0061);
-                    dot(glow, f, outer[(hash >>> 8 & 0xFF) % corners], f.radius() * .014 * (.8 + .4 * twinkle), p.node(),
-                            light * (60 + 150 * twinkle * twinkle) * vis);
-                }
+            // Seam: every cell traces its own edge and its neighbour traces the same line, so together
+            // they read as one bright seam; the rim of a hole stays half as bright.
+            double seamAlpha = (light * 130 + response.absorption() * 90 + response.destruction() * 90) * vis;
+            if (seamAlpha >= 1) for (int k = 0; k < corners; k++) {
+                double[] a = corner[k], b = corner[(k + 1) % corners];
+                line(glow, f, a, b, seam, mix(seamColor, 0xFFFFFF, .45), seamAlpha * .75);
+                if (!low) line(glow, f, a, b, seam * 3.6, seamColor, seamAlpha * .22);
             }
         }
+    }
+
+    /** Glassy highlight: how closely the light, mirrored in a pane facing {@code normal}, points at the viewer. */
+    private static double sheen(double[] normal, double[] light, double[] view) {
+        double d = 2 * (normal[0] * light[0] + normal[1] * light[1] + normal[2] * light[2]);
+        double rx = normal[0] * d - light[0], ry = normal[1] * d - light[1], rz = normal[2] * d - light[2];
+        double facing = rx * view[0] + ry * view[1] + rz * view[2];
+        return facing <= 0 ? 0 : Math.pow(facing, 18);
     }
 
     /** Holographic data dust drifting just outside the RF cells. */

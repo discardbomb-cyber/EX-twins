@@ -116,9 +116,8 @@ public final class HiveVisualRenderer {
                     rendered = true;
                     budget--;
                 }
-                if (liveCombat && combatPose != null) {
-                    if (progress > .9) HiveCombatVisual.renderFormation(hive.type(), formation, combatPose.target().add(0, combatPose.height() * .55, 0), camera, buffers, poses.last().pose(), time);
-                    HiveCombatVisual.renderTravel(hive.type(), owner, yaw, combatPose.target(), combatPose.height(), progress,
+                if (liveCombat && combatPose != null && progress >= 1) {
+                    HiveCombatVisual.renderFormation(hive.type(), formation, combatPose.target().add(0, combatPose.height() * .55, 0),
                             camera, buffers, poses.last().pose(), time);
                 }
                 HiveCombatVisual.renderShots(combat.shots(), camera, buffers, poses.last().pose(), time);

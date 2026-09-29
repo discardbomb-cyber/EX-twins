@@ -153,8 +153,7 @@ public final class ShieldController {
             state = state.withCellsAndBuffer(state.cells(), capacity, state.moves(), state.gatherTime());
             shield.set(ModDataComponents.SHIELD_STACK_STATE.get(), state);
         }
-        // The third module bay speeds up shield recovery; hives use it for attack tuning instead.
-        int interval = RelicRuntime.progression(shield).hasModule(2) ? Math.max(1, role.repairInterval() * 3 / 4) : role.repairInterval();
+        int interval = role.repairInterval();
         if (now % interval != 0 || !state.needsRepair(capacity)) {
             return;
         }
