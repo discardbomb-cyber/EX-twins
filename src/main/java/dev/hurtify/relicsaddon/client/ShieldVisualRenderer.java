@@ -91,6 +91,7 @@ public final class ShieldVisualRenderer {
         // Refraction samples the scene before the translucent shells are drawn over it.
         ShieldRefraction.flush(matrix);
         buffers.endBatch(SHIELD_RENDER_TYPE);
+        ShieldGlow.flush();
     }
 
     /** The network list is authoritative; the local deque only lets received fronts finish their 36-tick journey. */
@@ -236,6 +237,13 @@ public final class ShieldVisualRenderer {
                 forwardX, forwardZ, low, eyeDirection, radius, bufferRatio);
         if (role == RelicRole.TWINS_SHIELD) TwinsShieldVisual.render(consumer, matrix, originX, originY, originZ, state, impacts, threats, time,
                 forwardX, forwardZ, low, eyeDirection, radius, bufferRatio);
+            double activity = threats.isEmpty() ? impacts.stream().mapToDouble(hit ->
+                    ShieldField.fade(time - hit.gameTime(), ShieldResponse.IMPACT_TICKS)).max().orElse(0) : 1;
+            if (state.gathering(time)) activity = Math.max(activity, .6);
+            ShieldGlow.halo(matrix, role, originX, originY, originZ, radius, activity, impacts, time, eyeDirection, low);
+            if (role == RelicRole.TWINS_SHIELD) {
+                ShieldCircuitTraces.render(consumer, ShieldGlow.consumer(), matrix, originX, originY, originZ, radius, impacts, time, low);
+            }
         } finally {
             ShieldRipple.end();
         }
