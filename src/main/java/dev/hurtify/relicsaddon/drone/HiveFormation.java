@@ -12,8 +12,7 @@ public final class HiveFormation {
     public static Vec3 idle(Vec3 owner, float yaw, int index, int count, HiveType type, double time) {
         count = safeCount(count);
         index = Math.clamp(index, 0, count - 1);
-        // The resting cluster grows with the swarm so hundreds of drones do not collapse into one point.
-        return belt(owner, yaw, type).add(fibonacciSphere(index, count, .045 * Math.max(1, Math.sqrt(count / 120.0)), .6));
+        return belt(owner, yaw, type).add(fibonacciSphere(index, count, .045, .6));
     }
 
     public static Vec3 belt(Vec3 owner, float yaw, HiveType type) {
