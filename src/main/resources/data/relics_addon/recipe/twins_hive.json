@@ -2,14 +2,26 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    "OEO",
-    "EDE",
-    "OEO"
+    "PXP",
+    "EYM",
+    "PXP"
   ],
   "key": {
-    "O": { "item": "minecraft:obsidian" },
-    "E": { "item": "minecraft:end_crystal" },
-    "D": { "item": "minecraft:diamond_block" }
+    "P": {
+      "item": "relics_addon:twins_drone_plate"
+    },
+    "X": {
+      "item": "relics_addon:resonant_circuit"
+    },
+    "E": {
+      "item": "relics_addon:energy_cell"
+    },
+    "M": {
+      "item": "relics_addon:mana_cell"
+    },
+    "Y": {
+      "item": "minecraft:end_crystal"
+    }
   },
   "result": {
     "id": "relics_addon:twins_hive",

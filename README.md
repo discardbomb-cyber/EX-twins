@@ -33,7 +33,7 @@ Version `1.0.0-beta.1` targets Minecraft 1.21.1, Java 21 and NeoForge 21.1.212.
 The three shields and three hives use the charm (Amulet) slot. Slot count remains controlled by the modpack. Each has a recipe and recipe-book unlock.
 Press `H` (rebindable in Controls) to open the device console. It is a machine-style container screen: a status monitor, an experience gauge and an integrity gauge, a three-slot module bay above your inventory, and side tabs for Upgrades and (on hives) Hive Tasks. The arrows on the monitor switch between every carried or equipped shield and hive. Using a held device also toggles it.
 Each of the six items stores its own experience, levels, upgrade points, modules and upgrade ranks in its item data. Combat awards bounded experience; each new level grants one upgrade point.
-Craft Device Modules from an amethyst shard, redstone and an iron nugget, then place them into the console's module bay like any other slot (shift-click works). Bay one: +500 shield buffer / +20 drones. Bay two: +1 shield radius (subject to the server cap) / +15% drone health. Bay three: shield recovery ticks 25% more often / +10% hive damage and faster attacks. Taking a module out returns the item.
+Craft Device Modules from a resonant circuit, an amethyst shard, redstone and an iron ingot, then place them into the console's module bay like any other slot (shift-click works). Bay one: +500 shield buffer / +20 drones. Bay two: +1 shield radius (subject to the server cap) / +15% drone health. Bay three: shield recovery ticks 25% more often / +10% hive damage and faster attacks. Taking a module out returns the item.
 
 - Shields have a shared 504 HP buffer, upgraded to 5000 HP over ten protection levels, plus 420 independent cells with 12 HP each. Incoming damage spends the buffer first, then local HP; empty regions become real holes when the buffer is exhausted. Total maximum at full progression: 10040 HP. Upgrading, toggling and changing settings do not refill HP.
 - After 40 quiet ticks, type-specific repair restores damaged cells before refilling the shared buffer. New topology and neighbors are cached once, not rebuilt during combat.
@@ -51,6 +51,22 @@ Craft Device Modules from an amethyst shard, redstone and an iron nugget, then p
 - The hit-time damage fallback respects vanilla shield-bypass tags. Fake players, spectators and disabled slots do not operate the relics.
 - The main shield ability keeps fixed full absorption while upgrading buffer capacity and radius. Distribution/gathering remain separate upgrades. Successful combat and absorption award bounded experience; idle time and repair do not.
 - Shield inventory and world views reuse the same animated 3D models.
+
+## Crafting
+
+Devices are built from the mod's own parts rather than raw vanilla items (all use vanilla materials, so any pack can craft them):
+
+| Part | Made from | Goes into |
+| --- | --- | --- |
+| Resonant Circuit (x2) | gold nuggets, redstone, quartz, copper ingot | every part and device |
+| Energy Cell | copper, iron, redstone block, circuit | RF and Twins devices (RF battery) |
+| Mana Cell | amethyst shards, gold, lapis block, circuit | Mana and Twins devices (mana battery) |
+| RF / Mana / Twins Shield Core | a vanilla shield, iron and diamond / gold, amethyst block and diamond / crying obsidian, echo shards and diamond, plus circuits | the matching shield |
+| RF Drone Frame (x2) | iron, copper, redstone, circuit | RF Hive (six frames) |
+| Mana Drone Shell (x2) | gold nuggets, amethyst shards, circuit | Mana Hive (six shells) |
+| Twins Drone Plate (x2) | obsidian, amethyst shards, circuit | Twins Hive (four plates, both cells and an end crystal) |
+
+Recipes unlock in the recipe book once you hold the key part. Icons are drawn by `tools/draw_component_icons.mjs`.
 
 ## Batteries
 

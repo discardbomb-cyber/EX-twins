@@ -1,19 +1,32 @@
 {
   "parent": "minecraft:recipes/root",
   "criteria": {
-    "has_redstone": {
+    "has_ingredient": {
       "trigger": "minecraft:inventory_changed",
       "conditions": {
         "items": [
-          { "items": "minecraft:redstone" }
+          {
+            "items": "relics_addon:rf_shield_core"
+          }
         ]
+      }
+    },
+    "has_the_recipe": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "relics_addon:rf_shield"
       }
     }
   },
   "requirements": [
-    ["has_redstone"]
+    [
+      "has_ingredient",
+      "has_the_recipe"
+    ]
   ],
   "rewards": {
-    "recipes": ["relics_addon:rf_shield"]
+    "recipes": [
+      "relics_addon:rf_shield"
+    ]
   }
 }

@@ -1,11 +1,32 @@
 {
   "parent": "minecraft:recipes/root",
   "criteria": {
-    "has_echo_shard": {
+    "has_ingredient": {
       "trigger": "minecraft:inventory_changed",
-      "conditions": { "items": [{ "items": "minecraft:echo_shard" }] }
+      "conditions": {
+        "items": [
+          {
+            "items": "relics_addon:rf_drone_frame"
+          }
+        ]
+      }
+    },
+    "has_the_recipe": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "relics_addon:rf_hive"
+      }
     }
   },
-  "requirements": [["has_echo_shard"]],
-  "rewards": { "recipes": ["relics_addon:rf_hive"] }
+  "requirements": [
+    [
+      "has_ingredient",
+      "has_the_recipe"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "relics_addon:rf_hive"
+    ]
+  }
 }

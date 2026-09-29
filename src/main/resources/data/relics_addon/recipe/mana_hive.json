@@ -2,15 +2,20 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    "ALA",
-    "LEL",
-    "AGA"
+    "SXS",
+    "SMS",
+    "SXS"
   ],
   "key": {
-    "A": { "item": "minecraft:amethyst_block" },
-    "L": { "item": "minecraft:lapis_block" },
-    "E": { "item": "minecraft:emerald" },
-    "G": { "item": "minecraft:gold_block" }
+    "S": {
+      "item": "relics_addon:mana_drone_shell"
+    },
+    "X": {
+      "item": "relics_addon:resonant_circuit"
+    },
+    "M": {
+      "item": "relics_addon:mana_cell"
+    }
   },
   "result": {
     "id": "relics_addon:mana_hive",

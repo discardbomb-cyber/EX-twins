@@ -7,9 +7,9 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 
-/** Consumable physical module installed through Device Control. */
-public final class DeviceModuleItem extends Item {
-    public DeviceModuleItem(Properties properties) { super(properties); }
+/** A crafting part for shields and hives; its tooltip says what it goes into. */
+public final class ComponentItem extends Item {
+    public ComponentItem(Properties properties) { super(properties); }
 
     @Override public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
         super.appendHoverText(stack, context, lines, flag);

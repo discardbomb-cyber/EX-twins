@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "IXI",
+    "XSX",
+    "IDI"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "X": {
+      "item": "relics_addon:resonant_circuit"
+    },
+    "S": {
+      "item": "minecraft:shield"
+    },
+    "D": {
+      "item": "minecraft:diamond"
+    }
+  },
+  "result": {
+    "id": "relics_addon:rf_shield_core",
+    "count": 1
+  }
+}

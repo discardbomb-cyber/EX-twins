@@ -2,15 +2,23 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    "GLG",
-    "LDA",
-    "GAG"
+    "XMX",
+    "GKG",
+    "XGX"
   ],
   "key": {
-    "G": { "item": "minecraft:gold_ingot" },
-    "L": { "item": "minecraft:lapis_lazuli" },
-    "D": { "item": "minecraft:diamond" },
-    "A": { "item": "minecraft:amethyst_shard" }
+    "X": {
+      "item": "relics_addon:resonant_circuit"
+    },
+    "M": {
+      "item": "relics_addon:mana_cell"
+    },
+    "G": {
+      "item": "minecraft:gold_ingot"
+    },
+    "K": {
+      "item": "relics_addon:mana_shield_core"
+    }
   },
   "result": {
     "id": "relics_addon:mana_shield",

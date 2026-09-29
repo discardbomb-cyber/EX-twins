@@ -2,15 +2,20 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    "RCR",
-    "CEC",
-    "RDR"
+    "FXF",
+    "FEF",
+    "FXF"
   ],
   "key": {
-    "R": { "item": "minecraft:redstone_block" },
-    "C": { "item": "minecraft:copper_block" },
-    "E": { "item": "minecraft:echo_shard" },
-    "D": { "item": "minecraft:diamond" }
+    "F": {
+      "item": "relics_addon:rf_drone_frame"
+    },
+    "X": {
+      "item": "relics_addon:resonant_circuit"
+    },
+    "E": {
+      "item": "relics_addon:energy_cell"
+    }
   },
   "result": {
     "id": "relics_addon:rf_hive",

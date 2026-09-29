@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "CEC",
+    "XDX",
+    "CEC"
+  ],
+  "key": {
+    "C": {
+      "item": "minecraft:crying_obsidian"
+    },
+    "E": {
+      "item": "minecraft:echo_shard"
+    },
+    "X": {
+      "item": "relics_addon:resonant_circuit"
+    },
+    "D": {
+      "item": "minecraft:diamond"
+    }
+  },
+  "result": {
+    "id": "relics_addon:twins_shield_core",
+    "count": 1
+  }
+}
