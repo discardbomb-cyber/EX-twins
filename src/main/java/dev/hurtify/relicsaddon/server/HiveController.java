@@ -32,23 +32,20 @@ public final class HiveController {
 
     public record Equipped(HiveType type, ItemStack stack) { }
 
+    /** The single operable hive in a charm slot; extra hives are ignored even if Curios holds them. */
     public static List<Equipped> active(Player player) {
         if (!EquippedRelicSetResolver.isRealPlayer(player) || !player.isAlive() || player.isSpectator()) return List.of();
         return CuriosApi.getCuriosInventory(player).map(handler -> {
-            var result = new ArrayList<Equipped>(3);
+            var result = new ArrayList<Equipped>(1);
             var optional = handler.getStacksHandler(RelicRole.EQUIPMENT_SLOT);
             if (optional.isEmpty()) return result;
             var stacks = optional.get().getStacks();
-            boolean[] found = new boolean[3];
             for (int slot = 0; slot < stacks.getSlots(); slot++) {
                 ItemStack stack = stacks.getStackInSlot(slot);
                 if (handler.isSlotActive(RelicRole.EQUIPMENT_SLOT, slot) && stack.getItem() instanceof AutonomousRelicItem item
                         && item.role().isHive() && RelicRuntime.canOperate(player, stack)) {
-                    HiveType type = HiveType.of(item.role());
-                    if (!found[type.ordinal()]) {
-                        found[type.ordinal()] = true;
-                        result.add(new Equipped(type, stack));
-                    }
+                    result.add(new Equipped(HiveType.of(item.role()), stack));
+                    break;
                 }
             }
             return result;

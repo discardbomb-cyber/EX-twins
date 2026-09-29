@@ -38,6 +38,7 @@ public final class HiveCombatController {
     private static final int FORMATION_TICKS = 20;
     private static final int SHOT_VISUAL_TICKS = 20;
     private static final double BOLT_SPEED = 1.15;
+    private static final int MAX_SHOTS_PER_TICK = 24;
     private static final Map<UUID, EnumMap<HiveType, List<Flight>>> FLIGHTS = new HashMap<>();
 
     /** Called once per server player tick by {@link HiveController}. */
@@ -90,7 +91,11 @@ public final class HiveCombatController {
             boolean changed = false;
             int intervalMax = attackIntervalMax(owner, stack);
             float damage = attackDamage(owner, stack, hive.type());
-            for (int index = 0; index < nextUnits.size(); index++) {
+            // A 500-drone swarm fires in bounded volleys; ready drones beyond the budget wait a tick.
+            int volley = MAX_SHOTS_PER_TICK;
+            int size = nextUnits.size(), first = (int) Math.floorMod(now * 7, (long) size);
+            for (int step = 0; step < size && volley > 0; step++) {
+                int index = (first + step) % size;
                 if (settings.healer(index, nextUnits.size())) continue;
                 HiveStackState.Unit unit = nextUnits.get(index);
                 if (!unit.attackReady(now)) continue;
@@ -104,6 +109,7 @@ public final class HiveCombatController {
                         target.getBbHeight(), index, fighters, hive.type(), now, progress);
                 int kind = shotKind(hive.type(), owner.getUUID(), index, now);
                 long readyAt = now + attackIntervalFor(owner.getUUID(), hive.type(), index, now, intervalMax);
+                volley--;
                 nextUnits.set(index, new HiveStackState.Unit(unit.hp(), unit.readyAt(), unit.lastHit(), unit.x(), unit.y(), unit.z(), readyAt));
                 changed = true;
                 if (kind == 0 || kind == 2) {

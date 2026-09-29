@@ -34,7 +34,7 @@ public final class RelicRuntime {
         double value = switch (id) {
             case "buffer_capacity" -> 504 + (5000 - 504) * level / 10.0 + (progression.hasModule(0) ? 500 : 0);
             case "radius" -> 2 + level + (progression.hasModule(1) ? 1 : 0);
-            case "drone_count" -> 12 + (250 - 12) * level / 10.0 + (progression.hasModule(0) ? 20 : 0);
+            case "drone_count" -> 12 + (480 - 12) * level / 10.0 + (progression.hasModule(0) ? 20 : 0);
             case "drone_health" -> hiveValue(stack, level, 1) * (progression.hasModule(1) ? 1.15 : 1);
             case "attack_damage" -> hiveValue(stack, level, 2) * (progression.hasModule(2) ? 1.10 : 1);
             case "attack_interval_max" -> 100 - 60 * level / 10.0 - (progression.hasModule(2) ? 8 : 0);

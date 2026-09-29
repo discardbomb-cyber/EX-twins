@@ -2,13 +2,13 @@ package dev.hurtify.relicsaddon.drone;
 
 import dev.hurtify.relicsaddon.relic.RelicRole;
 
-/** One active hive per type; additional copies never multiply the swarm cap. */
+/** Hive families. A player runs one hive at a time; its swarm grows to {@link #MAX_DRONES}. */
 public enum HiveType {
     RF(RelicRole.RF_HIVE, RelicRole.RF_DRONE, 12, 12, 40, 80, 40, 2, 3),
     MANA(RelicRole.MANA_HIVE, RelicRole.MANA_DRONE, 12, 8, 30, 50, 20, 2, 3),
     TWINS(RelicRole.TWINS_HIVE, RelicRole.TWINS_DRONE, 12, 18, 60, 120, 60, 3, 4);
 
-    public static final int MAX_DRONES = 250;
+    public static final int MAX_DRONES = 500;
     public final RelicRole role, drone;
     public final int initialCount, initialHealth, maxHealth, initialCooldown, minCooldown;
     public final int initialAttackDamage, maxAttackDamage;
