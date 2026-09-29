@@ -50,13 +50,16 @@ final class ManaShieldVisual {
                 * ShieldSurfaceLighting.visibility(normal.x, normal.y, normal.z, eye) * (.7 + .3 * bufferRatio), 0, 170);
         // Keep the hue glass-like. Health changes transparency, never a discrete panel color.
         int color = glassColor(integrity, bufferRatio);
-        double highlight = Math.min(.85, flash * .65 + edge * .28);
+        double ripple = ShieldRipple.active() ? ShieldRipple.height(normal.x, normal.y, normal.z) : 0;
+        // The crest of the hit wave catches light; the trough behind it dims slightly.
+        double highlight = Math.min(.85, flash * .65 + edge * .28 + Math.max(0, ripple) * .35);
+        alpha = (int) Math.clamp(alpha * (1 + ripple * .25) + Math.abs(ripple) * presence * 30, 0, 170);
         int r = color >> 16 & 255, g = color >> 8 & 255, b = color & 255;
         r += (int) ((220 - r) * highlight);
         g += (int) ((255 - g) * highlight);
         b += (int) ((255 - b) * highlight);
-        // A single radius keeps the glass continuous while the wave changes its shading.
-        double shellRadius = radius + .006 * radius / ShieldField.RADIUS;
+        // One continuous radius, bent per vertex by the travelling hit wave.
+        double shellRadius = (radius + .006 * radius / ShieldField.RADIUS) * ShieldRipple.scale(normal.x, normal.y, normal.z);
         consumer.addVertex(matrix, (float) (x + normal.x * shellRadius), (float) (y + normal.y * shellRadius),
                 (float) (z + normal.z * shellRadius)).setColor(r, g, b, alpha);
     }

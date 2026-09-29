@@ -17,6 +17,15 @@ public final class ClientEventRegistrar {
         modEventBus.addListener(AnimatedRelicItemRenderer::registerAdditionalModels);
         modEventBus.addListener(ClientEventRegistrar::registerItemExtensions);
         modEventBus.addListener(ClientEventRegistrar::registerScreens);
+        modEventBus.addListener(ClientEventRegistrar::registerShaders);
+    }
+
+    private static void registerShaders(net.neoforged.neoforge.client.event.RegisterShadersEvent event) {
+        try {
+            ShieldRefraction.registerShaders(event);
+        } catch (java.io.IOException exception) {
+            throw new java.io.UncheckedIOException("Failed to load shield refraction shader", exception);
+        }
     }
 
     private static void registerScreens(net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event) {

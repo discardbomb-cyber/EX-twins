@@ -79,7 +79,7 @@ final class TwinsShieldVisual {
         Vec3 side = normal.cross(Math.abs(normal.y) > .9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize();
         Vec3 up = normal.cross(side).normalize();
         double phase = id * 2.399963 + time * .025;
-        Vec3 center = normal.scale(radius * (.962 + .009 * Math.sin(phase)))
+        Vec3 center = normal.scale(radius * ShieldRipple.scale(normal.x, normal.y, normal.z) * (.962 + .009 * Math.sin(phase)))
                 .add(up.scale(Math.sin(phase * .7) * radius * .015));
         double size = radius * (.0025 + .002 * Math.pow(.5 + .5 * Math.sin(phase), 3));
         int alpha = (int) (presence * (90 + 140 * Math.pow(.5 + .5 * Math.sin(phase), 2))
@@ -94,8 +94,10 @@ final class TwinsShieldVisual {
 
     private static void vertex(VertexConsumer consumer, Matrix4f matrix, TwinsShieldGlyphMesh.Point p,
             double x, double y, double z, double fx, double fz, double radius, int r, int g, int b, int alpha) {
-        consumer.addVertex(matrix, (float) (x + (-p.x() * fz + p.z() * fx) * radius),
-                (float) (y + p.y() * radius), (float) (z + (p.x() * fx + p.z() * fz) * radius))
+        double wx = -p.x() * fz + p.z() * fx, wy = p.y(), wz = p.x() * fx + p.z() * fz;
+        // Glyphs, orbits and membrane bend together so the seals ride the hit wave.
+        double bent = radius * ShieldRipple.scale(wx, wy, wz);
+        consumer.addVertex(matrix, (float) (x + wx * bent), (float) (y + wy * bent), (float) (z + wz * bent))
                 .setColor(r, g, b, alpha);
     }
 

@@ -88,6 +88,8 @@ public final class ShieldVisualRenderer {
             }
         }
         IMPACT_WAVES.keySet().removeIf(id -> !presentPlayers.contains(id));
+        // Refraction samples the scene before the translucent shells are drawn over it.
+        ShieldRefraction.flush(matrix);
         buffers.endBatch(SHIELD_RENDER_TYPE);
     }
 
@@ -183,6 +185,7 @@ public final class ShieldVisualRenderer {
         double bufferRatio = state.sharedBuffer() / (double) Math.max(1, ShieldParameters.capacity(player, shield));
         Vec3 eyeDirection = originX * originX + originY * originY + originZ * originZ > radius * radius
                 ? new Vec3(-originX, -originY, -originZ).normalize() : Vec3.ZERO;
+        ShieldRefraction.queue(role, originX, originY, originZ, radius, impacts, time, quality == ShieldVisualQuality.LOW);
         renderField(role, state, impacts, threats, time, consumer, matrix, originX, originY, originZ,
                 forwardX, forwardZ, quality == ShieldVisualQuality.LOW, eyeDirection, radius, bufferRatio);
     }
@@ -221,6 +224,9 @@ public final class ShieldVisualRenderer {
         if (!state.gathering(time) && threats.isEmpty() && impacts.isEmpty()) return;
         double rightX = -forwardZ;
         double rightZ = forwardX;
+        boolean rippling = role == RelicRole.MANA_SHIELD || role == RelicRole.TWINS_SHIELD;
+        if (rippling) ShieldRipple.begin(impacts, time);
+        try {
         // Mana is smooth glass; Twins combine their glass membrane with a raised cell layer.
         if (role != RelicRole.MANA_SHIELD) {
             renderCells(role, state, impacts, threats, time, consumer, matrix, originX, originY, originZ,
@@ -230,6 +236,9 @@ public final class ShieldVisualRenderer {
                 forwardX, forwardZ, low, eyeDirection, radius, bufferRatio);
         if (role == RelicRole.TWINS_SHIELD) TwinsShieldVisual.render(consumer, matrix, originX, originY, originZ, state, impacts, threats, time,
                 forwardX, forwardZ, low, eyeDirection, radius, bufferRatio);
+        } finally {
+            ShieldRipple.end();
+        }
         for (ShieldImpact impact : impacts) {
             renderInnerImpactPatch(role, impact, time, consumer, matrix, originX, originY, originZ, eyeDirection, radius, bufferRatio);
         }
@@ -403,9 +412,11 @@ public final class ShieldVisualRenderer {
             localY /= length;
             localZ /= length;
         }
-        double worldX = originX + (localX * rightX + localZ * forwardX) * radius;
+        double dirX = localX * rightX + localZ * forwardX, dirZ = localX * rightZ + localZ * forwardZ;
+        radius *= ShieldRipple.scale(dirX, localY, dirZ);
+        double worldX = originX + dirX * radius;
         double worldY = originY + localY * radius;
-        double worldZ = originZ + (localX * rightZ + localZ * forwardZ) * radius;
+        double worldZ = originZ + dirZ * radius;
         consumer.addVertex(matrix, (float) worldX, (float) worldY, (float) worldZ)
                 .setColor((int) (color >> 32) & 0xFF, (int) (color >> 24) & 0xFF, (int) (color >> 16) & 0xFF, alpha);
     }
