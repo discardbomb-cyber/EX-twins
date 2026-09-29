@@ -14,11 +14,8 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 sourceSets {
     releaseProbe
-    // These probes exercise Relics' old native UI and data API. They are retained
-    // as migration reference, but are not part of the standalone build.
-    main {
-        java.exclude 'dev/hurtify/relicsaddon/gametest/**'
-    }
+    // GameTests under gametest/** compile with the mod and run with runGameTestServer;
+    // the jar task below keeps them out of release jars.
 }
 
 neoForge {
