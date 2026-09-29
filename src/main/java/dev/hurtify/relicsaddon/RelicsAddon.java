@@ -25,6 +25,8 @@ public final class RelicsAddon {
         ModCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
         dev.hurtify.relicsaddon.registry.ModMenus.MENUS.register(modEventBus);
         modEventBus.addListener(dev.hurtify.relicsaddon.network.OpenDevicePayload::register);
+        modEventBus.addListener(dev.hurtify.relicsaddon.power.DeviceEnergyStorage::register);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.power.DevicePower::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(ShieldController::onIncomingDamage);
         NeoForge.EVENT_BUS.addListener(ShieldController::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(ShieldProjectileInterceptor::onEntityTick);

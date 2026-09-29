@@ -58,12 +58,14 @@ public final class HiveTaskController {
                     changed = true;
                     continue;
                 }
+                if (!dev.hurtify.relicsaddon.power.DevicePower.canAfford(owner, stack, dev.hurtify.relicsaddon.power.DevicePower.HEAL_PER_HP)) break;
                 float requested = Math.min((float) (.5 * HiveUpgrades.healingMultiplier(owner, stack)),
                         Math.min(budget, owner.getMaxHealth() - owner.getHealth()));
                 if (requested <= 0) break;
                 float oldHealth = owner.getHealth();
                 owner.heal(requested);
                 float restored = Math.max(0, owner.getHealth() - oldHealth);
+                dev.hurtify.relicsaddon.power.DevicePower.drain(owner, stack, (int) Math.ceil(restored * dev.hurtify.relicsaddon.power.DevicePower.HEAL_PER_HP));
                 budget -= restored;
                 units.set(index, new HiveStackState.Unit(unit.hp(), unit.readyAt(), unit.lastHit(), unit.x(), unit.y(), unit.z(), now + 100));
                 changed = true;

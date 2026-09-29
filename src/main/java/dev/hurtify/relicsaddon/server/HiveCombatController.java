@@ -105,6 +105,7 @@ public final class HiveCombatController {
                     changed = true;
                     continue;
                 }
+                if (!dev.hurtify.relicsaddon.power.DevicePower.drain(owner, stack, dev.hurtify.relicsaddon.power.DevicePower.SHOT)) break;
                 Vec3 origin = HiveFormation.position(owner.position(), owner.getYRot(), targetFeet, target.getBbWidth(),
                         target.getBbHeight(), index, fighters, hive.type(), now, progress);
                 int kind = shotKind(hive.type(), owner.getUUID(), index, now);

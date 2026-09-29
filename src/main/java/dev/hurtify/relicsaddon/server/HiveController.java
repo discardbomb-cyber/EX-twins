@@ -66,8 +66,21 @@ public final class HiveController {
         HiveStackState old = stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), HiveStackState.DEFAULT);
         HiveStackState next = old.prepare(capacity(player, stack), health(player, stack), player.level().getGameTime(), repair,
                 repair ? HiveUpgrades.repairAmount(player, stack) : 1);
+        if (repair && next != old) {
+            int restored = restoredHealth(old, next);
+            if (restored > 0 && !dev.hurtify.relicsaddon.power.DevicePower.drain(player, stack, restored * dev.hurtify.relicsaddon.power.DevicePower.HIVE_REPAIR_PER_HP)) {
+                next = old.prepare(capacity(player, stack), health(player, stack), player.level().getGameTime(), false, 1);
+            }
+        }
         if (old != next) stack.set(ModDataComponents.HIVE_STACK_STATE.get(), next);
         return next;
+    }
+
+    /** HP regained by drones that already existed; drones added by a larger capacity arrive free. */
+    private static int restoredHealth(HiveStackState before, HiveStackState after) {
+        int sum = 0, shared = Math.min(before.units().size(), after.units().size());
+        for (int index = 0; index < shared; index++) sum += Math.max(0, after.units().get(index).hp() - before.units().get(index).hp());
+        return sum;
     }
 
     public static void onPlayerTick(PlayerTickEvent.Post event) {

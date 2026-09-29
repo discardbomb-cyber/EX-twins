@@ -52,7 +52,20 @@ public final class DeviceTargets {
         open(targets.get(Math.floorMod(index + delta, targets.size())));
     }
 
-    private static void open(Target target) {
+    /** Finds where a stack instance lives on the player: a Curios charm slot or the inventory. */
+    public static Target locate(Player player, ItemStack stack) {
+        var charm = CuriosApi.getCuriosInventory(player).flatMap(handler -> handler.getStacksHandler(RelicRole.EQUIPMENT_SLOT));
+        if (charm.isPresent()) {
+            var stacks = charm.get().getStacks();
+            for (int slot = 0; slot < stacks.getSlots(); slot++) if (stacks.getStackInSlot(slot) == stack) return new Target(true, slot);
+        }
+        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+            if (player.getInventory().getItem(slot) == stack) return new Target(false, slot);
+        }
+        return null;
+    }
+
+    public static void open(Target target) {
         last = target;
         PacketDistributor.sendToServer(new OpenDevicePayload(target.charm(), target.slot()));
     }

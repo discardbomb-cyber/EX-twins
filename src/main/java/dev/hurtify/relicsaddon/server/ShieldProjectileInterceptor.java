@@ -125,6 +125,8 @@ public final class ShieldProjectileInterceptor {
             projectile.getPersistentData().putUUID(ABSORBED_FOR, player.getUUID());
             projectile.getPersistentData().putBoolean(ABSORBED_FOR + player.getUUID(), true);
             RelicRuntime.awardAbsorption(player, shield, absorbed);
+            dev.hurtify.relicsaddon.power.DevicePower.drain(player, shield,
+                    net.minecraft.util.Mth.ceil(absorbed * dev.hurtify.relicsaddon.power.DevicePower.ABSORB_PER_HP));
         }
         if (stopped) {
             projectile.setPos(projectile.position().add(projectile.getDeltaMovement().scale(crossing.time())));

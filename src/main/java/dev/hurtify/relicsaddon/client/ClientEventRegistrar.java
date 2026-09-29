@@ -13,6 +13,9 @@ public final class ClientEventRegistrar {
         NeoForge.EVENT_BUS.addListener(ShieldThreatTracker::onTick);
         NeoForge.EVENT_BUS.addListener(HiveVisualRenderer::onRenderLevelStage);
         NeoForge.EVENT_BUS.addListener(HiveMenuKey::tick);
+        NeoForge.EVENT_BUS.addListener(ShiftHoverOpener::onClientTick);
+        NeoForge.EVENT_BUS.addListener(ShiftHoverOpener::onMouseClick);
+        NeoForge.EVENT_BUS.addListener(ShiftHoverOpener::onTooltip);
         modEventBus.addListener(HiveMenuKey::register);
         modEventBus.addListener(AnimatedRelicItemRenderer::registerAdditionalModels);
         modEventBus.addListener(ClientEventRegistrar::registerItemExtensions);

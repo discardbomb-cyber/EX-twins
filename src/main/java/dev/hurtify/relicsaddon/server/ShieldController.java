@@ -1,5 +1,6 @@
 package dev.hurtify.relicsaddon.server;
 
+import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
 
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
@@ -88,6 +89,7 @@ public final class ShieldController {
                 .add(impact.normal().scale(impact.distance() >= 0 ? impact.distance() : ShieldParameters.radius(player, shield))),
                 ((AutonomousRelicItem) shield.getItem()).role(), impact.broken(), next.totalIntegrity() == 0);
         RelicRuntime.awardAbsorption(player, shield, absorbed);
+        DevicePower.drain(player, shield, Mth.ceil(absorbed * DevicePower.ABSORB_PER_HP));
         player.displayClientMessage(Component.translatable("message.relics_addon.shield_blocked",
                 formatDamage(absorbed), next.sharedBuffer(), ShieldParameters.capacity(player, shield),
                 next.cellHp(cell), ShieldStackState.MAX_PANEL_INTEGRITY), true);
@@ -117,8 +119,11 @@ public final class ShieldController {
         if (now % interval != 0 || !state.needsRepair(capacity)) {
             return;
         }
-        shield.set(ModDataComponents.SHIELD_STACK_STATE.get(), ShieldCellDefense.repair(state, now, capacity,
-                ShieldUpgrades.quietTicks(player, shield), ShieldUpgrades.repairSteps(player, shield)));
+        ShieldStackState repaired = ShieldCellDefense.repair(state, now, capacity,
+                ShieldUpgrades.quietTicks(player, shield), ShieldUpgrades.repairSteps(player, shield));
+        int restored = repaired.totalIntegrity() - state.totalIntegrity();
+        if (restored > 0 && !DevicePower.drain(player, shield, restored * DevicePower.REPAIR_PER_HP)) return;
+        shield.set(ModDataComponents.SHIELD_STACK_STATE.get(), repaired);
     }
 
     public static float reduction(float damage, double ratio, float capacity) {

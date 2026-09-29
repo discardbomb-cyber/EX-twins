@@ -1,11 +1,14 @@
 package dev.hurtify.relicsaddon.menu;
 
+import dev.hurtify.relicsaddon.power.DeviceEnergy;
+import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.registry.ModItems;
 import dev.hurtify.relicsaddon.registry.ModMenus;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
 import dev.hurtify.relicsaddon.relic.DeviceProgression;
 import dev.hurtify.relicsaddon.relic.DeviceUpgrade;
+import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.server.EquippedRelicSetResolver;
 import dev.hurtify.relicsaddon.server.HiveController;
@@ -21,6 +24,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.energy.IEnergyStorage;
 
 /**
  * Module bay and control console for one shield or hive. The device itself stays where it is
@@ -29,7 +34,11 @@ import net.minecraft.world.item.ItemStack;
 public final class DeviceControlMenu extends AbstractContainerMenu {
     public static final int BUTTON_TOGGLE = 0;
     public static final int BUTTON_HEALERS_MINUS_10 = 1, BUTTON_HEALERS_MINUS_1 = 2, BUTTON_HEALERS_PLUS_1 = 3, BUTTON_HEALERS_PLUS_10 = 4;
+    public static final int BUTTON_RF_BATTERY = 5, BUTTON_MANA_BATTERY = 6, BUTTON_MANA_SOURCE = 7;
     public static final int BUTTON_UPGRADE_BASE = 10;
+    public static final int CHARGE_X = 136, CHARGE_Y = 108;
+    /** Menu slot layout: module bays, the charge slot, then the player inventory. */
+    public static final int CHARGE_SLOT = DeviceProgression.MODULE_SLOTS, INVENTORY_START = CHARGE_SLOT + 1;
     public static final int MODULE_X = 62, MODULE_Y = 72, MODULE_SPACING = 26;
     public static final int INVENTORY_X = 8, INVENTORY_Y = 140;
 
@@ -39,6 +48,8 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
     private final String identity;
     /** Client-only presentation flag: module slots are hidden while another tab is shown. */
     private boolean modulesVisible = true;
+    private boolean chargeVisible;
+    private final SimpleContainer charge = new SimpleContainer(1);
 
     public DeviceControlMenu(int containerId, Inventory inventory, boolean charm, int deviceSlot) {
         super(ModMenus.DEVICE_CONTROL.get(), containerId);
@@ -50,6 +61,7 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
         for (int index = 0; index < DeviceProgression.MODULE_SLOTS; index++) {
             addSlot(new ModuleSlot(modules, index, MODULE_X + index * MODULE_SPACING, MODULE_Y));
         }
+        addSlot(new ChargeSlot(charge, CHARGE_X, CHARGE_Y));
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 9; column++) {
                 addSlot(new Slot(inventory, column + row * 9 + 9, INVENTORY_X + column * 18, INVENTORY_Y + row * 18));
@@ -72,7 +84,11 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
     public ItemStack device() { return HiveTaskController.locate(player, charm, deviceSlot); }
     public boolean charm() { return charm; }
     public int deviceSlot() { return deviceSlot; }
-    public void setModulesVisible(boolean visible) { modulesVisible = visible; }
+    /** Client-side tab state: which of the tab-specific slots can be seen and clicked. */
+    public void setVisibleSlots(boolean modules, boolean chargeSlot) {
+        modulesVisible = modules;
+        chargeVisible = chargeSlot;
+    }
 
     private boolean deviceValid() {
         ItemStack stack = device();
@@ -98,6 +114,18 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
             int healers = Math.clamp(HiveTaskController.settings(stack).healerCount(capacity) + delta, 0, capacity);
             return HiveTaskController.configure(player, charm, deviceSlot, identity, healers);
         }
+        RelicRole role = item.role();
+        if (id == BUTTON_RF_BATTERY && DevicePower.hasRf(role) || id == BUTTON_MANA_BATTERY && DevicePower.hasMana(role)) {
+            boolean rf = id == BUTTON_RF_BATTERY;
+            DeviceEnergy energy = DevicePower.energy(stack);
+            DevicePower.setBattery(stack, rf, !(rf ? energy.rfOn() : energy.manaOn()));
+            RelicSounds.ui(player, RelicSounds.Ui.TOGGLE);
+            return true;
+        }
+        if (id == BUTTON_MANA_SOURCE && DevicePower.hasMana(role)) {
+            DevicePower.cycleManaSource(stack);
+            return true;
+        }
         int upgrade = id - BUTTON_UPGRADE_BASE;
         if (upgrade >= 0 && upgrade < DeviceUpgrade.values().length && RelicRuntime.purchaseUpgrade(stack, DeviceUpgrade.values()[upgrade].id())) {
             RelicSounds.ui(player, RelicSounds.Ui.UPGRADE);
@@ -112,18 +140,51 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
         ItemStack stack = slot.getItem();
         ItemStack original = stack.copy();
         int modules = DeviceProgression.MODULE_SLOTS;
-        if (index < modules) {
-            if (!moveItemStackTo(stack, modules, slots.size(), true)) return ItemStack.EMPTY;
+        if (index < INVENTORY_START) {
+            if (!moveItemStackTo(stack, INVENTORY_START, slots.size(), true)) return ItemStack.EMPTY;
         } else if (stack.is(ModItems.DEVICE_MODULE.get())) {
             if (!moveItemStackTo(stack, 0, modules, false)) return ItemStack.EMPTY;
-        } else if (index < modules + 27) {
-            if (!moveItemStackTo(stack, modules + 27, slots.size(), false)) return ItemStack.EMPTY;
-        } else if (!moveItemStackTo(stack, modules, modules + 27, false)) {
+        } else if (ChargeSlot.accepts(stack)) {
+            if (!moveItemStackTo(stack, CHARGE_SLOT, INVENTORY_START, false)) return ItemStack.EMPTY;
+        } else if (index < INVENTORY_START + 27) {
+            if (!moveItemStackTo(stack, INVENTORY_START + 27, slots.size(), false)) return ItemStack.EMPTY;
+        } else if (!moveItemStackTo(stack, INVENTORY_START, INVENTORY_START + 27, false)) {
             return ItemStack.EMPTY;
         }
         if (stack.isEmpty()) slot.setByPlayer(ItemStack.EMPTY);
         else slot.setChanged();
         return original;
+    }
+
+    /** Runs every server tick while the menu is open: pours FE from the charge slot into the RF battery. */
+    @Override public void broadcastChanges() {
+        ItemStack source = charge.getItem(0);
+        if (!player.level().isClientSide() && !source.isEmpty() && deviceValid()) {
+            IEnergyStorage from = source.getCapability(Capabilities.EnergyStorage.ITEM);
+            ItemStack device = device();
+            if (from != null && from.canExtract()) {
+                int wanted = DevicePower.receiveFe(device, DevicePower.FE_TRANSFER_PER_TICK, true);
+                int moved = wanted > 0 ? from.extractEnergy(wanted, false) : 0;
+                if (moved > 0) DevicePower.receiveFe(device, moved, false);
+            }
+        }
+        super.broadcastChanges();
+    }
+
+    @Override public void removed(Player player) {
+        super.removed(player);
+        clearContainer(player, charge);
+    }
+
+    private final class ChargeSlot extends Slot {
+        ChargeSlot(Container container, int x, int y) { super(container, 0, x, y); }
+        static boolean accepts(ItemStack stack) {
+            IEnergyStorage energy = stack.getCapability(Capabilities.EnergyStorage.ITEM);
+            return energy != null && energy.canExtract() && !(stack.getItem() instanceof AutonomousRelicItem);
+        }
+        @Override public boolean mayPlace(ItemStack stack) { return accepts(stack); }
+        @Override public int getMaxStackSize() { return 1; }
+        @Override public boolean isActive() { return chargeVisible; }
     }
 
     private final class ModuleSlot extends Slot {

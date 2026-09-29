@@ -13,7 +13,9 @@ public final class RelicRuntime {
         return item.role().isHive() ? stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), dev.hurtify.relicsaddon.drone.HiveStackState.DEFAULT).enabled()
                 : stack.getOrDefault(ModDataComponents.SHIELD_STACK_STATE.get(), ShieldStackState.DEFAULT).enabled();
     }
-    public static boolean canOperate(Player player, ItemStack stack) { return enabled(stack) && player != null && !player.isSpectator(); }
+    public static boolean canOperate(Player player, ItemStack stack) {
+        return enabled(stack) && player != null && !player.isSpectator() && dev.hurtify.relicsaddon.power.DevicePower.powered(player, stack);
+    }
     public static void setEnabled(Player player, ItemStack stack, boolean enabled) {
         if (!(stack.getItem() instanceof AutonomousRelicItem item)) return;
         AutonomousRelicItem.ensureState(stack);
