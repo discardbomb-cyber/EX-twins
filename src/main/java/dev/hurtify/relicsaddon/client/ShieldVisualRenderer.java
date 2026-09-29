@@ -210,6 +210,11 @@ public final class ShieldVisualRenderer {
                 forwardX, forwardZ, quality == ShieldVisualQuality.LOW, eyeDirection, radius, bufferRatio);
     }
 
+    /** Flushes the additive light layer; callers drawing shells outside the world pass (galleries) need it. */
+    public static void flushGlow() {
+        ShieldGlow.flush();
+    }
+
     public static RenderType renderType() {
         return SHIELD_RENDER_TYPE;
     }
