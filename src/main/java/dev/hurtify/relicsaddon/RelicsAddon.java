@@ -31,6 +31,7 @@ public final class RelicsAddon {
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.power.DevicePower::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(ShieldController::onIncomingDamage);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.ShieldEffectGuard::onEffectApplicable);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.ShieldEffectGuard::onDamagePost);
         NeoForge.EVENT_BUS.addListener(ShieldController::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.ShieldBarrier::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(ShieldProjectileInterceptor::onEntityTick);
@@ -40,6 +41,7 @@ public final class RelicsAddon {
         NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.HIGH, dev.hurtify.relicsaddon.server.HiveContainment::onIncomingDamage);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.HiveContainment::onEntityJoin);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.HiveContainment::onTeleport);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.HiveContainment::onEntityInteract);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.HiveContainment::onLevelTick);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.HiveCombatController::onPlayerChangedDimension);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.ShieldStatusCommand::register);

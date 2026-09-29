@@ -22,6 +22,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Husk;
 import net.minecraft.world.entity.projectile.Arrow;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -101,10 +102,11 @@ public final class HiveModeGameTests {
         });
     }
 
-    @GameTest(template = ARENA, timeoutTicks = 200)
+    // Sky access: without it the test area gets a barrier roof, which the lift would rightly stop under.
+    @GameTest(template = ARENA, timeoutTicks = 200, skyAccess = true)
     public static void twinsRiftsLiftTheTarget(GameTestHelper helper) {
         Fight fight = fight(helper, RelicRole.TWINS_HIVE, AttackMode.CONTAINMENT);
-        double ground = fight.husk.getY();
+        double ground = floorUnder(helper, fight.husk);
         helper.onEachTick(() -> HiveCombatController.tick(fight.player));
         helper.runAfterDelay(80, () -> {
             helper.assertTrue(Math.abs(fight.husk.getY() - ground - HiveContainment.LIFT) < .1,
@@ -114,6 +116,23 @@ public final class HiveModeGameTests {
         });
         helper.runAfterDelay(90, () -> {
             helper.assertFalse(fight.husk.isNoGravity(), "Released, it falls again");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = ARENA, timeoutTicks = 200)
+    public static void twinsLiftStopsUnderACeiling(GameTestHelper helper) {
+        Fight fight = fight(helper, RelicRole.TWINS_HIVE, AttackMode.CONTAINMENT);
+        // A stone ceiling three blocks over the target's feet leaves about one block to rise.
+        for (int x = 6; x <= 11; x++) for (int z = 4; z <= 9; z++) helper.setBlock(new BlockPos(x, 4, z), Blocks.STONE);
+        double ground = floorUnder(helper, fight.husk);
+        helper.onEachTick(() -> HiveCombatController.tick(fight.player));
+        helper.runAfterDelay(80, () -> {
+            double lifted = fight.husk.getY() - ground;
+            double room = helper.absolutePos(new BlockPos(8, 4, 6)).getY() - ground;
+            helper.assertTrue(lifted > .5 && lifted <= room - fight.husk.getBbHeight() + 1e-6, "The lift stops under the ceiling (" + lifted + " of " + room + ")");
+            helper.assertTrue(helper.getLevel().noCollision(fight.husk, fight.husk.getBoundingBox()), "The target is never pushed into the blocks");
+            helper.assertFalse(fight.husk.isInWall(), "It does not suffocate");
             helper.succeed();
         });
     }
@@ -143,6 +162,12 @@ public final class HiveModeGameTests {
         helper.assertTrue(HiveSlots.fighterSlots(swarm.units().size(), HiveSettings.DEFAULT) == HiveType.MAX_DEPLOYED, "At most 250 fly at once");
         helper.assertTrue(swarm.units().stream().allMatch(unit -> unit.hp() == HiveType.DRONE_HP), "Every drone has three hit points");
         helper.succeed();
+    }
+
+    /** The floor under a creature: the fixture's target floats (it has no AI, so no gravity), and lifts count from the ground. */
+    private static double floorUnder(GameTestHelper helper, Husk husk) {
+        return helper.getLevel().clip(new ClipContext(husk.position(), husk.position().subtract(0, 8, 0), ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE, husk)).getLocation().y;
     }
 
     private record Fight(ServerPlayer player, ItemStack hive, Husk husk) { }

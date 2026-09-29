@@ -51,6 +51,20 @@ public final class ShieldHexMeshCheck {
             report.add(quality.name(), cells);
             System.out.println(quality + ": " + cells.size() + " cells; normalized, cached, four sectors, closed crown; edges=" + minEdge + ".." + maxEdge);
         }
+        // The drawn honeycomb: even cells (twelve pentagons, the rest hexagons), and every gameplay cell drawn.
+        var honeycomb = ShieldHoneycomb.CELLS;
+        require(honeycomb.size() == 10 * ShieldHoneycomb.FREQUENCY * ShieldHoneycomb.FREQUENCY + 2, "a Goldberg honeycomb has 10f²+2 cells");
+        int pentagons = 0;
+        boolean[] drawn = new boolean[dev.hurtify.relicsaddon.shield.ShieldTopology.CELL_COUNT];
+        for (ShieldHoneycomb.Cell cell : honeycomb) {
+            int corners = cell.perimeter().length / 3;
+            require(corners == 5 || corners == 6, "honeycomb cells are pentagons or hexagons, got " + corners);
+            if (corners == 5) pentagons++;
+            drawn[cell.gameplay()] = true;
+        }
+        require(pentagons == 12, "exactly twelve pentagons, got " + pentagons);
+        for (int cell = 0; cell < drawn.length; cell++) require(drawn[cell], "gameplay cell " + cell + " is never drawn, so its hole would not show");
+        System.out.println("Honeycomb: " + honeycomb.size() + " even cells, every one of " + drawn.length + " gameplay cells drawn");
         Path output = Path.of(args[0]);
         Files.createDirectories(output.getParent());
         Files.writeString(output, new GsonBuilder().setPrettyPrinting().create().toJson(report));

@@ -75,8 +75,13 @@ public final class ShieldConfigGameTests {
             helper.assertTrue(husk.hurt(helper.getLevel().damageSources().source(ShieldStrike.DISCHARGE, player), 4), "A strike still lands");
             helper.assertTrue(husk.getHealth() < husk.getMaxHealth() && DeviceTestSupport.integrity(shield) == after,
                     "The field never absorbs its own strike, whatever the absorb list says");
-            helper.assertTrue(ShieldController.passesField(helper.getLevel().damageSources().source(HiveCombatController.SWARM_STRIKE, player)),
-                    "Swarm blows always pass");
+            helper.assertFalse(ShieldController.passesField(helper.getLevel().damageSources().source(HiveCombatController.SWARM_STRIKE, player)),
+                    "Swarm blows are not waved through every field: another player's field stops them");
+            husk.invulnerableTime = 0;
+            float health = husk.getHealth();
+            helper.assertTrue(husk.hurt(helper.getLevel().damageSources().source(HiveCombatController.SWARM_STRIKE, player), 3), "The owner's swarm lands");
+            helper.assertTrue(husk.getHealth() < health && DeviceTestSupport.integrity(shield) == after,
+                    "A field never shelters a stranger inside it from its own owner's swarm");
             withList(AddonConfig.SHIELD_PASSING_DAMAGE_TYPES, List.of("minecraft:starve"), () ->
                     helper.assertTrue(ShieldController.passesField(player.damageSources().starve()), "The pass list wins over the absorb list"));
         });

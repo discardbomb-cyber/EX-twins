@@ -33,6 +33,31 @@ public final class NetworkCodecCheck {
                 java.util.Collections.nCopies(HiveType.MAX_DRONES, HiveStackState.Unit.fresh())), "resting swarm");
         require(restingBytes < 800, "a resting 750-drone swarm must fit in about a byte per drone, took " + restingBytes);
 
+        // After a fight, quiet lanes drop their timings and the swarm is back to a byte per drone.
+        int slots = HiveType.MAX_DEPLOYED, fighters = HiveType.MAX_DRONES;
+        List<HiveStackState.Unit> fought = new ArrayList<>();
+        for (int index = 0; index < HiveType.MAX_DRONES; index++) {
+            fought.add(index % 5 == 0 ? HiveStackState.Unit.fresh().hit(1, 1_000 + index, 1_100 + index) : HiveStackState.Unit.fresh());
+        }
+        fought.set(3, HiveStackState.Unit.fresh().hit(1, 5_950, 5_990));
+        HiveStackState afterFight = new HiveStackState(true, fought);
+        HiveStackState repaired = afterFight.prepare(HiveType.MAX_DRONES, 6_000, true);
+        HiveStackState settled = repaired.settle(6_000, slots, fighters, 120);
+        require(roundTrip(HiveStackState.STREAM_CODEC, repaired, "fought swarm") > 1000, "a fought swarm carries its timings");
+        require(settled.units().get(0).equals(HiveStackState.Unit.fresh()) && settled.units().get(slots).equals(HiveStackState.Unit.fresh()),
+                "a quiet lane starts afresh");
+        require(!settled.units().get(3).equals(HiveStackState.Unit.fresh()), "a lane with a drone hit moments ago keeps its timings");
+        require(roundTrip(HiveStackState.STREAM_CODEC, settled, "settled swarm") < 800 + 30, "a settled swarm is back to about a byte per drone");
+        for (int lane = 0; lane < slots; lane++) {
+            if (lane == 3) continue;
+            require(HiveSlots.occupant(settled.units(), lane, slots, fighters, 6_000) == lane, "a settled lane is flown by its first drone");
+        }
+        require(settled.settle(6_000, slots, fighters, 120) == settled, "settling twice changes nothing");
+        HiveStackState foreign = new HiveStackState(true, List.of(HiveStackState.Unit.fresh().hit(1, 9_000_000, 9_000_200)));
+        HiveStackState.Unit pulled = foreign.settle(100, 1, 1, 120).units().get(0);
+        require(pulled.hp() == 2 && pulled.readyAt() <= 100 && pulled.lastHit() < 0,
+                "timings from another world's later clock are pulled back, so the drone is repaired here rather than grounded for days");
+
         // Saves keep health and repair time; older saves (one compound per drone) still load.
         HiveStackState saved = decode(HiveStackState.CODEC, encode(HiveStackState.CODEC, swarm));
         for (int index = 0; index < units.size(); index++) {
