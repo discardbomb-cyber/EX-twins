@@ -121,14 +121,14 @@ public final class HiveVisualRenderer {
                 if (unit < 0) continue;
                 long since = HiveSlots.since(units, slot, slots, fighters, unit, now);
                 double launched = Math.max(since, combat.changedAt());
-                Vec3 station = HiveFormation.station(combat.mode(), type, slot, slots, feet, width, height, time, cycleStart, interval);
+                Vec3 station = HiveFormation.station(combat.mode(), type, slot, slots, owner, feet, width, height, time, cycleStart, interval);
                 Vec3 at = HiveFormation.deployed(owner, yaw, station, unit, count, type, time, launched, combat.travel());
                 members[HiveSlots.group(slot, groups)]++;
                 drones[slot] = at;
                 seen[unit] = at;
                 drawDrone(minecraft, event, player, type, at, core, appear, count, camera, poses, glow, budget, unit == 0);
             }
-            scenes.add(new HiveModeVisual.Scene(combat.mode(), type, slots, groups, members, drones, feet, width, height, time, cycleStart, interval,
+            scenes.add(new HiveModeVisual.Scene(combat.mode(), type, slots, groups, members, drones, owner, feet, width, height, time, cycleStart, interval,
                     time >= combat.changedAt() + combat.travel() * .5));
         }
         // Hit drones fly home from where they were struck; after a recall the whole swarm does.

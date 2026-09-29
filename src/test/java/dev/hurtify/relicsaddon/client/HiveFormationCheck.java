@@ -29,16 +29,20 @@ public final class HiveFormationCheck {
             }
         }
 
-        // Every mode keeps every place finite, near the target and apart from the others.
+        // Every mode keeps every place finite, near where it belongs and apart from the others.
         for (AttackMode mode : AttackMode.values()) for (HiveType type : HiveType.values()) for (int slots : new int[]{1, 2, 12, 16, 17, 100, 250}) {
             for (double time : new double[]{0, 187.25, 5_000.5, 3_000_000.75}) {
                 Vec3[] at = new Vec3[slots];
                 for (int slot = 0; slot < slots; slot++) {
-                    at[slot] = HiveFormation.station(mode, type, slot, slots, target, 1.1, 1.9, time, 100, 60);
+                    at[slot] = HiveFormation.station(mode, type, slot, slots, owner, target, 1.1, 1.9, time, 100, 60);
                     requireFinite(at[slot], mode + " station");
-                    double limit = mode == AttackMode.CONTAINMENT ? 4 : 15;
+                    double limit = switch (mode) {
+                        case CONTAINMENT -> 4;
+                        case BARRAGE -> 9;
+                        case DROPLET -> owner.distanceTo(core) + 14;
+                    };
                     require(at[slot].distanceTo(core) < limit, mode + " " + type + " place " + slot + "/" + slots + " strayed " + at[slot].distanceTo(core));
-                    Vec3 later = HiveFormation.station(mode, type, slot, slots, target, 1.1, 1.9, time + .001, 100, 60);
+                    Vec3 later = HiveFormation.station(mode, type, slot, slots, owner, target, 1.1, 1.9, time + .001, 100, 60);
                     require(at[slot].distanceTo(later) < .05, mode + " " + type + " stations must move smoothly");
                 }
                 if (mode != AttackMode.DROPLET || time < 100) for (int a = 0; a < slots; a++) for (int b = a + 1; b < slots; b++) {
@@ -49,7 +53,7 @@ public final class HiveFormationCheck {
 
         // Drones fly out from their hive slot and land exactly on their station, smoothly in between.
         for (HiveType type : HiveType.values()) for (int unit = 0; unit < 60; unit++) {
-            Vec3 station = HiveFormation.station(AttackMode.BARRAGE, type, unit, 60, target, 1.1, 1.9, 150, 100, 60);
+            Vec3 station = HiveFormation.station(AttackMode.BARRAGE, type, unit, 60, owner, target, 1.1, 1.9, 150, 100, 60);
             require(HiveFormation.deployed(owner, 35, station, unit, 60, type, 150, 150, 30).equals(HiveFormation.idle(owner, 35, unit, 60, type, 150)),
                     "a drone sets off from its hive slot");
             require(HiveFormation.deployed(owner, 35, station, unit, 60, type, 180, 150, 30).equals(station), "a drone lands on its station");
@@ -63,19 +67,61 @@ public final class HiveFormationCheck {
             require(home.equals(HiveFormation.idle(owner, 35, unit, 60, type, 150 + HiveFormation.RETURN_TICKS)), "a hit drone ends back in the hive");
         }
 
-        // Droplet: every group dives through the target exactly when its blow is due.
-        for (int groups = 2; groups <= 16; groups++) for (int group = 0; group < groups; group++) {
-            int hits = 0;
-            long started = 100 + Math.round(60.0 * group / groups);
-            require(HiveFormation.groupPhase(started - 1, 100, 60, group, groups) < 0, "a group hovers until its own start");
-            for (long now = started; now < started + 60 * 5; now++) {
-                if (!HiveFormation.passes(now, 100, 60, group, groups, HiveFormation.IMPACT)) continue;
-                hits++;
-                Vec3 centre = HiveFormation.dropletCentre(target, 1.1, 1.9, group, groups, now, 100, 60);
-                require(centre.distanceTo(core) < .01, "a group's blow lands when its shape reaches the target (" + centre.distanceTo(core) + ")");
+        // Droplet: every group forms up in its owner's fan, flies out and lands its blow exactly on the target, then comes back.
+        for (int groups = 2; groups <= 16; groups++) {
+            for (int a = 0; a < groups; a++) for (int b = a + 1; b < groups; b++) {
+                double apart = HiveFormation.muster(owner, target, a, groups, 50).distanceTo(HiveFormation.muster(owner, target, b, groups, 50));
+                require(apart > 2.3, "figures " + a + " and " + b + " of " + groups + " form up too close: " + apart);
             }
-            require(hits == 5, "one blow per group per cycle, got " + hits);
-            require(HiveFormation.post(target, 1.1, 1.9, group, groups, 0, 4.2).distanceTo(core) > 4, "groups wait well clear of the target");
+            for (int group = 0; group < groups; group++) {
+                int hits = 0;
+                long started = 100 + Math.round(60.0 * group / groups);
+                require(HiveFormation.groupPhase(started - 1, 100, 60, group, groups) < 0, "a group waits until its own start");
+                Vec3 home = HiveFormation.muster(owner, target, group, groups, 0);
+                require(home.distanceTo(owner) < 11 && home.y > owner.y + 1.8, "figures form up above and around their owner: " + home.subtract(owner));
+                require(home.distanceTo(core) > owner.distanceTo(core), "figures form up behind their owner, not in the way");
+                require(HiveFormation.dropletCentre(owner, target, 1.9, group, groups, started - 1, 100, 60).equals(HiveFormation.muster(owner, target, group, groups, started - 1)),
+                        "a figure waits in the fan before its first sortie");
+                for (long now = started; now < started + 60 * 5; now++) {
+                    if (!HiveFormation.passes(now, 100, 60, group, groups, HiveFormation.IMPACT)) continue;
+                    hits++;
+                    Vec3 centre = HiveFormation.dropletCentre(owner, target, 1.9, group, groups, now, 100, 60);
+                    require(centre.distanceTo(core) < .01, "a group's blow lands when its figure reaches the target (" + centre.distanceTo(core) + ")");
+                    long flight = Math.round(HiveFormation.flightTicks(HiveFormation.muster(owner, target, group, groups, now).distanceTo(core), 60));
+                    // The blow lands on the first whole tick past the impact and the flight is rounded, so the sound may trail the launch by up to two ticks.
+                    require(HiveFormation.sortie(owner, target, 1.9, group, groups, now - flight - 2, 100, 60) < 0,
+                            "the launch sound plays as the figure leaves the fan: " + groups + "/" + group + " at " + now);
+                }
+                require(hits == 5, "one blow per group per cycle, got " + hits);
+                Vec3 previous = null;
+                for (double t = started; t < started + 120; t += .25) {
+                    Vec3 centre = HiveFormation.dropletCentre(owner, target, 1.9, group, groups, t, 100, 60);
+                    if (previous != null) require(previous.distanceTo(centre) < 1.5, "a figure flies, it does not jump (" + previous.distanceTo(centre) + " at " + t + ")");
+                    previous = centre;
+                }
+            }
+        }
+
+        // Barrage: dense clumps that stay apart, each drone inside its own clump, joined into the family's pattern.
+        for (HiveType type : HiveType.values()) for (int groups = 1; groups <= 16; groups++) {
+            int members = Math.max(1, 250 / groups);
+            double radius = HiveFormation.clumpRadius(members);
+            for (double time : new double[]{0, 400.5, 77_777.25}) {
+                for (int a = 0; a < groups; a++) for (int b = a + 1; b < groups; b++) {
+                    double apart = HiveFormation.clusterCentre(type, target, 1.1, 1.9, a, groups, time)
+                            .distanceTo(HiveFormation.clusterCentre(type, target, 1.1, 1.9, b, groups, time));
+                    require(apart > radius * 2.9, type + " clumps " + a + " and " + b + " of " + groups + " touch: " + apart);
+                }
+                for (int member = 0; member < members; member += Math.max(1, members / 30)) {
+                    Vec3 offset = dev.hurtify.relicsaddon.drone.HiveShapes.clump(type, member, members, time, new Vec3(1, -.3, .2), radius);
+                    double limit = type == HiveType.TWINS ? radius * 1.25 : radius * 1.08;
+                    require(offset.length() < limit, type + " clump member strays: " + offset.length() + " of " + radius);
+                    if (type != HiveType.TWINS) require(offset.length() > radius * .5, "RF and Mana clumps leave their middle to the charge");
+                }
+            }
+            int[][] links = HiveFormation.clusterLinks(type, groups);
+            require(groups < 2 || links.length >= groups - 1, type + " pattern links every clump");
+            for (int[] link : links) require(link[0] != link[1] && link[0] >= 0 && link[1] < groups, "links join two different clumps");
         }
 
         // Lanes: a hit drone hands its place to the next one at once, and a repaired one waits in reserve.

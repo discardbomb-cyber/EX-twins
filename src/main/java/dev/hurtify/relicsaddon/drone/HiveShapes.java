@@ -111,32 +111,45 @@ public final class HiveShapes {
     // --- barrage mode --------------------------------------------------------------------------
 
     /**
-     * A cluster's pattern around its charge, across the line to the target ({@code facing}): RF a
-     * spinning ring, Mana a ring that breathes along the line, Twins an octagon.
+     * Member {@code m} of a dense barrage clump of {@code count} drones around its charge, within
+     * {@code radius}: RF a thick shell swirling faster inside than out, Mana a breathing shell, Twins a
+     * thick octagonal disc across the line to the target ({@code facing}). The shells leave the middle
+     * to the glowing charge.
      */
-    public static Vec3 cluster(HiveType type, int m, int count, double time, Vec3 facing) {
-        Vec3[] axes = axes(facing);
-        double radius = .45 + .07 * Math.sqrt(count);
+    public static Vec3 clump(HiveType type, int m, int count, double time, Vec3 facing, double radius) {
+        count = Math.max(1, count);
+        double fill = (m + .5) / count;
         return switch (type) {
-            case RF -> {
-                double angle = m * Math.PI * 2 / count + time * .06;
-                yield axes[1].scale(Math.cos(angle) * radius).add(axes[2].scale(Math.sin(angle) * radius));
-            }
-            case MANA -> {
-                double angle = m * Math.PI * 2 / count - time * .035;
-                yield axes[1].scale(Math.cos(angle) * radius).add(axes[2].scale(Math.sin(angle) * radius))
-                        .add(axes[0].scale(.12 * Math.sin(time * .15 + m)));
+            case RF, MANA -> {
+                // Golden-ratio directions with depth growing by volume: an even, dense shell.
+                double y = 1 - 2 * ((m * .6180339887 + .25) % 1);
+                double ring = Math.sqrt(Math.max(0, 1 - y * y)), around = m * GOLDEN_ANGLE;
+                double depth = radius * (.55 + .45 * Math.cbrt(fill));
+                Vec3 direction = new Vec3(Math.cos(around) * ring, y, Math.sin(around) * ring);
+                if (type == HiveType.RF) {
+                    yield rotate(direction, RF_SWIRL, time * (.07 - .03 * fill)).scale(depth);
+                }
+                double breath = 1 + .07 * Math.sin(time * .12 + m * .4);
+                yield rotate(direction, new Vec3(0, 1, 0), -time * .035).scale(depth * breath);
             }
             case TWINS -> {
-                double along = m / (double) count * 8;
-                int side = (int) Math.floor(along) % 8;
-                double t = along - Math.floor(along), spin = time * .02;
-                double a0 = spin + side * Math.PI / 4, a1 = spin + (side + 1) * Math.PI / 4;
-                double r = radius * 1.2;
-                yield axes[1].scale((Math.cos(a0) * (1 - t) + Math.cos(a1) * t) * r)
-                        .add(axes[2].scale((Math.sin(a0) * (1 - t) + Math.sin(a1) * t) * r));
+                Vec3[] axes = axes(facing);
+                double spin = time * .02, angle = m * GOLDEN_ANGLE + spin;
+                // Spread evenly over the disc, then pushed out to the octagon's edge along each spoke.
+                double relative = ((angle - spin) % (Math.PI / 4) + Math.PI / 4) % (Math.PI / 4) - Math.PI / 8;
+                double r = radius * 1.2 * Math.sqrt(fill) * Math.cos(Math.PI / 8) / Math.cos(relative);
+                double thickness = (((m * .7548776662) % 1) - .5) * radius * .7;
+                yield axes[1].scale(Math.cos(angle) * r).add(axes[2].scale(Math.sin(angle) * r)).add(axes[0].scale(thickness));
             }
         };
+    }
+
+    private static final Vec3 RF_SWIRL = new Vec3(.3, 1, .2).normalize();
+
+    /** {@code v} turned by {@code angle} about the unit {@code axis}. */
+    public static Vec3 rotate(Vec3 v, Vec3 axis, double angle) {
+        double cos = Math.cos(angle), sin = Math.sin(angle);
+        return v.scale(cos).add(axis.cross(v).scale(sin)).add(axis.scale(axis.dot(v) * (1 - cos)));
     }
 
     // --- containment mode ----------------------------------------------------------------------

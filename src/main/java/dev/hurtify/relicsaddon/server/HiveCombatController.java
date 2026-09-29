@@ -34,18 +34,17 @@ import net.minecraft.world.entity.TamableAnimal;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.level.ExplosionEvent;
 
 /**
  * Server authority for the virtual swarm. Drones are item state, never entities; this class decides
- * when each strike group lands its blow (droplet), fires its charge (barrage) or how the construct
- * holds its target (containment), and when drones are hit and swapped for replacements. Positions
- * come from {@link HiveFormation}, the same maths the renderer uses.
+ * when each strike group's figure launches from its owner and lands its blow (droplet), when each
+ * clump fires its charge (barrage) or how the construct holds its target (containment), and when
+ * drones are hit and swapped for replacements. Positions come from {@link HiveFormation}, the same
+ * maths the renderer uses.
  */
 public final class HiveCombatController {
     /** Containment zaps: credited to the owner, never knocking the target about. */
@@ -112,6 +111,7 @@ public final class HiveCombatController {
 
         List<HiveCombatState.Shot> shots = new ArrayList<>(recentShots(state.shots(), now));
         tickFlights(owner, level, type, stack, shots, now);
+        Vec3 home = owner.position();
         long cycleStart = state.changedAt() + state.travel();
         int interval = strikeInterval(owner, stack);
         int groups = HiveSlots.groups(slots);
@@ -131,16 +131,22 @@ public final class HiveCombatController {
 
         switch (state.mode()) {
             case DROPLET -> {
+                Vec3 core = HiveFormation.core(feet, height);
                 for (int group = 0; group < groups; group++) {
-                    if (members[group] == 0 || !HiveFormation.passes(now, cycleStart, interval, group, groups, HiveFormation.IMPACT)) continue;
+                    if (members[group] == 0) continue;
+                    Vec3 muster = HiveFormation.muster(home, feet, group, groups, now);
+                    // The figure leaves the owner's fan so that it arrives exactly when its blow is due.
+                    long flight = Math.round(HiveFormation.flightTicks(muster.distanceTo(core), interval));
+                    if (HiveFormation.passes(now + flight, cycleStart, interval, group, groups, HiveFormation.IMPACT)) {
+                        RelicSounds.chargeFire(level, muster, type);
+                    }
+                    if (!HiveFormation.passes(now, cycleStart, interval, group, groups, HiveFormation.IMPACT)) continue;
                     if (!DevicePower.drain(owner, stack, members[group] * STRIKE_COST_PER_DRONE)) break;
-                    Vec3 post = HiveFormation.post(feet, width, height, group, groups, now, 4.2);
-                    Vec3 core = HiveFormation.core(feet, height);
                     float damage = members[group] * perDrone * efficiency();
-                    if (swarmHit(owner, target, damage, core.subtract(post), knockback(members[group]), SWARM_STRIKE)) {
+                    if (swarmHit(owner, target, damage, core.subtract(muster), knockback(members[group]), SWARM_STRIKE)) {
                         RelicRuntime.awardCombatExperience(owner, stack, damage);
                     }
-                    shots.add(new HiveCombatState.Shot(group, now, HiveCombatState.DROPLET, post.x, post.y, post.z, core.x, core.y, core.z, now));
+                    shots.add(new HiveCombatState.Shot(group, now, HiveCombatState.DROPLET, muster.x, muster.y, muster.z, core.x, core.y, core.z, now));
                     RelicSounds.swarmStrike(level, core, type);
                 }
             }
@@ -148,7 +154,7 @@ public final class HiveCombatController {
                 for (int group = 0; group < groups; group++) {
                     if (members[group] == 0 || !HiveFormation.passes(now, cycleStart, interval, group, groups, HiveFormation.FIRE)) continue;
                     if (!DevicePower.drain(owner, stack, members[group] * STRIKE_COST_PER_DRONE)) break;
-                    Vec3 from = HiveFormation.clusterCentre(feet, width, height, group, groups, now);
+                    Vec3 from = HiveFormation.clusterCentre(type, feet, width, height, group, groups, now);
                     Flight flight = Flight.ball(owner, type, group, members[group], members[group] * perDrone * efficiency(), from, target, now);
                     flights(owner.getUUID(), type).add(flight);
                     shots.add(flight.shot());
@@ -166,8 +172,8 @@ public final class HiveCombatController {
                             float damage = flying * perDrone * efficiency() * .12F;
                             switch (type) {
                                 case RF -> {
-                                    Vec3 from = HiveFormation.station(AttackMode.CONTAINMENT, type, (int) (now / 20 % slots), slots, target.position(),
-                                            width, height, now, cycleStart, interval);
+                                    Vec3 from = HiveFormation.station(AttackMode.CONTAINMENT, type, (int) (now / 20 % slots), slots, home,
+                                            target.position(), width, height, now, cycleStart, interval);
                                     if (swarmHit(owner, target, damage, Vec3.ZERO, 0, DRONE_SHOT)) RelicRuntime.awardCombatExperience(owner, stack, damage);
                                     shots.add(new HiveCombatState.Shot(0, now, HiveCombatState.ZAP, from.x, from.y, from.z, core.x, core.y, core.z, now));
                                     RelicSounds.containment(level, core, type);
@@ -206,7 +212,7 @@ public final class HiveCombatController {
             Vec3 struck = null;
             for (int slot = 0; slot < slots; slot++) {
                 if (occupant[slot] < 0 || now < HiveSlots.since(swarm.units(), slot, slots, fighters, occupant[slot], now) + state.travel()) continue;
-                Vec3 at = HiveFormation.station(state.mode(), type, slot, slots, feet, width, height, now, cycleStart, interval);
+                Vec3 at = HiveFormation.station(state.mode(), type, slot, slots, home, feet, width, height, now, cycleStart, interval);
                 double distance = at.distanceToSqr(mob.getBoundingBox().getCenter());
                 if (reach.contains(at) && distance < best) {
                     best = distance;
@@ -262,7 +268,7 @@ public final class HiveCombatController {
                 for (int slot = 0; slot < slots; slot++) {
                     int unit = HiveSlots.occupant(next, slot, slots, fighters, now);
                     if (unit < 0) continue;
-                    Vec3 at = HiveFormation.station(combat.mode(), hive.type(), slot, slots, feet, width, height, now, cycleStart, interval);
+                    Vec3 at = HiveFormation.station(combat.mode(), hive.type(), slot, slots, owner.position(), feet, width, height, now, cycleStart, interval);
                     double distance = at.distanceTo(centre);
                     if (distance > reach) continue;
                     next = hitDrone(owner, stack, hive.type(), next, unit, (int) Math.ceil(3 * (1 - distance / reach)), now);
@@ -342,8 +348,8 @@ public final class HiveCombatController {
             }
             Vec3 from = flight.position, to = from.add(flight.velocity);
             Hit hit = firstHit(owner, level, from, to);
-            if (hit.blocked() || hit.entity() != null || now >= flight.expiresAt) {
-                Vec3 point = hit.entity() != null || hit.blocked() ? hit.position() : to;
+            if (hit.entity() != null || now >= flight.expiresAt) {
+                Vec3 point = hit.entity() != null ? hit.position() : to;
                 if (hit.entity() != null && swarmHit(owner, hit.entity(), flight.damage, flight.velocity, knockback(flight.members), SWARM_STRIKE)) {
                     RelicRuntime.awardCombatExperience(owner, stack, flight.damage);
                 }
@@ -367,13 +373,15 @@ public final class HiveCombatController {
                 point.x, point.y, point.z, Math.max(flight.firedAt, now)));
     }
 
+    /**
+     * The first creature a charge meets between {@code from} and {@code to}. Ball lightning passes
+     * through blocks: clumps hang all round the target, often inside a cave's walls or ceiling, and
+     * their charges must still reach it.
+     */
     private static Hit firstHit(ServerPlayer owner, ServerLevel level, Vec3 from, Vec3 to) {
-        BlockHitResult block = level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, owner));
-        double blockDistance = block.getType() == net.minecraft.world.phys.HitResult.Type.MISS ? Double.POSITIVE_INFINITY
-                : from.distanceToSqr(block.getLocation());
         LivingEntity closest = null;
         Vec3 closestPoint = null;
-        double closestDistance = blockDistance;
+        double closestDistance = Double.POSITIVE_INFINITY;
         AABB bounds = new AABB(from, to).inflate(.5);
         for (LivingEntity candidate : level.getEntitiesOfClass(LivingEntity.class, bounds,
                 living -> validTarget(owner, living, true) && living.canBeHitByProjectile())) {
@@ -386,8 +394,7 @@ public final class HiveCombatController {
                 closestDistance = distance;
             }
         }
-        if (closest != null) return new Hit(closest, closestPoint, false);
-        return blockDistance < Double.POSITIVE_INFINITY ? new Hit(null, block.getLocation(), true) : new Hit(null, to, false);
+        return closest != null ? new Hit(closest, closestPoint) : new Hit(null, to);
     }
 
     /** Ticks between one group's blows or charges: 5 seconds at level 0 down to 2 at level 10. */
@@ -437,9 +444,9 @@ public final class HiveCombatController {
         return ResourceKey.create(Registries.DAMAGE_TYPE, ResourceLocation.fromNamespaceAndPath(RelicsAddon.MOD_ID, path));
     }
 
-    private record Hit(LivingEntity entity, Vec3 position, boolean blocked) { }
+    private record Hit(LivingEntity entity, Vec3 position) { }
 
-    /** A charge (ball lightning) flying from its cluster to the target. */
+    /** A charge (ball lightning) flying from its clump to the target. */
     private static final class Flight {
         private final ServerLevel level;
         private final int group, members;
