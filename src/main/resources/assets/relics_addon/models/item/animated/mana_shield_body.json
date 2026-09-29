@@ -1,147 +1,20 @@
 {
+  "loader": "neoforge:obj",
+  "model": "relics_addon:models/item/mana_shield.obj",
+  "automatic_culling": false,
+  "shade_quads": true,
+  "emissive_ambient": true,
+  "render_type": "minecraft:solid",
   "textures": {
-    "surface": "relics_addon:item/materials/mana_shield",
-    "fx": "relics_addon:item/fx/mana_shield",
     "particle": "relics_addon:item/mana_shield"
   },
-  "ambientocclusion": false,
-  "render_type": "minecraft:solid",
-  "elements": [
-    {
-      "from": [
-        4,
-        6,
-        6.85
-      ],
-      "to": [
-        12,
-        12,
-        9.15
-      ],
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            4,
-            4
-          ],
-          "texture": "#surface"
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            4,
-            4
-          ],
-          "texture": "#surface"
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            4,
-            4
-          ],
-          "texture": "#surface"
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            4,
-            4
-          ],
-          "texture": "#surface"
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            4,
-            4
-          ],
-          "texture": "#surface"
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            4,
-            4
-          ],
-          "texture": "#surface"
-        }
-      }
-    },
-    {
-      "from": [
-        6,
-        3,
-        7.1
-      ],
-      "to": [
-        10,
-        13.5,
-        8.9
-      ],
-      "faces": {
-        "north": {
-          "uv": [
-            8,
-            0,
-            12,
-            4
-          ],
-          "texture": "#surface"
-        },
-        "south": {
-          "uv": [
-            8,
-            0,
-            12,
-            4
-          ],
-          "texture": "#surface"
-        },
-        "east": {
-          "uv": [
-            8,
-            0,
-            12,
-            4
-          ],
-          "texture": "#surface"
-        },
-        "west": {
-          "uv": [
-            8,
-            0,
-            12,
-            4
-          ],
-          "texture": "#surface"
-        },
-        "up": {
-          "uv": [
-            8,
-            0,
-            12,
-            4
-          ],
-          "texture": "#surface"
-        },
-        "down": {
-          "uv": [
-            8,
-            0,
-            12,
-            4
-          ],
-          "texture": "#surface"
-        }
-      }
-    }
-  ]
+  "visibility": {
+    "body": true,
+    "core": false,
+    "fx": false,
+    "shell_0": false,
+    "shell_1": false,
+    "shell_2": false,
+    "shell_3": false
+  }
 }
