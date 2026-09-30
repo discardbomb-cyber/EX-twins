@@ -203,12 +203,13 @@ public final class ArmageddonController {
             target = blocked.getLocation();
             face = blocked.getDirection();
         } else {
-            // A point right on a face (as the owner's own aim gives it) is found by looking on through it a little.
+            // A point right on a face (as the owner's own aim gives it) is found by looking on through it a little; a face
+            // found beyond the point aimed at is not it (the shot never lands further off than it was aimed).
             Vec3 way = target.subtract(eye);
             if (way.lengthSqr() > 1e-6) {
                 BlockHitResult on = owner.level().clip(new ClipContext(target.subtract(way.normalize().scale(.05)), target.add(way.normalize().scale(.3)),
                         ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, owner));
-                if (on.getType() != HitResult.Type.MISS) {
+                if (on.getType() != HitResult.Type.MISS && on.getLocation().distanceTo(target) < .02) {
                     target = on.getLocation();
                     face = on.getDirection();
                 }
