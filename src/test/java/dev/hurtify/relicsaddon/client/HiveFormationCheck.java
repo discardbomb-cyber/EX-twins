@@ -38,7 +38,7 @@ public final class HiveFormationCheck {
                     at[slot] = HiveFormation.station(mode, type, slot, slots, owner, target, 1.1, 1.9, time, 100, 60);
                     requireFinite(at[slot], mode + " station");
                     double limit = switch (mode) {
-                        case CONTAINMENT -> 4 * HiveFormation.CONTAINMENT_SCALE;
+                        case CONTAINMENT -> 12;
                         case BARRAGE -> 9;
                         case DROPLET -> owner.distanceTo(core) + 14;
                     };
@@ -56,7 +56,12 @@ public final class HiveFormationCheck {
         for (HiveType type : HiveType.values()) for (int slots : new int[]{1, 12, 100, 250}) for (double height : new double[]{.5, 1.8, 2.9}) {
             for (int slot = 0; slot < slots; slot++) {
                 // RF rings stay round the target, whose hold lifts it clear of the ground.
-                Vec3 held = type == HiveType.RF ? target.add(0, HiveFormation.ringLift(.6, height), 0) : target;
+                // Every construct stays round its creature, whose hold lifts it clear of the ground.
+                Vec3 held = target.add(0, switch (type) {
+                    case RF -> HiveFormation.ringLift(.6, height, false);
+                    case TWINS -> HiveFormation.twinsLift(.6, height);
+                    case MANA -> HiveFormation.wardLift(.6, height);
+                }, 0);
                 Vec3 at = HiveFormation.station(AttackMode.CONTAINMENT, type, slot, slots, owner, held, .6, height, 777.5, 100, 60);
                 require(at.y >= target.y + .1, type + " containment dips into the ground: " + (at.y - target.y) + " (height " + height + ")");
             }
@@ -73,7 +78,7 @@ public final class HiveFormationCheck {
                 requireFinite(at, "multi-target station");
                 HiveTarget mine = foes.get(HiveSlots.group(slot, groups) % engaged);
                 Vec3 middle = HiveFormation.core(mine.feet(), mine.height());
-                double limit = mode == AttackMode.DROPLET ? owner.distanceTo(middle) + 14 : mode == AttackMode.CONTAINMENT ? 5 * HiveFormation.CONTAINMENT_SCALE : 9;
+                double limit = mode == AttackMode.DROPLET ? owner.distanceTo(middle) + 14 : mode == AttackMode.CONTAINMENT ? 12 : 9;
                 require(at.distanceTo(middle) < limit, mode + " " + type + " place " + slot + "/" + slots + " strays from its own target: " + at.distanceTo(middle));
             }
             int total = 0;

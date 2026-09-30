@@ -119,8 +119,8 @@ public final class HiveModeVisual {
                     Scene part = part(s, index);
                     Vec3 core = HiveFormation.core(part.target(), part.height());
                     switch (part.type()) {
-                        case RF -> EffectLights.glow(centre(part), 9, Math.max(.8, part.width()) * HiveFormation.CONTAINMENT_SCALE);
-                        case MANA -> EffectLights.glow(centre(part), 9, 1.45 * HiveFormation.wardScale(part.height()));
+                        case RF -> EffectLights.glow(centre(part), 9, HiveFormation.ringsRadius(part.width(), part.height(), false) * .8);
+                        case MANA -> EffectLights.glow(centre(part), 9, 1.45 * HiveFormation.wardScale(part.width(), part.height()));
                         // The accretion disk reaches about four horizons out.
                         case TWINS -> EffectLights.glow(core, 11, horizon(part) * 4);
                     }
@@ -329,27 +329,32 @@ public final class HiveModeVisual {
 
     /** RF: three tori covered in hexagons, turning round the target like the rings of a Dyson swarm, the outer ones faster. */
     private static void torus(Scene s, Vec3 camera, VertexConsumer glow, Matrix4f m, int color) {
+        tori(s, camera, glow, m, GlowBrush.mix(color, 0xFFFFFF, .35), false, 105);
+        GlowBrush.dot(glow, m, HiveFormation.core(s.target(), s.height()).subtract(camera), Math.max(.6, s.width()), color, 45);
+    }
+
+    /** The three hexagon-covered tori of an RF or (denser) Twins containment. */
+    private static void tori(Scene s, Vec3 camera, VertexConsumer glow, Matrix4f m, int line, boolean dense, double alpha) {
         Vec3 core = centre(s).subtract(camera);
-        double radius = HiveFormation.ringsRadius(s.width());
-        int light = GlowBrush.mix(color, 0xFFFFFF, .35);
+        double radius = HiveFormation.ringsRadius(s.width(), s.height(), dense);
+        int rows = HiveShapes.ringRows(dense);
         for (int ring = 0; ring < 3; ring++) {
-            int columns = HiveShapes.ringColumns(ring, radius);
-            for (int column = 0; column < columns; column++) for (int row = 0; row < HiveShapes.TUBE_ROWS; row++) {
+            int columns = HiveShapes.ringColumns(ring, radius, dense);
+            for (int column = 0; column < columns; column++) for (int row = 0; row < rows; row++) {
                 Vec3 previous = null;
                 for (int corner = 0; corner <= 6; corner++) {
-                    Vec3 at = core.add(HiveShapes.ringHexCorner(ring, column, row, corner % 6, s.time(), radius));
-                    if (previous != null) GlowBrush.line(glow, m, previous, at, .022, light, 105);
+                    Vec3 at = core.add(HiveShapes.ringHexCorner(ring, column, row, corner % 6, s.time(), radius, dense));
+                    if (previous != null) GlowBrush.line(glow, m, previous, at, dense ? .018 : .022, line, alpha);
                     previous = at;
                 }
             }
         }
-        GlowBrush.dot(glow, m, HiveFormation.core(s.target(), s.height()).subtract(camera), Math.max(.6, s.width()), color, 45);
     }
 
     /** Mana: the ward's three rhombi and two circles in light over a glass bubble. */
     private static void ward(Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
         Vec3 core = centre(s).subtract(camera);
-        double scale = HiveFormation.wardScale(s.height()), turn = s.time() * .008;
+        double scale = HiveFormation.wardScale(s.width(), s.height()), turn = s.time() * .008;
         double pulse = .75 + .25 * Math.sin(s.time() * .12);
         for (int rhombus = 0; rhombus < 3; rhombus++) {
             Vec3 previous = null;
@@ -371,27 +376,11 @@ public final class HiveModeVisual {
         GlowBrush.sphere(fill, m, core, 1.45 * scale, 0x0B5E62, color, 10, 80, 16);
     }
 
-    /** Twins: hexagon-shelled rift spheres around a black hole with a violet accretion disk. */
+    /** Twins: three dense purple hexagon tori round a black hole with a violet accretion disk. */
     private static void rifts(Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
-        Vec3 core = HiveFormation.core(s.target(), s.height()).subtract(camera), middle = centre(s).subtract(camera);
-        double distance = HiveFormation.riftDistance(s.width()), radius = HiveFormation.riftRadius();
-        for (int sphere = 0; sphere < 4; sphere++) {
-            Vec3 centre = middle.add(HiveShapes.riftCentre(sphere, s.time(), distance));
-            double spin = HiveShapes.riftSpin(sphere, s.time());
-            double cos = Math.cos(spin), sin = Math.sin(spin);
-            for (ShieldHoneycomb.Cell cell : ShieldHoneycomb.SMALL) {
-                float[] p = cell.perimeter();
-                int corners = p.length / 3;
-                for (int k = 0; k < corners; k++) {
-                    int n = (k + 1) % corners;
-                    Vec3 a = centre.add(spun(p[k * 3], p[k * 3 + 1], p[k * 3 + 2], cos, sin).scale(radius * 1.04));
-                    Vec3 b = centre.add(spun(p[n * 3], p[n * 3 + 1], p[n * 3 + 2], cos, sin).scale(radius * 1.04));
-                    GlowBrush.line(glow, m, a, b, .016, color, 70);
-                }
-            }
-            GlowBrush.dot(glow, m, centre, radius * .9, 0x2A0F45, 90);
-        }
+        tori(s, camera, glow, m, GlowBrush.mix(color, 0xE7C6FF, .3), true, 115);
         // The black hole's own light goes in before the lens pass, so space bends it with everything behind.
+        Vec3 core = HiveFormation.core(s.target(), s.height()).subtract(camera);
         blackHole(GlowBrush.flat() ? glow : ShieldGlow.earlyConsumer(), fill, m, core, horizon(s), s.time());
     }
 
@@ -400,12 +389,9 @@ public final class HiveModeVisual {
         return HiveFormation.containmentCentre(s.type(), s.target(), s.width(), s.height(), s.slots());
     }
 
-    /** The black hole is this many times its base size (its disk, rings and lens follow the horizon). */
-    private static final double BLACK_HOLE_SCALE = 2;
-
-    /** The black hole's horizon grows a little with the target it holds. */
+    /** The black hole's horizon grows with the creature it holds (its disk, rings and lens follow it). */
     private static double horizon(Scene s) {
-        return (.42 + .08 * Math.max(0, s.width() - .6)) * BLACK_HOLE_SCALE;
+        return HiveFormation.enclosure(s.width(), s.height()) * .62;
     }
 
     /**

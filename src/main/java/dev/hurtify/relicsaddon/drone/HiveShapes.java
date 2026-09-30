@@ -161,31 +161,43 @@ public final class HiveShapes {
     private static final double[] RING_SPIN = {.012, .022, .036}, RING_PRECESSION = {.004, .007, .011};
     /** Each ring's tilt: an axis in the level plane and an angle from level. */
     private static final double[][] RING_TILT = {{1, 0, 0, .44}, {0, 0, 1, 1.13}, {.7071, 0, .7071, 1.92}};
-    /** Rows of hexagons round each torus's tube. */
-    public static final int TUBE_ROWS = 6;
+    /** Rows of hexagons round each torus's tube: six, or ten on the denser Twins tori. */
+    public static int ringRows(boolean dense) {
+        return dense ? 10 : 6;
+    }
 
-    /** Radius of the tube of torus {@code ring} in a construct of {@code radius}. */
-    public static double ringTube(int ring, double radius) {
-        return radius * RING_RADII[ring] * .13 + .1;
+    /** Radius of the tube of torus {@code ring} in a construct of {@code radius}; the denser Twins tori are thicker. */
+    public static double ringTube(int ring, double radius, boolean dense) {
+        return radius * RING_RADII[ring] * ringTubeScale(dense) + ringTubeBase(dense);
+    }
+
+    /** A tube's radius is this share of its torus's radius... */
+    public static double ringTubeScale(boolean dense) {
+        return dense ? .17 : .13;
+    }
+
+    /** ...plus this much. */
+    public static double ringTubeBase(boolean dense) {
+        return dense ? .14 : .1;
     }
 
     /** Columns of hexagons along torus {@code ring}, so its hexagons come out about as wide as they are tall. */
-    public static int ringColumns(int ring, double radius) {
-        double tall = Math.PI * 2 * ringTube(ring, radius) / (1.5 * TUBE_ROWS);
+    public static int ringColumns(int ring, double radius, boolean dense) {
+        double tall = Math.PI * 2 * ringTube(ring, radius, dense) / (1.5 * ringRows(dense));
         return Math.max(8, (int) Math.round(Math.PI * 2 * radius * RING_RADII[ring] / (Math.sqrt(3) * tall)));
     }
 
     /** Place {@code s} of {@code count}: just above one of the hexagons of its torus, spread evenly over them. */
-    public static Vec3 dysonRing(int s, int count, double time, double radius) {
+    public static Vec3 dysonRing(int s, int count, double time, double radius, boolean dense) {
         count = Math.max(1, count);
         s = Math.clamp(s, 0, count - 1);
         int ring = 0;
         while (ring < 2 && s >= ringStart(ring + 1, count)) ring++;
         int local = s - ringStart(ring, count), places = Math.max(1, ringStart(ring + 1, count) - ringStart(ring, count));
-        int columns = ringColumns(ring, radius), hexagons = columns * TUBE_ROWS;
+        int rows = ringRows(dense), columns = ringColumns(ring, radius, dense), hexagons = columns * rows;
         int hex = (int) ((long) local * hexagons / places);
-        int column = hex / TUBE_ROWS, row = hex % TUBE_ROWS;
-        return ringPoint(ring, (column + (row % 2) * .5) / columns * Math.PI * 2, row / (double) TUBE_ROWS * Math.PI * 2, 1.12, time, radius);
+        int column = hex / rows, row = hex % rows;
+        return ringPoint(ring, (column + (row % 2) * .5) / columns * Math.PI * 2, row / (double) rows * Math.PI * 2, 1.12, time, radius, dense);
     }
 
     /** The first place of torus {@code ring}: the tori share the places as their circumferences do. */
@@ -202,22 +214,22 @@ public final class HiveShapes {
      * Corner {@code corner} (0..5) of the hexagon in {@code column} and {@code row} of torus {@code ring},
      * drawn a little inside its cell so neighbours keep a seam.
      */
-    public static Vec3 ringHexCorner(int ring, int column, int row, int corner, double time, double radius) {
-        int columns = ringColumns(ring, radius);
-        double u = (column + (row % 2) * .5) / columns * Math.PI * 2, v = row / (double) TUBE_ROWS * Math.PI * 2;
+    public static Vec3 ringHexCorner(int ring, int column, int row, int corner, double time, double radius, boolean dense) {
+        int rows = ringRows(dense), columns = ringColumns(ring, radius, dense);
+        double u = (column + (row % 2) * .5) / columns * Math.PI * 2, v = row / (double) rows * Math.PI * 2;
         double angle = Math.PI / 6 + corner * Math.PI / 3;
         double du = Math.PI * 2 / columns * Math.cos(angle) / Math.sqrt(3) * .9;
-        double dv = Math.PI * 2 / TUBE_ROWS * Math.sin(angle) / 1.5 * .9;
-        return ringPoint(ring, u + du, v + dv, 1, time, radius);
+        double dv = Math.PI * 2 / rows * Math.sin(angle) / 1.5 * .9;
+        return ringPoint(ring, u + du, v + dv, 1, time, radius, dense);
     }
 
     /**
      * A point on torus {@code ring}: {@code u} along the ring, {@code v} round its tube, {@code out} times
      * the tube's radius from its core line. The torus turns about its axis and its tube pattern rolls.
      */
-    public static Vec3 ringPoint(int ring, double u, double v, double out, double time, double radius) {
+    public static Vec3 ringPoint(int ring, double u, double v, double out, double time, double radius, boolean dense) {
         Vec3[] frame = ringFrame(ring, time);
-        double major = radius * RING_RADII[ring], tube = ringTube(ring, radius) * out;
+        double major = radius * RING_RADII[ring], tube = ringTube(ring, radius, dense) * out;
         double along = u + time * RING_SPIN[ring], round = v + time * .015;
         double reach = major + tube * Math.cos(round);
         return frame[0].scale(Math.cos(along) * reach).add(frame[1].scale(Math.sin(along) * reach)).add(frame[2].scale(tube * Math.sin(round)));
@@ -274,34 +286,6 @@ public final class HiveShapes {
         double[] a = corners[side], b = corners[(side + 1) % 4];
         double h = a[0] + (b[0] - a[0]) * f, y = a[1] + (b[1] - a[1]) * f;
         return new Vec3(Math.cos(angle) * h, y, Math.sin(angle) * h);
-    }
-
-    /** Radius of one Twins rift sphere at base size. */
-    public static final double RIFT_RADIUS = .5;
-
-    /** Twins: four hexagon-shelled spheres of {@code radius} around the target, now and then spinning up like rifts opening. */
-    public static Vec3 riftSpheres(int s, int count, double time, double distance, double radius) {
-        int spheres = 4, sphere = s % spheres, j = s / spheres, population = (count - 1 - sphere) / spheres + 1;
-        Vec3 centre = riftCentre(sphere, time, distance);
-        double spin = riftSpin(sphere, time);
-        double y = 1 - 2 * (j + .5) / Math.max(1, population);
-        double ring = Math.sqrt(Math.max(0, 1 - y * y)), around = j * GOLDEN_ANGLE + spin;
-        return centre.add(Math.cos(around) * ring * radius, y * radius, Math.sin(around) * ring * radius);
-    }
-
-    public static Vec3 riftCentre(int sphere, double time, double distance) {
-        double[][] tetra = {{1, 1, 1}, {1, -1, -1}, {-1, 1, -1}, {-1, -1, 1}};
-        double[] d = tetra[sphere % 4];
-        double turn = time * .01, length = Math.sqrt(3);
-        // Two spheres ride high and two level with the target, so none sinks below it into the ground.
-        double x = d[0] / length, y = d[1] > 0 ? .30 : .02, z = d[2] / length;
-        return new Vec3((x * Math.cos(turn) - z * Math.sin(turn)) * distance, y * distance, (x * Math.sin(turn) + z * Math.cos(turn)) * distance);
-    }
-
-    /** Accumulated spin of a rift sphere: its speed swells from a drift to a whirl and back (the integral of .05 + .04 sin). */
-    public static double riftSpin(int sphere, double time) {
-        double rate = .007;
-        return time * .05 - .04 / rate * Math.cos(time * rate + sphere * 1.7);
     }
 
     /** Forward, side and up unit axes around a direction (forward first). */

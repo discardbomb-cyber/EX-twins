@@ -31,8 +31,12 @@ public final class HiveFormation {
     public static final double FIRE = .8;
     /** Ticks a hit drone takes to fly home. */
     public static final int RETURN_TICKS = 24;
-    /** Containment constructs (the RF torus, the Mana ward, the Twins rift spheres) are this many times their base size. */
-    public static final double CONTAINMENT_SCALE = 3;
+    /**
+     * Containment constructs are sized from the creature they hold: their inside clears its hitbox by a
+     * fifth of its size on every side (the hitbox plus two fifths of it across). This is that clearance
+     * as a radius from the creature's middle, per block of its larger side.
+     */
+    private static final double ENCLOSURE = 1.4 / 2;
     /** Droplet fan: half its opening angle (a half circle from shoulder to shoulder), how far apart its figures sit, and how far it leans back from the target. */
     private static final double FAN = Math.PI / 2, FAN_SPACING = 2.7, FAN_LEAN = .44;
 
@@ -376,11 +380,51 @@ public final class HiveFormation {
                 yield at;
             }
             case CONTAINMENT -> containmentCentre(type, target, targetWidth, targetHeight, slots).add(switch (type) {
-                case RF -> HiveShapes.dysonRing(slot, slots, time, ringsRadius(targetWidth));
-                case MANA -> HiveShapes.ward(slot, slots, time, wardScale(targetHeight));
-                case TWINS -> HiveShapes.riftSpheres(slot, slots, time, riftDistance(targetWidth), riftRadius());
+                case RF -> HiveShapes.dysonRing(slot, slots, time, ringsRadius(targetWidth, targetHeight, false), false);
+                case MANA -> HiveShapes.ward(slot, slots, time, wardScale(targetWidth, targetHeight));
+                case TWINS -> HiveShapes.dysonRing(slot, slots, time, ringsRadius(targetWidth, targetHeight, true), true);
             });
         };
+    }
+
+    // --- containment -----------------------------------------------------------------------------
+
+    /**
+     * Centre of a containment construct: the middle of the creature it holds. Every hold lifts its
+     * creature just far enough for the construct round it to clear the ground (see the lifts below).
+     */
+    public static Vec3 containmentCentre(HiveType type, Vec3 target, double targetWidth, double targetHeight, int slots) {
+        return core(target, saneSize(targetHeight, 1.8));
+    }
+
+    /** Radius of the room a construct leaves round a creature: its hitbox and a fifth of it on every side. */
+    public static double enclosure(double targetWidth, double targetHeight) {
+        return Math.max(saneSize(targetWidth, .6), saneSize(targetHeight, 1.8)) * ENCLOSURE;
+    }
+
+    /** Radius of the outer RF or Twins torus: the inner torus's inner side runs round the enclosure. */
+    public static double ringsRadius(double targetWidth, double targetHeight, boolean dense) {
+        double inner = (enclosure(targetWidth, targetHeight) + HiveShapes.ringTubeBase(dense)) / (1 - HiveShapes.ringTubeScale(dense));
+        return inner / HiveShapes.RING_RADII[0];
+    }
+
+    /** How far a hold lifts its target so the tori round it clear the ground: the outer torus, its tube and the drones on it. */
+    public static double ringLift(double targetWidth, double targetHeight, boolean dense) {
+        double radius = ringsRadius(targetWidth, targetHeight, dense), reach = radius + HiveShapes.ringTube(2, radius, dense) * 1.15;
+        return Math.max(0, reach + .15 - saneSize(targetHeight, 1.8) * .55);
+    }
+
+    /** Twins lift their target about four blocks, or as far as their thick tori need. */
+    public static double twinsLift(double targetWidth, double targetHeight) { return Math.max(4, ringLift(targetWidth, targetHeight, true)); }
+
+    /** The Mana ward's scale: the rhombi's edges, its innermost lines (.9 of the scale from its middle), run round the enclosure. */
+    public static double wardScale(double targetWidth, double targetHeight) {
+        return enclosure(targetWidth, targetHeight) / (1.55 * 1.1 / Math.hypot(1.55, 1.1));
+    }
+
+    /** How far a Mana hold lifts its target so the ward's lower tips clear the ground. */
+    public static double wardLift(double targetWidth, double targetHeight) {
+        return Math.max(0, 1.55 * wardScale(targetWidth, targetHeight) + .15 - saneSize(targetHeight, 1.8) * .55);
     }
 
     /**
@@ -388,38 +432,6 @@ public final class HiveFormation {
      * own drones) circles just outside it, turned by its home clump so that visitors from different
      * clumps never share a place.
      */
-    // --- containment -----------------------------------------------------------------------------
-
-    /**
-     * Centre of a containment construct: the target's middle, raised just enough that the construct's
-     * lowest point clears the ground the target stands on, so the ground never cuts it off.
-     */
-    public static Vec3 containmentCentre(HiveType type, Vec3 target, double targetWidth, double targetHeight, int slots) {
-        targetWidth = saneSize(targetWidth, .6);
-        targetHeight = saneSize(targetHeight, 1.8);
-        Vec3 core = core(target, targetHeight);
-        double below = switch (type) {
-            // The rings stay round the target itself; the hold lifts the target clear of the ground instead.
-            case RF -> 0;
-            case MANA -> 1.55 * wardScale(targetHeight);
-            case TWINS -> riftRadius() - .02 * riftDistance(targetWidth);
-        };
-        double clear = below + .15 - (core.y - target.y);
-        return clear > 0 ? core.add(0, clear, 0) : core;
-    }
-
-    public static double torusMajor(double targetWidth) { return Math.max(1.25, saneSize(targetWidth, .6) * .7 + .8) * CONTAINMENT_SCALE; }
-    /** Radius of the outer RF ring. */
-    public static double ringsRadius(double targetWidth) { return torusMajor(targetWidth) * 1.1; }
-    /** How far an RF hold lifts its target so the rings round it clear the ground: the outer ring and its hexagons. */
-    public static double ringLift(double targetWidth, double targetHeight) {
-        // The outer torus reaches its radius plus its tube (with the drones riding just above it).
-        return Math.max(0, ringsRadius(targetWidth) * 1.18 + .15 - saneSize(targetHeight, 1.8) * .55);
-    }
-    public static double wardScale(double targetHeight) { return Math.max(1, saneSize(targetHeight, 1.8) / 1.8) * CONTAINMENT_SCALE; }
-    public static double riftDistance(double targetWidth) { return Math.max(1.5, saneSize(targetWidth, .6) * .7 + 1.1) * CONTAINMENT_SCALE; }
-    public static double riftRadius() { return HiveShapes.RIFT_RADIUS * CONTAINMENT_SCALE; }
-
     private static Vec3 barragePoint(HiveType type, int group, int member, int members, int groups, Vec3 target,
             double targetWidth, double targetHeight, double time, int visitorFrom) {
         Vec3 centre = clusterCentre(type, target, targetWidth, targetHeight, group, groups, time);
