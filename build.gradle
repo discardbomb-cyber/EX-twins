@@ -267,6 +267,7 @@ tasks.named('check') {
     dependsOn 'verifyGeometryGolden'
     dependsOn 'verifyTwinsShieldLayers'
     dependsOn 'verifyMathKernel'
+    dependsOn 'verifyDomainRules'
 }
 
 // Safety net of the hexagonal migration (docs/architecture/hexagonal-migration.md, sections 3 and 11).
@@ -331,6 +332,13 @@ tasks.register('verifyMathKernel', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
     mainClass = 'dev.hurtify.relicsaddon.domain.math.MathKernelCheck'
+}
+
+// The pure rules the legacy handlers call (S6). The test runtime has no Minecraft, so a rule that reached it would fail.
+tasks.register('verifyDomainRules', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.hurtify.relicsaddon.domain.DomainRulesCheck'
 }
 
 tasks.register('verifyEffectLights', JavaExec) {
