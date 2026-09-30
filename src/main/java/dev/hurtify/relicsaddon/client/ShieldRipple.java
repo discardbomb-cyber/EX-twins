@@ -64,6 +64,11 @@ public final class ShieldRipple {
         return count > 0;
     }
 
+    /** How many waves {@link #begin} kept. */
+    static int waves() {
+        return count;
+    }
+
     /** Summed, clamped wave height at a world-oriented unit direction from the shell centre. */
     public static double height(double x, double y, double z) {
         double sum = 0;
