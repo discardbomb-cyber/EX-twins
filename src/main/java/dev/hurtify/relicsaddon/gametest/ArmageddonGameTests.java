@@ -440,6 +440,65 @@ public final class ArmageddonGameTests {
         });
     }
 
+    @GameTest(template = ARENA, batch = "rf_armageddon_ceiling", timeoutTicks = 200, skyAccess = true)
+    public static void theRfBallFliesUpIntoACeiling(GameTestHelper helper) {
+        Setting setting = Setting.of(helper, false, false);
+        ServerPlayer owner = DeviceTestSupport.player(helper, new Vec3(6.5, 1, 6.5));
+        topHive(helper, owner, RelicRole.RF_HIVE);
+        // A stone ceiling hanging high over the owner, aimed at from below.
+        int ceiling = 40;
+        for (int x = 2; x <= 10; x++) for (int z = 2; z <= 10; z++) helper.setBlock(new BlockPos(x, ceiling, z), Blocks.STONE);
+        String refused = ArmageddonController.request(owner, helper.absoluteVec(new Vec3(6.5, ceiling, 6.5)), RfArmageddon.IMPACT - 1);
+        helper.assertTrue(refused == null, "The RF shot fires (refused: " + refused + ")");
+        ArmageddonState state = DeviceTestSupport.charm(helper, owner, 0).get(ModDataComponents.HIVE_ARMAGEDDON.get());
+        helper.assertTrue(state != null && state.face() == net.minecraft.core.Direction.DOWN, "Aimed up at a ceiling, it lands on its underside");
+        Vec3 hover = RfArmageddon.hover(state);
+        helper.assertTrue(hover.y < state.target().y - RfArmageddon.LEAST_HOVER + 1e-6 && Math.abs(hover.x - state.target().x) < 1e-6,
+                "The ball hangs under the ceiling and comes up into it");
+        helper.assertTrue(state.room() < ceiling, "There is only as much room under it as down to the floor");
+        int[] ticks = {0};
+        helper.onEachTick(() -> {
+            HiveCombatController.tick(owner);
+            if (++ticks[0] < 6) return;
+            helper.assertTrue(helper.getBlockState(new BlockPos(6, ceiling, 6)).isAir() && helper.getBlockState(new BlockPos(8, ceiling, 5)).isAir(),
+                    "The dome cuts into the ceiling it came up into");
+            ArmageddonController.abort(owner);
+            for (int x = 2; x <= 10; x++) for (int z = 2; z <= 10; z++) helper.setBlock(new BlockPos(x, ceiling, z), Blocks.AIR);
+            setting.restore();
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = ARENA, batch = "rf_armageddon_wall", timeoutTicks = 200, skyAccess = true)
+    public static void theRfBallFliesIntoAWall(GameTestHelper helper) {
+        Setting setting = Setting.of(helper, false, false);
+        ServerPlayer owner = DeviceTestSupport.player(helper, new Vec3(2.5, 1, 6.5));
+        topHive(helper, owner, RelicRole.RF_HIVE);
+        // A stone wall across the arena, aimed at straight ahead.
+        for (int y = 1; y <= 6; y++) for (int z = 2; z <= 10; z++) helper.setBlock(new BlockPos(11, y, z), Blocks.STONE);
+        Vec3 eye = owner.getEyePosition();
+        Vec3 aim = new Vec3(helper.absoluteVec(new Vec3(11, 0, 6.5)).x, eye.y, eye.z);
+        String refused = ArmageddonController.request(owner, aim, RfArmageddon.IMPACT - 1);
+        helper.assertTrue(refused == null, "The RF shot fires (refused: " + refused + ")");
+        ArmageddonState state = DeviceTestSupport.charm(helper, owner, 0).get(ModDataComponents.HIVE_ARMAGEDDON.get());
+        helper.assertTrue(state != null && state.face() == net.minecraft.core.Direction.WEST, "Aimed at a wall, it lands on the face turned to the owner");
+        Vec3 hover = RfArmageddon.hover(state);
+        helper.assertTrue(hover.x < state.target().x - RfArmageddon.LEAST_HOVER + 1e-6 && Math.abs(hover.y - state.target().y) < 1e-6,
+                "The ball hangs out in front of the wall and flies into it");
+        // Just behind the face, in the wall (worked out in the arena's own terms, which may be turned in the world).
+        BlockPos hit = BlockPos.containing(helper.relativeVec(state.target()).add(.5, 0, 0));
+        int[] ticks = {0};
+        helper.onEachTick(() -> {
+            HiveCombatController.tick(owner);
+            if (++ticks[0] < 6) return;
+            helper.assertTrue(helper.getBlockState(hit).isAir() && helper.getBlockState(hit.offset(0, 1, 1)).isAir(), "The dome cuts into the wall it flew into (target "
+                    + helper.relativeVec(state.target()) + ", face " + state.face() + ", room " + state.room() + ", at " + hit + ": " + helper.getBlockState(hit) + ")");
+            ArmageddonController.abort(owner);
+            setting.restore();
+            helper.succeed();
+        });
+    }
+
     @GameTest(template = ARENA, batch = "rf_armageddon_crater", timeoutTicks = 200, skyAccess = true)
     public static void theRfDomeCutsACraterWithARim(GameTestHelper helper) {
         craters(helper, false);

@@ -235,7 +235,7 @@ public final class HiveFormationCheck {
 
     /**
      * RF Armageddon: its stages in order and its blast as long as its sound; the panels folded while the hologram is
-     * built, opening click by click into a full cross exactly as the charge fills and snapped shut as the ball leaves;
+     * built, opening smoothly into a full cross exactly as the charge fills and snapped shut as the ball leaves;
      * the hologram twelve to sixteen blocks long, whole, smooth and over its owner, every place its own; the ball a
      * point at the first click, as big as the panels are open, flying out to hang over the target and sinking to meet
      * it on time; the escort riding with it; the dome's and the shock front's reach true to their inverses; the crater
@@ -250,24 +250,22 @@ public final class HiveFormationCheck {
                 && RfArmageddon.RECOVER == RfArmageddon.IMPACT + RfArmageddon.FLASH + RfArmageddon.BLAST, "the blast's stages come in order, and the drones go home as it falls silent");
         require(RfArmageddon.BLAST == Math.round(RfArmageddon.BLAST_SECONDS * 20), "the blast lasts as many ticks as its sound's seconds");
         require(RfArmageddon.charge(RfArmageddon.ASSEMBLED) == 0 && RfArmageddon.charge(RfArmageddon.FIRE) == 1, "the charge runs from empty to full as the ball leaves");
-        // The panels: folded while the hologram is built, one click after another, a full cross exactly as the charge fills.
+        // The panels: folded while the hologram is built, then opening smoothly as the charge fills, a full cross exactly as it is full.
         require(RfArmageddon.unfold(0) == 0 && RfArmageddon.unfold(RfArmageddon.ASSEMBLED) == 0, "the panels lie folded along the body while it is built");
         require(RfArmageddon.opened(RfArmageddon.FIRE) == 1 && Math.abs(RfArmageddon.opened(RfArmageddon.FIRE - 1) - 1) < 1e-3, "the cross is full as the charge is");
         require(RfArmageddon.unfold(RfArmageddon.SCATTER) == 0 && RfArmageddon.unfold(RfArmageddon.FIRE + RfArmageddon.SNAP / 2.0) < 1, "the panels snap shut as the ball leaves");
-        for (int click = 0; click < RfArmageddon.CLICKS; click++) {
-            double at = RfArmageddon.clickAt(click), swing = RfArmageddon.CLICK_SWING * (RfArmageddon.FIRE - RfArmageddon.ASSEMBLED) / RfArmageddon.CLICKS;
-            require(Math.abs(RfArmageddon.opened(at) - click / (double) RfArmageddon.CLICKS) < 1e-9
-                    && Math.abs(RfArmageddon.opened(at + swing) - (click + 1) / (double) RfArmageddon.CLICKS) < 1e-9, "click " + click + " opens one step");
+        for (double age = 0; age < RfArmageddon.FIRE; age += .5) {
+            double step = RfArmageddon.opened(age + .5) - RfArmageddon.opened(age);
+            require(step >= 0 && step < 1e-3, "the panels open smoothly, never in steps: " + step + " at " + age);
         }
-        for (double age = 0; age < RfArmageddon.FIRE; age += 1) require(RfArmageddon.opened(age + 1) >= RfArmageddon.opened(age), "the panels only open while it charges");
         for (int row = 0; row < RfArmageddon.ROWS; row++) {
             double charged = RfArmageddon.ASSEMBLED + (RfArmageddon.FIRE - RfArmageddon.ASSEMBLED) * (row + 1.0) / RfArmageddon.ROWS;
             require(RfArmageddon.lit(row, charged) > 1 - 1e-9 && RfArmageddon.lit(row, charged - (RfArmageddon.FIRE - RfArmageddon.ASSEMBLED) / (double) RfArmageddon.ROWS) < 1e-9,
                     "row " + row + " lights in its own share of the charge, from the body out");
         }
         // The ball: a point at the first click, as big as the panels are open, whole as it leaves, swelling on its way.
-        require(RfArmageddon.ballRadius(RfArmageddon.ASSEMBLED) == 0 && RfArmageddon.ballRadius(RfArmageddon.clickAt(0) + 30) > 0
-                && RfArmageddon.ballRadius(RfArmageddon.clickAt(0) + 30) < .4, "the ball starts as a point with the first click");
+        require(RfArmageddon.ballRadius(RfArmageddon.ASSEMBLED) == 0 && RfArmageddon.ballRadius(RfArmageddon.ASSEMBLED + 20) > 0
+                && RfArmageddon.ballRadius(RfArmageddon.ASSEMBLED + 20) < .1, "the ball starts as a point as the panels start to open");
         require(Math.abs(RfArmageddon.ballRadius(RfArmageddon.FIRE - 1e-6) - RfArmageddon.BALL_CHARGED) < 1e-3
                 && Math.abs(RfArmageddon.ballRadius(RfArmageddon.ARRIVE) - RfArmageddon.BALL_HOVER) < 1e-9, "the ball is whole as it leaves and swells to its hover");
         for (double age = 0; age < RfArmageddon.ARRIVE; age += 1) require(RfArmageddon.ballRadius(age + 1) >= RfArmageddon.ballRadius(age) - 1e-12, "the ball only grows");
@@ -346,6 +344,49 @@ public final class HiveFormationCheck {
         for (double d = RfArmageddon.DOME_RADIUS; d < RfArmageddon.rimReach(); d += .5) require(RfArmageddon.rimHeight(d + .5) <= RfArmageddon.rimHeight(d), "the rim slopes away outside");
         require(RfArmageddon.TIMELINE.carveDepth() == RfArmageddon.BOWL && RfArmageddon.BOWL < 1 && dev.hurtify.relicsaddon.drone.Armageddon.TIMELINE.carveDepth() == 1
                 && ManaArmageddon.TIMELINE.carveDepth() == 1, "only the RF crater is a bowl");
+
+        // Into a ceiling from below, into a wall, onto the ground: the ball hangs out from the face it is aimed at (nearer
+        // where there is less room), comes in along the face's normal and meets it at the target.
+        for (net.minecraft.core.Direction face : net.minecraft.core.Direction.values()) for (double room : new double[]{ArmageddonState.MOST_ROOM, 30, 14, 2}) {
+            Vec3 target = new Vec3(40, 90, -30);
+            ArmageddonState shot = new ArmageddonState(HiveType.RF, 1_000, RfArmageddon.origin(eye, target), target, face, room, false);
+            Vec3 normal = shot.normal(), hover = RfArmageddon.hover(shot), out = hover.subtract(target);
+            double lift = RfArmageddon.lift(room);
+            require(out.subtract(normal.scale(out.dot(normal))).length() < 1e-9 && Math.abs(out.dot(normal) - lift) < 1e-9
+                    && lift >= RfArmageddon.LEAST_HOVER && lift <= RfArmageddon.HOVER_HEIGHT, "the ball hangs straight out from the " + face + " face");
+            require(room < RfArmageddon.LEAST_HOVER + RfArmageddon.BALL_HOVER + 1 || lift + RfArmageddon.BALL_HOVER < room,
+                    "where there is room for it, the whole ball hangs clear of what is in front of the face");
+            require(RfArmageddon.ball(shot, RfArmageddon.ARRIVE).distanceTo(hover) < 1e-9 && RfArmageddon.ball(shot, RfArmageddon.IMPACT).distanceTo(target) < 1e-9,
+                    "the ball hangs out from the face and meets it at the target");
+            for (double age = RfArmageddon.DESCEND; age < RfArmageddon.IMPACT; age += 1) {
+                Vec3 at = RfArmageddon.ball(shot, age).subtract(target), next = RfArmageddon.ball(shot, age + 1).subtract(target);
+                require(next.dot(normal) <= at.dot(normal) + 1e-9 && at.subtract(normal.scale(at.dot(normal))).length() < 1e-9, "the ball comes straight in to the " + face + " face");
+            }
+            for (double age = RfArmageddon.FIRE; age < RfArmageddon.IMPACT; age += .5) {
+                require(RfArmageddon.ball(shot, age + .5).distanceTo(RfArmageddon.ball(shot, age)) < 2.5, "the ball never jumps on its way to the " + face + " face");
+            }
+        }
+        // The crater's shape turned to each face: on the ground the bowl under the dome, under a ceiling the same turned
+        // over, in a wall turned on its side; always the dome out from the face and a bowl a share as deep behind it.
+        double r = RfArmageddon.DOME_RADIUS, d = RfArmageddon.BOWL;
+        for (double dx = -r; dx <= r; dx += 3.7) for (double dz = -r; dz <= r; dz += 3.3) {
+            double flat = dx * dx + dz * dz, span = Math.sqrt(Math.max(0, r * r - flat));
+            double[] ground = RfArmageddon.bowl(new Vec3(0, 1, 0), dx, dz, r, d), ceiling = RfArmageddon.bowl(new Vec3(0, -1, 0), dx, dz, r, d);
+            if (flat > r * r) {
+                require(ground == null && ceiling == null, "nothing is cut beyond the crater's reach");
+                continue;
+            }
+            require(ground != null && Math.abs(ground[0] + span * d) < 1e-6 && Math.abs(ground[1] - span) < 1e-6, "on the ground the bowl is " + d + " as deep as the dome is high");
+            require(ceiling != null && Math.abs(ceiling[0] + span) < 1e-6 && Math.abs(ceiling[1] - span * d) < 1e-6, "under a ceiling the bowl is turned over");
+            double[] wall = RfArmageddon.bowl(new Vec3(1, 0, 0), dx, dz, r, d);
+            // A wall facing east: the dome fills the half-sphere to the east, the bowl reaches d of the radius into the wall.
+            boolean inside = dx >= 0 ? true : (dx / d) * (dx / d) + dz * dz <= r * r;
+            require(inside == (wall != null), "in a wall the dome stands out of it and the bowl goes into it (" + dx + ", " + dz + ")");
+            if (wall != null) {
+                double height = dx >= 0 ? span : Math.sqrt(Math.max(0, r * r - dz * dz - (dx / d) * (dx / d)));
+                require(Math.abs(wall[0] + height) < 1e-6 && Math.abs(wall[1] - height) < 1e-6, "in a wall the crater is as tall as it is wide there");
+            }
+        }
     }
 
     /**

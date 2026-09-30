@@ -289,7 +289,7 @@
   "subtitles.relics_addon.hive_mana_armageddon_shock": "Проходит купол света",
   "screen.relics_addon.rf_armageddon.title": "RF-АРМАГЕДДОН",
   "screen.relics_addon.rf_armageddon.question": "Зарядить ретранслятор и запустить шар?",
-  "screen.relics_addon.rf_armageddon.target": "Шар опустится в %s блоках",
+  "screen.relics_addon.rf_armageddon.target": "Шар ударит в %s блоках",
   "screen.relics_addon.rf_armageddon.crater": "Купол оставит кратер %s блоков в поперечнике с валом по краю.",
   "screen.relics_addon.rf_armageddon.radius": "Ударная волна накроет всё в радиусе %s блоков, кроме вас и союзников.",
   "screen.relics_addon.rf_armageddon.drain": "Зарядка %s с от RF-батареи опустошит её; взрыв длится %s с.",

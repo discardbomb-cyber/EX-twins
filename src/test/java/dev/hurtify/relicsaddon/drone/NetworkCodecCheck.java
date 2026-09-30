@@ -121,7 +121,13 @@ public final class NetworkCodecCheck {
         // numbers; broken numbers never get into it.
         int armageddonBytes = roundTrip(ArmageddonState.STREAM_CODEC,
                 new ArmageddonState(HiveType.TWINS, 123_456_789L, new Vec3(1.25, 70.5, -3), new Vec3(-200.5, 63, 180.25), true), "armageddon");
-        require(armageddonBytes < 57, "an Armageddon's counters travel as variable-length numbers, took " + armageddonBytes + " bytes");
+        require(armageddonBytes < 62, "an Armageddon's counters travel as variable-length numbers, took " + armageddonBytes + " bytes");
+        roundTrip(ArmageddonState.STREAM_CODEC, new ArmageddonState(HiveType.RF, 42L, new Vec3(1, 80, 2), new Vec3(1, 95, 20), net.minecraft.core.Direction.DOWN, 17.5, true),
+                "rf armageddon at a ceiling");
+        ArmageddonState roomless = new ArmageddonState(HiveType.RF, 0, Vec3.ZERO, Vec3.ZERO, null, Double.NaN, false);
+        require(roomless.face() == net.minecraft.core.Direction.UP && roomless.room() == ArmageddonState.MOST_ROOM
+                && new ArmageddonState(HiveType.RF, 0, Vec3.ZERO, Vec3.ZERO, net.minecraft.core.Direction.EAST, -4, false).room() == 0,
+                "a shot lands on a real face with room from none to the most that matters");
         roundTrip(ArmageddonState.STREAM_CODEC, new ArmageddonState(HiveType.MANA, 987_654_321L, new Vec3(-4, 80.5, 12), new Vec3(30, 64, -220.75), true), "mana armageddon");
         roundTrip(ArmageddonState.STREAM_CODEC, new ArmageddonState(HiveType.TWINS, 0, Vec3.ZERO, new Vec3(0, -64, 0), false), "armageddon unlinked");
         roundTrip(ArmageddonState.STREAM_CODEC, new ArmageddonState(HiveType.RF, 555_555L, new Vec3(8, 72, -3.5), new Vec3(-40.5, 63, 190), true), "rf armageddon");
@@ -135,8 +141,12 @@ public final class NetworkCodecCheck {
         VarInt.write(stray, 99);
         VarLong.write(stray, 7);
         for (int coordinate = 0; coordinate < 6; coordinate++) stray.writeDouble(coordinate);
+        VarInt.write(stray, 77);
+        stray.writeFloat(Float.NaN);
         stray.writeBoolean(false);
-        require(ArmageddonState.STREAM_CODEC.decode(stray).type() == HiveType.TWINS && stray.readableBytes() == 0, "a hive family from nowhere reads as Twins");
+        ArmageddonState strayState = ArmageddonState.STREAM_CODEC.decode(stray);
+        require(strayState.type() == HiveType.TWINS && stray.readableBytes() == 0, "a hive family from nowhere reads as Twins");
+        require(strayState.room() == ArmageddonState.MOST_ROOM && strayState.face() != null, "a face and room from nowhere read as a real face with all the room");
         for (HiveType type : HiveType.values()) {
             int end = ArmageddonTimeline.of(type).end();
             ArmageddonState running = new ArmageddonState(type, 1_000, Vec3.ZERO, new Vec3(0, 0, 60), false);
@@ -144,11 +154,14 @@ public final class NetworkCodecCheck {
                     "a " + type + " Armageddon runs from its start until its drones are home");
         }
         roundTrip(dev.hurtify.relicsaddon.network.ArmageddonPayloads.Blast.STREAM_CODEC,
-                new dev.hurtify.relicsaddon.network.ArmageddonPayloads.Blast(HiveType.MANA, new Vec3(-12.5, 63, 400.25), new Vec3(3, 75.5, 250), 1_234_567L), "mana blast");
+                new dev.hurtify.relicsaddon.network.ArmageddonPayloads.Blast(HiveType.MANA, new Vec3(-12.5, 63, 400.25), new Vec3(3, 75.5, 250),
+                        net.minecraft.core.Direction.UP, 256, 1_234_567L), "mana blast");
         roundTrip(dev.hurtify.relicsaddon.network.ArmageddonPayloads.Blast.STREAM_CODEC,
-                new dev.hurtify.relicsaddon.network.ArmageddonPayloads.Blast(HiveType.TWINS, Vec3.ZERO, new Vec3(0, 6.5, 1.5), -3L), "twins blast in a young world");
+                new dev.hurtify.relicsaddon.network.ArmageddonPayloads.Blast(HiveType.TWINS, Vec3.ZERO, new Vec3(0, 6.5, 1.5), net.minecraft.core.Direction.UP, 256, -3L),
+                "twins blast in a young world");
         roundTrip(dev.hurtify.relicsaddon.network.ArmageddonPayloads.Blast.STREAM_CODEC,
-                new dev.hurtify.relicsaddon.network.ArmageddonPayloads.Blast(HiveType.RF, new Vec3(100.5, 64, -80), new Vec3(4, 80, 2), 9_876_543L), "rf blast");
+                new dev.hurtify.relicsaddon.network.ArmageddonPayloads.Blast(HiveType.RF, new Vec3(100.5, 64, -80), new Vec3(4, 80, 2), net.minecraft.core.Direction.WEST, 12.25F,
+                        9_876_543L), "rf blast into a wall");
         System.out.println("Network codecs: " + HiveType.MAX_DRONES + "-drone swarm (" + swarmBytes + " bytes, " + restingBytes + " at rest), old saves, "
                 + "settings, combat, batteries, shield impacts and Armageddon round-trip exactly");
     }

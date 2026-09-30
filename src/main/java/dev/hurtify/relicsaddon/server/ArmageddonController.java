@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.UUID;
 import dev.hurtify.relicsaddon.AddonConfig;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.block.Block;
@@ -197,11 +198,32 @@ public final class ArmageddonController {
         if (aim.length() > Armageddon.REACH + 2) target = eye.add(aim.normalize().scale(Armageddon.REACH));
         if (aim.lengthSqr() < 1) target = eye.add(owner.getLookAngle().scale(Armageddon.REACH));
         BlockHitResult blocked = owner.level().clip(new ClipContext(eye, target, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, owner));
-        if (blocked.getType() != HitResult.Type.MISS) target = blocked.getLocation();
+        Direction face = Direction.UP;
+        if (blocked.getType() != HitResult.Type.MISS) {
+            target = blocked.getLocation();
+            face = blocked.getDirection();
+        } else {
+            // A point right on a face (as the owner's own aim gives it) is found by looking on through it a little.
+            Vec3 way = target.subtract(eye);
+            if (way.lengthSqr() > 1e-6) {
+                BlockHitResult on = owner.level().clip(new ClipContext(target.subtract(way.normalize().scale(.05)), target.add(way.normalize().scale(.3)),
+                        ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, owner));
+                if (on.getType() != HitResult.Type.MISS) {
+                    target = on.getLocation();
+                    face = on.getDirection();
+                }
+            }
+        }
+        // How much room there is out from that face, up to the first thing in the way (where the RF ball can hang).
+        Vec3 out = Vec3.atLowerCornerOf(face.getNormal());
+        BlockHitResult wall = owner.level().clip(new ClipContext(target.add(out.scale(.1)), target.add(out.scale(ArmageddonState.MOST_ROOM)),
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, owner));
+        double room = wall.getType() == HitResult.Type.MISS ? ArmageddonState.MOST_ROOM : wall.getLocation().distanceTo(target);
         ItemStack shield = shield(owner, type);
         int shieldGives = shield.isEmpty() ? 0 : shieldGives(owner, shield, hive);
         ArmageddonTimeline timeline = ArmageddonTimeline.of(type);
-        ArmageddonState state = new ArmageddonState(type, now - Math.clamp(headStart, 0, timeline.impact() - 1), origin(type, eye, target), target, shieldGives > 0);
+        ArmageddonState state = new ArmageddonState(type, now - Math.clamp(headStart, 0, timeline.impact() - 1), origin(type, eye, target), target, face, room,
+                shieldGives > 0);
         hive.set(ModDataComponents.HIVE_ARMAGEDDON.get(), state);
         SHOTS.put(owner.getUUID(), new Shot(identity, owner, state, DevicePower.energy(hive), shieldGives));
         RelicSounds.armageddon(owner.serverLevel(), state.origin(), type, RelicSounds.Cannon.CHARGE);
@@ -277,14 +299,15 @@ public final class ArmageddonController {
         if (shot.arrived && age < timeline.carvedUntil()) carve(level, shot, age);
         if (!shot.told && age >= timeline.told()) {
             shot.told = true;
-            ArmageddonPayloads.blast(level, type, shot.state.target(), shot.state.origin(), shot.state.startedAt() + timeline.impact());
+            ArmageddonPayloads.blast(level, type, shot.state.target(), shot.state.origin(), shot.state.face(), shot.state.room(), shot.state.startedAt() + timeline.impact());
         }
         if (!shot.landed && age >= timeline.impact()) {
             shot.landed = true;
             detonate(level, timeline, shot.owner, shot.state.target(), shot.state.startedAt() + timeline.impact());
         }
         if (type == HiveType.TWINS && shot.landed && !safe()) bore(level, shot, age - timeline.impact());
-        if (type == HiveType.RF && shot.landed && !safe()) rim(level, shot, age - timeline.impact());
+        // A rim only rises round a crater in the ground; one in a ceiling or a wall is left as the dome cut it.
+        if (type == HiveType.RF && shot.landed && !safe() && shot.state.face() == Direction.UP) rim(level, shot, age - timeline.impact());
     }
 
     /**
@@ -362,7 +385,7 @@ public final class ArmageddonController {
     /**
      * The land round the shot's target goes from the middle out: column by column, as its reach passes each,
      * every breakable block within the sphere of the course's carve radius (below the target only as deep as its
-     * carve depth: a bowl for the RF crater), a few thousand a tick; and every
+     * carve depth: a bowl for the RF crater, turned to face the way the RF ball came in), a few thousand a tick; and every
      * creature it would strike is dragged in: towards the Twins black hole, or swept round and up into the Mana
      * vortex.
      */
@@ -376,12 +399,17 @@ public final class ArmageddonController {
             int x = (int) (shot.crater[shot.eaten] >> 32), z = (int) shot.crater[shot.eaten];
             double dx = x + .5 - centre.x, dz = z + .5 - centre.z, flat = dx * dx + dz * dz;
             if (flat > reach * reach) break;
-            double span = Math.sqrt(Math.max(0, most - flat));
-            int floor = Math.max(level.getMinBuildHeight(), (int) Math.ceil(centre.y - span * deep));
+            double span = Math.sqrt(Math.max(0, most - flat)), below = span * deep, above = span;
+            if (shot.state.type() == HiveType.RF) {
+                double[] bowl = RfArmageddon.bowl(shot.state.normal(), dx, dz, radius, deep);
+                below = bowl == null ? -1 : -bowl[0];
+                above = bowl == null ? -2 : bowl[1];
+            }
+            int floor = Math.max(level.getMinBuildHeight(), (int) Math.ceil(centre.y - below));
             at.set(x, floor, z);
             // Never inside spawn protection or beyond the world border, where its owner could not break a block either.
             if (level.isLoaded(at) && level.mayInteract(shot.owner, at)) {
-                int top = Math.min(shot.eatenTo, Math.min(level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z), (int) Math.floor(centre.y + span)));
+                int top = Math.min(shot.eatenTo, Math.min(level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z), (int) Math.floor(centre.y + above)));
                 for (int y = top; y >= floor && budget > 0 && looks > 0; y--) {
                     looks--;
                     at.setY(y);
