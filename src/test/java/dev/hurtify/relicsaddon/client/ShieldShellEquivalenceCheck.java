@@ -42,7 +42,7 @@ public final class ShieldShellEquivalenceCheck {
         }
         require(checked > 1_000_000, "Enough halo vertices compared: " + checked);
         long shells = compareShells(none, one, two, twelve);
-        measureHalo();
+        measureHalo(twelve);
         measureShells(twelve);
         System.out.println("Shield shells: halo identical over " + checked + " vertices, shells over " + shells
                 + " (waves, hits, threats, holes, gathering, inside/outside, low/high)");
@@ -71,7 +71,7 @@ public final class ShieldShellEquivalenceCheck {
                 new Scene(whole, one, noThreat, 255.4),
                 new Scene(whole, two, everyThreat, 270.25),
                 new Scene(hit, broken, noThreat, 252.75),
-                new Scene(holes, twelve, oneThreat, 258),
+                new Scene(holes, twelve, oneThreat, 270.25),
                 new Scene(gathering, one, noThreat, 252),
                 new Scene(holes, none, noThreat, 300));
         long vertices = 0;
@@ -117,15 +117,21 @@ public final class ShieldShellEquivalenceCheck {
         for (RelicRole role : new RelicRole[]{RelicRole.MANA_SHIELD, RelicRole.TWINS_SHIELD, RelicRole.RF_SHIELD}) {
             boolean rippling = role != RelicRole.RF_SHIELD;
             long[] before = measure(() -> {
-                if (rippling) ShieldRipple.begin(twelve, 258, ShieldRipple.roleScale(role), 1.0);
+                if (rippling) {
+                    ShieldRipple.begin(twelve, 270.25, ShieldRipple.roleScale(role), 1.0);
+                    require(ShieldRipple.waves() == 12, "All twelve waves active");
+                }
                 ShieldShellVisualReference.render(role, fill, glow, new ShieldShellVisualReference.Frame(matrix, 1.5, .9, -3.2, 2.4, .6, .8, OUTSIDE, true),
-                        ShieldStackState.DEFAULT, twelve, threat, 258, .8, false);
+                        ShieldStackState.DEFAULT, twelve, threat, 270.25, .8, false);
                 ShieldRipple.end();
             });
             long[] after = measure(() -> {
-                if (rippling) ShieldRipple.begin(twelve, 258, ShieldRipple.roleScale(role), 1.0);
+                if (rippling) {
+                    ShieldRipple.begin(twelve, 270.25, ShieldRipple.roleScale(role), 1.0);
+                    require(ShieldRipple.waves() == 12, "All twelve waves active");
+                }
                 ShieldShellVisual.render(role, fill, glow, new ShieldShellVisual.Frame(matrix, 1.5, .9, -3.2, 2.4, .6, .8, OUTSIDE, true),
-                        ShieldStackState.DEFAULT, twelve, threat, 258, .8, false);
+                        ShieldStackState.DEFAULT, twelve, threat, 270.25, .8, false);
                 ShieldRipple.end();
             });
             System.out.printf(Locale.ROOT, "%s shell, 12 waves, high detail: wave profiles/frame %,d -> %,d; allocated bytes/frame %,d -> %,d%n",
@@ -153,19 +159,19 @@ public final class ShieldShellEquivalenceCheck {
         return before.count();
     }
 
-    private static void measureHalo() {
-        var twelve = new ArrayList<ShieldImpact>();
-        for (int k = 0; k < 12; k++) twelve.add(new ShieldImpact(new Vec3(Math.sin(k * 2.1), .3, Math.cos(k * 2.1)).normalize(), 240 + k, 0, 6, false));
+    private static void measureHalo(List<ShieldImpact> twelve) {
         var sink = new Recorder();
         Matrix4f matrix = new Matrix4f();
         long[] before = measure(() -> {
-            ShieldRipple.begin(twelve, 258, 1, 1.0);
-            referenceHalo(sink, matrix, RelicRole.MANA_SHIELD, 0, 0, 0, 2, .8, twelve, 258, OUTSIDE, false);
+            ShieldRipple.begin(twelve, 270.25, 1, 1.0);
+            require(ShieldRipple.waves() == 12, "All twelve waves active");
+            referenceHalo(sink, matrix, RelicRole.MANA_SHIELD, 0, 0, 0, 2, .8, twelve, 270.25, OUTSIDE, false);
             ShieldRipple.end();
         });
         long[] after = measure(() -> {
-            ShieldRipple.begin(twelve, 258, 1, 1.0);
-            ShieldHalo.HIGH.render(sink, matrix, color(RelicRole.MANA_SHIELD), 0, 0, 0, 2 * 1.018, .8, twelve, 258, OUTSIDE);
+            ShieldRipple.begin(twelve, 270.25, 1, 1.0);
+            require(ShieldRipple.waves() == 12, "All twelve waves active");
+            ShieldHalo.HIGH.render(sink, matrix, color(RelicRole.MANA_SHIELD), 0, 0, 0, 2 * 1.018, .8, twelve, 270.25, OUTSIDE);
             ShieldRipple.end();
         });
         System.out.printf(Locale.ROOT, "Halo, 12 waves, high detail: wave profiles/frame %,d -> %,d; allocated bytes/frame %,d -> %,d%n",
