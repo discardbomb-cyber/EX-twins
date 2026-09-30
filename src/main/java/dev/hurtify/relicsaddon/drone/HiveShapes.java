@@ -17,6 +17,9 @@ public final class HiveShapes {
      * its thirty-two edges; turning it through the fourth dimension gives the familiar animation of
      * the inner cube swelling out through the outer one.
      */
+    /** Corners of the four-dimensional cube: the fewest drones a tesseract is built from. */
+    public static final int TESSERACT_CORNERS = 1 << 4;
+
     public static Vec3 tesseract(int m, int count, double time, double size) {
         double[] p = tesseractPoint(m, count);
         return project(p, time, size);
@@ -31,8 +34,8 @@ public final class HiveShapes {
     public static final int[][] TESSERACT_EDGES = edges();
 
     private static double[] tesseractPoint(int m, int count) {
-        if (m < 16) return corner(m);
-        int extra = m - 16, layers = Math.max(1, (count - 16 + 31) / 32);
+        if (m < TESSERACT_CORNERS) return corner(m);
+        int extra = m - TESSERACT_CORNERS, layers = Math.max(1, (count - TESSERACT_CORNERS + 31) / 32);
         int[] edge = TESSERACT_EDGES[extra % 32];
         double along = (extra / 32 + 1) / (double) (layers + 1);
         double[] a = corner(edge[0]), b = corner(edge[1]);
@@ -46,7 +49,7 @@ public final class HiveShapes {
     private static int[][] edges() {
         int[][] result = new int[32][];
         int count = 0;
-        for (int a = 0; a < 16; a++) for (int bit = 0; bit < 4; bit++) {
+        for (int a = 0; a < TESSERACT_CORNERS; a++) for (int bit = 0; bit < 4; bit++) {
             int b = a ^ (1 << bit);
             if (a < b) result[count++] = new int[]{a, b};
         }
@@ -62,10 +65,28 @@ public final class HiveShapes {
         return new Vec3(x * perspective * size, y * perspective * size, z * perspective * size);
     }
 
-    /** Mana: a droplet, round at the back and drawn to a point along {@code forward}. */
+    /** Heights (-1 at the round back, 1 at the tip) of the rings of the Mana drop's corners, and the corners on each ring. */
+    private static final double[] DROP_RINGS = {.35, -.45};
+    private static final int DROP_RING_CORNERS = 6;
+    /** Corners of the low-poly Mana drop: its tip, a ring round its narrowing front, a wider ring behind, and its back. */
+    public static final int DROPLET_CORNERS = 2 + DROP_RINGS.length * DROP_RING_CORNERS;
+
+    /**
+     * Mana: a droplet, round at the back and drawn to a point along {@code forward}. Its first drones stand
+     * on the corners of a low-poly drop; the rest spread evenly over its skin between them.
+     */
     public static Vec3 droplet(int m, int count, double time, Vec3 forward, double size) {
-        double y = 1 - 2 * (m + .5) / count;
-        double around = m * GOLDEN_ANGLE + time * .03;
+        double y, around;
+        if (m < DROPLET_CORNERS) {
+            int ring = m - 1;
+            y = m == 0 ? 1 : ring >= DROP_RINGS.length * DROP_RING_CORNERS ? -1 : DROP_RINGS[ring / DROP_RING_CORNERS];
+            around = ring < 0 ? 0 : (ring % DROP_RING_CORNERS + (ring / DROP_RING_CORNERS) * .5) * Math.PI * 2 / DROP_RING_CORNERS;
+        } else {
+            int extra = m - DROPLET_CORNERS, extras = Math.max(1, count - DROPLET_CORNERS);
+            y = 1 - 2 * (extra + .5) / extras;
+            around = extra * GOLDEN_ANGLE;
+        }
+        around += time * .03;
         double ring = Math.sqrt(Math.max(0, 1 - y * y));
         // Front half narrows into a tip twice as long as the round back.
         double length = y > 0 ? y * 2.1 : y;
@@ -76,19 +97,25 @@ public final class HiveShapes {
                 .add(axes[2].scale(Math.sin(around) * width * size * wobble));
     }
 
-    /** Twins: hexagons side by side across the direction of flight, each turning on its own. */
+    /** A Twins figure has at least this many hexagons, and each hexagon this many corners. */
+    public static final int MIN_HEXAGONS = 3, HEXAGON_CORNERS = 6;
+
+    /**
+     * Twins: hexagons side by side across the direction of flight, each turning on its own. The first six
+     * drones of a hexagon stand on its corners; any more make a smaller hexagon inside it.
+     */
     public static Vec3 hexagons(int m, int count, double time, Vec3 forward, double size) {
         int rings = hexagonCount(count);
         int ring = m % rings, slot = m / rings, population = (count - 1 - ring) / rings + 1;
         Vec3 centre = hexagonCentre(ring, rings, time, forward, size);
         double spin = time * (ring % 2 == 0 ? .05 : -.05);
-        double along = population <= 1 ? 0 : slot / (double) population * 6;
-        Vec3 edge = hexagonPoint(along, spin, forward, size * .45);
-        return centre.add(edge);
+        if (slot < HEXAGON_CORNERS) return centre.add(hexagonPoint(slot, spin, forward, size * .45));
+        double along = (slot - HEXAGON_CORNERS) / (double) (population - HEXAGON_CORNERS) * HEXAGON_CORNERS + .5;
+        return centre.add(hexagonPoint(along, -spin, forward, size * .45 * .55));
     }
 
     public static int hexagonCount(int count) {
-        return Math.clamp(count / 10, 3, 6);
+        return Math.clamp(count / 10, MIN_HEXAGONS, 6);
     }
 
     /** Centre of hexagon {@code ring}, relative to the group's centre. */
@@ -187,6 +214,25 @@ public final class HiveShapes {
         return Math.max(8, (int) Math.round(Math.PI * 2 * radius * RING_RADII[ring] / (Math.sqrt(3) * tall)));
     }
 
+    /** Corners of each containment torus: its core line is a hexagon on RF, an octagon on the denser Twins tori. */
+    public static int ringCorners(boolean dense) {
+        return dense ? 8 : 6;
+    }
+
+    /**
+     * Containment place {@code s} of {@code count}. Every torus first gets its corners, drones evenly round
+     * its core line just outside the tube; the rest ride just above its hexagons, spread evenly over them.
+     */
+    public static Vec3 ringPlace(int s, int count, double time, double radius, boolean dense) {
+        int corners = ringCorners(dense), rings = RING_RADII.length;
+        count = Math.max(1, count);
+        s = Math.clamp(s, 0, count - 1);
+        if (count < corners * rings) return dysonRing(s, count, time, radius, dense);
+        // Half a row round the tube from the hexagons' rows, so no corner drone ever sits on a rider's place.
+        if (s < corners * rings) return ringPoint(s % rings, (s / rings) * Math.PI * 2 / corners, Math.PI / ringRows(dense), 1.12, time, radius, dense);
+        return dysonRing(s - corners * rings, count - corners * rings, time, radius, dense);
+    }
+
     /** Place {@code s} of {@code count}: just above one of the hexagons of its torus, spread evenly over them. */
     public static Vec3 dysonRing(int s, int count, double time, double radius, boolean dense) {
         count = Math.max(1, count);
@@ -253,25 +299,45 @@ public final class HiveShapes {
         return new Vec3[]{u, normal.cross(u), normal};
     }
 
+    /** The ward's corners: the rhombi's shared top and bottom tips and their six side corners, which the middle hexagon joins. */
+    public static final int WARD_CORNERS = 2 + 3 * 2;
+
+    /** Place {@code s} of {@code count} on the ward: its corners first, the rest streaming along its lines. */
+    public static Vec3 wardPlace(int s, int count, double time, double scale) {
+        if (s >= WARD_CORNERS) return ward(s - WARD_CORNERS, Math.max(1, count - WARD_CORNERS), time, scale);
+        return wardCorner(s, time * .008).scale(scale);
+    }
+
+    /** Corner {@code corner} of the ward turned by {@code turn}: the top tip, the bottom tip, then the side corners round the middle. */
+    public static Vec3 wardCorner(int corner, double turn) {
+        if (corner == 0) return new Vec3(0, 1.55, 0);
+        if (corner == 1) return new Vec3(0, -1.55, 0);
+        double angle = turn + (corner - 2) * Math.PI / 3;
+        return new Vec3(Math.cos(angle) * 1.1, 0, Math.sin(angle) * 1.1);
+    }
+
     /**
-     * Mana: a ward of three upright rhombi turned 120 degrees apart and two level circles above and
-     * below; drones stream along its lines.
+     * Mana: a ward of three upright rhombi turned 120 degrees apart, two level circles above and below and a
+     * hexagon round its middle. Drones are spread evenly over its lines and stream along them, each round
+     * its own line, which is closed, so none ever jumps from one line to the next.
      */
     public static Vec3 ward(int s, int count, double time, double scale) {
         double rhombus = 4 * Math.hypot(1.1, 1.55), circle = Math.PI * 2 * 1.3, hexagon = 6 * 1.1;
         double total = 3 * rhombus + 2 * circle + hexagon;
-        double at = ((s + .5) / count * total + time * .02) % total;
+        double at = (s + .5) / count * total, run = time * .02;
         double turn = time * .008;
         for (int index = 0; index < 3; index++) {
-            if (at < rhombus) return rhombusPoint(at / rhombus, turn + index * Math.PI * 2 / 3).scale(scale);
+            if (at < rhombus) return rhombusPoint((at + run) % rhombus / rhombus, turn + index * Math.PI * 2 / 3).scale(scale);
             at -= rhombus;
         }
-        if (at < 2 * circle) {
-            boolean top = at < circle;
-            double angle = (top ? at : at - circle) / circle * Math.PI * 2 - turn;
-            return new Vec3(Math.cos(angle) * 1.3, top ? 1.0 : -1.0, Math.sin(angle) * 1.3).scale(scale);
+        for (int index = 0; index < 2; index++) {
+            if (at < circle) {
+                double angle = (at + run) % circle / circle * Math.PI * 2 - turn;
+                return new Vec3(Math.cos(angle) * 1.3, index == 0 ? 1.0 : -1.0, Math.sin(angle) * 1.3).scale(scale);
+            }
+            at -= circle;
         }
-        return wardHexagonPoint((at - 2 * circle) / hexagon, turn).scale(scale);
+        return wardHexagonPoint((at + run) % hexagon / hexagon, turn).scale(scale);
     }
 
     /**

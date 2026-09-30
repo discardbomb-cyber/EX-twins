@@ -214,7 +214,7 @@ public final class HiveFormation {
         return core.add(switch (type) {
             case RF -> {
                 double angle = group * Math.PI * 2 / groups + time * .004;
-                double lift = groups > 3 && group % 2 == 1 ? .75 : 0;
+                double lift = groups >= CROWN_POINTS && group % 2 == 1 ? .75 : 0;
                 yield new Vec3(Math.cos(angle) * reach, 1.3 + lift, Math.sin(angle) * reach);
             }
             case MANA -> {
@@ -224,12 +224,24 @@ public final class HiveFormation {
                 yield new Vec3(Math.cos(angle) * r, inner ? 2.3 : .8, Math.sin(angle) * r);
             }
             case TWINS -> {
-                int ring = group / 8, index = group % 8, inRing = Math.min(8, groups - ring * 8);
-                double angle = index * Math.PI * 2 / inRing + (ring % 2 == 0 ? 1 : -1) * time * .005 + ring * Math.PI / 8;
+                int ring = group / OCTAGON, index = group % OCTAGON, inRing = Math.min(OCTAGON, groups - ring * OCTAGON);
+                double angle = index * Math.PI * 2 / inRing + (ring % 2 == 0 ? 1 : -1) * time * .005 + ring * Math.PI / OCTAGON;
                 double r = reach * (1 - .28 * ring);
                 yield new Vec3(Math.cos(angle) * r, 1.0 + 1.5 * ring, Math.sin(angle) * r);
             }
         });
+    }
+
+    /** Clumps a pattern needs to be itself: an RF crown raises every other point of four or more, a Mana star closes its outer ring from six, a Twins octagon has eight. */
+    public static final int CROWN_POINTS = 4, STAR_POINTS = 6, OCTAGON = 8;
+
+    /** The corners of a family's barrage pattern: the fewest clumps, one drone each at least, that make it. */
+    public static int patternCorners(HiveType type) {
+        return switch (type) {
+            case RF -> CROWN_POINTS;
+            case MANA -> STAR_POINTS;
+            case TWINS -> OCTAGON;
+        };
     }
 
     /** The pattern's lines, as pairs of groups: the crown's ring, the star's zigzag and outer ring, the octagons and the struts between them. */
@@ -239,7 +251,7 @@ public final class HiveFormation {
         switch (type) {
             case RF, MANA -> {
                 for (int group = 0; group < (groups == 2 ? 1 : groups); group++) links.add(new int[]{group, (group + 1) % groups});
-                if (type == HiveType.MANA && groups >= 6) {
+                if (type == HiveType.MANA && groups >= STAR_POINTS) {
                     int outer = (groups + 1) / 2;
                     for (int k = 0; k < outer; k++) {
                         int a = 2 * k, b = 2 * ((k + 1) % outer);
@@ -248,12 +260,12 @@ public final class HiveFormation {
                 }
             }
             case TWINS -> {
-                for (int ring = 0; ring * 8 < groups; ring++) {
-                    int size = Math.min(8, groups - ring * 8);
+                for (int ring = 0; ring * OCTAGON < groups; ring++) {
+                    int size = Math.min(OCTAGON, groups - ring * OCTAGON);
                     for (int index = 0; index < (size == 2 ? 1 : size); index++) {
-                        if (size > 1) links.add(new int[]{ring * 8 + index, ring * 8 + (index + 1) % size});
+                        if (size > 1) links.add(new int[]{ring * OCTAGON + index, ring * OCTAGON + (index + 1) % size});
                     }
-                    if (ring > 0) for (int index = 0; index < size; index++) links.add(new int[]{(ring - 1) * 8 + index, ring * 8 + index});
+                    if (ring > 0) for (int index = 0; index < size; index++) links.add(new int[]{(ring - 1) * OCTAGON + index, ring * OCTAGON + index});
                 }
             }
         }
@@ -384,9 +396,9 @@ public final class HiveFormation {
                 yield at;
             }
             case CONTAINMENT -> containmentCentre(type, target, targetWidth, targetHeight, slots).add(switch (type) {
-                case RF -> HiveShapes.dysonRing(slot, slots, time, ringsRadius(targetWidth, targetHeight, false), false);
-                case MANA -> HiveShapes.ward(slot, slots, time, wardScale(targetWidth, targetHeight));
-                case TWINS -> HiveShapes.dysonRing(slot, slots, time, ringsRadius(targetWidth, targetHeight, true), true);
+                case RF -> HiveShapes.ringPlace(slot, slots, time, ringsRadius(targetWidth, targetHeight, false), false);
+                case MANA -> HiveShapes.wardPlace(slot, slots, time, wardScale(targetWidth, targetHeight));
+                case TWINS -> HiveShapes.ringPlace(slot, slots, time, ringsRadius(targetWidth, targetHeight, true), true);
             });
         };
     }
