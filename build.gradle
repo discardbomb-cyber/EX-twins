@@ -386,7 +386,7 @@ tasks.register('verifyShieldRipple', JavaExec) {
 tasks.register('verifyDevicePower', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
-    mainClass = 'dev.hurtify.relicsaddon.power.DevicePowerCheck'
+    mainClass = 'dev.hurtify.relicsaddon.domain.energy.BatteryRulesCheck'
 }
 
 tasks.register('verifyNetworkCodecs', JavaExec) {
