@@ -86,7 +86,7 @@ public final class ShieldRefraction {
     }
 
     /** Iris/Oculus replace the pipeline; sampling the vanilla target there would show stale or black pixels. */
-    private static boolean shaderPackActive() {
+    static boolean shaderPackActive() {
         if (irisPresent == null) irisPresent = ModList.get().isLoaded("iris") || ModList.get().isLoaded("oculus");
         if (!irisPresent) return false;
         try {

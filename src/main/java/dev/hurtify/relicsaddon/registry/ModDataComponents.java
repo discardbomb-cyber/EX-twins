@@ -28,6 +28,11 @@ public final class ModDataComponents {
             DATA_COMPONENTS.registerComponentType("hive_combat_state", builder -> builder
                     .networkSynchronized(dev.hurtify.relicsaddon.drone.HiveCombatState.STREAM_CODEC));
 
+    /** A Twins hive's Armageddon under way: transient, like the combat state, and seen by every client near its owner. */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.drone.ArmageddonState>> HIVE_ARMAGEDDON =
+            DATA_COMPONENTS.registerComponentType("hive_armageddon", builder -> builder
+                    .networkSynchronized(dev.hurtify.relicsaddon.drone.ArmageddonState.STREAM_CODEC));
+
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.shield.ShieldSettings>> SHIELD_SETTINGS =
             DATA_COMPONENTS.registerComponentType("shield_settings", builder -> builder
                     .persistent(dev.hurtify.relicsaddon.shield.ShieldSettings.CODEC)

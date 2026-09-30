@@ -90,9 +90,37 @@ public final class WorldScenarios {
                     new Vec3(13, 8, -2), new Vec3(0, 5, -10), 60, 60, -1, "minecraft:iron_golem"),
             new Scene("containment-twins-golem", RelicRole.TWINS_HIVE, 10, AttackMode.CONTAINMENT, null, List.of(new Vec3(0, 0, -10)), false,
                     new Vec3(27, 15, 0), new Vec3(0, 11.4, -10), 70, 60, -1, "minecraft:iron_golem"),
+            // Armageddon in one take, from the first moment of the charge to the last of the blast: the cannon builds
+            // over the owner (a Twins shield feeds it) and fires at a crowd 150 blocks off, seen from just behind.
+            new Scene("armageddon", RelicRole.TWINS_HIVE, 10, AttackMode.DROPLET, RelicRole.TWINS_SHIELD,
+                    List.of(new Vec3(-6, 0, -148), new Vec3(4, 0, -152), new Vec3(9, 0, -145), new Vec3(-10, 0, -156), new Vec3(0, 0, -160)), false,
+                    new Vec3(22, 12, 24), new Vec3(-2, 10, -40), 40, 2200, -1),
+            new Scene("armageddon-close", RelicRole.TWINS_HIVE, 10, AttackMode.DROPLET, RelicRole.TWINS_SHIELD,
+                    List.of(new Vec3(-4, 0, -60), new Vec3(5, 0, -62)), false, new Vec3(11, 8, 10), new Vec3(0, 8, -2), 40, 200, -1),
+            // The black hole arriving and eating the land round it, seen from 50 blocks off.
+            new Scene("armageddon-devour", RelicRole.TWINS_HIVE, 10, AttackMode.DROPLET, RelicRole.TWINS_SHIELD,
+                    List.of(new Vec3(-8, 0, -58), new Vec3(6, 0, -66), new Vec3(12, 0, -52)), false, new Vec3(38, 16, -28), new Vec3(0, 3, -60), 40, 132, -1),
+            // The blast seen from the ground 200 blocks off, as the blast it follows is framed: the dome filling most
+            // of the sky, the column running up out of sight, the shock wave reaching the camera after the column falls.
+            new Scene("armageddon-blast", RelicRole.TWINS_HIVE, 10, AttackMode.DROPLET, RelicRole.TWINS_SHIELD,
+                    List.of(new Vec3(-8, 0, -58), new Vec3(6, 0, -66)), false, new Vec3(150, 8, 80), new Vec3(0, 36, -60), 40, 900, -1),
             // A slower, level 3 hive keeps its figures in the fan longer, close to the camera.
             new Scene("drone-closeup", RelicRole.RF_HIVE, 3, AttackMode.DROPLET, null,
                     List.of(new Vec3(0, 0, -26)), false, new Vec3(2.5, 3.6, -2.2), new Vec3(0, 3.8, 3), 60, 50, -1));
+
+    /**
+     * Armageddon scenes: where the owner fires (from the owner's feet) as filming starts, how far into the
+     * minute of charging the cannon already is, and how many ticks go by between frames; their foes keep
+     * ordinary health.
+     */
+    private record Shot(Vec3 aim, int headStart, int cadence, float tickRate) { }
+    private static final java.util.Map<String, Shot> ARMAGEDDON = java.util.Map.of(
+            "armageddon", new Shot(new Vec3(0, 0, -150), 0, 1, 20), "armageddon-close", new Shot(new Vec3(0, 0, -60), 1000, 2, 20),
+            "armageddon-devour", new Shot(new Vec3(0, 0, -60), 1150, 1, 5), "armageddon-blast", new Shot(new Vec3(0, 0, -60), 1265, 1, 5));
+    /** How many frames may be on their way to disk at once. */
+    private static final int GRABS_IN_FLIGHT = 6;
+    /** When the current take started, in game time: an Armageddon take ends when its blast has burnt out. */
+    private static double captureStart;
 
     /** Scenes filmed against a chequered wall behind the black hole, so that its lens shows. */
     private static final java.util.Set<String> BACKDROP = java.util.Set.of("containment-twins", "containment-twins-close", "containment-twins-golem");
@@ -106,6 +134,8 @@ public final class WorldScenarios {
     private static final AtomicInteger CAMERA = new AtomicInteger(-1);
     private static final List<Integer> FOES = new ArrayList<>();
     private static Vec3 origin;
+    /** Where the current scene plays: the origin, or for an Armageddon scene fresh ground well away from any earlier shot's hole. */
+    private static Vec3 stage;
 
     private static boolean enabled() {
         return System.getProperty(PROPERTY) != null;
@@ -126,6 +156,9 @@ public final class WorldScenarios {
                 minecraft.options.hideGui = true;
                 // A plain lens, not the wide angle the world was played with.
                 minecraft.options.fov().set(55);
+                // The whole blast reaches 256 blocks: draw the world as far as the game can.
+                minecraft.options.renderDistance().set(32);
+                minecraft.options.simulationDistance().set(12);
                 next(minecraft);
             }
             case SETUP -> { }
@@ -135,11 +168,25 @@ public final class WorldScenarios {
                     phase = Phase.CAPTURE;
                     ticks = 0;
                     frame = 0;
+                    captureStart = minecraft.level.getGameTime();
+                    Shot shot = ARMAGEDDON.get(plan.get(scene).name());
+                    if (shot != null) onServer(minecraft, level -> {
+                        // Slowed down, every tick gets its frame: the film plays back smoothly at full speed.
+                        level.getServer().tickRateManager().setTickRate(shot.tickRate());
+                        Vec3 aim = shot.aim();
+                        String refused = dev.hurtify.relicsaddon.server.ArmageddonController.request(owner(level),
+                                stage.add(aim.x, level.getHeight(Heightmap.Types.MOTION_BLOCKING, (int) Math.floor(stage.x + aim.x),
+                                        (int) Math.floor(stage.z + aim.z)) - stage.y, aim.z), shot.headStart());
+                        if (refused != null) RelicsAddon.LOGGER.warn("World scenario {}: Armageddon refused: {}", plan.get(scene).name(), refused);
+                    });
                 }
             }
             case CAPTURE -> {
                 attachCamera(minecraft);
-                if (++ticks % 2 == 0) due = true;
+                // A key pressed into the game window must not open a screen over the shot.
+                if (minecraft.screen != null) minecraft.setScreen(null);
+                Shot shot = ARMAGEDDON.get(plan.get(scene).name());
+                if (++ticks % (shot == null ? 2 : shot.cadence()) == 0) due = true;
             }
             case TEARDOWN -> {
                 if (++ticks >= 10) next(minecraft);
@@ -150,7 +197,7 @@ public final class WorldScenarios {
 
     @SubscribeEvent
     public static void onFrame(RenderFrameEvent.Post event) {
-        if (!enabled() || phase != Phase.CAPTURE || !due || pendingGrabs > 0) return;
+        if (!enabled() || phase != Phase.CAPTURE || !due || pendingGrabs >= GRABS_IN_FLIGHT) return;
         Minecraft minecraft = Minecraft.getInstance();
         due = false;
         Scene current = plan.get(scene);
@@ -158,10 +205,24 @@ public final class WorldScenarios {
         pendingGrabs++;
         Screenshot.grab(minecraft.gameDirectory, String.format(Locale.ROOT, "scenario-%s-%03d.png", current.name(), index),
                 minecraft.getMainRenderTarget(), message -> minecraft.execute(() -> pendingGrabs--));
+        // Frames come as fast as they can be saved, not evenly: note the game time of each, to cut a real-time video.
+        if (minecraft.level != null) {
+            java.nio.file.Path ticks = minecraft.gameDirectory.toPath().resolve("screenshots").resolve("scenario-" + current.name() + ".ticks");
+            try {
+                java.nio.file.Files.writeString(ticks, index + "," + (minecraft.level.getGameTime() + minecraft.getTimer().getGameTimeDeltaPartialTick(true)) + "\n",
+                        index == 0 ? new java.nio.file.OpenOption[]{java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.TRUNCATE_EXISTING}
+                                : new java.nio.file.OpenOption[]{java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND});
+            } catch (java.io.IOException exception) {
+                RelicsAddon.LOGGER.warn("World scenario {}: could not note frame times", current.name(), exception);
+            }
+        }
         if (index == current.killFirstAtFrame()) onServer(minecraft, level -> {
             if (!FOES.isEmpty() && level.getEntity(FOES.getFirst()) instanceof net.minecraft.world.entity.LivingEntity foe) foe.kill();
         });
-        if (frame >= current.frames()) {
+        Shot filming = ARMAGEDDON.get(current.name());
+        boolean burntOut = filming != null && minecraft.level != null
+                && minecraft.level.getGameTime() - captureStart >= dev.hurtify.relicsaddon.drone.Armageddon.IMPACT + dev.hurtify.relicsaddon.drone.Armageddon.GONE + 40 - filming.headStart();
+        if (frame >= current.frames() || burntOut) {
             RelicsAddon.LOGGER.info("World scenario {}: {} frames", current.name(), frame);
             onServer(minecraft, WorldScenarios::teardown);
             minecraft.setCameraEntity(minecraft.player);
@@ -194,10 +255,9 @@ public final class WorldScenarios {
         int id = CAMERA.get();
         if (id < 0 || minecraft.level == null) return;
         Entity camera = minecraft.level.getEntity(id);
-        if (camera != null && minecraft.getCameraEntity() != camera) {
-            minecraft.setCameraEntity(camera);
-            minecraft.options.setCameraType(CameraType.FIRST_PERSON);
-        }
+        // Held every tick, so nothing pressed in the game window can move or swap the view.
+        if (camera != null && minecraft.getCameraEntity() != camera) minecraft.setCameraEntity(camera);
+        if (minecraft.options.getCameraType() != CameraType.FIRST_PERSON) minecraft.options.setCameraType(CameraType.FIRST_PERSON);
     }
 
     private interface LevelTask { void run(ServerLevel level); }
@@ -223,15 +283,25 @@ public final class WorldScenarios {
             origin = new Vec3(x + .5, level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z), z + .5);
         }
         clear(level);
+        stage = origin;
+        if (ARMAGEDDON.containsKey(scene.name())) {
+            // Each Armageddon take eats a hole in the land, so every take plays on untouched ground.
+            int x = (int) Math.floor(origin.x) + 400 * (int) (1 + Math.floorMod(level.getGameTime() / 2400 + scene.name().hashCode(), 60)), z = (int) Math.floor(origin.z);
+            level.getChunk(x >> 4, z >> 4);
+            level.getChunk(x >> 4, (z - 64) >> 4);
+            stage = new Vec3(x + .5, level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z), z + .5);
+        }
         backdrop(level, BACKDROP.contains(scene.name()));
         level.setDayTime(11_500);
+        // The long Armageddon takes would otherwise slide into sunset while they are filmed.
+        level.getGameRules().getRule(net.minecraft.world.level.GameRules.RULE_DAYLIGHT).set(false, level.getServer());
         level.setWeatherParameters(6000, 0, false, false);
         player.setGameMode(GameType.SURVIVAL);
         player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, MobEffectInstance.INFINITE_DURATION, 4, false, false));
         player.addEffect(new MobEffectInstance(MobEffects.SATURATION, MobEffectInstance.INFINITE_DURATION, 0, false, false));
         player.setHealth(player.getMaxHealth());
         // The owner faces north, towards the attackers.
-        player.teleportTo(level, origin.x, origin.y, origin.z, 180, 0);
+        player.teleportTo(level, stage.x, stage.y, stage.z, 180, 0);
         var curios = CuriosApi.getCuriosInventory(player).orElseThrow();
         var charms = curios.getStacksHandler(RelicRole.EQUIPMENT_SLOT).orElseThrow().getStacks();
         for (int slot = 0; slot < charms.getSlots(); slot++) charms.setStackInSlot(slot, ItemStack.EMPTY);
@@ -244,11 +314,13 @@ public final class WorldScenarios {
                     : EntityType.byString(scene.foeType()).map(type -> type.create(level)).orElse(null) instanceof net.minecraft.world.entity.Mob mob ? mob : null;
             if (husk == null) continue;
             if (scene.foesFight()) husk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(net.minecraft.world.item.Items.CROSSBOW));
-            Vec3 at = origin.add(offset);
+            Vec3 at = stage.add(offset);
             husk.moveTo(at.x, level.getHeight(Heightmap.Types.MOTION_BLOCKING, (int) Math.floor(at.x), (int) Math.floor(at.z)), at.z, 0, 0);
             husk.setPersistenceRequired();
-            husk.getAttribute(Attributes.MAX_HEALTH).setBaseValue(5000);
-            husk.setHealth(husk.getMaxHealth());
+            if (!ARMAGEDDON.containsKey(scene.name())) {
+                husk.getAttribute(Attributes.MAX_HEALTH).setBaseValue(5000);
+                husk.setHealth(husk.getMaxHealth());
+            }
             husk.setNoAi(!scene.foesFight());
             if (scene.foesFight()) husk.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, MobEffectInstance.INFINITE_DURATION, 6, false, false));
             level.addFreshEntity(husk);
@@ -258,7 +330,7 @@ public final class WorldScenarios {
 
         ArmorStand camera = EntityType.ARMOR_STAND.create(level);
         if (camera != null) {
-            Vec3 eye = origin.add(scene.camera()), look = origin.add(scene.look()).subtract(eye);
+            Vec3 eye = stage.add(scene.camera()), look = stage.add(scene.look()).subtract(eye);
             float yaw = (float) Math.toDegrees(Math.atan2(-look.x, look.z));
             float pitch = (float) -Math.toDegrees(Math.atan2(look.y, Math.sqrt(look.x * look.x + look.z * look.z)));
             camera.setInvisible(true);
@@ -290,6 +362,7 @@ public final class WorldScenarios {
     }
 
     private static void teardown(ServerLevel level) {
+        level.getServer().tickRateManager().setTickRate(20);
         clear(level);
         backdrop(level, false);
         ServerPlayer player = owner(level);
@@ -316,8 +389,9 @@ public final class WorldScenarios {
 
     /** Removes every creature, arrow and item round the stage but the owner. */
     private static void clear(ServerLevel level) {
-        if (origin == null) return;
-        for (Entity entity : level.getEntitiesOfClass(Entity.class, new AABB(origin, origin).inflate(64), entity -> !(entity instanceof Player))) {
+        Vec3 middle = stage != null ? stage : origin;
+        if (middle == null) return;
+        for (Entity entity : level.getEntitiesOfClass(Entity.class, new AABB(middle, middle).inflate(64), entity -> !(entity instanceof Player))) {
             entity.discard();
         }
         FOES.clear();

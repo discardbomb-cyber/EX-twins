@@ -25,6 +25,7 @@ public final class AddonConfig {
     public static final ModConfigSpec.DoubleValue HIVE_HEAL_PER_SECOND;
     public static final ModConfigSpec.DoubleValue HIVE_STRIKE_EFFICIENCY;
     public static final ModConfigSpec.BooleanValue POWER_REQUIRED;
+    public static final ModConfigSpec.BooleanValue ARMAGEDDON_SAFE;
     public static final ModConfigSpec.IntValue XP_POINT_VALUE;
     public static final ModConfigSpec.IntValue XP_RESERVE_LEVELS;
     public static final ModConfigSpec.DoubleValue PLAYER_MANA_VALUE;
@@ -76,6 +77,8 @@ public final class AddonConfig {
         HIVE_HEAL_PER_SECOND = builder.defineInRange("hive.maxHealingPerSecond", 4.0, 0.0, 20.0);
         POWER_REQUIRED = builder.comment("Shields and hives run on their built-in RF and mana batteries. Disable to make them free.")
                 .define("power.requireBatteries", true);
+        ARMAGEDDON_SAFE = builder.comment("When true, Armageddon breaks no blocks: its black hole and blast still strike creatures but leave the land whole.")
+                .define("armageddon.safeMode", false);
         XP_POINT_VALUE = builder.comment("Battery charge gained from one player experience point.")
                 .defineInRange("power.experiencePointValue", 10, 1, 1000);
         XP_RESERVE_LEVELS = builder.comment("Experience levels a mana battery never draws below.")

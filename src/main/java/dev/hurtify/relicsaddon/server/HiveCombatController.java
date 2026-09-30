@@ -92,12 +92,21 @@ public final class HiveCombatController {
             tickHive(serverPlayer, level, hive, now);
         }
         for (HiveType type : HiveType.values()) if (!liveTypes[type.ordinal()]) HiveContainment.releaseAll(serverPlayer.getUUID(), type);
+        // A shot whose hive was switched off or taken off is called off.
+        if (!liveTypes[HiveType.TWINS.ordinal()]) ArmageddonController.abort(serverPlayer);
         clearMissing(serverPlayer.getUUID(), liveTypes);
     }
 
     private static void tickHive(ServerPlayer owner, ServerLevel level, HiveController.Equipped hive, long now) {
         ItemStack stack = hive.stack();
         HiveType type = hive.type();
+        if (type == HiveType.TWINS && ArmageddonController.tick(owner, stack, now)) {
+            // The whole swarm is in the Armageddon cannon: it lets go of what it held and fights nothing else.
+            HiveContainment.releaseAll(owner.getUUID(), type);
+            EnumMap<HiveType, List<Flight>> flights = FLIGHTS.get(owner.getUUID());
+            if (flights != null) flights.remove(type);
+            return;
+        }
         HiveStackState swarm = stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), HiveStackState.DEFAULT);
         HiveCombatState before = stack.getOrDefault(ModDataComponents.HIVE_COMBAT_STATE.get(), HiveCombatState.DEFAULT);
         HiveSettings settings = HiveTaskController.settings(stack);
@@ -580,6 +589,7 @@ public final class HiveCombatController {
 
     public static void clear(Player player) {
         if (player == null) return;
+        ArmageddonController.abort(player);
         FLIGHTS.remove(player.getUUID());
         ATTACKERS.remove(player.getUUID());
         HiveContainment.releaseAll(player.getUUID(), null);

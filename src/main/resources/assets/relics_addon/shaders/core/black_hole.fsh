@@ -2,7 +2,8 @@
 
 // The pull of a black hole on the already-rendered world behind it. Light passing near the horizon is
 // bent round it (a point-mass lens) and swallowed: the nearer a ray passes the hole and the longer it
-// runs by it, the darker. What stands in front of the hole is neither bent nor darkened.
+// runs by it, the darker. The same pass bends the world behind the rim of a shock shell (Ring). What
+// stands in front of the hole or the shell is neither bent nor darkened.
 uniform sampler2D Sampler0;   // colour of the scene
 uniform sampler2D Sampler1;   // depth of the scene
 uniform mat4 ProjMat;
@@ -14,6 +15,9 @@ uniform float Einstein;       // radius of the lens's Einstein ring, in blocks
 uniform float Reach;          // how far out from the middle space is pulled, in blocks
 uniform float Darkness;       // optical depth of a ray grazing the horizon
 uniform float Halo;           // width of the swallowing halo round the hole, in blocks
+uniform float Ring;           // radius of a shock shell's rim, in blocks (0: none)
+uniform float RingWidth;      // how wide its bending is, in blocks
+uniform float RingStrength;   // how far it bends, in widths
 
 in vec3 viewPos;
 
@@ -63,20 +67,30 @@ void main() {
     // when that is negative), easing back to the plain image towards the reach.
     float ease = 1.0 - smoothstep(Reach * 0.4, Reach, b);
     float source = b - Einstein * Einstein / max(b, 1.0e-3) * ease;
+    // A shock shell's rim: light is thrown outward just past it and inward just inside, like a lens ring.
+    if (RingStrength > 0.0) {
+        float across = (b - Ring) / RingWidth;
+        source -= RingStrength * RingWidth * across * exp(-across * across);
+    }
     vec3 sourcePoint = Centre + offset / max(b, 1.0e-4) * source;
     vec2 sourceUv = clamp(toScreen(sourcePoint), vec2(0.0005), vec2(0.9995));
     vec3 bent = texture(Sampler0, sourceUv).rgb;
     // What stands in or before the hole (the creature it holds) cannot be seen round it: it is swallowed.
     vec3 sourceDir = normalize(sourcePoint);
     float sourceMiddle = dot(Centre, sourceDir);
-    bent *= smoothstep(sourceMiddle - Horizon * 0.25, sourceMiddle + Horizon, sceneDistance(sourceUv));
+    if (Einstein > 0.0) {
+        bent *= smoothstep(sourceMiddle - Horizon * 0.25, sourceMiddle + Horizon, sceneDistance(sourceUv));
+    }
     vec3 colour = mix(texture(Sampler0, uv).rgb, bent, behind);
 
     // Swallowed light: the optical depth of the ray through a gaussian halo round the hole, counted
     // only as far as the surface it ends on.
-    float ends = min(here, t0 + 4.0 * Halo);
-    float along = 0.5 * (erfApprox((ends - t0) / Halo) + erfApprox(t0 / Halo));
-    float tau = Darkness * exp(-(b * b - Horizon * Horizon) / (Halo * Halo)) * max(along, 0.0);
-    tau *= 1.0 - smoothstep(Reach * 0.8, Reach, b);
+    float tau = 0.0;
+    if (Darkness > 0.0) {
+        float ends = min(here, t0 + 4.0 * Halo);
+        float along = 0.5 * (erfApprox((ends - t0) / Halo) + erfApprox(t0 / Halo));
+        tau = Darkness * exp(-(b * b - Horizon * Horizon) / (Halo * Halo)) * max(along, 0.0);
+        tau *= 1.0 - smoothstep(Reach * 0.8, Reach, b);
+    }
     fragColor = vec4(colour * exp(-tau), 1.0);
 }

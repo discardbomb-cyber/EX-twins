@@ -127,6 +127,32 @@ Ten levels grow the swarm from 100 to 2000 drones. At most 250 fly at once; the 
 - Swarms contain no server-side drone entities or pathfinding. The item stores a compact drone array, and the network sends about one byte per resting drone. Flight is deterministic and computed identically on server and client, so blows land exactly where the shapes are drawn. Distant drones render as glowing points, and the renderer culls by frustum and distance.
 - Hives are not a substitute for the shield's melee/explosion protection. Every family has original synthesized attack/impact and summon/dismiss sounds, shields have absorption, cell-break, collapse and ripple sounds, and the console has its own feedback sounds (`tools/build_combat_sounds.mjs`). Playback is spatially rate-limited to avoid hundreds of simultaneous voices.
 
+### Armageddon
+
+Armageddon is the ultimate of a level 10 Ex-Twins hive. When both of the hive's batteries are full (98% or more), press `G` (rebindable) to open the confirmation window. It aims at the point you look at, up to 256 blocks away. The window shows the distance, the blast radius, the charge time and what a worn Ex-Twins shield will add.
+
+- **Charge.** The whole swarm flies up into a cannon over its owner's head:
+  - a core;
+  - a two-layer barrel of hexagons;
+  - four double rings that light one after another;
+  - a gyroscope of six hoops.
+
+  The charge takes a minute and drains the hive's battery. A worn Ex-Twins shield feeds it too, but never gives up the charge its own field needs.
+- **Shot.** In the last seconds the hoops re-form into a flared funnel of hexagons. The cannon fires a ball of white light, held closed by three violet tori of drones. It reaches the target a second later.
+- **Black hole.** As the ball touches its target it opens into a black hole 15 blocks across that bends the world round it hard. The tori break away and their drones fly off. The black hole then collapses into the point it touched over three seconds, beating like a pulsar. Meanwhile it tears up every block within 90 blocks and drags creatures in.
+- **Supernova.** Then it bursts in stages:
+  - a white flash fills the air, and everything nearby stands dark red against it while rocks fly;
+  - a ball of light forms and sweeps out over the land to 256 blocks as a wave of glowing haze, bending the world at its front;
+  - the ball is crushed back in;
+  - a beam of energy erupts to the zenith and widens to 128 blocks across, boring the land out as it does;
+  - inside the beam, black smoke writhes and balls of it rise at each deep pop;
+  - the beam narrows to a thread and goes out in an orange dusk.
+
+  The ball of light strikes each creature as it sweeps over it. Damage is 2000 at the heart and falls to 20 at the edge. All of it is drawn in the world, not laid over the screen, and it plays in time with its sound, about 30 seconds.
+- **Targets.** It strikes mobs, and players who are not allied with the owner if the server allows PvP. It never strikes the owner, their teammates or their pets. The owner gets the kill credit.
+- **Aftermath.** The escort drones come home once the smoke settles. The hive keeps only the charge the shield gave it.
+- **Safe mode.** Servers can turn on `armageddon.safeMode` in the server config. The black hole and the blast still strike creatures, but no blocks are broken.
+
 ## Verification
 
 ```powershell
