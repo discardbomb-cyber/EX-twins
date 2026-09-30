@@ -100,6 +100,8 @@ public final class ArmageddonController {
         /** The columns the black hole will eat, nearest its target first (packed x and z), how far it has got, and how low it has cut in the one it is on. */
         long[] crater;
         int eaten, eatenTo = Integer.MAX_VALUE;
+        /** For the RF dome: in each crater column, the lowest and highest block cut so far (the dome only ever grows past them). */
+        int[] cutLow, cutHigh;
         /** The columns the beam will bore, nearest its axis first (packed x and z), how far it has got, and how low it has cut in the one it is on. */
         long[] shaft;
         int bored, boredTo = Integer.MAX_VALUE;
@@ -391,13 +393,79 @@ public final class ArmageddonController {
      * creature it would strike is dragged in: towards the Twins black hole, or swept round and up into the Mana
      * vortex.
      */
+    /**
+     * The RF dome cuts the land as it grows: every column within its reach loses what lies inside the bowl of that reach
+     * (the final bowl scaled down, so each is inside the next), above and below the target alike, and nothing the dome
+     * has not reached yet. Each column remembers how far it has been cut, so only the new rim of the bowl is looked at.
+     * Once the dome is full grown and every column cut, the crater is done and its rim may rise.
+     */
+    private static void dome(ServerLevel level, Shot shot, double reach) {
+        if (shot.crater == null || safe() || shot.eaten >= shot.crater.length) return;
+        Vec3 centre = shot.state.target();
+        double radius = shot.timeline.carveRadius(), deep = shot.timeline.carveDepth();
+        reach = Math.min(reach, radius);
+        if (shot.cutLow == null) {
+            shot.cutLow = new int[shot.crater.length];
+            shot.cutHigh = new int[shot.crater.length];
+            // Nothing cut yet: an empty span just under the target's block, so the first cut runs out from it both ways.
+            int pivot = (int) Math.floor(centre.y);
+            java.util.Arrays.fill(shot.cutLow, pivot);
+            java.util.Arrays.fill(shot.cutHigh, pivot - 1);
+        }
+        int budget = BITES, looks = LOOKS, flags = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SUPPRESS_DROPS;
+        int bottom = level.getMinBuildHeight(), ceiling = level.getMaxBuildHeight() - 1;
+        boolean whole = true;
+        BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
+        for (int i = 0; i < shot.crater.length; i++) {
+            int x = (int) (shot.crater[i] >> 32), z = (int) shot.crater[i];
+            double dx = x + .5 - centre.x, dz = z + .5 - centre.z;
+            if (dx * dx + dz * dz > reach * reach) {
+                whole = false;
+                break;
+            }
+            double[] bowl = RfArmageddon.bowl(shot.state.normal(), dx, dz, reach, deep);
+            if (bowl == null) continue;
+            int low = Math.max(bottom, (int) Math.ceil(centre.y + bowl[0])), high = Math.min(ceiling, (int) Math.floor(centre.y + bowl[1]));
+            at.set(x, Math.clamp(shot.cutLow[i], bottom, ceiling), z);
+            // Never inside spawn protection or beyond the world border, where its owner could not break a block either.
+            if (!level.isLoaded(at) || !level.mayInteract(shot.owner, at)) continue;
+            // Upwards from what is cut, then downwards: each step noted as it is taken, so a tick that runs out goes on from there.
+            while (shot.cutHigh[i] < high && budget > 0 && looks > 0) {
+                int y = shot.cutHigh[i] + 1;
+                looks--;
+                if (y >= low) budget -= cut(level, at.setY(y), flags);
+                shot.cutHigh[i] = y;
+            }
+            while (shot.cutLow[i] > low && budget > 0 && looks > 0) {
+                int y = shot.cutLow[i] - 1;
+                looks--;
+                if (y <= high) budget -= cut(level, at.setY(y), flags);
+                shot.cutLow[i] = y;
+            }
+            if (budget <= 0 || looks <= 0) {
+                whole = false;
+                break;
+            }
+        }
+        if (whole && reach >= radius) shot.eaten = shot.crater.length;
+    }
+
+    /** Takes the block at {@code at} if it is there and can be broken; 1 if it was taken. */
+    private static int cut(ServerLevel level, BlockPos at, int flags) {
+        BlockState state = level.getBlockState(at);
+        if (state.isAir() || state.getDestroySpeed(level, at) < 0) return 0;
+        level.setBlock(at, Blocks.AIR.defaultBlockState(), flags);
+        return 1;
+    }
+
     private static void carve(ServerLevel level, Shot shot, long age) {
         Vec3 centre = shot.state.target();
         double radius = shot.timeline.carveRadius(), reach = shot.timeline.carved(age), most = radius * radius, deep = shot.timeline.carveDepth();
         int budget = BITES, looks = LOOKS;
         BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
+        if (shot.state.type() == HiveType.RF) dome(level, shot, reach);
         // Asked every tick, so a server turned safe partway through keeps the rest of its land.
-        while (shot.crater != null && !safe() && budget > 0 && looks > 0 && shot.eaten < shot.crater.length) {
+        else while (shot.crater != null && !safe() && budget > 0 && looks > 0 && shot.eaten < shot.crater.length) {
             int x = (int) (shot.crater[shot.eaten] >> 32), z = (int) shot.crater[shot.eaten];
             double dx = x + .5 - centre.x, dz = z + .5 - centre.z, flat = dx * dx + dz * dz;
             if (flat > reach * reach) break;
