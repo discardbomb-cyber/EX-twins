@@ -191,7 +191,7 @@ public final class HiveVisualRenderer {
                     camera, poses, glow, budget);
         } else if (combat.active() && slots > 0 && !targets.isEmpty()) {
             // Each wing flies its own places round the creatures it takes on, in its own order.
-            int held = HiveCombatController.held(plan, combat, targets.size());
+            int held = HiveCombatController.held(type, combat, targets.size());
             for (HiveFlightPlan.Wing wing : plan.wings()) {
                 HiveCombatState.Wing flying = combat.wing(wing.mode());
                 if (!flying.out() || !wing.flies()) continue;
@@ -279,8 +279,10 @@ public final class HiveVisualRenderer {
                     camera, poses, glow, budget);
             return;
         }
-        int slots = plan.slots();
-        int[] occupants = plan.occupants(units, now);
+        // The whole swarm flies in the Armageddon, whatever its modes: every fighter, as many as fit in the air.
+        HiveFlightPlan.Wing swarm = plan.whole();
+        int slots = swarm.slots();
+        int[] occupants = swarm.occupants(units, now);
         Vec3[] from = launches(player, type, shot, seen, count);
         double recover = shot.startedAt() + Armageddon.RECOVER;
         // The escort is flung off when the containment breaks and lost until the cannon comes apart and calls it home.
@@ -313,8 +315,10 @@ public final class HiveVisualRenderer {
             List<HiveStackState.Unit> units, HiveFlightPlan plan, int count, Vec3 owner, float yaw, double appear, Vec3[] seen, long now,
             double time, float partial, Vec3 camera, PoseStack poses, com.mojang.blaze3d.vertex.VertexConsumer glow, int[] budget) {
         Vec3[] from = launches(player, type, shot, seen, count);
-        int slots = plan.slots();
-        int[] occupants = plan.occupants(units, now);
+        // The whole swarm flies in the Armageddon, whatever its modes: every fighter, as many as fit in the air.
+        HiveFlightPlan.Wing swarm = plan.whole();
+        int slots = swarm.slots();
+        int[] occupants = swarm.occupants(units, now);
         double age = shot.age(time), recover = shot.startedAt() + ManaArmageddon.RECOVER;
         // The escort is flung off as the sphere shatters and lost until the drones are called home.
         boolean lost = age > ManaArmageddon.IMPACT + 30 && time < recover;
@@ -351,8 +355,10 @@ public final class HiveVisualRenderer {
             List<HiveStackState.Unit> units, HiveFlightPlan plan, int count, Vec3 owner, float yaw, double appear, Vec3[] seen, long now,
             double time, float partial, Vec3 camera, PoseStack poses, com.mojang.blaze3d.vertex.VertexConsumer glow, int[] budget) {
         Vec3[] from = launches(player, type, shot, seen, count);
-        int slots = plan.slots();
-        int[] occupants = plan.occupants(units, now);
+        // The whole swarm flies in the Armageddon, whatever its modes: every fighter, as many as fit in the air.
+        HiveFlightPlan.Wing swarm = plan.whole();
+        int slots = swarm.slots();
+        int[] occupants = swarm.occupants(units, now);
         double age = shot.age(time), scatter = shot.startedAt() + RfArmageddon.SCATTER, recover = shot.startedAt() + RfArmageddon.RECOVER;
         int hologram = RfArmageddon.hologram(slots);
         // The escort is flung off by the flash and lost until the drones are called home.

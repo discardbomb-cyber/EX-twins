@@ -122,6 +122,7 @@ public record HiveCombatState(boolean active, int targetId, long changedAt,
             targetId = -1;
             targets = List.of();
             previous = List.of();
+            previousHeld = 0;
         } else if (targets.isEmpty()) {
             // Older states named a single target; it is the whole engagement.
             targets = List.of(new HiveTarget(targetId, targetX, targetY, targetZ, .6, 1.8));

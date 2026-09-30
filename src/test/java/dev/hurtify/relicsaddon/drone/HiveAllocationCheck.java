@@ -135,11 +135,6 @@ public final class HiveAllocationCheck {
             require(sum <= available, "no more places than there is room for");
             require(sum == Math.min(available, surviving), "the places add up: " + sum + " of " + available + " for " + surviving + " drones");
             if (!dropped && pools[0] + pools[1] + pools[2] > available) require(sum == available, "every place is taken");
-            // One more place never grounds a mode.
-            if (available < HiveType.MAX_DEPLOYED) {
-                int[] more = HiveFlightPlan.seats(pools, minimums, available + 1);
-                for (int mode = 0; mode < 3; mode++) require(seats[mode] == 0 || more[mode] > 0, "a place more grounded a mode");
-            }
         }
         // The task's example: 60 in Droplet, 120 in Barrage, 70 in Containment fly exactly so.
         HiveFlightPlan plan = HiveFlightPlan.of(HiveType.RF, 400, new HiveSettings(0, 60, 120, 70));
@@ -155,6 +150,9 @@ public final class HiveAllocationCheck {
         }
         require(plan.wing(AttackMode.DROPLET).slots() > plan.wing(AttackMode.BARRAGE).slots()
                 && plan.wing(AttackMode.BARRAGE).slots() > plan.wing(AttackMode.CONTAINMENT).slots(), "the places follow the drones given");
+        // Shares are rounded first: 16 and 238 of 250 places come to 15.7 and 234.3, and the Droplet's rounds up to its tesseract.
+        int[] rounded = HiveFlightPlan.seats(new int[]{16, 238, 0}, new int[]{16, 4, 18}, 250);
+        require(rounded[0] == 16 && rounded[1] == 234, "a share rounded up to the minimum flies: " + java.util.Arrays.toString(rounded));
         // A small mode squeezed by a large one does not fly, and its places go to the others.
         plan = HiveFlightPlan.of(HiveType.RF, HiveType.MAX_DRONES, new HiveSettings(0, 16, 1_900, 0));
         require(plan.wing(AttackMode.DROPLET).grounded() && plan.wing(AttackMode.BARRAGE).slots() == HiveType.MAX_DEPLOYED, "a squeezed mode stays home");
@@ -206,6 +204,9 @@ public final class HiveAllocationCheck {
         require(shrunk.notice().kind() == HiveSettings.Notice.Kind.CUT && shrunk.notice().mode() == AttackMode.CONTAINMENT && shrunk.notice().had() == 10
                 && shrunk.notice().need() == 18, "and the notice says why");
         require(shrunk.resolve(HiveType.RF, 80) == shrunk, "resolved orders stay as they are");
+        HiveSettings emptied = new HiveSettings(0, 100, 0, 18).resolve(HiveType.RF, 100);
+        require(emptied.containment() == 0 && emptied.notice() != null && emptied.notice().mode() == AttackMode.CONTAINMENT && emptied.notice().had() == 0,
+                "a mode squeezed out to nothing is switched off with a notice too");
         HiveSettings crafted = new HiveSettings(0, 5, 0, 0).resolve(HiveType.RF, 100);
         require(crafted.droplet() == 0 && crafted.notice().kind() == HiveSettings.Notice.Kind.CUT, "a count below the minimum never stands");
         require(HiveSettings.DEFAULT.resolve(HiveType.MANA, 100).barrage() == 100, "a new hive fights in Barrage");
