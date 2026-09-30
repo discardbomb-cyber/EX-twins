@@ -1,0 +1,45 @@
+package dev.hurtify.relicsaddon.shipshield;
+
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongSet;
+import java.util.function.Consumer;
+import net.minecraft.core.BlockPos;
+
+/**
+ * The blocks a ship device stands on: a Sable sub-level (an airship) when Create Aeronautics is
+ * present, otherwise the connected solid blocks around the device. Positions are in the level's
+ * own coordinates (for an airship, its plot far away in the shipyard). Two devices share a
+ * structure when one's structure contains the other's position.
+ */
+public final class ShipStructure {
+    /** Stable identity: the sub-level's UUID, or "static" for a build that is not an airship. */
+    private final String id;
+    private final BlockPos anchor;
+    private final LongSet blocks;
+    private final boolean truncated;
+
+    public ShipStructure(String id, BlockPos anchor, LongSet blocks, boolean truncated) {
+        this.id = id;
+        this.anchor = anchor.immutable();
+        this.blocks = blocks;
+        this.truncated = truncated;
+    }
+
+    public static ShipStructure empty(BlockPos anchor) {
+        return new ShipStructure("static", anchor, new LongOpenHashSet(), false);
+    }
+
+    public String id() { return id; }
+    public BlockPos anchor() { return anchor; }
+    /** True for an airship; a static build only knows itself by its blocks. */
+    public boolean airship() { return !"static".equals(id); }
+    public int size() { return blocks.size(); }
+    /** Whether the scan stopped at the configured limit, so the count is a lower bound. */
+    public boolean truncated() { return truncated; }
+    public boolean contains(BlockPos pos) { return blocks.contains(pos.asLong()); }
+
+    public void forEach(Consumer<BlockPos> action) {
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        blocks.forEach(packed -> action.accept(cursor.set(packed)));
+    }
+}

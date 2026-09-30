@@ -32,6 +32,10 @@ public final class AddonConfig {
     public static final ModConfigSpec.DoubleValue PLAYER_MANA_RESERVE;
     public static final ModConfigSpec.IntValue BOTANIA_MANA_PER_POINT;
     public static final ModConfigSpec.IntValue XP_PER_MINUTE;
+    public static final ModConfigSpec.IntValue SHIP_STATIC_RADIUS;
+    public static final ModConfigSpec.IntValue SHIP_MAX_STRUCTURE_BLOCKS;
+    public static final ModConfigSpec.IntValue SHIP_DRONES_PER_64_BLOCKS;
+    public static final ModConfigSpec.IntValue SHIP_MANA_CELL_POINTS;
     /** Cached matchers over the shield lists above. */
     public static final RegistryFilter<DamageType> PASSING_DAMAGE;
     public static final RegistryFilter<DamageType> ABSORBED_DAMAGE;
@@ -91,6 +95,15 @@ public final class AddonConfig {
                 .defineInRange("power.botaniaManaPerPoint", 10, 1, 10000);
         XP_PER_MINUTE = builder.comment("Most device experience one shield or hive can earn per minute of combat.")
                 .defineInRange("progression.maxExperiencePerMinute", 30, 1, 100000);
+        SHIP_STATIC_RADIUS = builder.comment("Without Create Aeronautics a ship device counts the connected solid blocks around it as its structure,",
+                        "no further than this many blocks away on any axis.")
+                .defineInRange("shipShield.staticStructureRadius", 32, 4, 128);
+        SHIP_MAX_STRUCTURE_BLOCKS = builder.comment("Most blocks a structure scan counts; larger builds are truncated and reported as such.")
+                .defineInRange("shipShield.maxStructureBlocks", 4096, 64, 65536);
+        SHIP_DRONES_PER_64_BLOCKS = builder.comment("Emitter drones a structure needs for every 64 of its blocks (rounded up).")
+                .defineInRange("shipShield.dronesPer64Blocks", 8, 1, 64);
+        SHIP_MANA_CELL_POINTS = builder.comment("Mana battery points a ship device gains from one Mana Cell taken out of a linked item store.")
+                .defineInRange("shipShield.manaCellPoints", 12500, 100, 1000000);
         SPEC = builder.build();
         PASSING_DAMAGE = new RegistryFilter<>(SPEC, Registries.DAMAGE_TYPE, SHIELD_PASSING_DAMAGE_TYPES);
         ABSORBED_DAMAGE = new RegistryFilter<>(SPEC, Registries.DAMAGE_TYPE, SHIELD_ABSORBED_DAMAGE_TYPES);

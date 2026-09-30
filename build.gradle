@@ -19,6 +19,13 @@ configurations {
         canBeResolved = true
         attributes { attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME)) }
     }
+    // Create Aeronautics (Sable, Create, Create Big Cannons, CC: Tweaked) is optional too: the mod compiles against it
+    // and only the aeronauticsClient run below loads it. See docs/aeronautics-compat.md.
+    aeronauticsRuntime {
+        canBeConsumed = false
+        canBeResolved = true
+        attributes { attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME)) }
+    }
 }
 
 sourceSets {
@@ -145,6 +152,14 @@ neoForge {
             systemProperty 'relics_addon.visualSmoke', 'true'
             systemProperty 'relics_addon.captureAndExit', 'true'
         }
+
+        // Development client with Create Aeronautics, Sable, Create, Create Big Cannons and CC: Tweaked on the
+        // classpath (ship shields on real airships). The run directory needs options.txt like the others.
+        aeronauticsClient {
+            client()
+            gameDirectory = file('run-aeronautics')
+            systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+        }
     }
 
     mods {
@@ -165,6 +180,9 @@ neoForge {
             def runTask = "run${name.capitalize()}"
             tasks.matching { it.name == runTask }.configureEach { classpathProvider.from(configurations.dynamicLightsRuntime) }
         }
+        if (name == 'aeronauticsClient') {
+            tasks.matching { it.name == 'runAeronauticsClient' }.configureEach { classpathProvider.from(configurations.aeronauticsRuntime) }
+        }
     }
 }
 
@@ -183,6 +201,28 @@ repositories {
         name = "Gegy"
         url = "https://maven.gegy.dev/releases/"
         content { includeGroup "dev.lambdaurora.lambdynamiclights" }
+    }
+    // Sable Companion (the safe, loader-neutral half of Sable's API).
+    maven {
+        name = "RyanHCode"
+        url = "https://maven.ryanhcode.dev/releases"
+        content { includeGroupByRegex 'dev\\.ryanhcode.*' }
+    }
+    // Sable, Create Aeronautics (bundled jar), Create Big Cannons and Ritchie's Projectile Lib.
+    maven {
+        name = "Modrinth"
+        url = "https://api.modrinth.com/maven"
+        content { includeGroup "maven.modrinth" }
+    }
+    maven {
+        name = "Create"
+        url = "https://maven.createmod.net"
+        content { includeGroup "com.simibubi.create" }
+    }
+    maven {
+        name = "SquidDev"
+        url = "https://maven.squiddev.cc"
+        content { includeGroup "cc.tweaked" }
     }
 }
 
@@ -210,6 +250,20 @@ dependencies {
         attributes(neoForgeVariant)
         transitive = false
     }
+
+    // Airship compatibility (compat/aeronautics), compiled against but never required at runtime.
+    compileOnly("dev.ryanhcode.sable-companion:sable-companion-common-1.21.1:${sable_companion_version}") { transitive = false }
+    compileOnly("maven.modrinth:sable:${sable_version}") { transitive = false }
+    compileOnly("com.simibubi.create:create-1.21.1:${create_version}") { transitive = false }
+    compileOnly("maven.modrinth:create-big-cannons:${cbc_version}") { transitive = false }
+    compileOnly("cc.tweaked:cc-tweaked-1.21.1-forge-api:${cct_version}") { transitive = false }
+    // The Sable jar nests Sable Companion, Veil and the Rapier natives; Create nests Flywheel, Ponder and Registrate.
+    aeronauticsRuntime("maven.modrinth:sable:${sable_version}") { transitive = false }
+    aeronauticsRuntime("com.simibubi.create:create-1.21.1:${create_version}") { transitive = false }
+    aeronauticsRuntime("maven.modrinth:create-aeronautics:${aeronautics_version}") { transitive = false }
+    aeronauticsRuntime("maven.modrinth:create-big-cannons:${cbc_version}") { transitive = false }
+    aeronauticsRuntime("maven.modrinth:rpl:${rpl_version}") { transitive = false }
+    aeronauticsRuntime("cc.tweaked:cc-tweaked-1.21.1-forge:${cct_version}") { transitive = false }
 }
 
 sourceSets.main.resources {
