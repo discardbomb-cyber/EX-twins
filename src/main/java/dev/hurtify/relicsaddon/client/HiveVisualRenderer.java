@@ -212,8 +212,9 @@ public final class HiveVisualRenderer {
             scenes.add(new HiveModeVisual.Scene(combat.mode(), type, slots, groups, members, drones, owner, List.copyOf(targets), time, cycleStart,
                     interval, time >= combat.changedAt() + combat.travel() * .5, null, groups));
         }
-        // Hit drones fly home from where they were struck; after a recall the whole swarm does.
-        for (int unit = 0; unit < fighters; unit++) {
+        // Hit drones fly home from where they were struck; after a recall the whole swarm does (but not while an Armageddon holds them).
+        boolean held = armageddon != null && armageddon.running(now);
+        for (int unit = 0; unit < fighters && !held; unit++) {
             HiveStackState.Unit state = units.get(unit);
             double homeFrom = !combat.active() && combat.changedAt() > 0 ? combat.changedAt() : state.lastHit();
             boolean recalled = !combat.active() && time - combat.changedAt() < HiveFormation.RETURN_TICKS && seen[unit] != null;
@@ -225,7 +226,7 @@ public final class HiveVisualRenderer {
             drawDrone(minecraft, event, player, type, at, null, appear * (struck ? .8 : 1), count, camera, poses, glow, budget);
             if (struck && ((long) time + unit) % 3 == 0) GlowBrush.dot(glow, poses.last().pose(), at.subtract(camera), .12, 0xFFB36B, 160);
         }
-        if (!combat.active() && time - combat.changedAt() >= HiveFormation.RETURN_TICKS) java.util.Arrays.fill(seen, null);
+        if (!held && !combat.active() && time - combat.changedAt() >= HiveFormation.RETURN_TICKS) java.util.Arrays.fill(seen, null);
 
         var support = stack.getOrDefault(ModDataComponents.HIVE_SUPPORT_STATE.get(), HiveSupportState.DEFAULT);
         double supportAge = time - (enabled ? support.changedAt() : visibility.changedAt());
@@ -337,21 +338,37 @@ public final class HiveVisualRenderer {
         int hologram = RfArmageddon.hologram(slots);
         // The escort is flung off by the flash and lost until the drones are called home.
         boolean lost = age > RfArmageddon.IMPACT + RfArmageddon.FLASH + 30 && time < recover;
+        // The shot's shape, worked out once for the whole swarm this frame (and as it stood when it scattered and when it is called home).
+        RfArmageddon.Pose pose = time < recover ? RfArmageddon.pose(shot, age) : null;
+        RfArmageddon.Pose scattered = time >= scatter && time - scatter < HiveFormation.RETURN_TICKS ? RfArmageddon.pose(shot, RfArmageddon.SCATTER) : null;
+        RfArmageddon.Pose recalled = time >= recover && time - recover < HiveFormation.RETURN_TICKS ? RfArmageddon.pose(shot, RfArmageddon.RECOVER) : null;
+        Vec3 ball = age >= RfArmageddon.FIRE ? RfArmageddon.ball(shot, Math.min(age, RfArmageddon.IMPACT)) : null;
         for (int slot = 0; slot < slots; slot++) {
             int unit = HiveSlots.occupant(units, slot, slots, fighters, now);
             boolean escort = slot >= hologram;
             if (unit < 0 || lost && escort) continue;
             boolean home = !escort && time >= scatter || time >= recover;
             Vec3 at;
-            if (!escort && time >= scatter) at = HiveFormation.returning(owner, yaw, RfArmageddon.station(shot, slot, slots, scatter), unit, count, type, time, scatter);
-            else if (time >= recover) at = HiveFormation.returning(owner, yaw, RfArmageddon.station(shot, slot, slots, recover), unit, count, type, time, recover);
-            else {
-                Vec3 start = from[unit] != null ? from[unit] : HiveFormation.idle(owner, yaw, unit, count, type, shot.startedAt());
-                at = RfArmageddon.assemble(shot, start, RfArmageddon.station(shot, slot, slots, time), RfArmageddon.gathered(slot, slots, age));
+            if (!escort && time >= scatter) {
+                at = scattered == null ? HiveFormation.idle(owner, yaw, unit, count, type, time)
+                        : HiveFormation.returning(owner, yaw, RfArmageddon.station(shot, slot, slots, scatter, scattered), unit, count, type, time, scatter);
+            } else if (time >= recover) {
+                at = recalled == null ? HiveFormation.idle(owner, yaw, unit, count, type, time)
+                        : HiveFormation.returning(owner, yaw, RfArmageddon.station(shot, slot, slots, recover, recalled), unit, count, type, time, recover);
+            } else {
+                Vec3 station = RfArmageddon.station(shot, slot, slots, time, pose);
+                // A drone that took its place during the shot (repaired, or replacing a hit one) flies in from the hive.
+                long since = HiveSlots.since(units, slot, slots, fighters, unit, now);
+                if (since > shot.startedAt()) {
+                    at = HiveFormation.flight(HiveFormation.belt(owner, yaw, type), station, unit, type, (time - since) / 30.0);
+                } else {
+                    Vec3 start = from[unit] != null ? from[unit] : HiveFormation.idle(owner, yaw, unit, count, type, shot.startedAt());
+                    at = RfArmageddon.assemble(shot, start, station, RfArmageddon.gathered(slot, slots, age));
+                }
             }
             seen[unit] = at;
             // The hologram's drones a little smaller than the swarm's, so its lines read; the escort faces the ball it rides with.
-            Vec3 facing = home ? null : escort && age >= RfArmageddon.FIRE ? RfArmageddon.ball(shot, Math.min(age, RfArmageddon.IMPACT)) : shot.target();
+            Vec3 facing = home ? null : escort && ball != null ? ball : shot.target();
             drawDrone(minecraft, event, player, type, at, facing, appear * (home ? 1 : .8), count, camera, poses, glow, budget);
         }
         Vec3 chest = new Vec3(Mth.lerp(partial, player.xo, player.getX()), Mth.lerp(partial, player.yo, player.getY()) + player.getBbHeight() * .6,
@@ -418,6 +435,14 @@ public final class HiveVisualRenderer {
         List<Prey> sample = new ArrayList<>();
         for (int index = 0; index < all.size(); index += step) sample.add(all.get(index));
         return sample;
+    }
+
+    /** Forgets every Armageddon's light and every swarm's remembered places as the player leaves the world. */
+    public static void onLoggingOut(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
+        ACTIVE.clear(); VISIBILITY.clear(); SEEN.clear(); LAUNCHES.clear(); PREY.clear();
+        ArmageddonVisual.BLASTS.clear();
+        ManaArmageddonVisual.BLASTS.clear();
+        RfArmageddonVisual.clear();
     }
 
     private static void drawDrone(Minecraft minecraft, RenderLevelStageEvent event, Player player, HiveType type, Vec3 at, Vec3 facing,

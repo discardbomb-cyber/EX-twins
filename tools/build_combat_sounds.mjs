@@ -851,7 +851,8 @@ function synthesize(name, family, seconds) {
         const servo = osc(n, t => 170 + 60 * Math.min(1, t / swing), "saw");
         const whirr = osc(n, 31).map(x => .75 + .25 * x);
         v.add(bandpass(servo, 900, 2).map((x, i) => { const t = i / RATE; return t > swing ? 0 : x * whirr[i] * Math.sin(Math.PI * t / swing) ** .5; }), .32, at);
-        const lock = at + swing;
+        // Locked a moment before the next click starts (the last just before the shot, inside the charge).
+        const lock = at + swing - .05;
         v.add(mul(osc(n, t => 95 * Math.exp(-t * 9) + 55), env(n, .002, .09)), .8, lock);
         v.add(mul(highpass(v.noise(), 1500), env(n, .0006, .012)), .5, lock);
         // The ball swells with a zap.

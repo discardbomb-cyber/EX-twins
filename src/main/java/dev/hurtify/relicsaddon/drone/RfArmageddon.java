@@ -64,8 +64,8 @@ public final class RfArmageddon {
     public static final double NOSE_NEEDLES = 3, STERN_NEEDLES = 2.2, NOSE_SPLAY = .5, STERN_SPLAY = .6;
     public static final int NOSE_BUNDLE = 5, STERN_BUNDLE = 4;
     /** The four panels: hinged this far along the axis and this far out, this long and this wide, their cells in rows and columns. */
-    public static final double HINGE = -2.6, HINGE_RADIUS = 1.3, PANEL_LENGTH = 7.6, PANEL_WIDTH = 1.8;
-    public static final int PANELS = 4, ROWS = 10, COLUMNS = 3;
+    public static final double HINGE = -2.6, HINGE_RADIUS = 1.3, PANEL_LENGTH = 8.8, PANEL_WIDTH = 1.5;
+    public static final int PANELS = 4, ROWS = 14, COLUMNS = 3;
     /** The share of the places that escort the ball; the rest scatter home as it leaves. */
     private static final double ESCORT_SHARE = .16;
     /** How long a drone takes to fly in to the hologram, and how long the escort takes to join the ball's rings. */
@@ -329,16 +329,38 @@ public final class RfArmageddon {
     }
 
     /**
-     * Place {@code slot} of {@code slots} in the hologram as far open as {@code unfold}: the frame's points from coarse
+     * A shot's shape at one moment, worked out once for all its places: the hologram's frame, its four panels as far
+     * open as they are, and the middle and radius of the escort's rings round the ball, with the time they have turned by.
+     */
+    public record Pose(Vec3[] frame, Vec3[][] panels, Vec3 rings, double ringRadius, double flying) { }
+
+    /** The shot's pose {@code age} ticks in (the hologram held as it snapped shut once it has scattered). */
+    public static Pose pose(ArmageddonState state, double age) {
+        Vec3[] f = frame(state);
+        double unfold = unfold(Math.min(age, SCATTER));
+        Vec3[][] panels = new Vec3[PANELS][];
+        for (int panel = 0; panel < PANELS; panel++) panels[panel] = panel(state, f, panel, unfold);
+        double flying = Math.min(age, IMPACT + FLASH), radius = ballRadius(Math.min(flying, DESCEND)) * ESCORT_RINGS;
+        Vec3 centre = ball(state, Math.min(flying, DESCEND));
+        if (flying > DESCEND) centre = centre.lerp(state.target().add(0, radius * 1.05, 0), smooth((flying - DESCEND) / SINK));
+        return new Pose(f, panels, centre, radius, flying);
+    }
+
+    private static Vec3 at(ArmageddonState state, Pose pose, Node node) {
+        if (node.panel < 0) return body(state, pose.frame, node.along, node.angle, node.radius);
+        return onPanel(pose.panels[node.panel], node.length, node.width);
+    }
+
+    /**
+     * Place {@code slot} of {@code slots} in the hologram as it stands in {@code pose}: the frame's points from coarse
      * to fine, then evenly along its segments once every point has a drone.
      */
-    private static Vec3 place(ArmageddonState state, int slot, int slots, double unfold) {
-        Vec3[] f = frame(state);
-        if (slot < NODES.length) return at(state, f, NODES[slot], unfold);
+    private static Vec3 place(ArmageddonState state, int slot, int slots, Pose pose) {
+        if (slot < NODES.length) return at(state, pose, NODES[slot]);
         int extra = slot - NODES.length, layers = Math.max(1, (slots - NODES.length + EDGES.length - 1) / EDGES.length);
         int[] edge = EDGES[extra % EDGES.length];
         double along = (extra / EDGES.length + 1.0) / (layers + 1);
-        return at(state, f, NODES[edge[0]], unfold).lerp(at(state, f, NODES[edge[1]], unfold), along);
+        return at(state, pose, NODES[edge[0]]).lerp(at(state, pose, NODES[edge[1]]), along);
     }
 
     /** How far along the axis place {@code slot} of {@code slots} lies in the folded hologram (for the order it is built in). */
@@ -394,14 +416,19 @@ public final class RfArmageddon {
      * and the escort's ride the rings round the ball.
      */
     public static Vec3 station(ArmageddonState state, int slot, int slots, double time) {
+        return station(state, slot, slots, time, pose(state, state.age(time)));
+    }
+
+    /** As {@link #station(ArmageddonState, int, int, double)}, with the shot's pose at {@code time} already worked out. */
+    public static Vec3 station(ArmageddonState state, int slot, int slots, double time, Pose pose) {
         slots = Math.max(1, slots);
         slot = Math.clamp(slot, 0, slots - 1);
         double age = state.age(time);
         int hologram = hologram(slots);
-        Vec3 held = place(state, slot, slots, unfold(Math.min(age, SCATTER)));
+        Vec3 held = place(state, slot, slots, pose);
         if (slot < hologram || age < FIRE) return held;
         int index = slot - hologram, count = slots - hologram;
-        Vec3 ring = ring(state, index, count, age);
+        Vec3 ring = ring(state, index, count, age, pose);
         double join = smooth((age - FIRE) / JOIN);
         return held.lerp(ring, join);
     }
@@ -410,13 +437,11 @@ public final class RfArmageddon {
      * Escort place {@code index} of {@code count} on the rings round the ball: riding them with it through its flight
      * and its hover, staying up over the target as it sinks, and flung away by the flash.
      */
-    private static Vec3 ring(ArmageddonState state, int index, int count, double age) {
-        double flying = Math.min(age, IMPACT + FLASH), radius = ballRadius(Math.min(flying, DESCEND)) * ESCORT_RINGS;
-        Vec3 centre = ball(state, Math.min(flying, DESCEND));
-        if (flying > DESCEND) centre = centre.lerp(state.target().add(0, radius * 1.05, 0), smooth((flying - DESCEND) / SINK));
+    private static Vec3 ring(ArmageddonState state, int index, int count, double age, Pose pose) {
+        double flying = pose.flying, radius = pose.ringRadius;
         // Laid out once at their full size and scaled with the ball, so no drone changes its place on them as they grow.
         double full = BALL_HOVER * ESCORT_RINGS;
-        Vec3 at = centre.add(HiveShapes.dysonRing(index, count, flying, full, false).scale(radius / full));
+        Vec3 at = pose.rings.add(HiveShapes.dysonRing(index, count, flying, full, false).scale(radius / full));
         if (age <= IMPACT + FLASH) return at;
         Vec3 out = at.subtract(state.target());
         out = out.lengthSqr() < 1e-6 ? new Vec3(0, 1, 0) : out.normalize();
