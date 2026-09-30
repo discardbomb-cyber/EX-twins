@@ -2,8 +2,8 @@ package dev.hurtify.relicsaddon.adapter.out.persistence;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import dev.hurtify.relicsaddon.power.DeviceEnergy;
-import dev.hurtify.relicsaddon.relic.DeviceProgression;
+import dev.hurtify.relicsaddon.domain.device.DeviceProgression;
+import dev.hurtify.relicsaddon.domain.energy.DeviceEnergy;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;

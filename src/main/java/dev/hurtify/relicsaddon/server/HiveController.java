@@ -1,8 +1,8 @@
 package dev.hurtify.relicsaddon.server;
 
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.hive.HiveStackState;
 import dev.hurtify.relicsaddon.domain.hive.HiveType;
-import dev.hurtify.relicsaddon.drone.HiveStackState;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
@@ -63,7 +63,7 @@ public final class HiveController {
     private static void settle(Player player, ItemStack stack, HiveStackState state) {
         var settings = HiveTaskController.settings(stack);
         int units = state.units().size();
-        HiveStackState settled = state.settle(player.level().getGameTime(), dev.hurtify.relicsaddon.drone.HiveSlots.fighterSlots(units, settings),
+        HiveStackState settled = state.settle(player.level().getGameTime(), dev.hurtify.relicsaddon.domain.hive.HiveSlots.fighterSlots(units, settings),
                 settings.fighters(units), SETTLE_QUIET_TICKS);
         if (settled != state) stack.set(ModDataComponents.HIVE_STACK_STATE.get(), settled);
     }

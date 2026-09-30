@@ -1,17 +1,17 @@
 package dev.hurtify.relicsaddon.contract;
 
 import dev.hurtify.relicsaddon.domain.hive.AttackMode;
+import dev.hurtify.relicsaddon.domain.hive.HiveSettings;
+import dev.hurtify.relicsaddon.domain.hive.HiveSlots;
+import dev.hurtify.relicsaddon.domain.hive.HiveStackState;
 import dev.hurtify.relicsaddon.domain.hive.HiveType;
+import dev.hurtify.relicsaddon.domain.shield.ShieldCellDefense;
+import dev.hurtify.relicsaddon.domain.shield.ShieldCellMove;
+import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
 import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
 import dev.hurtify.relicsaddon.drone.HiveFormation;
-import dev.hurtify.relicsaddon.drone.HiveSettings;
 import dev.hurtify.relicsaddon.drone.HiveShapes;
-import dev.hurtify.relicsaddon.drone.HiveSlots;
-import dev.hurtify.relicsaddon.drone.HiveStackState;
-import dev.hurtify.relicsaddon.shield.ShieldCellDefense;
-import dev.hurtify.relicsaddon.shield.ShieldCellMove;
 import dev.hurtify.relicsaddon.shield.ShieldField;
-import dev.hurtify.relicsaddon.shield.ShieldStackState;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;

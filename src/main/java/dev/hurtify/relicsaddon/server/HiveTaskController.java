@@ -2,9 +2,9 @@ package dev.hurtify.relicsaddon.server;
 
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.AddonConfig;
-import dev.hurtify.relicsaddon.drone.HiveSettings;
-import dev.hurtify.relicsaddon.drone.HiveStackState;
-import dev.hurtify.relicsaddon.drone.HiveSupportState;
+import dev.hurtify.relicsaddon.domain.hive.HiveSettings;
+import dev.hurtify.relicsaddon.domain.hive.HiveStackState;
+import dev.hurtify.relicsaddon.domain.hive.HiveSupportState;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
 import dev.hurtify.relicsaddon.relic.HiveUpgrades;
@@ -60,7 +60,7 @@ public final class HiveTaskController {
             if (!active || now % 20 != 0 || budget <= 0) continue;
             var units = new ArrayList<>(state.units());
             boolean changed = false;
-            int first = settings.fighters(units.size()), deployed = dev.hurtify.relicsaddon.drone.HiveSlots.healerSlots(units.size(), settings);
+            int first = settings.fighters(units.size()), deployed = dev.hurtify.relicsaddon.domain.hive.HiveSlots.healerSlots(units.size(), settings);
             for (int index = first; index < first + deployed && budget > 0; index++) {
                 var unit = units.get(index);
                 if (!unit.attackReady(now)) continue;

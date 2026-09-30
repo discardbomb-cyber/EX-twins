@@ -1,6 +1,5 @@
-package dev.hurtify.relicsaddon.drone;
+package dev.hurtify.relicsaddon.domain.hive;
 
-import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import java.util.List;
 
 /**

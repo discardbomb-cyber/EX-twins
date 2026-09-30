@@ -3,7 +3,7 @@ package dev.hurtify.relicsaddon.gametest;
 import static dev.hurtify.relicsaddon.gametest.DeviceTestSupport.ARENA;
 import static dev.hurtify.relicsaddon.gametest.DeviceTestSupport.TEMPLATE;
 
-import dev.hurtify.relicsaddon.power.DeviceEnergy;
+import dev.hurtify.relicsaddon.domain.energy.DeviceEnergy;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
@@ -15,7 +15,7 @@ import dev.hurtify.relicsaddon.shield.ShieldField;
 import dev.hurtify.relicsaddon.shield.ShieldImpact;
 import dev.hurtify.relicsaddon.shield.ShieldImpactHistory;
 import dev.hurtify.relicsaddon.shield.ShieldParameters;
-import dev.hurtify.relicsaddon.shield.ShieldSettings;
+import dev.hurtify.relicsaddon.domain.shield.ShieldSettings;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceKey;

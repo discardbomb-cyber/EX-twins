@@ -2,15 +2,15 @@ package dev.hurtify.relicsaddon.gametest;
 
 import static dev.hurtify.relicsaddon.gametest.DeviceTestSupport.TEMPLATE;
 
+import dev.hurtify.relicsaddon.domain.device.DeviceProgression;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.energy.DeviceEnergy;
 import dev.hurtify.relicsaddon.domain.hive.AttackMode;
-import dev.hurtify.relicsaddon.drone.HiveSettings;
+import dev.hurtify.relicsaddon.domain.hive.HiveSettings;
+import dev.hurtify.relicsaddon.domain.shield.ShieldSettings;
 import dev.hurtify.relicsaddon.menu.DeviceControlMenu;
-import dev.hurtify.relicsaddon.power.DeviceEnergy;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
-import dev.hurtify.relicsaddon.relic.DeviceProgression;
-import dev.hurtify.relicsaddon.shield.ShieldSettings;
 import java.util.UUID;
 import net.minecraft.commands.Commands;
 import net.minecraft.gametest.framework.GameTest;

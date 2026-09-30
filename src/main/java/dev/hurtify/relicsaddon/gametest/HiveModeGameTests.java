@@ -2,14 +2,14 @@ package dev.hurtify.relicsaddon.gametest;
 
 import static dev.hurtify.relicsaddon.gametest.DeviceTestSupport.ARENA;
 
+import dev.hurtify.relicsaddon.domain.device.DeviceProgression;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.domain.hive.AttackMode;
+import dev.hurtify.relicsaddon.domain.hive.HiveSettings;
+import dev.hurtify.relicsaddon.domain.hive.HiveSlots;
+import dev.hurtify.relicsaddon.domain.hive.HiveStackState;
 import dev.hurtify.relicsaddon.domain.hive.HiveType;
-import dev.hurtify.relicsaddon.drone.HiveSettings;
-import dev.hurtify.relicsaddon.drone.HiveSlots;
-import dev.hurtify.relicsaddon.drone.HiveStackState;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
-import dev.hurtify.relicsaddon.relic.DeviceProgression;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.server.HiveCombatController;
 import dev.hurtify.relicsaddon.server.HiveContainment;

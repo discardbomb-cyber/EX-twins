@@ -1,6 +1,4 @@
-package dev.hurtify.relicsaddon.relic;
-
-import dev.hurtify.relicsaddon.domain.device.DeviceUpgrade;
+package dev.hurtify.relicsaddon.domain.device;
 
 /** Persistent, per-stack progression owned entirely by this mod: experience, level, points and upgrade ranks. */
 public record DeviceProgression(int experience, int level, int points, int upgrades) {

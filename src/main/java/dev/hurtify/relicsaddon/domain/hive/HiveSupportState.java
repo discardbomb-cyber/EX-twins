@@ -1,4 +1,4 @@
-package dev.hurtify.relicsaddon.drone;
+package dev.hurtify.relicsaddon.domain.hive;
 
 /** Transient support deployment; no persisted healing session can resume on another owner. */
 public record HiveSupportState(boolean active, long changedAt) {

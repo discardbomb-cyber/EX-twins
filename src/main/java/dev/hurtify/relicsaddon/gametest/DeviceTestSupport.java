@@ -2,11 +2,11 @@ package dev.hurtify.relicsaddon.gametest;
 
 import com.mojang.authlib.GameProfile;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.registry.ModItems;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
-import dev.hurtify.relicsaddon.shield.ShieldStackState;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.util.UUID;
 import net.minecraft.gametest.framework.GameTestHelper;

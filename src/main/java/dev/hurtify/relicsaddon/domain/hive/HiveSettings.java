@@ -1,7 +1,4 @@
-package dev.hurtify.relicsaddon.drone;
-
-import dev.hurtify.relicsaddon.domain.hive.AttackMode;
-import dev.hurtify.relicsaddon.domain.hive.HiveType;
+package dev.hurtify.relicsaddon.domain.hive;
 
 /** A hive's standing orders: how many of its last drones heal, and how the fighters attack. Survives damage, repair and reloads. */
 public record HiveSettings(int healers, AttackMode mode) {

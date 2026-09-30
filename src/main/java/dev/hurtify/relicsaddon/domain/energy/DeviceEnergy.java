@@ -1,4 +1,4 @@
-package dev.hurtify.relicsaddon.power;
+package dev.hurtify.relicsaddon.domain.energy;
 
 import java.util.Locale;
 

@@ -1,11 +1,11 @@
 package dev.hurtify.relicsaddon.client;
 
 import dev.hurtify.relicsaddon.domain.hive.AttackMode;
+import dev.hurtify.relicsaddon.domain.hive.HiveSettings;
+import dev.hurtify.relicsaddon.domain.hive.HiveSlots;
+import dev.hurtify.relicsaddon.domain.hive.HiveStackState;
 import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import dev.hurtify.relicsaddon.drone.HiveFormation;
-import dev.hurtify.relicsaddon.drone.HiveSettings;
-import dev.hurtify.relicsaddon.drone.HiveSlots;
-import dev.hurtify.relicsaddon.drone.HiveStackState;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.world.phys.Vec3;

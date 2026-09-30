@@ -1,4 +1,4 @@
-package dev.hurtify.relicsaddon.shield;
+package dev.hurtify.relicsaddon.domain.shield;
 
 public record ShieldSettings(double radius, String coverage) {
     public static final ShieldSettings DEFAULT = new ShieldSettings(2, "allies");

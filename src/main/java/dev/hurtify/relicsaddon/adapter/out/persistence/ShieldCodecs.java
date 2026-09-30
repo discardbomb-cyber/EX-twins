@@ -2,12 +2,12 @@ package dev.hurtify.relicsaddon.adapter.out.persistence;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.hurtify.relicsaddon.domain.shield.ShieldCellMove;
+import dev.hurtify.relicsaddon.domain.shield.ShieldSettings;
+import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
 import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
-import dev.hurtify.relicsaddon.shield.ShieldCellMove;
 import dev.hurtify.relicsaddon.shield.ShieldImpact;
 import dev.hurtify.relicsaddon.shield.ShieldImpactHistory;
-import dev.hurtify.relicsaddon.shield.ShieldSettings;
-import dev.hurtify.relicsaddon.shield.ShieldStackState;
 import io.netty.buffer.ByteBuf;
 import java.util.ArrayList;
 import java.util.List;

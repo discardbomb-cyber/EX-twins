@@ -2,6 +2,7 @@ package dev.hurtify.relicsaddon.power;
 
 import dev.hurtify.relicsaddon.AddonConfig;
 import dev.hurtify.relicsaddon.RelicsAddon;
+import dev.hurtify.relicsaddon.domain.energy.DeviceEnergy;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;

@@ -2,12 +2,12 @@ package dev.hurtify.relicsaddon.server;
 
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.shield.ShieldSettings;
+import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.shield.ShieldParameters;
-import dev.hurtify.relicsaddon.shield.ShieldSettings;
-import dev.hurtify.relicsaddon.shield.ShieldStackState;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;

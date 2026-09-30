@@ -1,9 +1,10 @@
 package dev.hurtify.relicsaddon.relic;
 
+import dev.hurtify.relicsaddon.domain.device.DeviceProgression;
 import dev.hurtify.relicsaddon.domain.device.DeviceUpgrade;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
-import dev.hurtify.relicsaddon.shield.ShieldStackState;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
@@ -12,7 +13,7 @@ public final class RelicRuntime {
     public static DeviceProgression progression(ItemStack stack) { return stack.getOrDefault(ModDataComponents.DEVICE_PROGRESSION.get(), DeviceProgression.DEFAULT); }
     public static boolean enabled(ItemStack stack) {
         if (!(stack.getItem() instanceof AutonomousRelicItem item) || !item.role().available()) return false;
-        return item.role().isHive() ? stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), dev.hurtify.relicsaddon.drone.HiveStackState.DEFAULT).enabled()
+        return item.role().isHive() ? stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), dev.hurtify.relicsaddon.domain.hive.HiveStackState.DEFAULT).enabled()
                 : stack.getOrDefault(ModDataComponents.SHIELD_STACK_STATE.get(), ShieldStackState.DEFAULT).enabled();
     }
     public static boolean canOperate(Player player, ItemStack stack) {
@@ -22,7 +23,7 @@ public final class RelicRuntime {
         if (!(stack.getItem() instanceof AutonomousRelicItem item)) return;
         AutonomousRelicItem.ensureState(stack);
         if (item.role().isHive()) {
-            var state = stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), dev.hurtify.relicsaddon.drone.HiveStackState.DEFAULT);
+            var state = stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), dev.hurtify.relicsaddon.domain.hive.HiveStackState.DEFAULT);
             stack.set(ModDataComponents.HIVE_STACK_STATE.get(), state.withEnabled(enabled));
             if (!enabled) stack.remove(ModDataComponents.HIVE_COMBAT_STATE.get());
             if (state.enabled() != enabled && player.level() instanceof net.minecraft.server.level.ServerLevel level)

@@ -2,8 +2,8 @@ package dev.hurtify.relicsaddon.menu;
 
 import dev.hurtify.relicsaddon.domain.device.DeviceUpgrade;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.energy.DeviceEnergy;
 import dev.hurtify.relicsaddon.domain.hive.AttackMode;
-import dev.hurtify.relicsaddon.power.DeviceEnergy;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.registry.ModMenus;

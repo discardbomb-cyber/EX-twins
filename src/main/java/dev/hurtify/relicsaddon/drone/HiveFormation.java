@@ -1,6 +1,7 @@
 package dev.hurtify.relicsaddon.drone;
 
 import dev.hurtify.relicsaddon.domain.hive.AttackMode;
+import dev.hurtify.relicsaddon.domain.hive.HiveSlots;
 import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import java.util.ArrayList;
 import java.util.List;

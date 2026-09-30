@@ -1,6 +1,5 @@
-package dev.hurtify.relicsaddon.shield;
+package dev.hurtify.relicsaddon.domain.shield;
 
-import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
 import java.util.ArrayList;
 import java.util.List;
 

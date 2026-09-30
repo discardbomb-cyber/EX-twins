@@ -5,10 +5,10 @@ import static dev.hurtify.relicsaddon.gametest.DeviceTestSupport.TEMPLATE;
 
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.domain.hive.AttackMode;
-import dev.hurtify.relicsaddon.drone.HiveCombatState;
-import dev.hurtify.relicsaddon.drone.HiveSettings;
-import dev.hurtify.relicsaddon.drone.HiveStackState;
-import dev.hurtify.relicsaddon.drone.HiveSupportState;
+import dev.hurtify.relicsaddon.domain.hive.HiveCombatState;
+import dev.hurtify.relicsaddon.domain.hive.HiveSettings;
+import dev.hurtify.relicsaddon.domain.hive.HiveStackState;
+import dev.hurtify.relicsaddon.domain.hive.HiveSupportState;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.server.HiveCombatController;

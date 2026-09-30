@@ -2,6 +2,8 @@ package dev.hurtify.relicsaddon.shield;
 
 import dev.hurtify.relicsaddon.AddonConfig;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.shield.ShieldSettings;
+import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
 import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
