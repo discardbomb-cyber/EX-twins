@@ -60,29 +60,23 @@ public final class HiveAllocationCheck {
             }
             sameCorners(hexagons, hexCorners, "Twins droplet");
 
-            // Containment: the Mana ward's corners are the rhombi's (their tips shared), the tori's their core polygons.
-            int wardMinimum = HiveFigures.minimum(HiveType.MANA, AttackMode.CONTAINMENT);
-            List<Vec3> ward = new ArrayList<>(), rhombi = new ArrayList<>();
-            for (int s = 0; s < wardMinimum; s++) ward.add(HiveShapes.wardPlace(s, wardMinimum, time, 1));
-            for (int rhombus = 0; rhombus < 3; rhombus++) for (int corner = 0; corner < 4; corner++) {
-                Vec3 point = HiveShapes.rhombusPoint(corner / 4.0, time * .008 + rhombus * Math.PI * 2 / 3);
-                if (rhombi.stream().noneMatch(seen -> seen.distanceTo(point) < 1e-6)) rhombi.add(point);
-            }
-            sameCorners(ward, rhombi, "Mana ward");
-            for (boolean dense : new boolean[]{false, true}) {
-                HiveType type = dense ? HiveType.TWINS : HiveType.RF;
-                int minimum = HiveFigures.minimum(type, AttackMode.CONTAINMENT), perRing = HiveShapes.ringCorners(dense);
-                List<Vec3> tori = new ArrayList<>();
-                for (int s = 0; s < minimum; s++) tori.add(HiveShapes.ringPlace(s, minimum, time, 2, dense));
-                require(distinct(tori) == minimum && minimum == HiveShapes.RING_RADII.length * perRing, type + " tori have " + perRing + " corners each");
-                for (int ring = 0; ring < HiveShapes.RING_RADII.length; ring++) {
-                    // A torus's corners: evenly round its core line, each the same way out from it.
-                    for (int corner = 0; corner < perRing; corner++) {
-                        Vec3 expected = HiveShapes.ringPoint(ring, corner * Math.PI * 2 / perRing, Math.PI / HiveShapes.ringRows(dense), 1.12, time, 2, dense);
-                        require(tori.stream().anyMatch(point -> point.distanceTo(expected) < 1e-9), type + " torus " + ring + " corner " + corner + " is flown");
-                    }
-                }
-            }
+            // Containment: the RF cage's corners are an icosahedron's, the lotus's one tier of petals and their base, the rift's four hexagons.
+            int cageMinimum = HiveFigures.minimum(HiveType.RF, AttackMode.CONTAINMENT);
+            List<Vec3> cage = new ArrayList<>();
+            for (int s = 0; s < cageMinimum; s++) cage.add(HiveConstructs.cage(s, cageMinimum, 1000, time, 1));
+            require(distinct(cage) == cageMinimum && cageMinimum == HiveConstructs.geodesic(1).corners().size(), "the cage is an icosahedron");
+            for (Vec3 point : cage) require(Math.abs(point.length() - HiveConstructs.CAGE_SCALE) < 1e-9, "a closed cage's drones stand on its sphere");
+            require(HiveConstructs.cageFaces(cageMinimum).size() == 20 && HiveConstructs.cageFaces(cageMinimum - 1).size() < 20, "a drone fewer breaks the cage");
+            int lotusMinimum = HiveFigures.minimum(HiveType.MANA, AttackMode.CONTAINMENT);
+            List<Vec3> lotus = new ArrayList<>();
+            for (int s = 0; s < lotusMinimum; s++) lotus.add(HiveConstructs.lotus(s, lotusMinimum, 1000, time, 1));
+            require(distinct(lotus) == lotusMinimum && HiveConstructs.lotusEdges(lotusMinimum).size() == 4 * HiveConstructs.PETALS
+                    && HiveConstructs.lotusEdges(lotusMinimum - 1).size() < 4 * HiveConstructs.PETALS, "a lotus is a base and six whole petals");
+            int riftMinimum = HiveFigures.minimum(HiveType.TWINS, AttackMode.CONTAINMENT);
+            List<Vec3> rift = new ArrayList<>();
+            for (int s = 0; s < riftMinimum; s++) rift.add(HiveConstructs.rift(s, riftMinimum, 1000, time, 1));
+            require(distinct(rift) == riftMinimum && HiveConstructs.shards(riftMinimum) * HiveConstructs.SHARD_CORNERS == riftMinimum
+                    && HiveConstructs.shards(riftMinimum - 1) * HiveConstructs.SHARD_CORNERS > riftMinimum - 1, "a rift is four whole hexagons");
         }
 
         // Barrage: the pattern needs its corners; a clump fewer is not that pattern any more.
@@ -95,7 +89,7 @@ public final class HiveAllocationCheck {
             require(pattern(type, corners) && !pattern(type, corners - 1), type + " pattern needs exactly " + corners + " clumps");
         }
         require(HiveFigures.minimum(HiveType.RF, AttackMode.DROPLET) == 16, "a tesseract has 16 corners");
-        require(HiveFigures.minimum(HiveType.MANA, AttackMode.CONTAINMENT) == 8, "three rhombi sharing their tips have 8 corners");
+        require(HiveFigures.minimum(HiveType.RF, AttackMode.CONTAINMENT) == 12, "the RF cage is an icosahedron at least");
     }
 
     /** Whether {@code groups} clumps make the family's pattern: a crown with raised points, a star, an octagon. */
@@ -202,7 +196,7 @@ public final class HiveAllocationCheck {
         HiveSettings shrunk = new HiveSettings(0, 40, 30, 30).resolve(HiveType.RF, 80);
         require(shrunk.droplet() == 40 && shrunk.barrage() == 30 && shrunk.containment() == 0, "the last mode that no longer fits is switched off");
         require(shrunk.notice().kind() == HiveSettings.Notice.Kind.CUT && shrunk.notice().mode() == AttackMode.CONTAINMENT && shrunk.notice().had() == 10
-                && shrunk.notice().need() == 18, "and the notice says why");
+                && shrunk.notice().need() == HiveFigures.minimum(HiveType.RF, AttackMode.CONTAINMENT), "and the notice says why");
         require(shrunk.resolve(HiveType.RF, 80) == shrunk, "resolved orders stay as they are");
         HiveSettings emptied = new HiveSettings(0, 100, 0, 18).resolve(HiveType.RF, 100);
         require(emptied.containment() == 0 && emptied.notice() != null && emptied.notice().mode() == AttackMode.CONTAINMENT && emptied.notice().had() == 0,

@@ -62,11 +62,7 @@ public final class HiveFormationCheck {
             for (int slot = 0; slot < slots; slot++) {
                 // RF rings stay round the target, whose hold lifts it clear of the ground.
                 // Every construct stays round its creature, whose hold lifts it clear of the ground.
-                Vec3 held = target.add(0, switch (type) {
-                    case RF -> HiveFormation.ringLift(.6, height, false);
-                    case TWINS -> HiveFormation.twinsLift(.6, height);
-                    case MANA -> HiveFormation.wardLift(.6, height);
-                }, 0);
+                Vec3 held = target.add(0, HiveFormation.constructLift(type, .6, height), 0);
                 Vec3 at = HiveFormation.station(AttackMode.CONTAINMENT, type, slot, slots, owner, held, .6, height, 777.5, 100, 60);
                 require(at.y >= target.y + .1, type + " containment dips into the ground: " + (at.y - target.y) + " (height " + height + ")");
             }

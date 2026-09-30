@@ -137,11 +137,11 @@ The Swarm tab has a row for each mode and one for the healers. A row shows how m
 
   | Family | Droplet | Barrage | Containment |
   | --- | --- | --- | --- |
-  | RF | 16: a tesseract's corners | 4: a crown (every other point raised) | 18: a hexagon round each of 3 tori |
-  | Mana | 14: a drop's tip, two rings of 6 and its back | 6: a star | 8: the ward's two tips and six side corners |
-  | Ex-Twins | 18: three hexagons | 8: an octagon | 24: an octagon round each of 3 tori |
+  | RF | 16: a tesseract's corners | 4: a crown (every other point raised) | 12: the Faraday cage's icosahedron |
+  | Mana | 14: a drop's tip, two rings of 6 and its back | 6: a star | 19: a lotus's base and six petals of three corners |
+  | Ex-Twins | 18: three hexagons | 8: an octagon | 24: four hexagonal shards of the rift |
 
-  Drones beyond the corners stand on finer points of the figures: tesseract edges, the drop's skin, smaller hexagons inside the Twins ones, the tori's hexagons, the ward's lines.
+  Drones beyond the corners stand on finer points of the figures: the middles of the tesseract's faces, cells and edges, the drop's skin, smaller hexagons inside the Twins ones, finer geodesic spheres of the cage, more tiers of lotus petals, more rift shards.
 - **Sliders.** Drag a mode's slider to give it drones or take them back to the free ones. It stops only on whole figures: 0, 16, 32, 48… for the RF tesseract, 0, 8, 16… for the Mana ward, with a tick at each. The lighter part of the track is as far as the free drones reach. A mode whose figure the free drones cannot build is greyed out, and hovering it says why ("Needs at least 18 drones: its figure has 18 corners"). The healers' slider moves one drone at a time, to and from the free drones. **All** puts every fighter into that mode and switches the others off, as a hive fought before the modes could be mixed. The server checks the same rules and refuses anything else, whatever the client sends.
 
   ![A mode the free drones cannot build is greyed out, with the reason](docs/console-swarm-refused.png)
