@@ -9,10 +9,11 @@ import net.neoforged.neoforge.client.event.ViewportEvent;
 public final class ArmageddonShake {
     public static void onCameraAngles(ViewportEvent.ComputeCameraAngles event) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null || ArmageddonVisual.BLASTS.isEmpty() && ManaArmageddonVisual.BLASTS.isEmpty() && RfArmageddonVisual.BLASTS.isEmpty()) return;
+        if (minecraft.level == null) return;
         double time = minecraft.level.getGameTime() + event.getPartialTick();
         Vec3 camera = event.getCamera().getPosition();
-        double shake = 0;
+        // A swarm's blows close by nudge the camera too, lightly.
+        double shake = HiveJuice.shake(camera, time);
         for (ArmageddonVisual.Blast blast : ArmageddonVisual.BLASTS) {
             double t = time - blast.impactAt(), distance = camera.distanceTo(blast.centre());
             if (t < 0 || distance > Armageddon.RADIUS * 1.3) continue;

@@ -57,6 +57,11 @@ public final class HiveModeVisual {
                 for (int index = 0; index < s.engaged(); index++) {
                     Scene part = part(s, index);
                     HiveConstructVisual.render(part, camera, glow, fill, m, color);
+                    // A heads-up circle turns slowly on the ground under what is held.
+                    if (HiveJuice.detail() != HiveJuice.Detail.LOW) {
+                        HiveJuice.aim(part.target(), Math.max(1.2, HiveFormation.enclosure(part.width(), part.height()) * 1.3), .5, s.time(), color, accent(s.type()),
+                                camera, glow, m);
+                    }
                 }
             }
         }
@@ -131,11 +136,34 @@ public final class HiveModeVisual {
 
     // --- droplet ---------------------------------------------------------------------------------
 
+    /** The second colour of a family's heads-up marks: orange by the RF blue, gold by the Mana teal, pink by the Twins violet. */
+    static int accent(HiveType type) {
+        return switch (type) {
+            case RF -> 0xFFB347;
+            case MANA -> 0xFFD27A;
+            case TWINS -> 0xFF7BE5;
+        };
+    }
+
+    /** Ticks until a group's cycle next passes {@code mark} (its blow or its shot). */
+    private static double until(Scene s, int group, double mark) {
+        double phase = HiveFormation.groupPhase(s.time(), s.cycleStart(), s.interval(), s.timingGroup(group), s.timingGroups());
+        if (phase < 0) return Double.MAX_VALUE;
+        return (phase < mark ? mark - phase : 1 + mark - phase) * s.interval();
+    }
+
+    /** Ticks before a blow or a shot its aim circle shows, closing on the target. */
+    private static final double AIM_TICKS = 10;
+
     private static void droplets(Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
         for (int group = 0; group < s.groups(); group++) {
             if (s.members()[group] == 0) continue;
             HiveTarget target = s.targetOf(group);
             Vec3 core = HiveFormation.core(target.feet(), target.height());
+            double coming = until(s, group, HiveFormation.IMPACT);
+            if (coming <= AIM_TICKS && HiveJuice.detail() != HiveJuice.Detail.LOW) {
+                HiveJuice.aim(target.feet(), Math.max(1, target.width() * 1.6), 1 - coming / AIM_TICKS, s.time() + group * 13, color, accent(s.type()), camera, glow, m);
+            }
             Vec3 home = HiveFormation.muster(s.owner(), s.target(), group, s.groups(), s.time());
             Vec3 centre = dropletCentre(s, group, s.time());
             double sortie = sortie(s, group);
@@ -165,9 +193,11 @@ public final class HiveModeVisual {
             }
             switch (s.type()) {
                 case RF -> {
+                    // Flying apart after the blow, the tesseract's lines go out, and light again as it gathers.
+                    double whole = sortie > 1 && sortie < 2 ? 1 - Math.sin(Math.PI * Math.min(1, (sortie - 1) * 1.6)) : 1;
                     for (int[] edge : HiveShapes.TESSERACT_EDGES) {
                         Vec3 a = drone.apply(edge[0]), b = drone.apply(edge[1]);
-                        if (a != null && b != null) GlowBrush.beam(glow, m, a, b, .022, color, 80 + 140 * heat);
+                        if (a != null && b != null) GlowBrush.beam(glow, m, a, b, .022, color, (80 + 140 * heat) * whole);
                     }
                     for (int corner = 0; corner < HiveShapes.TESSERACT_CORNERS; corner++) {
                         Vec3 at = drone.apply(corner);
@@ -202,6 +232,34 @@ public final class HiveModeVisual {
                     if (flying && !GlowBrush.flat()) ShieldRefraction.queueLens(c.x, c.y, c.z, size * .4, size * 2.2, .8 * heat);
                 }
             }
+            if (sortie <= 0 && HiveJuice.detail() != HiveJuice.Detail.LOW) idle(s, group, drone, glow, m, color);
+        }
+    }
+
+    /**
+     * A figure waiting in the fan is not dead: a light runs along its lines from drone to drone, and every two
+     * seconds or so a spark leaps between two of its drones.
+     */
+    private static void idle(Scene s, int group, java.util.function.IntFunction<Vec3> drone, VertexConsumer glow, Matrix4f m, int color) {
+        int corners = switch (s.type()) {
+            case RF -> HiveShapes.TESSERACT_CORNERS;
+            case MANA -> HiveShapes.DROPLET_CORNERS;
+            case TWINS -> HiveShapes.MIN_HEXAGONS * HiveShapes.HEXAGON_CORNERS;
+        };
+        corners = Math.min(corners, s.members()[group]);
+        if (corners < 2) return;
+        double time = s.time() + group * 7.3;
+        long step = (long) Math.floor(time / 8);
+        int from = (int) Math.floorMod(step * 7 + group, corners), to = (int) Math.floorMod(step * 7 + group + 1 + step % 3, corners);
+        Vec3 a = drone.apply(from), b = drone.apply(to);
+        if (a != null && b != null) {
+            double run = time / 8 - step;
+            GlowBrush.dot(glow, m, a.lerp(b, run), .06, GlowBrush.mix(color, 0xFFFFFF, .5), 200 * Math.sin(Math.PI * run));
+        }
+        long beat = (long) Math.floor(time / 40);
+        if (time - beat * 40 < 5) {
+            Vec3 p = drone.apply((int) Math.floorMod(beat * 5 + group, corners)), q = drone.apply((int) Math.floorMod(beat * 5 + group + corners / 2, corners));
+            if (p != null && q != null) GlowBrush.lightning(glow, m, p, q, beat * 131 + group, 5, .2, .008, GlowBrush.mix(color, 0xFFFFFF, .4), 170);
         }
     }
 
@@ -308,6 +366,11 @@ public final class HiveModeVisual {
 
     private static void clusters(Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
         int groups = s.groups();
+        double soonest = Double.MAX_VALUE;
+        for (int group = 0; group < groups; group++) if (s.members()[group] > 0) soonest = Math.min(soonest, until(s, group, HiveFormation.FIRE));
+        if (soonest <= AIM_TICKS && HiveJuice.detail() != HiveJuice.Detail.LOW && s.type() != HiveType.MANA) {
+            HiveJuice.aim(s.target(), Math.max(1, s.width() * 1.6), 1 - soonest / AIM_TICKS, s.time(), color, accent(s.type()), camera, glow, m);
+        }
         Vec3 core = HiveFormation.core(s.target(), s.height()).subtract(camera);
         Vec3[] centres = new Vec3[groups];
         double[] charges = new double[groups];

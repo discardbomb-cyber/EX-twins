@@ -53,6 +53,24 @@ public final class HiveVisualRenderer {
     /** A block the black hole takes: where it was, what it was, and when it is torn away. */
     private record Prey(net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.state.BlockState state, double takenAt) { }
 
+    /** A few of each deployed drone's last places, half a tick apart, for the thin trail behind it. */
+    private static final Map<Player, EnumMap<HiveType, Trail[]>> TRAILS = new WeakHashMap<>();
+
+    private static final class Trail {
+        final Vec3[] points = new Vec3[3];
+        double sampled = -1;
+
+        /** Notes {@code at} if half a tick has passed since the last note; returns the oldest place noted. */
+        Vec3 note(Vec3 at, double time) {
+            if (sampled < 0 || time - sampled >= .5 || time < sampled) {
+                System.arraycopy(points, 0, points, 1, points.length - 1);
+                points[0] = at;
+                sampled = time;
+            }
+            return points[points.length - 1];
+        }
+    }
+
     /** Where each drone was when an Armageddon shot began, so it flies into the cannon from there. */
     private static final Map<Player, EnumMap<HiveType, Vec3[]>> LAUNCHES = new WeakHashMap<>();
     /** Drone models per frame, then how many of them may be the full model and how many the swarm model; the rest are the dense model. */
@@ -74,6 +92,7 @@ public final class HiveVisualRenderer {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null || minecraft.player == null) {
             ACTIVE.clear(); VISIBILITY.clear(); SEEN.clear(); LAUNCHES.clear(); PREY.clear();
+            HiveJuice.clear();
             ArmageddonVisual.BLASTS.clear();
             ManaArmageddonVisual.BLASTS.clear();
             RfArmageddonVisual.clear();
@@ -119,6 +138,7 @@ public final class HiveVisualRenderer {
         buffers.endBatch();
         var fill = buffers.getBuffer(ShieldVisualRenderer.renderType());
         for (HiveModeVisual.Scene scene : scenes) HiveModeVisual.render(scene, camera, glow, fill, matrix);
+        HiveJuice.render(camera, glow, fill, matrix, time);
         RfArmageddonVisual.scorches(time, camera, fill, matrix);
         if (EffectLights.enabled()) scenes.forEach(HiveModeVisual::light);
         // Horizons go in solid and write depth before any light, so nothing behind a black hole shows
@@ -219,6 +239,7 @@ public final class HiveVisualRenderer {
                     if (wing.mode() == AttackMode.DROPLET && type == HiveType.TWINS && HiveFormation.dropletHidden(type, HiveFormation.sortie(owner,
                             wingTargets.getFirst().feet(), target.feet(), target.height(), group, groups, time, cycleStart, interval))) continue;
                     drones[slot] = at;
+                    trail(player, type, unit, count, at, time, camera, glow, poses);
                     drawDrone(minecraft, event, player, type, at, HiveFormation.core(target.feet(), target.height()), appear, count, camera, poses, glow, budget);
                 }
                 scenes.add(new HiveModeVisual.Scene(wing.mode(), type, wing.slots(), groups, members, drones, owner, List.copyOf(wingTargets), time,
@@ -448,6 +469,21 @@ public final class HiveVisualRenderer {
         List<Prey> sample = new ArrayList<>();
         for (int index = 0; index < all.size(); index += step) sample.add(all.get(index));
         return sample;
+    }
+
+    /** A thin trail behind a drone on the move, fading back over its last two ticks; none far off or at low detail. */
+    private static void trail(Player player, HiveType type, int unit, int count, Vec3 at, double time, Vec3 camera,
+            com.mojang.blaze3d.vertex.VertexConsumer glow, PoseStack poses) {
+        if (HiveJuice.detail() == HiveJuice.Detail.LOW || at.distanceToSqr(camera) > 40 * 40) return;
+        Trail[] trails = TRAILS.computeIfAbsent(player, ignored -> new EnumMap<>(HiveType.class)).compute(type,
+                (ignored, old) -> old == null || old.length != count ? new Trail[count] : old);
+        if (trails[unit] == null) trails[unit] = new Trail();
+        Vec3 oldest = trails[unit].note(at, time);
+        if (oldest == null) return;
+        double moved = oldest.distanceTo(at);
+        if (moved < .15 || moved > 6) return;
+        int color = HiveModeVisual.color(type);
+        GlowBrush.line(glow, poses.last().pose(), at.subtract(camera), oldest.subtract(camera), .025, .004, color, color, 130, 0);
     }
 
     private static void drawDrone(Minecraft minecraft, RenderLevelStageEvent event, Player player, HiveType type, Vec3 at, Vec3 facing,
