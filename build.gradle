@@ -266,6 +266,7 @@ tasks.named('check') {
     dependsOn 'verifyCodecGolden'
     dependsOn 'verifyGeometryGolden'
     dependsOn 'verifyTwinsShieldLayers'
+    dependsOn 'verifyMathKernel'
 }
 
 // Safety net of the hexagonal migration (docs/architecture/hexagonal-migration.md, sections 3 and 11).
@@ -323,6 +324,13 @@ tasks.register('verifyTwinsShieldLayers', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'dev.hurtify.relicsaddon.client.TwinsShieldLayerAnimationCheck'
+}
+
+// The domain math kernel (Vec3d, Box, Trig) against Vec3, AABB and Mth, bit for bit, in the same JVM.
+tasks.register('verifyMathKernel', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.domain.math.MathKernelCheck'
 }
 
 tasks.register('verifyEffectLights', JavaExec) {
