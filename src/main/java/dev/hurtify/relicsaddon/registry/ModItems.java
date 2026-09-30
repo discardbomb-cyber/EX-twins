@@ -45,6 +45,18 @@ public final class ModItems {
         });
     }
 
+    /** The ship hives' block items, in the order of their kinds. */
+    public static final java.util.Map<dev.hurtify.relicsaddon.ship.ShipHiveKind, DeferredItem<dev.hurtify.relicsaddon.ship.ShipHiveItem>> SHIP_HIVES = shipHives();
+
+    private static java.util.Map<dev.hurtify.relicsaddon.ship.ShipHiveKind, DeferredItem<dev.hurtify.relicsaddon.ship.ShipHiveItem>> shipHives() {
+        var items = new java.util.EnumMap<dev.hurtify.relicsaddon.ship.ShipHiveKind, DeferredItem<dev.hurtify.relicsaddon.ship.ShipHiveItem>>(dev.hurtify.relicsaddon.ship.ShipHiveKind.class);
+        for (var kind : dev.hurtify.relicsaddon.ship.ShipHiveKind.values()) {
+            var block = ModBlocks.SHIP_HIVES.get(kind);
+            items.put(kind, ITEMS.register(kind.id, () -> new dev.hurtify.relicsaddon.ship.ShipHiveItem(block.get(), new Item.Properties().rarity(Rarity.RARE))));
+        }
+        return items;
+    }
+
     public static final DeferredItem<AutonomousRelicItem> RF_SHIELD = ITEMS.register(
             RelicRole.RF_SHIELD.itemId(),
             () -> new AutonomousRelicItem.RfShield(new Item.Properties().stacksTo(1).rarity(Rarity.RARE)));

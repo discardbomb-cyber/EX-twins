@@ -128,6 +128,16 @@ neoForge {
             systemProperty 'relics_addon.worldScenario', providers.gradleProperty('scenario').getOrElse('all')
         }
 
+        // Ship hive scenes on a real Sable ship: run-ship/mods holds Sable's jar (copied from the Gradle cache), so
+        // only these runs load it.
+        shipScenarioClient {
+            client()
+            gameDirectory = file('run-ship')
+            programArgument '--quickPlaySingleplayer'
+            programArgument 'Scenario'
+            systemProperty 'relics_addon.worldScenario', providers.gradleProperty('scenario').getOrElse('ship-sable')
+        }
+
         featureGifClient {
             client()
             gameDirectory = file('run-feature-gif')
@@ -184,6 +194,14 @@ repositories {
         url = "https://maven.gegy.dev/releases/"
         content { includeGroup "dev.lambdaurora.lambdynamiclights" }
     }
+    maven {
+        name = "RyanHCode"
+        url = "https://maven.ryanhcode.dev/releases"
+        content {
+            includeGroup "dev.ryanhcode.sable-companion"
+            includeGroup "dev.ryanhcode.sable"
+        }
+    }
 }
 
 // LambDynamicLights publishes Fabric (intermediary), NeoForge (mojmap) and a shadowed dev jar side by side;
@@ -205,6 +223,13 @@ dependencies {
         attributes(neoForgeVariant)
         transitive = false
     }
+    // Ships of Create Aeronautics are Sable physics bodies. Sable's companion library (MIT) finds the ship a block is on and
+    // where that ship is: bundled, and a harmless no-op where Sable is not installed.
+    jarJar(implementation("dev.ryanhcode.sable-companion:sable-companion-common-1.21.1:[${sable_companion_version},)")) {
+        version { prefer sable_companion_version }
+    }
+    // Sable itself only to compile the few calls made when it is installed (a ship's exact bounds).
+    compileOnly("dev.ryanhcode.sable:sable-neoforge-1.21.1:${sable_version}") { transitive = false }
     // The runtime jar nests its API, SpruceUI, Pridelib and Yumi, which FML unpacks itself.
     dynamicLightsRuntime("dev.lambdaurora.lambdynamiclights:lambdynamiclights-runtime:${lambdynamiclights_version}") {
         attributes(neoForgeVariant)

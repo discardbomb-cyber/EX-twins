@@ -24,6 +24,7 @@ public final class ModCreativeTabs {
                         output.accept(ModItems.RF_HIVE.get());
                         output.accept(ModItems.MANA_HIVE.get());
                         output.accept(ModItems.TWINS_HIVE.get());
+                        ModItems.SHIP_HIVES.values().forEach(item -> output.accept(item.get()));
                         ModItems.COMPONENTS.forEach(item -> output.accept(item.get()));
                     })
                     .build());

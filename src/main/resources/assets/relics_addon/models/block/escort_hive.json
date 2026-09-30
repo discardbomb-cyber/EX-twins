@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "relics_addon:block/escort_hive_side",
+    "up": "relics_addon:block/escort_hive_front",
+    "down": "relics_addon:block/escort_hive_back",
+    "north": "relics_addon:block/escort_hive_side",
+    "south": "relics_addon:block/escort_hive_side",
+    "east": "relics_addon:block/escort_hive_side",
+    "west": "relics_addon:block/escort_hive_side"
+  }
+}

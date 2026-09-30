@@ -1,0 +1,30 @@
+{
+  "variants": {
+    "facing=up": {
+      "model": "relics_addon:block/lance_hive"
+    },
+    "facing=down": {
+      "model": "relics_addon:block/lance_hive",
+      "x": 180
+    },
+    "facing=north": {
+      "model": "relics_addon:block/lance_hive",
+      "x": 90
+    },
+    "facing=south": {
+      "model": "relics_addon:block/lance_hive",
+      "x": 90,
+      "y": 180
+    },
+    "facing=west": {
+      "model": "relics_addon:block/lance_hive",
+      "x": 90,
+      "y": 270
+    },
+    "facing=east": {
+      "model": "relics_addon:block/lance_hive",
+      "x": 90,
+      "y": 90
+    }
+  }
+}
