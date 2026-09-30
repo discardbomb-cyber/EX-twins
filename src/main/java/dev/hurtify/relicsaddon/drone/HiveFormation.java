@@ -466,6 +466,11 @@ public final class HiveFormation {
         return path(rest, station, stagger(unit, type, progress), unit, type);
     }
 
+    /** A drone's own staggered, curved flight from {@code from} to {@code to}, {@code progress} of the way (0..1) through the swarm's move. */
+    public static Vec3 flight(Vec3 from, Vec3 to, int unit, HiveType type, double progress) {
+        return path(from, to, stagger(unit, type, progress), unit, type);
+    }
+
     /** A hit drone on its way home, from where it was struck back into the hive. */
     public static Vec3 returning(Vec3 owner, float yaw, Vec3 struckAt, int unit, int count, HiveType type, double time, double hitAt) {
         Vec3 rest = idle(owner, yaw, unit, count, type, time);

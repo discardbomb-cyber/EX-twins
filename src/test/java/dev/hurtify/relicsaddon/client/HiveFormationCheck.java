@@ -1,5 +1,7 @@
 package dev.hurtify.relicsaddon.client;
 
+import dev.hurtify.relicsaddon.drone.Armageddon;
+import dev.hurtify.relicsaddon.drone.ArmageddonState;
 import dev.hurtify.relicsaddon.drone.AttackMode;
 import dev.hurtify.relicsaddon.drone.HiveFormation;
 import dev.hurtify.relicsaddon.drone.HiveSettings;
@@ -220,7 +222,94 @@ public final class HiveFormationCheck {
         int total = 0;
         for (int group = 0; group < 16; group++) total += HiveSlots.groupSize(group, 250, 16);
         require(total == 250, "every place belongs to exactly one group");
-        System.out.println("Hive formation: every mode bounded, smooth and separated; launches land; blows due on time; lanes rotate");
+        armageddon();
+        System.out.println("Hive formation: every mode bounded, smooth and separated; launches land; blows due on time; lanes rotate; "
+                + "the Armageddon cannon forms, fires, devours and bursts on time");
+    }
+
+    /** Armageddon: its stages in order, the cannon whole and smooth, the shot landing on its target, the front and the devouring true to their inverses. */
+    private static void armageddon() {
+        require(Armageddon.ASSEMBLED < Armageddon.ringLit(0) && Armageddon.ringLit(Armageddon.RINGS - 1) < Armageddon.CHARGED
+                && Armageddon.CHARGED < Armageddon.FIRE && Armageddon.FIRE < Armageddon.ARRIVE && Armageddon.ARRIVE < Armageddon.IMPACT
+                && Armageddon.IMPACT < Armageddon.RECOVER && Armageddon.RECOVER < Armageddon.END, "Armageddon's stages come in order");
+        require(Armageddon.charge(0) == 0 && Armageddon.charge(Armageddon.FIRE) == 1, "the charge runs from empty to full as the shot fires");
+        for (double age = 0; age < Armageddon.FIRE; age += 7) require(Armageddon.charge(age) <= Armageddon.charge(age + 7), "the charge only grows");
+        require(Armageddon.shotSize(Armageddon.CHARGED) == 0 && Math.abs(Armageddon.shotSize(Armageddon.FIRE) - Armageddon.SHOT_HORIZON) < 1e-9,
+                "the black hole takes shape as the funnel focuses and is whole as it leaves");
+
+        Vec3 eye = new Vec3(10, 70, 10);
+        for (Vec3 aim : new Vec3[]{new Vec3(0, -10, -60), new Vec3(180, 5, 170), new Vec3(3, -60, 4), new Vec3(0, 0, -12)}) {
+            Vec3 target = eye.add(aim);
+            ArmageddonState shot = new ArmageddonState(1_000, Armageddon.origin(eye, target), target, true);
+            require(shot.origin().y - eye.y > 6 && shot.origin().distanceTo(eye) < 8, "the cannon hangs over its owner's head");
+            // The black hole leaves the muzzle, lands on the target and flies ever faster on the way.
+            require(Armageddon.shot(shot, Armageddon.ARRIVE).distanceTo(target) < 1e-9, "the black hole lands on its target");
+            double previousStep = 0;
+            for (double age = Armageddon.FIRE; age < Armageddon.ARRIVE; age += 1) {
+                double step = Armageddon.shot(shot, age + 1).distanceTo(Armageddon.shot(shot, age));
+                require(step >= previousStep - 1e-9, "the black hole speeds up as it flies");
+                previousStep = step;
+            }
+            double reach = target.distanceTo(shot.origin());
+            for (int slots : new int[]{1, 7, 100, 250, 2000}) {
+                require(Armageddon.cores(slots) + Armageddon.ringed(slots) + Armageddon.shells(slots) == slots, "every place has a part in the cannon");
+                Vec3[] previous = new Vec3[slots];
+                for (double age = 0; age <= Armageddon.RECOVER; age += .5) {
+                    double time = shot.startedAt() + age;
+                    Vec3[] at = new Vec3[slots];
+                    for (int slot = 0; slot < slots; slot++) {
+                        at[slot] = Armageddon.station(shot, slot, slots, time);
+                        requireFinite(at[slot], "Armageddon station");
+                        if (age < Armageddon.FIRE) require(at[slot].distanceTo(shot.origin()) < 22, "the cannon keeps together over its owner: "
+                                + at[slot].distanceTo(shot.origin()) + " at " + age);
+                        else require(at[slot].distanceTo(shot.origin()) < reach + 120, "the escort stays with the shot and the blast");
+                        // Flying out with the black hole at its fastest, or flung from the blast, a drone still moves smoothly.
+                        if (previous[slot] != null) require(previous[slot].distanceTo(at[slot]) < 2 + reach * .05,
+                                "an Armageddon drone must not jump: " + previous[slot].distanceTo(at[slot]) + " at " + age + " (" + slot + "/" + slots + ")");
+                    }
+                    if (slots <= 250 && (age == 400 || age == Armageddon.FIRE - 1)) for (int a = 0; a < slots; a++) for (int b = a + 1; b < slots; b++) {
+                        require(at[a].distanceToSqr(at[b]) > 1e-8, "Armageddon places " + a + " and " + b + " of " + slots + " coincide");
+                    }
+                    previous = at;
+                }
+            }
+            // Every ring drone rides its ring.
+            Vec3[] frame = Armageddon.frame(shot);
+            int slots = 250, cores = Armageddon.cores(slots);
+            for (int slot = cores; slot < cores + Armageddon.ringed(slots); slot++) {
+                int ring = (slot - cores) % Armageddon.RINGS;
+                Vec3 out = Armageddon.station(shot, slot, slots, shot.startedAt() + 500).subtract(shot.origin());
+                double along = out.dot(frame[0]), across = out.subtract(frame[0].scale(along)).length();
+                require(Math.abs(along - Armageddon.ringAt(ring)) < 1e-6 && Math.abs(across - Armageddon.ringRadius(ring)) < 1e-6, "a ring drone rides its ring");
+            }
+        }
+
+        // The devouring spreads from the middle to its whole reach just before the burst, and its inverse agrees.
+        require(Armageddon.devoured(Armageddon.HUNGER) == 0 && Math.abs(Armageddon.devoured(Armageddon.IMPACT - 4) - Armageddon.DEVOUR_RADIUS) < 1e-9,
+                "the black hole devours out to its whole reach before it bursts");
+        for (double distance = .5; distance < Armageddon.DEVOUR_RADIUS; distance += 1.5) {
+            double when = Armageddon.devouredAt(distance);
+            require(when >= Armageddon.HUNGER && when <= Armageddon.IMPACT - 4 && Math.abs(Armageddon.devoured(when) - distance) < 1e-3,
+                    "a block is taken when the devouring reaches it");
+        }
+        // At the target the containment breaks, then the black hole feeds; the supernova's stages follow in
+        // order. Nothing is struck until the ball of light forms; it strikes everything it sweeps over, holds,
+        // and is crushed back in; when the blast first reaches a place agrees with how far it has got.
+        require(Armageddon.ARRIVE < Armageddon.BROKEN && Armageddon.BROKEN < Armageddon.HUNGER && Armageddon.HUNGER < Armageddon.IMPACT,
+                "the containment breaks before the black hole starts to feed");
+        require(Armageddon.FLASH < Armageddon.BALL && Armageddon.BALL + Armageddon.EXPAND < Armageddon.HOLD && Armageddon.HOLD < Armageddon.CRUSHED
+                && Armageddon.ERUPT <= Armageddon.CRUSHED && Armageddon.CRUSHED < Armageddon.NARROW && Armageddon.NARROW < Armageddon.GONE
+                && Armageddon.RECOVER > Armageddon.IMPACT + Armageddon.GONE, "the supernova's stages come in order, and the drones come home after");
+        require(Armageddon.reach(Armageddon.BALL - 1) == 0 && Math.abs(Armageddon.front(Armageddon.BALL + Armageddon.EXPAND) - Armageddon.RADIUS) < 1e-9,
+                "nothing is struck before the ball of light forms, and it sweeps out to the radius");
+        require(Math.abs(Armageddon.ball(Armageddon.HOLD) - Armageddon.RADIUS) < 1e-9 && Armageddon.ball(Armageddon.CRUSHED) < 1e-9,
+                "the ball holds at the radius and is crushed back to nothing");
+        for (double t = 0; t < Armageddon.BALL + Armageddon.EXPAND; t += 2.5) require(Armageddon.reach(t + 2.5) >= Armageddon.reach(t), "the blast's reach only grows");
+        for (double distance = 1; distance <= Armageddon.RADIUS; distance += 2.5) {
+            double when = Armageddon.reaches(distance);
+            require(Armageddon.reach(when) >= distance - 1e-6 && Armageddon.reach(when - .01) < distance,
+                    "the blast reaches " + distance + " blocks when it says it does (" + when + ")");
+        }
     }
 
     private static void requireFinite(Vec3 point, String what) { require(Double.isFinite(point.x) && Double.isFinite(point.y) && Double.isFinite(point.z), what + " must be finite"); }

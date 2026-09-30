@@ -27,6 +27,7 @@ public final class RelicsAddon {
         ModCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
         dev.hurtify.relicsaddon.registry.ModMenus.MENUS.register(modEventBus);
         modEventBus.addListener(dev.hurtify.relicsaddon.network.OpenDevicePayload::register);
+        modEventBus.addListener(dev.hurtify.relicsaddon.network.ArmageddonPayloads::register);
         modEventBus.addListener(dev.hurtify.relicsaddon.power.DeviceEnergyStorage::register);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.power.DevicePower::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(ShieldController::onIncomingDamage);
@@ -44,6 +45,8 @@ public final class RelicsAddon {
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.HiveContainment::onTeleport);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.HiveContainment::onEntityInteract);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.HiveContainment::onLevelTick);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.ArmageddonController::onLevelTick);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.ArmageddonController::onServerStopping);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.HiveCombatController::onPlayerChangedDimension);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.ShieldStatusCommand::register);
         registerClientOnly(modEventBus);

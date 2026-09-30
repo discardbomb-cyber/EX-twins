@@ -1,0 +1,19 @@
+{
+  "vertex": "relics_addon:armageddon_volume",
+  "fragment": "relics_addon:armageddon_light",
+  "samplers": [
+    { "name": "Sampler1" }
+  ],
+  "uniforms": [
+    { "name": "InverseProj", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+    { "name": "TargetSize", "type": "float", "count": 2, "values": [ 1.0, 1.0 ] },
+    { "name": "Centre", "type": "float", "count": 3, "values": [ 0.0, 0.0, -1.0 ] },
+    { "name": "Up", "type": "float", "count": 3, "values": [ 0.0, 1.0, 0.0 ] },
+    { "name": "World", "type": "float", "count": 3, "values": [ 1.0, 1.0, 1.0 ] },
+    { "name": "Sky", "type": "float", "count": 3, "values": [ 1.0, 1.0, 1.0 ] },
+    { "name": "Inside", "type": "float", "count": 3, "values": [ 1.0, 1.0, 1.0 ] },
+    { "name": "Front", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "Glow", "type": "float", "count": 3, "values": [ 0.0, 0.0, 0.0 ] },
+    { "name": "Reach", "type": "float", "count": 1, "values": [ 1.0 ] }
+  ]
+}

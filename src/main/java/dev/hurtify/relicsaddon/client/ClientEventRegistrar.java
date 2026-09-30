@@ -12,6 +12,7 @@ public final class ClientEventRegistrar {
         NeoForge.EVENT_BUS.addListener(ShieldVisualRenderer::onRenderLevelStage);
         NeoForge.EVENT_BUS.addListener(ShieldThreatTracker::onTick);
         NeoForge.EVENT_BUS.addListener(HiveVisualRenderer::onRenderLevelStage);
+        NeoForge.EVENT_BUS.addListener(ArmageddonShake::onCameraAngles);
         NeoForge.EVENT_BUS.addListener(EffectLights::onFrame);
         NeoForge.EVENT_BUS.addListener(HiveMenuKey::tick);
         NeoForge.EVENT_BUS.addListener(ShiftHoverOpener::onClientTick);
@@ -29,6 +30,7 @@ public final class ClientEventRegistrar {
         try {
             ShieldRefraction.registerShaders(event);
             BlackHoleLens.registerShaders(event);
+            ArmageddonVolume.registerShaders(event);
         } catch (java.io.IOException exception) {
             throw new java.io.UncheckedIOException("Failed to load the refraction shaders", exception);
         }

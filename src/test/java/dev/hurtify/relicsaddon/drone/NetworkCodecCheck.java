@@ -115,8 +115,18 @@ public final class NetworkCodecCheck {
         ShieldImpact strike = ShieldImpact.strike(new Vec3(0, 0, 1), 1_234L, 2, 4.5F, .3F);
         roundTrip(ShieldImpact.STREAM_CODEC, strike, "shield strike");
         require(strike.isStrike() && !new ShieldImpact(new Vec3(0, 1, 0), 5L, 0, 2, false).isStrike(), "Only strikes are marked as strikes");
-        System.out.println("Network codecs: 750-drone swarm (" + swarmBytes + " bytes, " + restingBytes + " at rest), old saves, settings, "
-                + "combat, batteries and shield impacts round-trip exactly");
+        // An Armageddon under way travels exactly; broken numbers never get into it.
+        roundTrip(ArmageddonState.STREAM_CODEC, new ArmageddonState(123_456_789L, new Vec3(1.25, 70.5, -3), new Vec3(-200.5, 63, 180.25), true), "armageddon");
+        roundTrip(ArmageddonState.STREAM_CODEC, new ArmageddonState(0, Vec3.ZERO, new Vec3(0, -64, 0), false), "armageddon unlinked");
+        ArmageddonState broken = new ArmageddonState(-5, new Vec3(Double.NaN, 0, 0), new Vec3(0, Double.POSITIVE_INFINITY, 0), false);
+        require(broken.origin().equals(Vec3.ZERO) && broken.target().equals(Vec3.ZERO), "an Armageddon keeps only finite places");
+        roundTrip(ArmageddonState.STREAM_CODEC, broken, "armageddon started before the world's first tick");
+        require(broken.running(100) && broken.age(100) == 105, "a shot with a head start in a young world is just as far along");
+        ArmageddonState running = new ArmageddonState(1_000, Vec3.ZERO, new Vec3(0, 0, 60), false);
+        require(!running.running(999) && running.running(1_000) && running.running(1_000 + Armageddon.END - 1) && !running.running(1_000 + Armageddon.END),
+                "an Armageddon runs from its start until its drones are home");
+        System.out.println("Network codecs: " + HiveType.MAX_DRONES + "-drone swarm (" + swarmBytes + " bytes, " + restingBytes + " at rest), old saves, "
+                + "settings, combat, batteries, shield impacts and Armageddon round-trip exactly");
     }
 
     private static <T> Tag encode(Codec<T> codec, T value) {

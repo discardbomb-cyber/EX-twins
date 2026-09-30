@@ -15,6 +15,9 @@
     { "name": "Einstein", "type": "float", "count": 1, "values": [ 1.0 ] },
     { "name": "Reach", "type": "float", "count": 1, "values": [ 4.0 ] },
     { "name": "Darkness", "type": "float", "count": 1, "values": [ 2.6 ] },
-    { "name": "Halo", "type": "float", "count": 1, "values": [ 1.5 ] }
+    { "name": "Halo", "type": "float", "count": 1, "values": [ 1.5 ] },
+    { "name": "Ring", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "RingWidth", "type": "float", "count": 1, "values": [ 1.0 ] },
+    { "name": "RingStrength", "type": "float", "count": 1, "values": [ 0.0 ] }
   ]
 }

@@ -43,7 +43,11 @@ public final class BlackHoleLens {
     private static ShaderInstance shader;
     private static TextureTarget copy;
 
-    private record Hole(Vec3 centre, double horizon, double reach) { }
+    /**
+     * A warp of space round a camera-relative centre: a black hole's pull ({@code einstein}, {@code darkness})
+     * or a shock shell's rim ({@code ring} with its width and strength), out to {@code reach}.
+     */
+    private record Hole(Vec3 centre, double horizon, double reach, double einstein, double darkness, double ring, double ringWidth, double ringStrength) { }
 
     public static void registerShaders(RegisterShadersEvent event) throws IOException {
         event.registerShader(new ShaderInstance(event.getResourceProvider(),
@@ -53,8 +57,26 @@ public final class BlackHoleLens {
 
     /** Queues a hole at a camera-relative point for the next {@link #flush}; space is pulled out to {@code reach}. */
     static void queue(Vec3 centre, double horizon, double reach) {
-        if (!(horizon > 0) || !(reach > horizon) || HOLES.size() >= 16 || !ShieldRefraction.enabled()) return;
-        HOLES.add(new Hole(centre, horizon, reach));
+        queue(centre, horizon, reach, DARKNESS);
+    }
+
+    /** As {@link #queue(Vec3, double, double)}, darkening the world round it by {@code darkness} (none at 0). */
+    static void queue(Vec3 centre, double horizon, double reach, double darkness) {
+        queue(centre, horizon, reach, darkness, EINSTEIN);
+    }
+
+    /** As above, with its Einstein ring {@code einstein} horizons out: the further, the harder it bends the world. */
+    static void queue(Vec3 centre, double horizon, double reach, double darkness, double einstein) {
+        if (!(horizon > 0) || !(reach > horizon) || HOLES.size() >= 24 || !ShieldRefraction.enabled()) return;
+        double strength = Math.min(3, AddonClientConfig.refractionStrength());
+        HOLES.add(new Hole(centre, horizon, reach, horizon * einstein * Math.sqrt(strength), darkness, 0, 1, 0));
+    }
+
+    /** Queues a shock shell of {@code radius} round a camera-relative point, bending the world behind its rim by up to about {@code strength} widths. */
+    static void queueShock(Vec3 centre, double radius, double width, double strength) {
+        if (!(radius > 0) || !(width > 0) || HOLES.size() >= 24 || !ShieldRefraction.enabled()) return;
+        double gain = Math.min(3, AddonClientConfig.refractionStrength());
+        HOLES.add(new Hole(centre, radius * .3, radius + width * 3, 0, 0, radius, width, strength * gain));
     }
 
     static void flush(Matrix4f pose) {
@@ -84,7 +106,6 @@ public final class BlackHoleLens {
 
         Matrix4f view = new Matrix4f(RenderSystem.getModelViewMatrix()).mul(pose);
         Matrix4f inverseProjection = new Matrix4f(RenderSystem.getProjectionMatrix()).invert();
-        double strength = Math.min(3, AddonClientConfig.refractionStrength());
         int depthUnit = RenderSystem.getShaderTexture(1);
         RenderSystem.setShader(() -> shader);
         RenderSystem.setShaderTexture(0, copy.getColorTextureId());
@@ -97,14 +118,17 @@ public final class BlackHoleLens {
             for (Hole hole : HOLES) {
                 Vector3f centre = view.transformPosition(new Vector3f((float) hole.centre.x, (float) hole.centre.y, (float) hole.centre.z));
                 // The halo's width: dark near the horizon, fading to next to nothing at the reach.
-                double halo = Math.sqrt((hole.reach * hole.reach - hole.horizon * hole.horizon) / Math.log(DARKNESS / EDGE_DARKNESS));
+                double halo = hole.darkness > 0 ? Math.sqrt((hole.reach * hole.reach - hole.horizon * hole.horizon) / Math.log(hole.darkness / EDGE_DARKNESS)) : 1;
                 shader.safeGetUniform("InverseProj").set(inverseProjection);
                 shader.safeGetUniform("Centre").set(centre.x, centre.y, centre.z);
                 shader.safeGetUniform("Horizon").set((float) hole.horizon);
-                shader.safeGetUniform("Einstein").set((float) (hole.horizon * EINSTEIN * Math.sqrt(strength)));
+                shader.safeGetUniform("Einstein").set((float) hole.einstein);
                 shader.safeGetUniform("Reach").set((float) hole.reach);
-                shader.safeGetUniform("Darkness").set((float) DARKNESS);
+                shader.safeGetUniform("Darkness").set((float) hole.darkness);
                 shader.safeGetUniform("Halo").set((float) halo);
+                shader.safeGetUniform("Ring").set((float) hole.ring);
+                shader.safeGetUniform("RingWidth").set((float) hole.ringWidth);
+                shader.safeGetUniform("RingStrength").set((float) hole.ringStrength);
                 BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION);
                 screen(builder);
                 MeshData mesh = builder.build();

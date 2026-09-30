@@ -2,6 +2,8 @@ package dev.hurtify.relicsaddon.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import dev.hurtify.relicsaddon.drone.Armageddon;
+import dev.hurtify.relicsaddon.drone.ArmageddonState;
 import dev.hurtify.relicsaddon.drone.HiveCombatState;
 import dev.hurtify.relicsaddon.drone.HiveFormation;
 import dev.hurtify.relicsaddon.drone.HiveSettings;
@@ -42,6 +44,14 @@ public final class HiveVisualRenderer {
     private static final Map<Player, EnumMap<HiveType, Visibility>> VISIBILITY = new WeakHashMap<>();
     /** Last drawn position of every drone, so a hit or recalled drone flies home from exactly where it was seen. */
     private static final Map<Player, EnumMap<HiveType, Vec3[]>> SEEN = new WeakHashMap<>();
+    /** Blocks an Armageddon black hole is swallowing, by the shot's start: a sample of them, noted before they went. */
+    private static final Map<Long, List<Prey>> PREY = new java.util.HashMap<>();
+
+    /** A block the black hole takes: where it was, what it was, and when it is torn away. */
+    private record Prey(net.minecraft.core.BlockPos pos, net.minecraft.world.level.block.state.BlockState state, double takenAt) { }
+
+    /** Where each drone was when an Armageddon shot began, so it flies into the cannon from there. */
+    private static final Map<Player, EnumMap<HiveType, Vec3[]>> LAUNCHES = new WeakHashMap<>();
     /** Drone models per frame, then how many of them may be the full model and how many the swarm model; the rest are the dense model. */
     private static final int MODEL_BUDGET = 900, FULL_BUDGET = 6, SWARM_BUDGET = 160;
     /** Beyond RANGE nothing is drawn, beyond MODEL_RANGE drones are points of light; FULL_RANGE and SWARM_RANGE pick the model's detail. */
@@ -51,7 +61,8 @@ public final class HiveVisualRenderer {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null || minecraft.player == null) {
-            ACTIVE.clear(); VISIBILITY.clear(); SEEN.clear();
+            ACTIVE.clear(); VISIBILITY.clear(); SEEN.clear(); LAUNCHES.clear(); PREY.clear();
+            ArmageddonVisual.BLASTS.clear();
             return;
         }
         float partial = event.getPartialTick().getGameTimeDeltaPartialTick(false);
@@ -74,10 +85,14 @@ public final class HiveVisualRenderer {
                 renderHive(minecraft, event, player, hive, cached.present().contains(hive.type()), now, time, partial, camera, poses, glow, budget, scenes);
             }
         }
+        ArmageddonVisual.debris(minecraft, time, camera, poses);
+        ArmageddonVisual.flushDebris();
         // Black holes bend and darken the world behind them first, before the drones and the light go
         // over it, so those stay crisp and the drones stay where their hexagons are.
         for (HiveModeVisual.Scene scene : scenes) HiveModeVisual.lenses(scene, camera);
+        ArmageddonVisual.lenses(time, camera);
         BlackHoleLens.flush(matrix);
+        ArmageddonVolume.flush(matrix);
         // Drone models are drawn next; the glass of the constructs goes in a buffer taken only after
         // that batch ends, since ending it would also end (and invalidate) a buffer taken before.
         buffers.endBatch();
@@ -86,6 +101,7 @@ public final class HiveVisualRenderer {
         if (EffectLights.enabled()) scenes.forEach(HiveModeVisual::light);
         // Horizons go in solid and write depth before any light, so nothing behind a black hole shows
         // through it; then space bends round blasts, and the glass and the light are laid over it.
+        ArmageddonVisual.blasts(time, camera, glow, matrix);
         ShieldGlow.flushHorizons();
         ShieldRefraction.flush(matrix);
         buffers.endBatch(ShieldVisualRenderer.renderType());
@@ -128,7 +144,11 @@ public final class HiveVisualRenderer {
         long cycleStart = combat.changedAt() + combat.travel();
         int interval = HiveCombatController.strikeInterval(player, stack);
 
-        if (combat.active() && slots > 0 && !targets.isEmpty()) {
+        ArmageddonState armageddon = stack.get(ModDataComponents.HIVE_ARMAGEDDON.get());
+        if (armageddon != null && armageddon.running(now)) {
+            armageddon(minecraft, event, player, type, armageddon, units, slots, fighters, count, owner, yaw, appear, seen, now, time, partial,
+                    camera, poses, glow, budget);
+        } else if (combat.active() && slots > 0 && !targets.isEmpty()) {
             int groups = HiveSlots.groups(slots, combat.mode()), engaged = HiveFormation.engaged(targets.size(), groups);
             int[] members = new int[groups];
             Vec3[] drones = new Vec3[slots];
@@ -174,6 +194,102 @@ public final class HiveVisualRenderer {
             drawDrone(minecraft, event, player, type, at, null, appear * Math.min(1, supportProgress * 4), count, camera, poses, glow, budget);
         }
         HiveCombatVisual.renderShots(combat.shots(), type, camera, poses.last().pose(), time);
+    }
+
+    /**
+     * The swarm in the Armageddon cannon: every drone flies from where it was to its place in it, faces
+     * the target while it charges and fires, and flies home once it comes apart.
+     */
+    private static void armageddon(Minecraft minecraft, RenderLevelStageEvent event, Player player, HiveType type, ArmageddonState shot,
+            List<HiveStackState.Unit> units, int slots, int fighters, int count, Vec3 owner, float yaw, double appear, Vec3[] seen, long now,
+            double time, float partial, Vec3 camera, PoseStack poses, com.mojang.blaze3d.vertex.VertexConsumer glow, int[] budget) {
+        Vec3[] from = LAUNCHES.computeIfAbsent(player, ignored -> new EnumMap<>(HiveType.class)).compute(type, (ignored, old) -> {
+            if (old != null && old.length == count + 1 && old[count] != null && (long) old[count].x == shot.startedAt()) return old;
+            // Where each drone was when the shot began (the last element marks which shot this is).
+            Vec3[] start = java.util.Arrays.copyOf(seen, count + 1);
+            start[count] = new Vec3(shot.startedAt(), 0, 0);
+            return start;
+        });
+        double recover = shot.startedAt() + Armageddon.RECOVER;
+        // The escort is flung off when the containment breaks and lost until the cannon comes apart and calls it home.
+        boolean lost = time > shot.startedAt() + Armageddon.BROKEN + 4 && time < recover;
+        int escort = Armageddon.cores(slots) + Armageddon.ringed(slots);
+        for (int slot = 0; slot < slots; slot++) {
+            int unit = HiveSlots.occupant(units, slot, slots, fighters, now);
+            if (unit < 0 || lost && slot >= escort) continue;
+            Vec3 station = Armageddon.station(shot, slot, slots, Math.min(time, recover));
+            Vec3 at;
+            if (time >= recover) at = HiveFormation.returning(owner, yaw, station, unit, count, type, time, recover);
+            else if (from[unit] != null) at = HiveFormation.flight(from[unit], station, unit, type, (time - shot.startedAt()) / Armageddon.ASSEMBLED);
+            else at = HiveFormation.deployed(owner, yaw, station, unit, count, type, time, shot.startedAt(), Armageddon.ASSEMBLED);
+            seen[unit] = at;
+            drawDrone(minecraft, event, player, type, at, time >= recover ? null : shot.target(), appear, count, camera, poses, glow, budget);
+        }
+        Vec3 chest = new Vec3(Mth.lerp(partial, player.xo, player.getX()), Mth.lerp(partial, player.yo, player.getY()) + player.getBbHeight() * .6,
+                Mth.lerp(partial, player.zo, player.getZ()));
+        ArmageddonVisual.cannon(shot, chest, time, camera, glow, poses.last().pose());
+        swallow(minecraft, shot, time, camera, poses);
+    }
+
+    /**
+     * The blocks the black hole tears up: noted (a sample of a few hundred) just before it starts to eat,
+     * then each flies in on a tightening spiral, tumbling and shrinking, from the moment it is taken.
+     */
+    private static void swallow(Minecraft minecraft, ArmageddonState shot, double time, Vec3 camera, PoseStack poses) {
+        double age = shot.age(time);
+        if (age < Armageddon.ARRIVE - 3 || age > Armageddon.IMPACT + 2 || dev.hurtify.relicsaddon.server.ArmageddonController.safeClient()) {
+            if (age > Armageddon.IMPACT + 2) PREY.remove(shot.startedAt());
+            return;
+        }
+        List<Prey> prey = PREY.computeIfAbsent(shot.startedAt(), ignored -> notePrey(minecraft, shot.target()));
+        Vec3 hole = shot.target();
+        var buffers = minecraft.renderBuffers().bufferSource();
+        var blocks = minecraft.getBlockRenderer();
+        for (Prey block : prey) {
+            double flight = (age - block.takenAt()) / 14;
+            if (flight < 0 || flight >= 1) continue;
+            Vec3 from = net.minecraft.world.phys.Vec3.atCenterOf(block.pos());
+            double ease = flight * flight;
+            Vec3 in = from.subtract(hole);
+            double swirl = 2.4 * ease;
+            Vec3 spun = new Vec3(in.x * Math.cos(swirl) - in.z * Math.sin(swirl), in.y, in.x * Math.sin(swirl) + in.z * Math.cos(swirl));
+            Vec3 at = hole.add(spun.scale(1 - ease));
+            float size = (float) (1 - .85 * ease);
+            poses.pushPose();
+            poses.translate(at.x - camera.x, at.y - camera.y, at.z - camera.z);
+            poses.mulPose(Axis.YP.rotation((float) (flight * 9 + block.pos().hashCode())));
+            poses.mulPose(Axis.XP.rotation((float) (flight * 7)));
+            poses.scale(size, size, size);
+            poses.translate(-.5, -.5, -.5);
+            blocks.renderSingleBlock(block.state(), poses, buffers, net.minecraft.client.renderer.LightTexture.FULL_BRIGHT,
+                    net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
+            poses.popPose();
+        }
+    }
+
+    /**
+     * A few hundred of the blocks round the black hole, spread evenly from the middle out, with when each is
+     * taken: the top block of every column in its reach (the ones that show), each taken as the black hole's reach
+     * passes its column.
+     */
+    private static List<Prey> notePrey(Minecraft minecraft, Vec3 hole) {
+        List<Prey> all = new ArrayList<>();
+        int reach = (int) Math.ceil(Armageddon.DEVOUR_RADIUS), cx = (int) Math.floor(hole.x), cz = (int) Math.floor(hole.z);
+        double most = Armageddon.DEVOUR_RADIUS * Armageddon.DEVOUR_RADIUS;
+        for (int x = cx - reach; x <= cx + reach; x++) for (int z = cz - reach; z <= cz + reach; z++) {
+            double dx = x + .5 - hole.x, dz = z + .5 - hole.z, flat = dx * dx + dz * dz;
+            if (flat > most) continue;
+            int y = minecraft.level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, x, z) - 1;
+            if (Math.abs(y + .5 - hole.y) > Math.sqrt(most - flat)) continue;
+            net.minecraft.core.BlockPos at = new net.minecraft.core.BlockPos(x, y, z);
+            var state = minecraft.level.getBlockState(at);
+            if (state.isAir() || state.getRenderShape() != net.minecraft.world.level.block.RenderShape.MODEL) continue;
+            all.add(new Prey(at, state, Armageddon.devouredAt(Math.sqrt(flat))));
+        }
+        int step = Math.max(1, all.size() / 450);
+        List<Prey> sample = new ArrayList<>();
+        for (int index = 0; index < all.size(); index += step) sample.add(all.get(index));
+        return sample;
     }
 
     private static void drawDrone(Minecraft minecraft, RenderLevelStageEvent event, Player player, HiveType type, Vec3 at, Vec3 facing,
