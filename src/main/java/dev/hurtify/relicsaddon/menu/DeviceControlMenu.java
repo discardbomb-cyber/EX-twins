@@ -1,6 +1,9 @@
 package dev.hurtify.relicsaddon.menu;
 
 import dev.hurtify.relicsaddon.drone.AttackMode;
+import dev.hurtify.relicsaddon.drone.HiveSettings;
+import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.network.HiveAllocationPayload;
 import dev.hurtify.relicsaddon.power.DeviceEnergy;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
@@ -37,8 +40,19 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
     /** One button per {@link DeviceEnergy.ManaSource}, in ordinal order. */
     public static final int BUTTON_MANA_SOURCE_BASE = 7;
     public static final int BUTTON_UPGRADE_BASE = 20;
-    /** One button per {@link AttackMode}, in ordinal order. */
+    /** One button per {@link AttackMode}, in ordinal order: every fighter into that mode, the others off. */
     public static final int BUTTON_MODE_BASE = 40;
+    /** Four buttons per {@link AttackMode}, in ordinal order, adding or taking away {@link #STEPS} drones. */
+    public static final int BUTTON_ALLOCATION_BASE = 50;
+    public static final int[] STEPS = {-10, -1, 1, 10};
+
+    /** The slider target ({@link HiveAllocationPayload}) that sets the healers; the attack modes are their ordinals. */
+    public static final int HEALERS = AttackMode.values().length;
+
+    /** The button that moves {@code step} (an index into {@link #STEPS}) drones into or out of {@code mode}. */
+    public static int allocationButton(AttackMode mode, int step) {
+        return BUTTON_ALLOCATION_BASE + mode.ordinal() * STEPS.length + step;
+    }
     public static final int CHARGE_X = 204, CHARGE_Y = 102;
     /** Menu slot layout: the charge slot, then the player inventory. */
     public static final int CHARGE_SLOT = 0, INVENTORY_START = CHARGE_SLOT + 1;
@@ -73,6 +87,7 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
         ItemStack device = HiveTaskController.locate(player, charm, slot);
         if (!(device.getItem() instanceof AutonomousRelicItem item) || !item.role().available()) return false;
         AutonomousRelicItem.ensureState(device);
+        if (item.role().isHive()) HiveController.normalize(player, device);
         player.openMenu(new SimpleMenuProvider((id, inventory, ignored) -> new DeviceControlMenu(id, inventory, charm, slot),
                 Component.translatable("screen.relics_addon.device_control")), buffer -> buffer.writeBoolean(charm).writeVarInt(slot));
         return true;
@@ -105,10 +120,17 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
         }
         if (id >= BUTTON_HEALERS_MINUS_10 && id <= BUTTON_HEALERS_PLUS_10) {
             if (!item.role().isHive()) return false;
-            int capacity = HiveController.capacity(player, stack);
-            int delta = switch (id) { case BUTTON_HEALERS_MINUS_10 -> -10; case BUTTON_HEALERS_MINUS_1 -> -1; case BUTTON_HEALERS_PLUS_1 -> 1; default -> 10; };
-            int healers = Math.clamp(HiveTaskController.settings(stack).healerCount(capacity) + delta, 0, capacity);
-            return HiveTaskController.configure(player, charm, deviceSlot, identity, healers);
+            int delta = STEPS[id - BUTTON_HEALERS_MINUS_10];
+            HiveSettings.Change change = HiveController.normalize(player, stack).adjustHealers(HiveType.of(item.role()), HiveController.capacity(player, stack), delta);
+            return change.allowed() && HiveTaskController.configureHealers(player, charm, deviceSlot, identity, change.value());
+        }
+        int allocation = id - BUTTON_ALLOCATION_BASE;
+        if (allocation >= 0 && allocation < AttackMode.values().length * STEPS.length) {
+            if (!item.role().isHive()) return false;
+            AttackMode mode = AttackMode.values()[allocation / STEPS.length];
+            HiveSettings.Change change = HiveController.normalize(player, stack).adjust(HiveType.of(item.role()), HiveController.capacity(player, stack),
+                    mode, STEPS[allocation % STEPS.length]);
+            return change.allowed() && HiveTaskController.configureMode(player, charm, deviceSlot, identity, mode, change.value());
         }
         RelicRole role = item.role();
         if (id == BUTTON_RF_BATTERY && DevicePower.hasRf(role) || id == BUTTON_MANA_BATTERY && DevicePower.hasMana(role)) {
@@ -126,7 +148,7 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
         int mode = id - BUTTON_MODE_BASE;
         if (mode >= 0 && mode < AttackMode.values().length) {
             if (!item.role().isHive()) return false;
-            boolean changed = HiveTaskController.configureMode(player, charm, deviceSlot, identity, AttackMode.values()[mode]);
+            boolean changed = HiveTaskController.configureAllInto(player, charm, deviceSlot, identity, AttackMode.values()[mode]);
             if (changed) RelicSounds.ui(player, RelicSounds.Ui.TOGGLE);
             return changed;
         }
@@ -136,6 +158,18 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
             return true;
         }
         return false;
+    }
+
+    /**
+     * A console slider let go: {@code count} drones for attack mode {@code target} (its ordinal) or, for
+     * {@link #HEALERS}, healers. Refused, writing nothing, unless the hive allows it: a mode gets none or
+     * at least its figure's corners, healers come from free drones, and nothing goes past the hive's size.
+     */
+    public boolean allocate(Player player, int target, int count) {
+        if (!stillValid(player) || !EquippedRelicSetResolver.isRealPlayer(player) || !(device().getItem() instanceof AutonomousRelicItem item)
+                || !item.role().isHive() || count < 0 || count > HiveType.MAX_DRONES || target < 0 || target > HEALERS) return false;
+        if (target == HEALERS) return HiveTaskController.configureHealers(player, charm, deviceSlot, identity, count);
+        return HiveTaskController.configureMode(player, charm, deviceSlot, identity, AttackMode.values()[target], count);
     }
 
     @Override public ItemStack quickMoveStack(Player player, int index) {
