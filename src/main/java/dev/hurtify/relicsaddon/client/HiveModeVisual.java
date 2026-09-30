@@ -327,23 +327,21 @@ public final class HiveModeVisual {
 
     // --- containment -----------------------------------------------------------------------------
 
-    /** RF: three rings of hexagons turning round the target like a Dyson swarm, the outer ones faster. */
+    /** RF: three tori covered in hexagons, turning round the target like the rings of a Dyson swarm, the outer ones faster. */
     private static void torus(Scene s, Vec3 camera, VertexConsumer glow, Matrix4f m, int color) {
         Vec3 core = centre(s).subtract(camera);
         double radius = HiveFormation.ringsRadius(s.width());
         int light = GlowBrush.mix(color, 0xFFFFFF, .35);
         for (int ring = 0; ring < 3; ring++) {
-            int hexagons = HiveShapes.ringHexagons(ring, s.slots());
-            for (int hex = 0; hex < hexagons; hex++) {
+            int columns = HiveShapes.ringColumns(ring, radius);
+            for (int column = 0; column < columns; column++) for (int row = 0; row < HiveShapes.TUBE_ROWS; row++) {
                 Vec3 previous = null;
                 for (int corner = 0; corner <= 6; corner++) {
-                    Vec3 at = core.add(HiveShapes.ringCorner(ring, hex, corner % 6, hexagons, s.time(), radius));
-                    if (previous != null) GlowBrush.line(glow, m, previous, at, .028, light, 120);
+                    Vec3 at = core.add(HiveShapes.ringHexCorner(ring, column, row, corner % 6, s.time(), radius));
+                    if (previous != null) GlowBrush.line(glow, m, previous, at, .022, light, 105);
                     previous = at;
                 }
             }
-            Vec3[] frame = HiveShapes.ringFrame(ring, s.time());
-            GlowBrush.circle(glow, m, core, frame[0], frame[1], radius * HiveShapes.RING_RADII[ring], 96, .02, color, 55);
         }
         GlowBrush.dot(glow, m, HiveFormation.core(s.target(), s.height()).subtract(camera), Math.max(.6, s.width()), color, 45);
     }
