@@ -12,7 +12,7 @@ The showcase above is rendered in-game by the capture galleries: shield impacts 
 
 Install `EX-twins-1.0.0-beta.1.jar` on both the client and server alongside Curios, Photon, LDLib2 and KilaGraph (Photon 2.2.7+, LDLib2 2.2.40+). This is a beta release; back up existing worlds before upgrading. Devices run on built-in batteries; Botania, Ars Nouveau and Iron's Spells are optional mana sources.
 
-Optional, client only: with [LambDynamicLights](https://modrinth.com/mod/lambdynamiclights) 4.8.11+ installed, the mod's effects light up the world around them: a visible shield (brighter for a moment after each hit), swarm strike groups, barrage charges while they build and in flight, blasts, the containment constructs and the Twins black hole. Nearby lights are merged and capped at 24 sources so chunk relighting stays cheap; the light is colourless. Client config `lights.dynamic` turns it off. Without LambDynamicLights nothing changes.
+Optional, client only: with [LambDynamicLights](https://modrinth.com/mod/lambdynamiclights) 4.8.11+ installed, the mod's effects light up the world around them: a visible shield (brighter for a moment after each hit), swarm strike groups, barrage charges while they build and in flight, blasts, the containment constructs, the Twins black hole, and the Armageddons (the Mana flowers, streams, sphere, seal and column among them). Nearby lights are merged and capped at 24 sources so chunk relighting stays cheap; the light is colourless. Client config `lights.dynamic` turns it off. Without LambDynamicLights nothing changes.
 
 ## Build From Source
 
@@ -165,7 +165,7 @@ Mana Armageddon is the ultimate of a level 10 Mana hive. When its battery is ful
 
   The runes are written one by one, clockwise, with a spark at the pen, one ring after another. The last ring fills as the charge does, and each ring starts to turn once it is full. The charge takes a minute and drains the hive's battery. A worn Mana shield feeds it too (a Twins shield does not), but never gives up the charge its own field needs. The runes are our own script, drawn by `tools/draw_rune_atlas.mjs`.
 - **Streams.** Each flower looses a stream, escorted by a ribbon of drones spiralling round it. The turquoise stream is dense and writhing, with scales at its edge; the gold one is a dazzling beam glinting in every colour. They arc out to either side and meet head-on at the target. Sparks and flakes fly, the ground shakes, and the land within 90 blocks is torn up into a vortex of swirling stones.
-- **Sphere.** The flowers close. A small sun ignites where the streams met, inside a translucent sphere of runes that stands on a seal of blue rings on the ground.
+- **Sphere.** The flowers close. A small sun ignites where the streams met, inside a translucent sphere of runes that stands on a seal of blue rings. The seal lies on the ground itself, following slopes, steps and the crater under it.
   - The sphere's runes are written in a running wave. A wide band of runes turns round its equator against a thin band at an angle, and a glowing seam runs down its middle.
   - The fog inside it glows turquoise and gold round the sun.
   - The sun grows and presses from inside. The runes whiten, light cracks through them, and the sphere shatters into rune shards.
@@ -173,12 +173,12 @@ Mana Armageddon is the ultimate of a level 10 Mana hive. When its battery is ful
   - a thin flash cuts across the land;
   - a ring of stones and burning runes runs out along the ground round a dark core;
   - a dome of light sweeps out over the land to 256 blocks;
-  - a column of light rises from the seal and grows for as long as the blast is heard, about 40 seconds, with runes rising up its wall and haze swirling up inside it;
+  - a column of light rises from the seal and grows for as long as the blast is heard (on each client from the moment it begins to hear it), about 40 seconds, with runes rising up its wall and haze swirling up inside it;
   - at its widest (96 blocks across) the column dissolves into white light. A pale crescent moon hangs in the white sky, and turquoise and gold sparks fall in the silence. Then the drones come home.
 
   The dome of light strikes each creature as it sweeps over it, as the Twins blast does: 2000 at the heart, falling to 20 at the edge. The column is light only. All of it is drawn in the world, not laid over the screen. With a shader pack (Iris or Oculus) in use, simpler stand-ins are drawn instead.
 
-  The blast's length is one number, `ManaArmageddon.BLAST_SECONDS`. The sound generator reads it, the column grows by it, and `verifyArmageddonSounds` checks that each Mana sound lasts exactly as long as the stage it scores.
+  The blast's length is one number, `ManaArmageddon.BLAST_SECONDS`. The sound generator reads it, the column grows by it, and `verifyArmageddonSounds` checks that the charge, collision, sphere and blast sounds last exactly as long as the stages they score.
 - **Targets, aftermath and safe mode** work as for the Twins Armageddon. The blast never strikes the owner, their teammates or their pets, and the owner gets the kill credit. The hive keeps only the charge the shield gave it. With `armageddon.safeMode`, the vortex tears up no blocks.
 
 ### RF Armageddon

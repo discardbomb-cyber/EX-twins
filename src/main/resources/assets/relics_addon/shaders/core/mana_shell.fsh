@@ -144,11 +144,24 @@ void main() {
     float bandLatW = fwidth(bandLat), bandLonW = angleWidth(bandA);
     vec3 thinAxis = normalize(Up * cos(1.05) + Seam * sin(1.05));
     float thinLat = dot(sn, thinAxis), thinLatW = fwidth(thinLat);
+    vec3 thinU = normalize(cross(thinAxis, seamRight)), thinV = cross(thinAxis, thinU);
+    vec2 thinA = vec2(atan(dot(sn, thinV), dot(sn, thinU)), atan(-dot(sn, thinV), -dot(sn, thinU)));
+    float thinLonW = angleWidth(thinA);
     float seamSide = dot(sn, seamRight), seamSideW = fwidth(seamSide);
 
-    // The seal: the level plane a little over the centre.
+    // The seal: laid on the ground itself wherever the world has an upward face near the centre's height (so it follows
+    // slopes, steps and the crater under it), and on the level plane a little over the centre wherever it has none.
     float along = dot(dir, Up);
     float sealT = abs(along) > 1.0e-4 ? (0.25 + dot(Centre, Up)) / along : -1.0;
+    vec3 ground = dir * min(scene, 1.0e4);
+    vec3 groundNormal = cross(dFdx(ground), dFdy(ground));
+    // Turned to face the viewer, so only faces looking up count (not the underside of a ledge overhead).
+    groundNormal *= dot(groundNormal, dir) > 0.0 ? -1.0 : 1.0;
+    float upward = dot(groundNormal, Up) / max(length(groundNormal), 1.0e-6);
+    float groundHeight = dot(ground - Centre, Up);
+    if (scene < 1.0e5 && upward > 0.7 && groundHeight > -12.0 && groundHeight < 6.0) {
+        sealT = scene - 0.03;
+    }
     vec3 gp = dir * sealT - Centre;
     vec3 gw = vec3(dot(gp, East), dot(gp, Up), dot(gp, North));
     float gr = length(gw.xz);
@@ -203,8 +216,18 @@ void main() {
             light += mix(colour, vec3(1.0), 0.45) * (bInk * 1.5 + edges * 1.8) * smoothstep(0.0, 0.4, SphereWritten);
             ink = max(ink, bInk);
         }
-        float thin = stroke(thinLat, 0.012, thinLatW) + stroke(abs(thinLat) - 0.03, 0.005, thinLatW);
-        light += colour * thin * 1.6 * smoothstep(0.1, 0.6, SphereWritten);
+        // The thin band: a narrow row of small runes between two fine lines, turning against the wide band.
+        float thinBand = 0.045;
+        float thin = stroke(abs(thinLat) - thinBand, 0.005, thinLatW);
+        if (abs(thinLat) < thinBand + thinLatW) {
+            float thinCount = 72.0, tf = ((thinA.x - SphereTurn * 1.3) / (2.0 * PI) + 0.5) * thinCount;
+            vec2 tq = vec2(fract(tf), 0.5 - thinLat / (2.0 * thinBand) * 0.95);
+            vec2 tgx = vec2(thinLonW / (2.0 * PI) * thinCount, thinLatW / (2.0 * thinBand));
+            float tInk = glyph(floor(hash1(vec2(floor(tf), 73.0)) * 28.0), tq, vec2(tgx.x, 0.0), vec2(0.0, tgx.y));
+            thin += tInk * 0.9;
+            ink = max(ink, tInk * 0.8);
+        }
+        light += mix(colour, vec3(1.0), 0.3) * thin * 1.6 * smoothstep(0.1, 0.6, SphereWritten);
         // The seam: a glowing meridian through the middle, facing where the shot came from.
         float seam = stroke(seamSide, 0.012, seamSideW);
         light += vec3(1.0, 0.97, 0.9) * seam * 2.4;
