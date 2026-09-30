@@ -22,8 +22,15 @@ final class ShieldHoneycomb {
     /** A coarse honeycomb (42 cells) for the small hexagon-shelled spheres of the Twins swarm. */
     static final List<Cell> SMALL = build(2, false);
 
-    /** A drawn cell in the wearer's yaw frame: unit centre, corner ring (x, y, z triples) and the gameplay cell beneath it. */
-    record Cell(float[] center, float[] perimeter, int gameplay) { }
+    /** How many distinct corners {@link #CELLS} share: every corner belongs to three cells. */
+    static final int CORNER_COUNT = CELLS.stream().flatMapToInt(cell -> java.util.Arrays.stream(cell.corners())).max().orElse(-1) + 1;
+
+    /**
+     * A drawn cell in the wearer's yaw frame: unit centre, corner ring (x, y, z triples), the gameplay cell
+     * beneath it and, for every corner of the ring, its index among the corners its neighbours share
+     * (the same index means the very same point, so work at a corner can be done once per shell).
+     */
+    record Cell(float[] center, float[] perimeter, int gameplay, int[] corners) { }
 
     /** With {@code cover}, every gameplay cell is given at least one drawn cell. */
     private static List<Cell> build(int frequency, boolean cover) {
@@ -72,6 +79,8 @@ final class ShieldHoneycomb {
             gameplay[i] = ShieldTopology.INSTANCE.nearest(c[0], c[1], c[2]);
         }
         if (cover) cover(vertices, gameplay);
+        // Rings share their corner arrays with their neighbours; the identity numbers each corner once.
+        Map<double[], Integer> cornerIndex = new java.util.IdentityHashMap<>();
         List<Cell> cells = new ArrayList<>(vertices.size());
         for (int i = 0; i < vertices.size(); i++) {
             double[] centre = vertices.get(i);
@@ -80,9 +89,13 @@ final class ShieldHoneycomb {
             double[] e1 = normalize(cross(helper, centre)), e2 = cross(centre, e1);
             ring.sort((x, y) -> Double.compare(Math.atan2(dot(x, e2), dot(x, e1)), Math.atan2(dot(y, e2), dot(y, e1))));
             float[] perimeter = new float[ring.size() * 3];
-            for (int k = 0; k < ring.size(); k++) for (int axis = 0; axis < 3; axis++) perimeter[k * 3 + axis] = (float) ring.get(k)[axis];
+            int[] shared = new int[ring.size()];
+            for (int k = 0; k < ring.size(); k++) {
+                for (int axis = 0; axis < 3; axis++) perimeter[k * 3 + axis] = (float) ring.get(k)[axis];
+                shared[k] = cornerIndex.computeIfAbsent(ring.get(k), ignored -> cornerIndex.size());
+            }
             float[] centreF = {(float) centre[0], (float) centre[1], (float) centre[2]};
-            cells.add(new Cell(centreF, perimeter, gameplay[i]));
+            cells.add(new Cell(centreF, perimeter, gameplay[i], shared));
         }
         return List.copyOf(cells);
     }
