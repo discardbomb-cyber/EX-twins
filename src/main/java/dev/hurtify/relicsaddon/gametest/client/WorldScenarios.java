@@ -149,6 +149,12 @@ public final class WorldScenarios {
             // The same from over the edge on a server that keeps its land: no crater, only a rim of light-lifted blocks while the blast lasts.
             new Scene("rf-armageddon-safe", RelicRole.RF_HIVE, 10, AttackMode.DROPLET, RelicRole.RF_SHIELD,
                     List.of(new Vec3(-8, 0, -118)), false, new Vec3(30, 62, -52), new Vec3(0, 0, -120), 200, 300, -1),
+            // Aimed up at the underside of a stone ceiling hanging 45 blocks up: the ball hangs under it and flies up into it.
+            new Scene("rf-armageddon-ceiling", RelicRole.RF_HIVE, 10, AttackMode.DROPLET, RelicRole.RF_SHIELD,
+                    List.of(new Vec3(-8, 0, -40)), false, new Vec3(72, 16, -30), new Vec3(0, 28, -40), 200, 420, -1),
+            // Aimed straight at a stone wall 88 blocks off: the ball hangs before it and flies into it.
+            new Scene("rf-armageddon-wall", RelicRole.RF_HIVE, 10, AttackMode.DROPLET, RelicRole.RF_SHIELD,
+                    List.of(new Vec3(-8, 0, -80)), false, new Vec3(64, 14, -52), new Vec3(0, 14, -84), 200, 420, -1),
             // A slower, level 3 hive keeps its figures in the fan longer, close to the camera.
             new Scene("drone-closeup", RelicRole.RF_HIVE, 3, AttackMode.DROPLET, null,
                     List.of(new Vec3(0, 0, -26)), false, new Vec3(2.5, 3.6, -2.2), new Vec3(0, 3.8, 3), 60, 50, -1));
@@ -158,7 +164,12 @@ public final class WorldScenarios {
      * minute of charging the cannon already is, and how many ticks go by between frames; their foes keep
      * ordinary health.
      */
-    private record Shot(Vec3 aim, int headStart, int cadence, float tickRate) { }
+    private record Shot(Vec3 aim, int headStart, int cadence, float tickRate, boolean exact) {
+        /** Aimed at the ground under {@code aim}. */
+        Shot(Vec3 aim, int headStart, int cadence, float tickRate) {
+            this(aim, headStart, cadence, tickRate, false);
+        }
+    }
     private static final java.util.Map<String, Shot> ARMAGEDDON = java.util.Map.ofEntries(
             java.util.Map.entry("armageddon", new Shot(new Vec3(0, 0, -150), 0, 1, 20)),
             java.util.Map.entry("armageddon-close", new Shot(new Vec3(0, 0, -60), 1000, 2, 20)),
@@ -176,7 +187,9 @@ public final class WorldScenarios {
             java.util.Map.entry("rf-armageddon-flight", new Shot(new Vec3(0, 0, -120), 1190, 1, 20)),
             java.util.Map.entry("rf-armageddon-blast", new Shot(new Vec3(0, 0, -120), 1440, 1, 20)),
             java.util.Map.entry("rf-armageddon-crater", new Shot(new Vec3(0, 0, -120), 1499, 3, 20)),
-            java.util.Map.entry("rf-armageddon-safe", new Shot(new Vec3(0, 0, -120), 1499, 3, 20)));
+            java.util.Map.entry("rf-armageddon-safe", new Shot(new Vec3(0, 0, -120), 1499, 3, 20)),
+            java.util.Map.entry("rf-armageddon-ceiling", new Shot(new Vec3(0, 45, -40), 1190, 2, 20, true)),
+            java.util.Map.entry("rf-armageddon-wall", new Shot(new Vec3(0, 12, -88), 1190, 2, 20, true)));
     /** Scenes played on a server that keeps its land (Armageddon's safe mode), put back as it was when they end. */
     private static final java.util.Set<String> SAFE = java.util.Set.of("rf-armageddon-safe");
     /** Whether the server kept its land before a safe scene changed it; null while no safe scene has. */
@@ -238,9 +251,9 @@ public final class WorldScenarios {
                         // Slowed down, every tick gets its frame: the film plays back smoothly at full speed.
                         level.getServer().tickRateManager().setTickRate(shot.tickRate());
                         Vec3 aim = shot.aim();
-                        String refused = dev.hurtify.relicsaddon.server.ArmageddonController.request(owner(level),
-                                stage.add(aim.x, level.getHeight(Heightmap.Types.MOTION_BLOCKING, (int) Math.floor(stage.x + aim.x),
-                                        (int) Math.floor(stage.z + aim.z)) - stage.y, aim.z), shot.headStart());
+                        Vec3 target = shot.exact() ? stage.add(aim) : stage.add(aim.x, level.getHeight(Heightmap.Types.MOTION_BLOCKING,
+                                (int) Math.floor(stage.x + aim.x), (int) Math.floor(stage.z + aim.z)) - stage.y, aim.z);
+                        String refused = dev.hurtify.relicsaddon.server.ArmageddonController.request(owner(level), target, shot.headStart());
                         if (refused != null) RelicsAddon.LOGGER.warn("World scenario {}: Armageddon refused: {}", plan.get(scene).name(), refused);
                     });
                 }
@@ -364,6 +377,8 @@ public final class WorldScenarios {
             stage = new Vec3(x + .5, level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z), z + .5);
         }
         backdrop(level, BACKDROP.contains(scene.name()));
+        if (scene.name().equals("rf-armageddon-ceiling")) build(level, -30, 30, 45, 45, -70, -10);
+        if (scene.name().equals("rf-armageddon-wall")) build(level, -40, 40, 0, 50, -91, -88);
         level.setDayTime(11_500);
         // The long Armageddon takes would otherwise slide into sunset while they are filmed.
         level.getGameRules().getRule(net.minecraft.world.level.GameRules.RULE_DAYLIGHT).set(false, level.getServer());
@@ -461,6 +476,13 @@ public final class WorldScenarios {
                     : net.minecraft.world.level.block.Blocks.BLACK_CONCRETE.defaultBlockState();
             if (level.getBlockState(at) != state) level.setBlock(at, state, 2);
         }
+    }
+
+    /** Fills a box of stone round the stage (from its feet: x, then height, then z), for a shot to hit a ceiling or a wall. */
+    private static void build(ServerLevel level, int x0, int x1, int y0, int y1, int z0, int z1) {
+        net.minecraft.core.BlockPos base = net.minecraft.core.BlockPos.containing(stage);
+        var stone = net.minecraft.world.level.block.Blocks.STONE.defaultBlockState();
+        for (int x = x0; x <= x1; x++) for (int y = y0; y <= y1; y++) for (int z = z0; z <= z1; z++) level.setBlock(base.offset(x, y, z), stone, 2);
     }
 
     /** Removes every creature, arrow and item round the stage but the owner. */
