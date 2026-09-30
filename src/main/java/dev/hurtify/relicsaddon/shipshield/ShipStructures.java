@@ -68,7 +68,7 @@ public final class ShipStructures {
      */
     public static ShipStructure connected(ServerLevel level, BlockPos anchor) {
         int radius = AddonConfig.SPEC.isLoaded() ? AddonConfig.SHIP_STATIC_RADIUS.get() : 32;
-        int limit = Math.max(STATIC_SCAN_LIMIT_FLOOR, AddonConfig.SPEC.isLoaded() ? AddonConfig.SHIP_MAX_STRUCTURE_BLOCKS.get() : 4096);
+        int limit = blockLimit();
         LongSet seen = new LongOpenHashSet();
         LongArrayFIFOQueue queue = new LongArrayFIFOQueue();
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
@@ -92,12 +92,18 @@ public final class ShipStructures {
         return new ShipStructure("static", anchor, seen, truncated);
     }
 
+    /** Most blocks any structure scan counts (config {@code shipShield.maxStructureBlocks}). */
+    public static int blockLimit() {
+        return Math.max(STATIC_SCAN_LIMIT_FLOOR, AddonConfig.SPEC.isLoaded() ? AddonConfig.SHIP_MAX_STRUCTURE_BLOCKS.get() : 4096);
+    }
+
     /**
      * Blocks that make up a build: anything that is not air, a fluid, a loose plant a player can
-     * walk through, or an invisible technical block (barriers, structure voids, lights).
+     * walk through, or an invisible technical block (barriers, structure voids, lights). A
+     * waterlogged slab or stair is still a block.
      */
     public static boolean solid(BlockState state) {
-        return !state.isAir() && state.getFluidState().isEmpty() && !state.canBeReplaced()
+        return !state.isAir() && !state.liquid() && !state.canBeReplaced()
                 && !state.is(Blocks.BARRIER) && !state.is(Blocks.STRUCTURE_VOID) && !state.is(Blocks.LIGHT);
     }
 

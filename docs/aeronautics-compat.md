@@ -187,3 +187,13 @@ use the first three behind `neoforge:mod_loaded create`, with `*_basic` recipes 
 - The Veil shader recompile failures above.
 - Whether NeoForge block events fire inside plots, `getUserDataTag` persistence, and
   `ExplosionEvent.Detonate` for CBC explosions.
+
+## Filming in the Aeronautics client
+
+`./gradlew runAeronauticsClient -PaeroWorld=Scenario -Pscenario=ship-devices,ship-console` opens
+`run-aeronautics/saves/Scenario` (copy it from another run directory first) and films the
+`WorldScenarios` scenes into `run-aeronautics/screenshots`. With Sable loaded the log says
+"Ship shields follow Sable airships": the airship locator bound and answered (the deck in the
+scene is not an airship, so the static scan took over). The two scenes show the six blocks on
+an iron deck with the RF generator switched on, and the Mana generator's console refusing to
+come on beside it.

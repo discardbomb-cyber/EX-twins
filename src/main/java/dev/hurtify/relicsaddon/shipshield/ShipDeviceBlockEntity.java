@@ -58,7 +58,8 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
     private ItemStack device = ItemStack.EMPTY;
     private @Nullable UUID owner;
     private long enabledAt;
-    private long scannedAt = Long.MIN_VALUE;
+    /** Game time of the last structure scan; negative until the first one (a fresh or reloaded block scans at once). */
+    private long scannedAt = -1;
     private @Nullable ShipStructure structure;
     private final List<BlockPos> docks = new ArrayList<>();
     private final List<BlockPos> stores = new ArrayList<>();
@@ -122,7 +123,15 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
     public int insertDrones(ItemStack stack) { return drones == null ? 0 : drones.insert(stack); }
 
     private void onDronesChanged() {
-        if (drones != null) setState(state().withDrones(drones.count(), droneCapacity()));
+        if (drones == null) return;
+        setState(state().withDrones(drones.count(), droneCapacity(), 0));
+        // The generator's count of docked drones follows on its next scan; ask for one now.
+        if (generator != null && level != null && level.getBlockEntity(generator) instanceof ShipDeviceBlockEntity owner) owner.requestScan();
+    }
+
+    /** Makes the next server tick rescan the structure. */
+    public void requestScan() {
+        scannedAt = -1;
     }
 
     // --- switching --------------------------------------------------------------------------------
@@ -182,17 +191,24 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
         generator = null;
         ShipFamily family = family();
         RelicRole role = role();
+        int[] docked = {0, 0};
         structure.forEach(pos -> {
             BlockEntity entity = world.getBlockEntity(pos);
             if (entity == null || pos.equals(worldPosition)) return;
             if (entity instanceof ShipDeviceBlockEntity other) {
-                if (other.role().isDroneDock() && other.family() == family && role.isShipGenerator()) docks.add(pos.immutable());
+                if (other.role().isDroneDock() && other.family() == family && role.isShipGenerator()) {
+                    docks.add(pos.immutable());
+                    docked[0] += other.droneCount();
+                    docked[1] += other.droneCapacity();
+                }
                 if (other.role().isShipGenerator() && other.family() == family && role.isDroneDock() && (generator == null || other.enabled())) generator = pos.immutable();
                 return;
             }
             if (world.getCapability(Capabilities.ItemHandler.BLOCK, pos, null) != null) stores.add(pos.immutable());
         });
         ShipDeviceState state = state().withStructure(structure.size(), docks.size(), stores.size());
+        // A generator reports the drones of all its docks against what the structure needs; a dock reports its own.
+        state = role.isShipGenerator() ? state.withDrones(docked[0], docked[1], dronesWanted()) : state.withDrones(droneCount(), droneCapacity(), 0);
         if (state.notice().isEmpty() || state.notice().equals(NOTICE_TRUNCATED)) {
             state = structure.truncated() ? state.withNotice(NOTICE_TRUNCATED, String.valueOf(structure.size())) : state.withNotice("", "");
         }
@@ -224,7 +240,7 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
     void serverTick() {
         if (!(level instanceof ServerLevel world)) return;
         long now = world.getGameTime();
-        if (now - scannedAt >= SCAN_INTERVAL) {
+        if (scannedAt < 0 || now - scannedAt >= SCAN_INTERVAL) {
             scan(world, now);
             if (enabled() && role().isShipGenerator()) {
                 BlockPos other = runningGenerator(world, enabledAt);
@@ -329,7 +345,7 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
         builder.set(ModDataComponents.DEVICE_PROGRESSION.get(), stack.get(ModDataComponents.DEVICE_PROGRESSION.get()));
         builder.set(ModDataComponents.DEVICE_ENERGY.get(), stack.get(ModDataComponents.DEVICE_ENERGY.get()));
         // Drones stay in the dock only while it stands; the dropped block starts empty.
-        builder.set(ModDataComponents.SHIP_DEVICE_STATE.get(), state().withEnabled(false).withNotice("", "").withDrones(0, droneCapacity()));
+        builder.set(ModDataComponents.SHIP_DEVICE_STATE.get(), state().withEnabled(false).withNotice("", "").withDrones(0, droneCapacity(), 0));
     }
 
     @Override protected void applyImplicitComponents(DataComponentInput input) {

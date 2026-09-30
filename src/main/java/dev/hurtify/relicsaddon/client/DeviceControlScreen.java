@@ -277,7 +277,7 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
                     Component.translatable("screen.relics_addon.overview_drones", ship.drones(), ship.droneCapacity()));
         } else if (role().isShipGenerator()) {
             ShipDeviceState ship = shipState();
-            int wanted = dronesWanted(ship);
+            int wanted = ship.dronesWanted();
             labelledBar(g, x + CX, barY, 110, wanted == 0 ? 0 : Math.min(1, ship.drones() / (double) wanted), 0xFFE0B04A,
                     Component.translatable("screen.relics_addon.overview_structure", ship.structureBlocks()));
         } else if (role().isHive()) {
@@ -319,7 +319,7 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
             List<Component> lines = new ArrayList<>();
             lines.add(Component.translatable("screen.relics_addon.stat.structure", ship.structureBlocks()));
             if (role().isShipGenerator()) {
-                lines.add(Component.translatable("screen.relics_addon.stat.drones_wanted", dronesWanted(ship)));
+                lines.add(Component.translatable("screen.relics_addon.stat.drones_wanted", ship.dronesWanted(), ship.drones()));
                 lines.add(Component.translatable("screen.relics_addon.stat.docks", ship.docks()));
             } else {
                 lines.add(Component.translatable("screen.relics_addon.stat.dock_drones", ship.drones(), ship.droneCapacity()));
@@ -340,11 +340,6 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
                 Component.translatable("screen.relics_addon.stat.buffer", ShieldParameters.capacity(player, stack)),
                 Component.translatable("screen.relics_addon.stat.strike", decimal(ShieldParameters.strikeDamage(stack))),
                 Component.translatable("screen.relics_addon.stat.repair", decimal(role().repairInterval() / 20.0)));
-    }
-
-    /** Drones the structure needs, from the same rule the server uses; the config is server-side, so the default applies here. */
-    private static int dronesWanted(ShipDeviceState ship) {
-        return (ship.structureBlocks() + 63) / 64 * 8;
     }
 
     private static String decimal(double value) {

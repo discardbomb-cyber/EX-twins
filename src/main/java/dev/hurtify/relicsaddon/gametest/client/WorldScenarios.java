@@ -157,7 +157,13 @@ public final class WorldScenarios {
                     List.of(new Vec3(-8, 0, -80)), false, new Vec3(64, 14, -52), new Vec3(0, 14, -84), 200, 420, -1),
             // A slower, level 3 hive keeps its figures in the fan longer, close to the camera.
             new Scene("drone-closeup", RelicRole.RF_HIVE, 3, AttackMode.DROPLET, null,
-                    List.of(new Vec3(0, 0, -26)), false, new Vec3(2.5, 3.6, -2.2), new Vec3(0, 3.8, 3), 60, 50, -1));
+                    List.of(new Vec3(0, 0, -26)), false, new Vec3(2.5, 3.6, -2.2), new Vec3(0, 3.8, 3), 60, 50, -1),
+            // The six ship shield blocks and a chest on an iron deck, the RF generator switched on; then the console
+            // of the Mana generator, which refused to come on beside it.
+            new Scene("ship-devices", RelicRole.RF_HIVE, 0, AttackMode.DROPLET, null, List.of(), false,
+                    new Vec3(3.5, 3.2, 3.5), new Vec3(0, 0.6, -2), 60, 4, -1),
+            new Scene("ship-console", RelicRole.RF_HIVE, 0, AttackMode.DROPLET, null, List.of(), false,
+                    new Vec3(3.5, 3.2, 3.5), new Vec3(0, 0.6, -2), 60, 4, -1));
 
     /**
      * Armageddon scenes: where the owner fires (from the owner's feet) as filming starts, how far into the
@@ -241,6 +247,12 @@ public final class WorldScenarios {
             case SETUP -> { }
             case WARM -> {
                 attachCamera(minecraft);
+                if (ticks == 30 && plan.get(scene).name().equals("ship-console")) onServer(minecraft, level -> {
+                    ServerPlayer player = owner(level);
+                    net.minecraft.core.BlockPos console = net.minecraft.core.BlockPos.containing(stage).offset(0, 0, -2);
+                    if (level.getBlockEntity(console) instanceof dev.hurtify.relicsaddon.shipshield.ShipDeviceBlockEntity device) device.setEnabled(player, true);
+                    dev.hurtify.relicsaddon.menu.DeviceControlMenu.openBlock(player, console);
+                });
                 if (++ticks >= plan.get(scene).warmTicks()) {
                     phase = Phase.CAPTURE;
                     ticks = 0;
@@ -260,8 +272,8 @@ public final class WorldScenarios {
             }
             case CAPTURE -> {
                 attachCamera(minecraft);
-                // A key pressed into the game window must not open a screen over the shot.
-                if (minecraft.screen != null) minecraft.setScreen(null);
+                // A key pressed into the game window must not open a screen over the shot (the console scene films its screen).
+                if (minecraft.screen != null && !plan.get(scene).name().equals("ship-console")) minecraft.setScreen(null);
                 Shot shot = ARMAGEDDON.get(plan.get(scene).name());
                 if (++ticks % (shot == null ? 2 : shot.cadence()) == 0) due = true;
             }
@@ -379,6 +391,7 @@ public final class WorldScenarios {
         backdrop(level, BACKDROP.contains(scene.name()));
         if (scene.name().equals("rf-armageddon-ceiling")) build(level, -30, 30, 45, 45, -70, -10);
         if (scene.name().equals("rf-armageddon-wall")) build(level, -40, 40, 0, 50, -91, -88);
+        if (scene.name().startsWith("ship-")) shipDeck(level, true);
         level.setDayTime(11_500);
         // The long Armageddon takes would otherwise slide into sunset while they are filmed.
         level.getGameRules().getRule(net.minecraft.world.level.GameRules.RULE_DAYLIGHT).set(false, level.getServer());
@@ -454,6 +467,7 @@ public final class WorldScenarios {
             wasSafe = null;
         }
         level.getServer().tickRateManager().setTickRate(20);
+        shipDeck(level, false);
         clear(level);
         backdrop(level, false);
         ServerPlayer player = owner(level);
@@ -475,6 +489,47 @@ public final class WorldScenarios {
                     ? net.minecraft.world.level.block.Blocks.WHITE_CONCRETE.defaultBlockState()
                     : net.minecraft.world.level.block.Blocks.BLACK_CONCRETE.defaultBlockState();
             if (level.getBlockState(at) != state) level.setBlock(at, state, 2);
+        }
+    }
+
+    /** The blocks the ship deck replaced, put back when its scene is over. */
+    private static final java.util.Map<net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState> DECK = new java.util.HashMap<>();
+
+    /**
+     * An iron deck in front of the owner with the three generators, three docks and a chest on it (or takes it
+     * down). The RF generator is switched on; the Mana generator beside it then refuses, which its console shows.
+     */
+    private static void shipDeck(ServerLevel level, boolean build) {
+        if (!build) {
+            DECK.forEach((pos, state) -> level.setBlock(pos, state, 2));
+            DECK.clear();
+            return;
+        }
+        net.minecraft.core.BlockPos base = net.minecraft.core.BlockPos.containing(stage);
+        var iron = net.minecraft.world.level.block.Blocks.IRON_BLOCK.defaultBlockState();
+        for (int x = -4; x <= 4; x++) for (int z = -4; z <= 0; z++) {
+            net.minecraft.core.BlockPos at = base.offset(x, -1, z);
+            DECK.putIfAbsent(at, level.getBlockState(at));
+            level.setBlock(at, iron, 2);
+            net.minecraft.core.BlockPos above = base.offset(x, 0, z);
+            DECK.putIfAbsent(above, level.getBlockState(above));
+            level.setBlock(above, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 2);
+        }
+        var families = dev.hurtify.relicsaddon.shipshield.ShipFamily.values();
+        net.minecraft.world.level.block.Block[] row = {
+                dev.hurtify.relicsaddon.registry.ShipBlocks.GENERATORS.get(families[0]).get(), dev.hurtify.relicsaddon.registry.ShipBlocks.DOCKS.get(families[0]).get(),
+                net.minecraft.world.level.block.Blocks.CHEST,
+                dev.hurtify.relicsaddon.registry.ShipBlocks.GENERATORS.get(families[1]).get(), dev.hurtify.relicsaddon.registry.ShipBlocks.DOCKS.get(families[1]).get(),
+                dev.hurtify.relicsaddon.registry.ShipBlocks.GENERATORS.get(families[2]).get(), dev.hurtify.relicsaddon.registry.ShipBlocks.DOCKS.get(families[2]).get()};
+        for (int index = 0; index < row.length; index++) {
+            net.minecraft.core.BlockPos at = base.offset(index - 3, 0, -2);
+            var state = row[index].defaultBlockState();
+            if (state.hasProperty(dev.hurtify.relicsaddon.shipshield.ShipDeviceBlock.FACING)) state = state.setValue(dev.hurtify.relicsaddon.shipshield.ShipDeviceBlock.FACING, net.minecraft.core.Direction.SOUTH);
+            level.setBlock(at, state, 2);
+        }
+        if (level.getBlockEntity(base.offset(-3, 0, -2)) instanceof dev.hurtify.relicsaddon.shipshield.ShipDeviceBlockEntity rf) rf.setEnabled(null, true);
+        if (level.getBlockEntity(base.offset(-2, 0, -2)) instanceof dev.hurtify.relicsaddon.shipshield.ShipDeviceBlockEntity dock) {
+            dock.insertDrones(new ItemStack(ModItems.EMITTER_DRONES.get(families[0]).get(), 5));
         }
     }
 

@@ -163,7 +163,7 @@ public final class NetworkCodecCheck {
                 new dev.hurtify.relicsaddon.network.ArmageddonPayloads.Blast(HiveType.RF, new Vec3(100.5, 64, -80), new Vec3(4, 80, 2), net.minecraft.core.Direction.WEST, 12.25F,
                         9_876_543L), "rf blast into a wall");
         // Ship device blocks: a large structure, a full dock and a notice with its argument.
-        var ship = new dev.hurtify.relicsaddon.shipshield.ShipDeviceState(true, "notice.relics_addon.ship.other_generator", "-12, 70, 30000", 60_000, 128, 128, 3, 2);
+        var ship = new dev.hurtify.relicsaddon.shipshield.ShipDeviceState(true, "notice.relics_addon.ship.other_generator", "-12, 70, 30000", 60_000, 128, 128, 7_504, 3, 2);
         roundTrip(dev.hurtify.relicsaddon.shipshield.ShipDeviceState.STREAM_CODEC, ship, "ship device state");
         roundTrip(dev.hurtify.relicsaddon.shipshield.ShipDeviceState.STREAM_CODEC, dev.hurtify.relicsaddon.shipshield.ShipDeviceState.DEFAULT, "fresh ship device state");
         require(decode(dev.hurtify.relicsaddon.shipshield.ShipDeviceState.CODEC, encode(dev.hurtify.relicsaddon.shipshield.ShipDeviceState.CODEC, ship)).equals(ship),

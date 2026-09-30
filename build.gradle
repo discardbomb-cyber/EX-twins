@@ -159,6 +159,15 @@ neoForge {
             client()
             gameDirectory = file('run-aeronautics')
             systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+            // -PaeroWorld=<save name> opens that world straight away (copy saves/<name> in first).
+            if (providers.gradleProperty('aeroWorld').isPresent()) {
+                programArgument '--quickPlaySingleplayer'
+                programArgument providers.gradleProperty('aeroWorld').get()
+            }
+            // -Pscenario=<names> films WorldScenarios scenes in that world, as worldScenarioClient does.
+            if (providers.gradleProperty('scenario').isPresent()) {
+                systemProperty 'relics_addon.worldScenario', providers.gradleProperty('scenario').get()
+            }
         }
     }
 

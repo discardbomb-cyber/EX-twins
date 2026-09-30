@@ -49,7 +49,9 @@ public final class ShipDeviceGameTests {
     public static void secondGeneratorOnTheSameStructureStaysOff(GameTestHelper helper) {
         var rf = ShipBlocks.GENERATORS.get(ShipFamily.RF).get();
         var mana = ShipBlocks.GENERATORS.get(ShipFamily.MANA).get();
+        // A waterlogged slab in the middle: still part of the build.
         row(helper, rf, Blocks.IRON_BLOCK, Blocks.IRON_BLOCK, Blocks.IRON_BLOCK, mana);
+        helper.setBlock(new BlockPos(2, 2, 2), Blocks.STONE_SLAB.defaultBlockState().setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.WATERLOGGED, true));
         ShipDeviceBlockEntity first = device(helper, new BlockPos(0, 2, 2)), second = device(helper, new BlockPos(4, 2, 2));
         helper.assertTrue(first.setEnabled(null, true) && first.enabled(), "The first generator comes on");
         helper.assertTrue(first.structure() != null && first.structure().size() == 5 && !first.structure().truncated(),
@@ -85,6 +87,25 @@ public final class ShipDeviceGameTests {
         helper.assertTrue(gen.state().docks() == 1 && gen.state().stores() == 2 && gen.state().structureBlocks() == 5, "The console readings match");
         helper.assertTrue(gen.dronesWanted() == 8, "Five blocks need eight drones, got " + gen.dronesWanted());
         helper.succeed();
+    }
+
+    /** A block that was never placed by hand (loaded with its chunk, or set by a command) scans on its first tick, and again as docks change. */
+    @GameTest(template = TEMPLATE)
+    public static void freshDeviceScansOnItsFirstTickAndCountsDockedDrones(GameTestHelper helper) {
+        row(helper, ShipBlocks.GENERATORS.get(ShipFamily.RF).get(), ShipBlocks.DOCKS.get(ShipFamily.RF).get(), Blocks.IRON_BLOCK, ShipBlocks.DOCKS.get(ShipFamily.RF).get());
+        ShipDeviceBlockEntity gen = device(helper, new BlockPos(0, 2, 2)), near = device(helper, new BlockPos(1, 2, 2)), far = device(helper, new BlockPos(3, 2, 2));
+        helper.assertTrue(gen.structure() == null, "Nothing scanned before the first tick");
+        helper.runAfterDelay(2, () -> {
+            helper.assertTrue(gen.structure() != null && gen.structure().size() == 4, "The first tick scans the structure");
+            helper.assertTrue(gen.state().docks() == 2 && gen.state().droneCapacity() == 16 && gen.state().drones() == 0 && gen.state().dronesWanted() == 8,
+                    "The generator sums its docks: " + gen.state());
+            near.insertDrones(new ItemStack(ModItems.EMITTER_DRONES.get(ShipFamily.RF).get(), 3));
+            far.insertDrones(new ItemStack(ModItems.EMITTER_DRONES.get(ShipFamily.RF).get(), 4));
+            helper.runAfterDelay(2, () -> {
+                helper.assertTrue(gen.state().drones() == 7, "Docking drones refreshes the generator's count, got " + gen.state().drones());
+                helper.succeed();
+            });
+        });
     }
 
     @GameTest(template = TEMPLATE)

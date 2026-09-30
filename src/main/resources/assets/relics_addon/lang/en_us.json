@@ -328,7 +328,7 @@
   "notice.relics_addon.ship.truncated": "Structure too large: only %s blocks counted.",
   "screen.relics_addon.overview_structure": "Structure: %s blocks",
   "screen.relics_addon.stat.structure": "Structure blocks: %s",
-  "screen.relics_addon.stat.drones_wanted": "Drones needed: %s (8 per 64 blocks)",
+  "screen.relics_addon.stat.drones_wanted": "Drones needed: %s (docked: %s)",
   "screen.relics_addon.stat.docks": "Docks on the structure: %s",
   "screen.relics_addon.stat.dock_drones": "Drones docked: %s/%s",
   "screen.relics_addon.stat.stores": "Item stores linked: %s"

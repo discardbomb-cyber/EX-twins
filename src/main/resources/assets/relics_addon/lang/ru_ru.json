@@ -328,7 +328,7 @@
   "notice.relics_addon.ship.truncated": "Постройка слишком велика: посчитано только %s блоков.",
   "screen.relics_addon.overview_structure": "Постройка: %s блоков",
   "screen.relics_addon.stat.structure": "Блоков постройки: %s",
-  "screen.relics_addon.stat.drones_wanted": "Нужно дронов: %s (8 на 64 блока)",
+  "screen.relics_addon.stat.drones_wanted": "Нужно дронов: %s (в доках: %s)",
   "screen.relics_addon.stat.docks": "Доков на постройке: %s",
   "screen.relics_addon.stat.dock_drones": "Дронов в доке: %s/%s",
   "screen.relics_addon.stat.stores": "Хранилищ привязано: %s"
