@@ -107,6 +107,7 @@ public final class HiveVisualRenderer {
         ShieldRefraction.flush(matrix);
         buffers.endBatch(ShieldVisualRenderer.renderType());
         ShieldGlow.flush();
+        ManaRunes.flush();
         buffers.endBatch(HiveCombatVisual.renderType());
     }
 
