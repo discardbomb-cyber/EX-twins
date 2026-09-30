@@ -44,8 +44,8 @@ public final class ArmageddonScreen extends Screen {
         Minecraft minecraft = Minecraft.getInstance();
         Player player = minecraft.player;
         if (player == null || minecraft.level == null || minecraft.screen != null) return;
-        ItemStack hive = ArmageddonController.twinsHive(player);
-        String reason = hive.isEmpty() ? "message.relics_addon.armageddon.no_hive" : ArmageddonController.unavailable(player, hive, minecraft.level.getGameTime());
+        ItemStack hive = ArmageddonController.hive(player);
+        String reason = hive.isEmpty() ? ArmageddonController.NO_HIVE : ArmageddonController.unavailable(player, hive, minecraft.level.getGameTime());
         if (reason != null) {
             player.displayClientMessage(Component.translatable(reason).withStyle(ChatFormatting.LIGHT_PURPLE), true);
             return;
@@ -59,7 +59,7 @@ public final class ArmageddonScreen extends Screen {
 
     /** What a worn Twins shield would hand over, as a share of the hive's battery; 0 without one. */
     private static int shieldPercent(Player player, ItemStack hive) {
-        ItemStack shield = ArmageddonController.twinsShield(player);
+        ItemStack shield = ArmageddonController.shield(player, ArmageddonController.fires(hive));
         if (shield.isEmpty()) return 0;
         return (int) Math.round(100.0 * ArmageddonController.shieldGives(player, shield, hive) / (2.0 * DevicePower.capacity(hive)));
     }

@@ -240,7 +240,7 @@ public final class HiveFormationCheck {
         Vec3 eye = new Vec3(10, 70, 10);
         for (Vec3 aim : new Vec3[]{new Vec3(0, -10, -60), new Vec3(180, 5, 170), new Vec3(3, -60, 4), new Vec3(0, 0, -12)}) {
             Vec3 target = eye.add(aim);
-            ArmageddonState shot = new ArmageddonState(1_000, Armageddon.origin(eye, target), target, true);
+            ArmageddonState shot = new ArmageddonState(HiveType.TWINS, 1_000, Armageddon.origin(eye, target), target, true);
             require(shot.origin().y - eye.y > 6 && shot.origin().distanceTo(eye) < 8, "the cannon hangs over its owner's head");
             // The black hole leaves the muzzle, lands on the target and flies ever faster on the way.
             require(Armageddon.shot(shot, Armageddon.ARRIVE).distanceTo(target) < 1e-9, "the black hole lands on its target");

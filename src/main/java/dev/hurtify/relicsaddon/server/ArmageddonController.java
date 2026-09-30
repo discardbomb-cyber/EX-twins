@@ -3,6 +3,8 @@ package dev.hurtify.relicsaddon.server;
 import dev.hurtify.relicsaddon.RelicsAddon;
 import dev.hurtify.relicsaddon.drone.Armageddon;
 import dev.hurtify.relicsaddon.drone.ArmageddonState;
+import dev.hurtify.relicsaddon.drone.ArmageddonTimeline;
+import dev.hurtify.relicsaddon.drone.HiveType;
 import dev.hurtify.relicsaddon.network.ArmageddonPayloads;
 import dev.hurtify.relicsaddon.power.DeviceEnergy;
 import dev.hurtify.relicsaddon.power.DevicePower;
@@ -40,12 +42,13 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import top.theillusivec4.curios.api.CuriosApi;
 
 /**
- * Armageddon, the ultimate of a fully upgraded Twins hive (see {@link Armageddon} for the cannon and
- * its timings). The owner asks for a shot at the point they look at; the hive must be at the top level
- * and fully charged. While the cannon charges, the hive's battery pours into it, and a worn Twins
- * shield feeds it too without letting its own field drop. Where the beam lands a blast front sweeps
- * out to {@link Armageddon#RADIUS} blocks and strikes every creature and every player not allied to
- * the owner as it passes them: hardest at the heart, still hard at the edge.
+ * Armageddon, the ultimate of a fully upgraded Twins or Mana hive (see {@link Armageddon} for the Twins
+ * cannon and {@link ArmageddonTimeline} for the course either takes). The owner asks for a shot at the point
+ * they look at; the hive must be at the top level and fully charged. While the shot charges, the hive's
+ * battery pours into it, and a worn shield of the same family feeds it too without letting its own field
+ * drop. Where the shot lands the land round it goes (unless the server keeps it safe), and when it bursts
+ * a blast front sweeps out and strikes every creature and every player not allied to the owner as it
+ * passes them: hardest at the heart, still hard at the edge.
  */
 public final class ArmageddonController {
     public static final ResourceKey<DamageType> DAMAGE = ResourceKey.create(Registries.DAMAGE_TYPE,
@@ -75,10 +78,11 @@ public final class ArmageddonController {
         final ServerLevel level;
         final ServerPlayer owner;
         final ArmageddonState state;
+        final ArmageddonTimeline timeline;
         final DeviceEnergy hiveAtStart;
         final int shieldGives;
         int shieldGiven;
-        boolean fired, arrived, landed;
+        boolean fired, arrived, told, landed;
         /** The columns the black hole will eat, nearest its target first (packed x and z), how far it has got, and how low it has cut in the one it is on. */
         long[] crater;
         int eaten, eatenTo = Integer.MAX_VALUE;
@@ -91,25 +95,40 @@ public final class ArmageddonController {
             this.level = owner.serverLevel();
             this.owner = owner;
             this.state = state;
+            this.timeline = state.timeline();
             this.hiveAtStart = hiveAtStart;
             this.shieldGives = shieldGives;
         }
     }
 
-    /** A blast front sweeping out from {@code centre}, and every creature it has already reached. */
-    private record Blast(ServerLevel level, Vec3 centre, long impactAt, ServerPlayer owner, java.util.Set<UUID> reached) { }
+    /** A blast front sweeping out from {@code centre} on its hive's course, and every creature it has already reached. */
+    private record Blast(ServerLevel level, ArmageddonTimeline timeline, Vec3 centre, long impactAt, ServerPlayer owner, java.util.Set<UUID> reached) { }
+
+    /** The refusal every hive shares: no hive that can fire Armageddon, or none switched on. */
+    public static final String NO_HIVE = "message.relics_addon.armageddon.no_hive";
+
+    /** The family of hive whose Armageddon {@code hive} fires, or null if it fires none. */
+    public static HiveType fires(ItemStack hive) {
+        if (!(hive.getItem() instanceof AutonomousRelicItem item)) return null;
+        return item.role() == RelicRole.TWINS_HIVE ? HiveType.TWINS : null;
+    }
+
+    /** The translation key of a refusal ({@code level}, {@code charge} or {@code running}) in the words of {@code type}'s Armageddon. */
+    public static String refusal(HiveType type, String reason) {
+        return (type == HiveType.MANA ? "message.relics_addon.mana_armageddon." : "message.relics_addon.armageddon.") + reason;
+    }
 
     /**
      * Why {@code owner}'s hive cannot fire Armageddon now, as a translation key, or null when it can.
      * Works on either side: the client asks before it offers the shot, and the server asks again.
      */
     public static String unavailable(Player owner, ItemStack hive, long now) {
-        if (!(hive.getItem() instanceof AutonomousRelicItem item) || item.role() != RelicRole.TWINS_HIVE) return "message.relics_addon.armageddon.no_hive";
-        if (!RelicRuntime.enabled(hive)) return "message.relics_addon.armageddon.no_hive";
-        if (RelicRuntime.progression(hive).level() < DeviceProgression.MAX_LEVEL) return "message.relics_addon.armageddon.level";
+        HiveType type = fires(hive);
+        if (type == null || !RelicRuntime.enabled(hive)) return NO_HIVE;
+        if (RelicRuntime.progression(hive).level() < DeviceProgression.MAX_LEVEL) return refusal(type, "level");
         ArmageddonState running = hive.get(ModDataComponents.HIVE_ARMAGEDDON.get());
-        if (running != null && running.running(now)) return "message.relics_addon.armageddon.running";
-        if (!full(owner, hive)) return "message.relics_addon.armageddon.charge";
+        if (running != null && running.running(now)) return refusal(type, "running");
+        if (!full(owner, hive)) return refusal(type, "charge");
         return null;
     }
 
@@ -130,26 +149,33 @@ public final class ArmageddonController {
 
     /** As {@link #request(ServerPlayer, Vec3)}, but as if the cannon had already been charging for {@code headStart} ticks (for tests and films). */
     public static String request(ServerPlayer owner, Vec3 target, int headStart) {
-        if (!owner.isAlive() || owner.isSpectator() || !EquippedRelicSetResolver.isRealPlayer(owner) || target == null) return "message.relics_addon.armageddon.no_hive";
-        if (!Double.isFinite(target.x) || !Double.isFinite(target.y) || !Double.isFinite(target.z)) return "message.relics_addon.armageddon.no_hive";
-        if (SHOTS.containsKey(owner.getUUID())) return "message.relics_addon.armageddon.running";
-        ItemStack hive = twinsHive(owner);
+        if (!owner.isAlive() || owner.isSpectator() || !EquippedRelicSetResolver.isRealPlayer(owner) || target == null) return NO_HIVE;
+        if (!Double.isFinite(target.x) || !Double.isFinite(target.y) || !Double.isFinite(target.z)) return NO_HIVE;
+        ItemStack hive = hive(owner);
+        HiveType type = fires(hive);
+        if (SHOTS.containsKey(owner.getUUID())) return refusal(type, "running");
         long now = owner.level().getGameTime();
-        String reason = hive.isEmpty() ? "message.relics_addon.armageddon.no_hive" : unavailable(owner, hive, now);
+        String reason = hive.isEmpty() ? NO_HIVE : unavailable(owner, hive, now);
         if (reason != null) return reason;
         String identity = hive.get(ModDataComponents.INSTANCE_ID.get());
-        if (identity == null) return "message.relics_addon.armageddon.no_hive";
+        if (identity == null) return NO_HIVE;
         // The aim can be no further off than the reach.
         Vec3 eye = owner.getEyePosition(), aim = target.subtract(eye);
         if (aim.length() > Armageddon.REACH + 2) target = eye.add(aim.normalize().scale(Armageddon.REACH));
         if (aim.lengthSqr() < 1) target = eye.add(owner.getLookAngle().scale(Armageddon.REACH));
-        ItemStack shield = twinsShield(owner);
+        ItemStack shield = shield(owner, type);
         int shieldGives = shield.isEmpty() ? 0 : shieldGives(owner, shield, hive);
-        ArmageddonState state = new ArmageddonState(now - Math.clamp(headStart, 0, Armageddon.IMPACT - 1), Armageddon.origin(eye, target), target, shieldGives > 0);
+        ArmageddonTimeline timeline = ArmageddonTimeline.of(type);
+        ArmageddonState state = new ArmageddonState(type, now - Math.clamp(headStart, 0, timeline.impact() - 1), origin(type, eye, target), target, shieldGives > 0);
         hive.set(ModDataComponents.HIVE_ARMAGEDDON.get(), state);
         SHOTS.put(owner.getUUID(), new Shot(identity, owner, state, DevicePower.energy(hive), shieldGives));
-        RelicSounds.armageddon(owner.serverLevel(), state.origin(), RelicSounds.Cannon.CHARGE);
+        RelicSounds.armageddon(owner.serverLevel(), state.origin(), type, RelicSounds.Cannon.CHARGE);
         return null;
+    }
+
+    /** Where {@code type}'s construct hangs for an owner whose eyes are at {@code eye}. */
+    private static Vec3 origin(HiveType type, Vec3 eye, Vec3 target) {
+        return Armageddon.origin(eye, target);
     }
 
     /**
@@ -164,14 +190,14 @@ public final class ArmageddonController {
             return false;
         }
         if (!shot.hive.equals(hive.get(ModDataComponents.INSTANCE_ID.get()))) {
-            // Another Twins hive is worn now: the shot goes on (or ends) without the hive that fired it.
+            // Another hive is worn now: the shot goes on (or ends) without the hive that fired it.
             abort(owner);
             return false;
         }
         long age = now - shot.state.startedAt();
         pour(owner, hive, shot, age);
         advance(shot, now);
-        if (age >= Armageddon.END) {
+        if (age >= shot.timeline.end()) {
             finish(owner, hive, shot);
             return false;
         }
@@ -179,28 +205,34 @@ public final class ArmageddonController {
     }
 
     /**
-     * Carries a shot on {@code now}, in the level it was fired in: the shot leaving, the black hole arriving and
-     * feeding (through the first moments of the burst too, until it has had all it marked), the burst, and the
-     * beam boring the land out.
+     * Carries a shot on {@code now}, in the level it was fired in: the shot leaving and arriving, the land round
+     * its target going (through the first moments of the burst too, until it has had all it marked), the clients
+     * near told of the blast, the burst, and the Twins beam boring the land out.
      */
     private static void advance(Shot shot, long now) {
         long age = now - shot.state.startedAt();
         ServerLevel level = shot.level;
-        if (!shot.fired && age >= Armageddon.FIRE) {
+        ArmageddonTimeline timeline = shot.timeline;
+        HiveType type = shot.state.type();
+        if (!shot.fired && age >= timeline.fire()) {
             shot.fired = true;
-            RelicSounds.armageddon(level, Armageddon.muzzle(shot.state), RelicSounds.Cannon.FIRE);
+            RelicSounds.armageddon(level, type == HiveType.TWINS ? Armageddon.muzzle(shot.state) : shot.state.origin(), type, RelicSounds.Cannon.FIRE);
         }
-        if (!shot.arrived && age >= Armageddon.ARRIVE) {
+        if (!shot.arrived && age >= timeline.arrive()) {
             shot.arrived = true;
-            RelicSounds.armageddon(level, shot.state.target(), RelicSounds.Cannon.DEVOUR);
-            if (!safe()) shot.crater = columns(shot.state.target(), Armageddon.DEVOUR_RADIUS);
+            RelicSounds.armageddon(level, shot.state.target(), type, RelicSounds.Cannon.ARRIVE);
+            if (!safe()) shot.crater = columns(shot.state.target(), timeline.carveRadius());
         }
-        if (shot.arrived && age < Armageddon.IMPACT + Armageddon.CRUSHED) devour(level, shot, age);
-        if (!shot.landed && age >= Armageddon.IMPACT) {
+        if (shot.arrived && age < timeline.carvedUntil()) carve(level, shot, age);
+        if (!shot.told && age >= timeline.told()) {
+            shot.told = true;
+            ArmageddonPayloads.blast(level, type, shot.state.target(), shot.state.origin(), shot.state.startedAt() + timeline.impact());
+        }
+        if (!shot.landed && age >= timeline.impact()) {
             shot.landed = true;
-            detonate(level, shot.owner, shot.state.target(), shot.state.startedAt() + Armageddon.IMPACT);
+            detonate(level, timeline, shot.owner, shot.state.target(), shot.state.startedAt() + timeline.impact());
         }
-        if (shot.landed && !safe()) bore(level, shot, age - Armageddon.IMPACT);
+        if (type == HiveType.TWINS && shot.landed && !safe()) bore(level, shot, age - timeline.impact());
     }
 
     /**
@@ -209,7 +241,8 @@ public final class ArmageddonController {
      */
     private static void pour(ServerPlayer owner, ItemStack hive, Shot shot, long age) {
         if (!DevicePower.required() || owner.getAbilities().instabuild) return;
-        double drained = Math.clamp((age - Armageddon.ASSEMBLED) / (double) (Armageddon.FIRE - Armageddon.ASSEMBLED), 0, 1);
+        ArmageddonTimeline timeline = shot.timeline;
+        double drained = Math.clamp((age - timeline.assembled()) / (double) (timeline.fire() - timeline.assembled()), 0, 1);
         double left = 1 - drained * (1 - LEFT_AT_FIRE);
         DeviceEnergy start = shot.hiveAtStart, energy = DevicePower.energy(hive);
         int rf = (int) Math.round(start.rf() * left), mana = (int) Math.round(start.mana() * left);
@@ -218,15 +251,15 @@ public final class ArmageddonController {
         }
         int owed = (int) Math.round(shot.shieldGives * drained) - shot.shieldGiven;
         if (owed > 0) {
-            ItemStack shield = twinsShield(owner);
+            ItemStack shield = shield(owner, shot.state.type());
             if (!shield.isEmpty() && DevicePower.drain(owner, shield, owed)) shot.shieldGiven += owed;
         }
     }
 
     /**
-     * What a Twins shield can hand over, in points: never more than a share of the hive's battery, and
-     * never out of the reserve it keeps for its own field. Without batteries in play it gives a token 1,
-     * so the link still shows.
+     * What a shield can hand over to its hive's Armageddon, in points: never more than a share of the hive's
+     * battery, and never out of the reserve it keeps for its own field. Without batteries in play it gives a
+     * token 1, so the link still shows.
      */
     public static int shieldGives(Player owner, ItemStack shield, ItemStack hive) {
         if (!RelicRuntime.enabled(shield) || !DevicePower.required() || owner.getAbilities().instabuild) return RelicRuntime.enabled(shield) ? 1 : 0;
@@ -257,13 +290,13 @@ public final class ArmageddonController {
     }
 
     /**
-     * The black hole takes the land from the middle out: column by column, as its reach passes each, every
-     * breakable block within the sphere of {@link Armageddon#DEVOUR_RADIUS} round its target, a few thousand a
-     * tick, and drags every creature it would strike towards itself.
+     * The land round the shot's target goes from the middle out: column by column, as its reach passes each,
+     * every breakable block within the sphere of the course's carve radius, a few thousand a tick; and every
+     * creature it would strike is dragged in, towards the Twins black hole.
      */
-    private static void devour(ServerLevel level, Shot shot, long age) {
+    private static void carve(ServerLevel level, Shot shot, long age) {
         Vec3 centre = shot.state.target();
-        double reach = Armageddon.devoured(age), most = Armageddon.DEVOUR_RADIUS * Armageddon.DEVOUR_RADIUS;
+        double radius = shot.timeline.carveRadius(), reach = shot.timeline.carved(age), most = radius * radius;
         int budget = BITES;
         BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
         while (shot.crater != null && budget > 0 && shot.eaten < shot.crater.length) {
@@ -289,10 +322,9 @@ public final class ArmageddonController {
             shot.eaten++;
             shot.eatenTo = Integer.MAX_VALUE;
         }
-        // Creatures are dragged in once it starts to feed, and no longer once it has burst.
-        if (age < Armageddon.HUNGER || age >= Armageddon.IMPACT) return;
+        if (!shot.timeline.drags(age)) return;
         ServerPlayer owner = shot.owner;
-        double pull = Armageddon.DEVOUR_RADIUS * 1.5;
+        double pull = radius * 1.5;
         for (LivingEntity entity : level.getEntitiesOfClass(LivingEntity.class, new AABB(centre, centre).inflate(pull), LivingEntity::isAlive)) {
             if (spared(level, owner, entity)) continue;
             Vec3 in = centre.subtract(entity.position());
@@ -351,20 +383,19 @@ public final class ArmageddonController {
         return shaft;
     }
 
-    /** Called off when the owner leaves, dies or changes dimension before the beam fires; a shot already fired still lands. */
+    /** Called off when the owner leaves, dies or changes dimension before the shot leaves; a shot already fired still lands. */
     public static void abort(Player owner) {
         Shot shot = SHOTS.remove(owner.getUUID());
         if (shot == null) return;
-        ItemStack hive = twinsHive(owner);
+        ItemStack hive = hive(owner);
         if (!hive.isEmpty() && shot.hive.equals(hive.get(ModDataComponents.INSTANCE_ID.get()))) hive.remove(ModDataComponents.HIVE_ARMAGEDDON.get());
         // A shot already fired flies on, feeds and bursts on time, where it was fired.
         if (shot.fired) LOOSE.add(shot);
     }
 
-    /** The beam lands: every client near enough sees and hears the blast, and the front starts to sweep out. */
-    static void detonate(ServerLevel level, ServerPlayer owner, Vec3 centre, long impactAt) {
-        BLASTS.add(new Blast(level, centre, impactAt, owner, new java.util.HashSet<>()));
-        ArmageddonPayloads.blast(level, centre, impactAt);
+    /** The shot bursts: its front starts to sweep out. */
+    static void detonate(ServerLevel level, ArmageddonTimeline timeline, ServerPlayer owner, Vec3 centre, long impactAt) {
+        BLASTS.add(new Blast(level, timeline, centre, impactAt, owner, new java.util.HashSet<>()));
     }
 
     /** Drops every shot, loose shot and blast in {@code level} at once, so that a test leaves nothing behind it. */
@@ -399,12 +430,12 @@ public final class ArmageddonController {
             Shot shot = loose.next();
             if (shot.level != level) continue;
             advance(shot, now);
-            if (now - shot.state.startedAt() >= Armageddon.END) loose.remove();
+            if (now - shot.state.startedAt() >= shot.timeline.end()) loose.remove();
         }
         for (Iterator<Blast> blasts = BLASTS.iterator(); blasts.hasNext(); ) {
             Blast blast = blasts.next();
             if (blast.level != level) continue;
-            double front = Armageddon.reach(now - blast.impactAt);
+            double front = blast.timeline.reach(now - blast.impactAt);
             if (front > 0) {
                 for (LivingEntity entity : level.getEntitiesOfClass(LivingEntity.class, new AABB(blast.centre, blast.centre).inflate(front),
                         entity -> entity.isAlive() && !blast.reached.contains(entity.getUUID()))) {
@@ -414,12 +445,12 @@ public final class ArmageddonController {
                     if (!spared(level, blast.owner, entity)) strike(blast, entity, distance);
                 }
             }
-            if (now - blast.impactAt >= Armageddon.BALL + Armageddon.EXPAND) blasts.remove();
+            if (now - blast.impactAt >= blast.timeline.swept()) blasts.remove();
         }
     }
 
     private static void strike(Blast blast, LivingEntity entity, double distance) {
-        double edge = distance / Armageddon.RADIUS, falloff = (1 - edge) * (1 - edge);
+        double edge = Math.min(1, distance / blast.timeline.radius()), falloff = (1 - edge) * (1 - edge);
         float damage = (float) (EDGE_DAMAGE + (CORE_DAMAGE - EDGE_DAMAGE) * falloff);
         // Credited to the owner even when they have left, so the death message still names them.
         if (!entity.hurt(blast.level.damageSources().source(DAMAGE, blast.owner), damage)) return;
@@ -431,13 +462,15 @@ public final class ArmageddonController {
         entity.hurtMarked = true;
     }
 
-    /** The player's worn Twins hive, switched on or not, or an empty stack. */
-    public static ItemStack twinsHive(Player player) {
-        return worn(player, RelicRole.TWINS_HIVE);
+    /** The player's worn hive that can fire Armageddon (a Twins or a Mana hive), switched on or not, or an empty stack. */
+    public static ItemStack hive(Player player) {
+        ItemStack twins = worn(player, RelicRole.TWINS_HIVE);
+        return twins.isEmpty() ? worn(player, RelicRole.MANA_HIVE) : twins;
     }
 
-    public static ItemStack twinsShield(Player player) {
-        return worn(player, RelicRole.TWINS_SHIELD);
+    /** The player's worn shield of {@code type}'s family, the one that feeds that hive's Armageddon, or an empty stack. */
+    public static ItemStack shield(Player player, HiveType type) {
+        return type == null ? ItemStack.EMPTY : worn(player, type == HiveType.MANA ? RelicRole.MANA_SHIELD : RelicRole.TWINS_SHIELD);
     }
 
     private static ItemStack worn(Player player, RelicRole role) {
