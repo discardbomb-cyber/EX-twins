@@ -208,7 +208,11 @@ public final class ArmageddonGameTests {
         helper.assertTrue(refused == null, "A full level 10 Mana hive fires (refused: " + refused + ")");
         ArmageddonState state = hive.get(ModDataComponents.HIVE_ARMAGEDDON.get());
         helper.assertTrue(ArmageddonController.shooting(owner) && state != null && state.type() == HiveType.MANA, "The shot under way is the Mana hive's own");
-        helper.assertTrue(state.origin().y > owner.getEyeY() && state.target().distanceTo(target) < 1e-6, "Its flowers hang over the owner's head and aim at the target");
+        // It lands on the way from the owner's eyes to the point aimed at: there, or on the first thing in the way.
+        Vec3 eye = owner.getEyePosition(), way = target.subtract(eye);
+        double along = state.target().subtract(eye).dot(way) / way.lengthSqr();
+        helper.assertTrue(state.origin().y > owner.getEyeY() && along > 0 && along <= 1 + 1e-6 && eye.add(way.scale(along)).distanceTo(state.target()) < 1e-3,
+                "Its flowers hang over the owner's head and it aims at the target, stopping at whatever is in the way");
         helper.assertTrue(MANA_RUNNING.equals(ArmageddonController.request(owner, target)), "One shot at a time");
         ArmageddonController.abort(owner);
         helper.assertTrue(!ArmageddonController.shooting(owner) && !hive.has(ModDataComponents.HIVE_ARMAGEDDON.get())
