@@ -57,6 +57,30 @@ const MANA = javaConstants("src/main/java/dev/hurtify/relicsaddon/drone/ManaArma
 for (const name of ["ASSEMBLED", "FIRE", "ARRIVE", "IGNITE", "IMPACT", "BLAST_SECONDS", "RINGS", "RUNES", "SPHERE_RISE", "SPHERE_WRITE", "SHOCK", "DOME", "EXPAND", "COLUMN"]) {
   if (!Number.isFinite(MANA[name])) throw new Error(`ManaArmageddon.${name} could not be read`);
 }
+// RF Armageddon's timings, likewise: its charge clicks with the panels, its flight cracks with every bolt the ball
+// strikes, and its blast lasts exactly BLAST_SECONDS, as long as its light takes to fade.
+const RF = javaConstants("src/main/java/dev/hurtify/relicsaddon/drone/RfArmageddon.java");
+for (const name of ["ASSEMBLED", "FIRE", "SNAP", "ARRIVE", "HOVER", "DESCEND", "SINK", "IMPACT", "CLICKS", "CLICK_SWING", "DOME", "FLASH", "BLAST_SECONDS",
+  "BOLT_FLIGHT_GAP", "BOLT_HOVER_GAP", "SHOCK", "SILHOUETTES"]) {
+  if (!Number.isFinite(RF[name])) throw new Error(`RfArmageddon.${name} could not be read`);
+}
+/** When each of the panels' clicks starts to swing them, in seconds from the start (RfArmageddon.clickAt). */
+const rfClick = k => (RF.ASSEMBLED + (RF.FIRE - RF.ASSEMBLED) * (k + 1 - RF.CLICK_SWING) / RF.CLICKS) / 20;
+/** When each bolt the ball strikes the ground with lands, in seconds from the moment it leaves: the schedule RfArmageddon builds. */
+const rfBolts = (() => {
+  const bolts = [];
+  for (let k = 0; ; k++) {
+    const at = RF.FIRE + 14 + RF.BOLT_FLIGHT_GAP * k + 6 * Math.sin(2.3 * k);
+    if (at >= RF.ARRIVE) break;
+    bolts.push((at - RF.FIRE) / 20);
+  }
+  for (let k = 0; ; k++) {
+    const at = RF.ARRIVE + 4 + RF.BOLT_HOVER_GAP * k + 3 * Math.sin(1.7 * k);
+    if (at >= RF.DESCEND + RF.SINK / 2) break;
+    bolts.push((at - RF.FIRE) / 20);
+  }
+  return bolts;
+})();
 
 // name, family, seconds. Names must match sounds.json (relics_addon:combat/<name>).
 const SPECS = [
@@ -99,6 +123,13 @@ const SPECS = [
   ["hive_mana_armageddon_sphere", "mana_armageddon_sphere:mana", (MANA.IMPACT - MANA.IGNITE) / 20],
   ["hive_mana_armageddon_blast", "mana_armageddon_blast:mana", MANA.BLAST_SECONDS],
   ["hive_mana_armageddon_shock", "mana_armageddon_shock:mana", 4.0],
+  // RF Armageddon, each as long as the stage it scores: the relay hologram charging, the ball launched, its heavy
+  // flight and hover with every bolt it strikes, the dome of glass heating, and the atomic blast with its long tail.
+  ["hive_rf_armageddon_charge", "rf_armageddon_charge:rf", RF.FIRE / 20],
+  ["hive_rf_armageddon_fire", "rf_armageddon_fire:rf", 2.0],
+  ["hive_rf_armageddon_flight", "rf_armageddon_flight:rf", (RF.IMPACT - RF.FIRE) / 20],
+  ["hive_rf_armageddon_dome", "rf_armageddon_dome:rf", RF.DOME / 20],
+  ["hive_rf_armageddon_blast", "rf_armageddon_blast:rf", RF.BLAST_SECONDS],
 ];
 
 // Base pitch per family: RF is metallic and bright, Mana glassy and high, Twins dark and low.
@@ -792,6 +823,142 @@ function synthesize(name, family, seconds) {
       space = .3;
       break;
     }
+    case "rf_armageddon_charge": {
+      // A minute of the relay hologram charging. As the swarm lands it powers up like a great transformer: a mains
+      // hum sliding up to pitch with relays clacking as the drones lock in, then humming on under everything, swelling
+      // with the charge. At every click of the panels a hard ratchet click, a servo whining as they swing, and a clunk
+      // as they lock. The ball before the nose crackles with electricity, faint at first, thick and spitting by the end,
+      // and zaps as it swells with each click; in the last seconds it all strains to the shot.
+      const built = RF.ASSEMBLED / 20, full = RF.FIRE / 20, swing = (full - built) / RF.CLICKS * RF.CLICK_SWING;
+      const charge = t => Math.min(1, Math.max(0, (t - built) / (full - built)));
+      const powered = t => Math.min(1, t / built);
+      // The hum: 50 Hz mains and the buzz at twice it, sliding up to pitch as the hologram powers up.
+      const mains = t => 50 * (.62 + .38 * Math.min(1, t / built) ** .7);
+      v.add(osc(n, mains).map((x, i) => { const t = i / RATE; return x * powered(t) * (.25 + .6 * charge(t)); }), .55);
+      const buzz = lowpass(osc(n, t => mains(t) * 2, "saw"), t => 700 + 1400 * charge(t));
+      v.add(buzz.map((x, i) => { const t = i / RATE; return Math.tanh(2.2 * x) * powered(t) * (.15 + .6 * charge(t)); }), .4);
+      [3, 4, 6].forEach((h, k) => v.add(osc(n, t => mains(t) * h).map((x, i) => x * powered(i / RATE) * (.1 + .4 * charge(i / RATE))), .07 / (k + 1)));
+      // Relays clacking as the drones land, thick while the hologram is built.
+      for (let k = 0; k < 70; k++) {
+        const at = built * Math.sqrt(v.random()) * .95, length = Math.round(.03 * RATE);
+        v.add(mul(bandpass(v.noise(length), 1800 + 2600 * v.random(), 5), env(length, .0005, .006)), .35, at);
+      }
+      // The panels: a ratchet click, a servo swinging them, a clunk as they lock.
+      for (let k = 0; k < RF.CLICKS; k++) {
+        const at = rfClick(k);
+        v.add(mul(highpass(v.noise(), 2500), env(n, .0004, .004)), 1.1, at);
+        v.add(mul(bell(n, 2350 + 90 * k, [1, 2.76, 5.4], .05), env(n, .0005, .06)), .35, at);
+        const servo = osc(n, t => 170 + 60 * Math.min(1, t / swing), "saw");
+        const whirr = osc(n, 31).map(x => .75 + .25 * x);
+        v.add(bandpass(servo, 900, 2).map((x, i) => { const t = i / RATE; return t > swing ? 0 : x * whirr[i] * Math.sin(Math.PI * t / swing) ** .5; }), .32, at);
+        const lock = at + swing;
+        v.add(mul(osc(n, t => 95 * Math.exp(-t * 9) + 55), env(n, .002, .09)), .8, lock);
+        v.add(mul(highpass(v.noise(), 1500), env(n, .0006, .012)), .5, lock);
+        // The ball swells with a zap.
+        v.add(mul(fm(n, t => 900 + 2600 * Math.min(1, t / .18), 1.41, 3, .06), env(n, .003, .12)), .12 + .12 * charge(at), at + swing * .6);
+      }
+      // The ball crackling, thicker as it grows, and its arc singing.
+      v.add(highpass(crackle(v, t => t < built ? 0 : 12 + 520 * charge(t) ** 1.6, .0012), 1500), .75);
+      v.add(bandpass(v.noise(), t => 1400 + 1800 * charge(t), 6).map((x, i) => x * charge(i / RATE) ** 2 * .9), .45);
+      // The strain before the shot.
+      const strain = t => Math.max(0, (t - (full - 6)) / 6);
+      v.add(osc(n, t => 220 * (1 + 2 * strain(t) ** 2)).map((x, i) => x * strain(i / RATE) ** 2), .16);
+      v.add(bandpass(v.noise(), t => 400 + 3000 * strain(t) ** 2, 2).map((x, i) => x * strain(i / RATE) ** 2), .5);
+      const cut = new Float64Array(n);
+      for (let i = 0; i < n; i++) { const t = i / RATE; cut[i] = t < seconds - .06 ? 1 : Math.max(0, (seconds - t) / .06); }
+      v.out = mul(reverb(v.out, .18, 1), cut);
+      space = 0;
+      break;
+    }
+    case "rf_armageddon_fire": {
+      // The panels snapping shut one after another with hard metal clacks, and the ball leaving: a heavy, deep push and a
+      // crackling burst (its heavy hum is the flight's own, heard from the ball as it goes).
+      for (let k = 0; k < 4; k++) {
+        const at = .025 * k;
+        v.add(mul(highpass(v.noise(), 1800), env(n, .0004, .008)), 1, at);
+        v.add(mul(bell(n, 1250 + 160 * k, [1, 2.76, 5.4, 8.93], .08), env(n, .0005, .1)), .4, at);
+      }
+      v.add(mul(osc(n, t => 26 + 70 * Math.exp(-t * 6)), env(n, .004, .6)), 1.5, .12);
+      v.add(mul(lowpass(pink(v), t => 1400 * Math.exp(-t * 2) + 120), env(n, .01, .5)), 1.1, .1);
+      v.add(highpass(crackle(v, (t, x) => 2600 * (1 - x) ** 2, .001), 2200), .6);
+      space = .2;
+      break;
+    }
+    case "rf_armageddon_flight": {
+      // The ball's flight, slow and heavy: a deep, labouring hum and a rumbling weight under it, rising as it closes on
+      // its target and hangs there; every bolt it strikes the ground with a sharp crack, a sizzle and thunder rolling
+      // after; its rim crackling all the while, thicker in the hover; and as it sinks the hum falls and swells, until
+      // it meets the ground.
+      const hover = (RF.ARRIVE - RF.FIRE) / 20, sink = (RF.DESCEND - RF.FIRE) / 20;
+      const weight = t => Math.min(1, t / 1.5) * (.55 + .3 * Math.min(1, t / hover) + .15 * (t > sink ? (t - sink) / (seconds - sink) : 0));
+      const pitch = t => t < sink ? 36 + 4 * Math.min(1, t / hover) : 40 - 12 * ((t - sink) / (seconds - sink)) ** 1.5;
+      v.add(osc(n, t => pitch(t) * (1 + .01 * Math.sin(TAU * .7 * t))).map((x, i) => x * weight(i / RATE)), 1.1);
+      v.add(lowpass(osc(n, t => pitch(t) * 2, "saw"), 420).map((x, i) => Math.tanh(1.8 * x) * weight(i / RATE)), .5);
+      v.add(lowpass(highpass(pink(v), 30), 260).map((x, i) => x * weight(i / RATE)), 1.2);
+      v.add(highpass(crackle(v, t => 60 + (t > hover ? 380 : 80 * t / hover), .0012), 1600), .45);
+      for (const at of rfBolts) {
+        const strength = at > hover ? 1 : .85;
+        v.add(mul(highpass(v.noise(), 1200), env(n, .0003, .006)), 1.4 * strength, at);
+        v.add(mul(bandpass(v.noise(), t => 4200 - 2000 * Math.min(1, t / .15), 3), env(n, .001, .09)), .7 * strength, at);
+        v.add(mul(lowpass(pink(v), t => 900 * Math.exp(-t * 2.5) + 90), env(n, .03, .9)), 1.3 * strength, at + .05);
+        v.add(mul(osc(n, t => 30 + 45 * Math.exp(-t * 5)), env(n, .004, .5)), .7 * strength, at + .03);
+      }
+      const cut = new Float64Array(n);
+      for (let i = 0; i < n; i++) { const t = i / RATE; cut[i] = t < seconds - .04 ? 1 : Math.max(0, (seconds - t) / .04); }
+      v.out = mul(vast(v.out, .15, 2), cut);
+      space = 0;
+      break;
+    }
+    case "rf_armageddon_dome": {
+      // The dome of glass: a glassy ringing swelling up and rising in pitch as it heats, icy tinkles and creaks, a sizzle
+      // climbing to a hiss, and a low glass groan under it, until it cracks white.
+      const heat = t => Math.min(1, t / seconds) ** 1.3;
+      v.add(mul(osc(n, t => 30 + 60 * Math.exp(-t * 4)), env(n, .003, .4)), .6);
+      const partials = [1, 2.32, 4.25, 6.63];
+      partials.forEach((ratio, k) => {
+        const ring = osc(n, t => 660 * ratio * (1 + heat(t)) * (1 + .003 * Math.sin(TAU * (5 + k) * t)));
+        v.add(ring.map((x, i) => { const t = i / RATE; return x * Math.min(1, t / .25) * (.2 + 1.1 * heat(t)) / (1 + k * .7); }), .2);
+      });
+      for (let k = 0; k < 60; k++) v.add(bell(Math.round(.1 * RATE), 3000 + 3500 * v.random(), [1, 2.32, 4.25], .03), .06, v.random() * (seconds - .1));
+      for (let k = 0; k < 8; k++) v.add(mul(bandpass(v.noise(), 600 + 900 * v.random(), 9), env(n, .01, .08)), .3, v.random() * (seconds - .2));
+      v.add(bandpass(v.noise(), t => 900 + 6000 * heat(t), 2.5).map((x, i) => x * (.15 + .85 * heat(i / RATE))), .55);
+      v.add(lowpass(osc(n, t => 160 + 70 * heat(t), "saw"), 700).map((x, i) => Math.tanh(1.5 * x) * Math.min(1, i / RATE / .4)), .35);
+      // The crack as it goes white.
+      const crack = seconds - .06;
+      v.add(mul(highpass(v.noise(), 2500), env(n, .0003, .012)), 1.2, crack);
+      v.add(mul(bell(n, 4200, [1, 1.73, 2.76], .05), env(n, .0005, .05)), .4, crack);
+      const cut = new Float64Array(n);
+      for (let i = 0; i < n; i++) { const t = i / RATE; cut[i] = t < seconds - .01 ? 1 : Math.max(0, (seconds - t) / .01); }
+      v.out = mul(reverb(v.out, .25, 1.1), cut);
+      space = 0;
+      break;
+    }
+    case "rf_armageddon_blast": {
+      // The atomic blast. A crack that cuts everything off, a blow in the chest, and the fireball's roar, bright at
+      // first and darkening as it climbs; the rush of the shock front going out; then the long tail: thunder rolling
+      // back from far off, fainter and further every time, the distant rumble dying down, small electric discharges
+      // crackling over the crater floor, and the low hum of its blue glow fading with them into silence.
+      const silhouettes = (RF.SILHOUETTES - RF.FLASH) / 20, shock = RF.SHOCK / 20;
+      const ends = t => t < seconds - 3 ? 1 : Math.max(0, (seconds - t) / 3);
+      v.add(mul(highpass(v.noise(), 40), env(n, .0006, .28)), 1.8);
+      v.add(mul(osc(n, t => 20 + 90 * Math.exp(-t * 6)), env(n, .001, 1.6)), 1.7);
+      v.add(lowpass(pink(v), t => 6500 * Math.exp(-t / 2.2) + 280).map((x, i) => { const t = i / RATE; return x * Math.min(1, t / .05) * Math.exp(-t / 7); }), 1.6);
+      v.add(osc(n, t => 28 + 5 * Math.sin(TAU * .3 * t)).map((x, i) => { const t = i / RATE; return x * Math.min(1, t / .3) * Math.exp(-t / 9); }), .9);
+      v.add(bandpass(v.noise(), t => 300 + 2600 * Math.min(1, t / shock), 1.6).map((x, i) => { const t = i / RATE; return x * Math.min(1, t / .4) * Math.max(0, 1 - t / (shock + 1.5)); }), .6);
+      // Thunder rolling back from far off.
+      for (let k = 0, at = silhouettes + .5; at < seconds - 5; k++, at += 1.6 + 2.8 * v.random()) {
+        const far = Math.exp(-(at - silhouettes) / 11);
+        v.add(mul(lowpass(pink(v), t => 700 * Math.exp(-t * 1.5) + 70), env(n, .08 + .1 * v.random(), 1.4 + v.random())), 1.3 * far, at);
+        v.add(mul(osc(n, t => 26 + 30 * Math.exp(-t * 3)), env(n, .02, .9)), .6 * far, at + .05);
+      }
+      v.add(lowpass(highpass(pink(v), 25), 200).map((x, i) => { const t = i / RATE; return x * Math.min(1, t / 2) * Math.exp(-t / 12) * ends(t); }), 1.2);
+      // Discharges over the crater floor, and the hum of the glow fading.
+      v.add(highpass(crackle(v, t => t < 5 ? 0 : 40 * Math.exp(-(t - 5) / 14), .0015), 2000).map((x, i) => x * ends(i / RATE)), .5);
+      v.add(osc(n, 50).map((x, i) => { const t = i / RATE; return x * Math.min(1, Math.max(0, (t - 3) / 3)) * Math.exp(-(t - 3) / 16) * ends(t); }), .25);
+      v.out = vast(v.out, .32, 5).map((x, i) => x * ends(i / RATE));
+      space = 0;
+      break;
+    }
     default:
       throw new Error(`Unhandled family ${family}`);
   }
@@ -801,7 +968,7 @@ function synthesize(name, family, seconds) {
   const mean = out.reduce((a, b) => a + b, 0) / out.length;
   out = out.map(x => x - mean);
   let peak = out.reduce((a, b) => Math.max(a, Math.abs(b)), 0);
-  const loud = kind.startsWith("armageddon") || kind.startsWith("mana_armageddon");
+  const loud = kind.startsWith("armageddon") || kind.startsWith("mana_armageddon") || kind.startsWith("rf_armageddon");
   if (loud && peak) {
     // Bass everywhere: the sub (under 90 Hz) is driven into harmonics a phone or laptop can play, kept
     // under 250 Hz, and laid back under the sound with the lows lifted besides.
@@ -815,7 +982,8 @@ function synthesize(name, family, seconds) {
     // Driven into a soft limiter, so the quiet parts stay quiet but everything loud is as loud as it gets
     // (the blast hardest of all: it should hurt).
     const drive = { armageddon_blast: 6, armageddon_charge: 4.5, mana_armageddon_blast: 3, mana_armageddon_charge: 3,
-      mana_armageddon_collision: 4.5, mana_armageddon_sphere: 3.6 }[kind] ?? 3.2;
+      mana_armageddon_collision: 4.5, mana_armageddon_sphere: 3.6, rf_armageddon_blast: 5, rf_armageddon_charge: 1.8,
+      rf_armageddon_flight: 4, rf_armageddon_dome: 3.2, rf_armageddon_fire: 3.6 }[kind] ?? 3.2;
     out = out.map(x => Math.tanh(drive * x / peak) / Math.tanh(drive));
     // Driving a lopsided wave that hard leaves it off centre: take that back out below hearing.
     out = highpass(out, 12);

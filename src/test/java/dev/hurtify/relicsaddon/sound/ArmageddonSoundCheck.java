@@ -1,6 +1,7 @@
 package dev.hurtify.relicsaddon.sound;
 
 import dev.hurtify.relicsaddon.drone.ManaArmageddon;
+import dev.hurtify.relicsaddon.drone.RfArmageddon;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -8,8 +9,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Mana Armageddon's sounds score its stages, so each must last exactly as long as its stage: above all the
- * blast, as long as {@link ManaArmageddon#BLAST_SECONDS}, the one number its column of light grows by. Reads
+ * Mana and RF Armageddon's sounds score their stages, so each must last exactly as long as its stage: above all
+ * the blasts, as long as {@link ManaArmageddon#BLAST_SECONDS} (the one number the Mana column of light grows by)
+ * and {@link RfArmageddon#BLAST_SECONDS} (the one number the RF blast's light fades by). Reads
  * each Ogg Vorbis file's length from its last page (the samples encoded) and its first (the sample rate).
  */
 public final class ArmageddonSoundCheck {
@@ -21,7 +23,13 @@ public final class ArmageddonSoundCheck {
         require("hive_mana_armageddon_sphere", (ManaArmageddon.IMPACT - ManaArmageddon.IGNITE) / 20.0, "the sphere cracks until it shatters");
         require("hive_mana_armageddon_blast", ManaArmageddon.BLAST_SECONDS, "the blast is heard exactly as long as the column of light grows");
         if (Math.abs(ManaArmageddon.BLAST - ManaArmageddon.BLAST_SECONDS * 20) > .5) throw new AssertionError("the blast's ticks are made from its seconds");
-        System.out.println("Armageddon sounds: Mana's charge, collision, sphere and " + ManaArmageddon.BLAST_SECONDS + " s blast last exactly as long as their stages");
+        require("hive_rf_armageddon_charge", RfArmageddon.FIRE / 20.0, "the relay's charge lasts until the ball leaves");
+        require("hive_rf_armageddon_flight", (RfArmageddon.IMPACT - RfArmageddon.FIRE) / 20.0, "the ball's flight lasts until it meets the ground");
+        require("hive_rf_armageddon_dome", RfArmageddon.DOME / 20.0, "the dome heats until the flash");
+        require("hive_rf_armageddon_blast", RfArmageddon.BLAST_SECONDS, "the RF blast is heard exactly as long as its light fades");
+        if (Math.abs(RfArmageddon.BLAST - RfArmageddon.BLAST_SECONDS * 20) > .5) throw new AssertionError("the RF blast's ticks are made from its seconds");
+        System.out.println("Armageddon sounds: Mana's charge, collision, sphere and " + ManaArmageddon.BLAST_SECONDS + " s blast, and RF's charge, flight, dome and "
+                + RfArmageddon.BLAST_SECONDS + " s blast last exactly as long as their stages");
     }
 
     private static void require(String name, double seconds, String what) throws IOException {
