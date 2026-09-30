@@ -87,8 +87,8 @@ public final class HiveJuice {
         Vec3 at = hit.at.subtract(camera);
         double s = hit.strength;
         // The core: white for a frame or two, then the family's colour, gone within a few ticks.
-        if (age < FLASH) GlowBrush.dot(glow, m, at, .9 * s, 0xFFFFFF, 255 * (1 - age / FLASH));
-        if (age < 6) GlowBrush.dot(glow, m, at, (.5 + .4 * age / 6) * s, age < FLASH ? hot : color, 220 * (1 - age / 6));
+        if (age < FLASH) GlowBrush.dot(glow, m, at, .45 * s, 0xFFFFFF, 255 * (1 - age / FLASH));
+        if (age < 6) GlowBrush.dot(glow, m, at, (.3 + .25 * age / 6) * s, age < FLASH ? hot : color, 200 * (1 - age / 6));
         // The shock ring, across the blow in the air.
         if (age < RING && hit.style != SPARK) {
             double t = age / RING, radius = s * (.3 + 2.6 * (1 - (1 - t) * (1 - t)));
@@ -104,6 +104,42 @@ public final class HiveJuice {
             linger(hit, age, life, floor, glow, fill, m, color);
         }
         sparks(hit, age, at, glow, m, detail, color, hot);
+        if (hit.style == CHARGE) shot(hit, age, at, glow, fill, m, hot);
+    }
+
+    /**
+     * A barrage shot breaking on its target: the RF ring bursts in branching discharges every way, the Twins
+     * icosahedron flies apart in shards of violet glass.
+     */
+    private static void shot(Impact hit, double age, Vec3 at, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int hot) {
+        if (hit.type == HiveType.RF && age < 6) {
+            double fade = 1 - age / 6, reach = .6 + .9 * Math.min(1, age / 2);
+            for (int bolt = 0; bolt < 9; bolt++) {
+                double a = hash(hit.key, bolt + 70) * Math.PI * 2, b = Math.acos(hash(hit.key, bolt + 80) * 2 - 1);
+                Vec3 out = new Vec3(Math.sin(b) * Math.cos(a), Math.cos(b), Math.sin(b) * Math.sin(a));
+                GlowBrush.lightning(glow, m, at, at.add(out.scale(reach)), hit.key * 17 + bolt + (long) age, 5, .3, .008, hot, 220 * fade);
+            }
+        } else if (hit.type == HiveType.TWINS && age < 14) {
+            double fade = 1 - age / 14;
+            int[][] faces = HiveProjectiles.icosahedronFaces();
+            for (int shard = 0; shard < faces.length; shard++) {
+                Vec3 a = HiveProjectiles.icosahedronCorner(faces[shard][0], HiveProjectiles.RADIUS, 0);
+                Vec3 b = HiveProjectiles.icosahedronCorner(faces[shard][1], HiveProjectiles.RADIUS, 0);
+                Vec3 d = HiveProjectiles.icosahedronCorner(faces[shard][2], HiveProjectiles.RADIUS, 0);
+                Vec3 middle = a.add(b).add(d).scale(1 / 3.0), out = middle.normalize();
+                Vec3 flown = out.scale(age * (.12 + .1 * hash(hit.key, shard + 90))).subtract(0, .004 * age * age, 0);
+                Vec3 axis = new Vec3(hash(hit.key, shard) - .5, hash(hit.key, shard + 1) - .5, hash(hit.key, shard + 2) - .5);
+                axis = axis.lengthSqr() < 1e-6 ? new Vec3(0, 1, 0) : axis.normalize();
+                double spin = age * .5;
+                Vec3 pa = at.add(middle).add(flown).add(dev.hurtify.relicsaddon.drone.HiveShapes.rotate(a.subtract(middle), axis, spin));
+                Vec3 pb = at.add(middle).add(flown).add(dev.hurtify.relicsaddon.drone.HiveShapes.rotate(b.subtract(middle), axis, spin));
+                Vec3 pd = at.add(middle).add(flown).add(dev.hurtify.relicsaddon.drone.HiveShapes.rotate(d.subtract(middle), axis, spin));
+                GlowBrush.quad(fill, m, pa, pb, pd, pd, 0x3A0F66, 0x3A0F66, 0x3A0F66, 0x3A0F66, 150 * fade, 150 * fade, 150 * fade, 150 * fade);
+                GlowBrush.line(glow, m, pa, pb, .006, 0xE7C6FF, 220 * fade);
+                GlowBrush.line(glow, m, pb, pd, .006, 0xE7C6FF, 220 * fade);
+                GlowBrush.line(glow, m, pd, pa, .006, 0xE7C6FF, 220 * fade);
+            }
+        }
     }
 
     /** What lingers on the ground after the ring has passed: scorched on RF, ripples on Mana, smoke and cracks on Twins. */

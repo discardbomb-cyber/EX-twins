@@ -487,7 +487,8 @@ public final class HiveFormation {
                 // A few drones hop to the next clump every eight seconds, gliding over for a second.
                 int home = group;
                 Vec3 at = barragePoint(type, home, member, members, groups, target, targetWidth, targetHeight, time, -1);
-                if (member % 7 == 3 && groups > 1) {
+                // Corners of an RF or Twins pattern keep to it; only the drones past them hop.
+                if (member % 7 == 3 && groups > 1 && (type == HiveType.MANA || member >= HiveShapes.CLUMP_RING)) {
                     double clock = time + member * 37 + group * 53;
                     long hops = (long) Math.floor(clock / 160);
                     double into = clock - hops * 160;
