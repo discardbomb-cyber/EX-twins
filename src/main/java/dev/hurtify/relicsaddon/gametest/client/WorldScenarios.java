@@ -103,6 +103,8 @@ public final class WorldScenarios {
             // Close by: the colliders inside the tori, and the world bent and darkened round the black hole.
             new Scene("containment-twins-close", RelicRole.TWINS_HIVE, 10, AttackMode.CONTAINMENT, null,
                     List.of(new Vec3(0, 0, -9)), false, new Vec3(11, 10, -1), new Vec3(0, 8.3, -9), 70, 60, -1),
+            new Scene("containment-mana-close", RelicRole.MANA_HIVE, 10, AttackMode.CONTAINMENT, null,
+                    List.of(new Vec3(0, 0, -9)), false, new Vec3(4.5, 4.5, -4), new Vec3(0, 3, -9), 60, 60, -1),
             new Scene("containment-rf-close", RelicRole.RF_HIVE, 10, AttackMode.CONTAINMENT, null,
                     List.of(new Vec3(0, 0, -9)), false, new Vec3(4.5, 5, -4), new Vec3(0, 3.4, -9), 60, 60, -1),
             // A crossbowman shoots at the owner; the level 0 shield (radius 2) stops the bolts, and the swarm answers the shooter.

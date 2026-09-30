@@ -181,11 +181,11 @@ public final class HiveConstructs {
     public static final double LOTUS_SCALE = 1.12;
     /** Each tier's side corners (radius, height) and tip when closed and when open, in lotus sizes. */
     private static final double[][] TIER = {
-            {.78, -.25, .10, 1.05, .95, .45},
-            {.98, -.48, .42, .78, 1.25, .10},
-            {1.12, -.72, .78, .32, 1.45, -.30}};
+            {.92, -.12, .22, .98, 1.05, .45},
+            {1.06, -.38, .55, .72, 1.35, .10},
+            {1.18, -.64, .86, .30, 1.55, -.30}};
     /** Half the angle a petal spans, and how far each tier is turned from the first. */
-    private static final double PETAL_HALF = Math.toRadians(24), TIER_TURN = Math.toRadians(30);
+    private static final double PETAL_HALF = Math.toRadians(27), TIER_TURN = Math.toRadians(30);
 
     /** Tiers {@code count} drones can make whole (one at least). */
     public static int lotusTiers(int count) {

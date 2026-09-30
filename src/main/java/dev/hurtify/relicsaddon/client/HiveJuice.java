@@ -32,7 +32,7 @@ public final class HiveJuice {
     private record Impact(Vec3 at, Vec3 normal, HiveType type, int style, double start, double strength, long key, double ground) { }
 
     /** The kinds of blow, which set how it bursts. */
-    public static final int STRIKE = 0, CHARGE = 1, ZAP = 2, SPARK = 3;
+    public static final int STRIKE = 0, CHARGE = 1, ZAP = 2, SPARK = 3, GROUNDED = 4, REFLECTED = 5;
     private static final List<Impact> IMPACTS = new ArrayList<>();
     private static final int MAX_IMPACTS = 48;
     /** Ticks a blow lasts in all, its core flash, and its shock ring. */
@@ -50,7 +50,8 @@ public final class HiveJuice {
         if (detail() == Detail.LOW && style == SPARK) return;
         IMPACTS.removeIf(old -> old.key == key);
         if (IMPACTS.size() >= MAX_IMPACTS) IMPACTS.removeFirst();
-        Vec3 way = normal.lengthSqr() < 1e-8 ? new Vec3(0, 1, 0) : normal.normalize();
+        // A turned-back blow keeps its whole way, to the creature it falls on.
+        Vec3 way = style == REFLECTED ? normal : normal.lengthSqr() < 1e-8 ? new Vec3(0, 1, 0) : normal.normalize();
         IMPACTS.add(new Impact(at, way, type, style, time, strength, key, groundBelow(at)));
     }
 
@@ -90,14 +91,14 @@ public final class HiveJuice {
         if (age < FLASH) GlowBrush.dot(glow, m, at, .45 * s, 0xFFFFFF, 255 * (1 - age / FLASH));
         if (age < 6) GlowBrush.dot(glow, m, at, (.3 + .25 * age / 6) * s, age < FLASH ? hot : color, 200 * (1 - age / 6));
         // The shock ring, across the blow in the air.
-        if (age < RING && hit.style != SPARK) {
+        if (age < RING && hit.style != SPARK && hit.style != GROUNDED && hit.style != REFLECTED) {
             double t = age / RING, radius = s * (.3 + 2.6 * (1 - (1 - t) * (1 - t)));
             Vec3[] axes = dev.hurtify.relicsaddon.drone.HiveShapes.axes(hit.normal);
             GlowBrush.circle(glow, m, at, axes[1], axes[2], radius, 48, .03 + .05 * (1 - t), hot, 210 * (1 - t));
         }
         // And over the ground under it.
         boolean grounded = !Double.isNaN(hit.ground) && hit.at.y - hit.ground < 4;
-        if (grounded && hit.style != SPARK) {
+        if (grounded && hit.style != SPARK && hit.style != GROUNDED && hit.style != REFLECTED) {
             Vec3 floor = new Vec3(hit.at.x, hit.ground, hit.at.z).subtract(camera);
             double t = Math.min(1, age / (RING * 1.4)), radius = s * (.5 + 3.4 * (1 - (1 - t) * (1 - t)));
             GlowBrush.circle(glow, m, floor, new Vec3(1, 0, 0), new Vec3(0, 0, 1), radius, 56, .04 * (1 - t) + .01, color, 170 * (1 - t));
@@ -105,6 +106,22 @@ public final class HiveJuice {
         }
         sparks(hit, age, at, glow, m, detail, color, hot);
         if (hit.style == CHARGE) shot(hit, age, at, glow, fill, m, hot);
+        if (hit.style == GROUNDED && age < 7 && grounded) {
+            // A shot the cage caught runs off it into the ground as branching lightning.
+            Vec3 floor = new Vec3(hit.at.x, hit.ground, hit.at.z).subtract(camera);
+            long flicker = (long) Math.floor(age / 1.5);
+            GlowBrush.lightning(glow, m, at, floor, hit.key * 7 + flicker, 8, .18, .012, 0xBFF6FF, 240 * (1 - age / 7));
+            GlowBrush.lightning(glow, m, at.lerp(floor, .5), floor.add(.6, 0, .4), hit.key * 11 + flicker, 4, .3, .008, 0xFFB347, 180 * (1 - age / 7));
+        }
+        if (hit.style == REFLECTED && age < 10) {
+            // A blow the lotus turned back: golden sparks arcing from the petal onto the creature that struck.
+            Vec3 onto = hit.at.add(hit.normal).subtract(camera);
+            for (int mote = 0; mote < 8; mote++) {
+                double t = Math.clamp(age / 8 - mote * .05, 0, 1);
+                Vec3 point = at.lerp(onto, t).add(0, Math.sin(Math.PI * t) * .8, 0);
+                GlowBrush.dot(glow, m, point, .07, 0xFFD27A, 230 * (1 - t));
+            }
+        }
     }
 
     /**

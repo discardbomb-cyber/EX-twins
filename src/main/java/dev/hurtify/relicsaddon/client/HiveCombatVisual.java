@@ -90,6 +90,15 @@ public final class HiveCombatVisual {
         return (type.ordinal() + 1) * 1_000_003L + shot.unit() * 31L + shot.kind();
     }
 
+    /** The middle of the creature nearest {@code at}: whom a ward's turned-back blow falls on. */
+    private static Vec3 heldNear(net.minecraft.client.multiplayer.ClientLevel level, Vec3 at) {
+        var near = level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new net.minecraft.world.phys.AABB(at, at).inflate(4),
+                living -> !(living instanceof net.minecraft.world.entity.player.Player));
+        net.minecraft.world.entity.LivingEntity best = null;
+        for (var living : near) if (best == null || living.distanceToSqr(at) < best.distanceToSqr(at)) best = living;
+        return best == null ? at.add(0, 1, 0) : best.getBoundingBox().getCenter();
+    }
+
     private static void begin(net.minecraft.client.multiplayer.ClientLevel level, HiveCombatState.Shot shot, HiveType type, Vec3 start, Vec3 end, double time) {
         switch (shot.kind()) {
             case HiveCombatState.DROPLET -> {
@@ -117,8 +126,15 @@ public final class HiveCombatVisual {
                 ExFx.wardFlash(level, end);
                 EffectLights.flash(end, 10, 1, 5);
                 HiveJuice.impact(end, new Vec3(0, 1, 0), type, HiveJuice.ZAP, time, .45, group(type, shot) + (long) (end.x * 7 + end.z * 13));
+                HiveJuice.impact(end, heldNear(level, end).subtract(end), type, HiveJuice.REFLECTED, time, .5, group(type, shot) + 1 + (long) (end.x * 7 + end.z * 13));
             }
-            case HiveCombatState.INTERCEPT, HiveCombatState.DRONE_HIT -> {
+            case HiveCombatState.INTERCEPT -> {
+                ExFx.swarmSpark(level, end, type);
+                EffectLights.flash(end, 9, .5, 5);
+                HiveJuice.impact(end, new Vec3(0, 1, 0), type, type == HiveType.RF ? HiveJuice.GROUNDED : HiveJuice.SPARK, time, .5,
+                        group(type, shot) + (long) (end.x * 7 + end.z * 13));
+            }
+            case HiveCombatState.DRONE_HIT -> {
                 ExFx.swarmSpark(level, end, type);
                 EffectLights.flash(end, 7, .3, 4);
                 HiveJuice.impact(end, new Vec3(0, 1, 0), type, HiveJuice.SPARK, time, .3, group(type, shot) + (long) (end.x * 7 + end.z * 13));
