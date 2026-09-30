@@ -134,6 +134,7 @@ public final class ShieldProjectileInterceptor {
         dev.hurtify.relicsaddon.sound.RelicSounds.shield((ServerLevel) player.level(), point,
                 ((dev.hurtify.relicsaddon.relic.AutonomousRelicItem) shield.getItem()).role(), impact.broken(), next.totalIntegrity() == 0);
         if (absorbed > 0) {
+            ShieldCoverage.provoked(player, projectile.getOwner());
             projectile.getPersistentData().putUUID(ABSORBED_FOR, player.getUUID());
             projectile.getPersistentData().putBoolean(ABSORBED_FOR + player.getUUID(), true);
             RelicRuntime.awardAbsorption(player, shield, absorbed);

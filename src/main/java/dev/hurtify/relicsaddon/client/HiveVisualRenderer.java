@@ -41,8 +41,10 @@ public final class HiveVisualRenderer {
     private static final Map<Player, EnumMap<HiveType, Visibility>> VISIBILITY = new WeakHashMap<>();
     /** Last drawn position of every drone, so a hit or recalled drone flies home from exactly where it was seen. */
     private static final Map<Player, EnumMap<HiveType, Vec3[]>> SEEN = new WeakHashMap<>();
-    private static final int MODEL_BUDGET = 900;
-    private static final double RANGE = 176, MODEL_RANGE = 48;
+    /** Drone models per frame, then how many of them may be the full model and how many the swarm model; the rest are the dense model. */
+    private static final int MODEL_BUDGET = 900, FULL_BUDGET = 6, SWARM_BUDGET = 160;
+    /** Beyond RANGE nothing is drawn, beyond MODEL_RANGE drones are points of light; FULL_RANGE and SWARM_RANGE pick the model's detail. */
+    private static final double RANGE = 176, MODEL_RANGE = 48, FULL_RANGE = 4, SWARM_RANGE = 10;
 
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
@@ -60,7 +62,7 @@ public final class HiveVisualRenderer {
         var matrix = poses.last().pose();
         GlowBrush.setPixelAngle(2 * Math.tan(Math.toRadians(minecraft.options.fov().get()) / 2) / Math.max(1, minecraft.getWindow().getHeight()));
         var glow = ShieldGlow.consumer();
-        int[] budget = {MODEL_BUDGET};
+        int[] budget = {MODEL_BUDGET, FULL_BUDGET, SWARM_BUDGET};
         List<HiveModeVisual.Scene> scenes = new ArrayList<>();
         var players = new ArrayList<>(minecraft.level.players());
         players.sort(Comparator.comparingDouble(player -> player.distanceToSqr(camera)));
@@ -77,7 +79,9 @@ public final class HiveVisualRenderer {
         var fill = buffers.getBuffer(ShieldVisualRenderer.renderType());
         for (HiveModeVisual.Scene scene : scenes) HiveModeVisual.render(scene, camera, glow, fill, matrix);
         if (EffectLights.enabled()) scenes.forEach(HiveModeVisual::light);
-        // Space bends before the glass and light are laid over it.
+        // Light that space should bend with it (a black hole's disk) goes in first; then space bends,
+        // and the glass and the rest of the light are laid over it.
+        ShieldGlow.flushEarly();
         ShieldRefraction.flush(matrix);
         buffers.endBatch(ShieldVisualRenderer.renderType());
         ShieldGlow.flush();
@@ -129,7 +133,7 @@ public final class HiveVisualRenderer {
                 members[HiveSlots.group(slot, groups)]++;
                 drones[slot] = at;
                 seen[unit] = at;
-                drawDrone(minecraft, event, player, type, at, core, appear, count, camera, poses, glow, budget, unit == 0);
+                drawDrone(minecraft, event, player, type, at, core, appear, count, camera, poses, glow, budget);
             }
             scenes.add(new HiveModeVisual.Scene(combat.mode(), type, slots, groups, members, drones, owner, feet, width, height, time, cycleStart, interval,
                     time >= combat.changedAt() + combat.travel() * .5));
@@ -144,7 +148,7 @@ public final class HiveVisualRenderer {
             double from = struck ? state.lastHit() : homeFrom;
             Vec3 start = seen[unit] != null ? seen[unit] : HiveFormation.belt(owner, yaw, type);
             Vec3 at = HiveFormation.returning(owner, yaw, start, unit, count, type, time, from);
-            drawDrone(minecraft, event, player, type, at, null, appear * (struck ? .8 : 1), count, camera, poses, glow, budget, false);
+            drawDrone(minecraft, event, player, type, at, null, appear * (struck ? .8 : 1), count, camera, poses, glow, budget);
             if (struck && ((long) time + unit) % 3 == 0) GlowBrush.dot(glow, poses.last().pose(), at.subtract(camera), .12, 0xFFB36B, 160);
         }
         if (!combat.active() && time - combat.changedAt() >= HiveFormation.RETURN_TICKS) java.util.Arrays.fill(seen, null);
@@ -155,13 +159,13 @@ public final class HiveVisualRenderer {
                 : support.changedAt() > 0 ? Mth.clamp(1 - supportAge / 12, 0, 1) : 0;
         if (supportProgress > 0) for (int index = 0; index < healerSlots; index++) {
             Vec3 at = HiveFormation.healing(owner, yaw, index, healerSlots, type, time, supportProgress);
-            drawDrone(minecraft, event, player, type, at, null, appear * Math.min(1, supportProgress * 4), count, camera, poses, glow, budget, false);
+            drawDrone(minecraft, event, player, type, at, null, appear * Math.min(1, supportProgress * 4), count, camera, poses, glow, budget);
         }
         HiveCombatVisual.renderShots(combat.shots(), type, camera, poses.last().pose(), time);
     }
 
     private static void drawDrone(Minecraft minecraft, RenderLevelStageEvent event, Player player, HiveType type, Vec3 at, Vec3 facing,
-            double appear, int count, Vec3 camera, PoseStack poses, com.mojang.blaze3d.vertex.VertexConsumer glow, int[] budget, boolean detailed) {
+            double appear, int count, Vec3 camera, PoseStack poses, com.mojang.blaze3d.vertex.VertexConsumer glow, int[] budget) {
         if (appear <= .01) return;
         if (!event.getFrustum().isVisible(new AABB(at, at).inflate(.45))) return;
         if (player == minecraft.player && minecraft.options.getCameraType().isFirstPerson() && at.distanceToSqr(camera) < 1) return;
@@ -171,17 +175,23 @@ public final class HiveVisualRenderer {
             return;
         }
         budget[0]--;
+        // Detail follows distance: the full model for the nearest few, the swarm model nearby, the dense one further off.
+        boolean full = distance < FULL_RANGE && budget[1] > 0;
+        if (full) budget[1]--;
+        boolean dense = !full && (distance > SWARM_RANGE || budget[2] <= 0);
+        if (!full && !dense) budget[2]--;
         poses.pushPose();
         poses.translate(at.x - camera.x, at.y - camera.y, at.z - camera.z);
-        float size = (count > 50 ? .20F : .30F) * (float) appear;
+        float size = (count > 50 ? .22F : .30F) * (float) appear;
         poses.scale(size, size, size);
+        // The models look along -Z (the RF optic sits on that side), so that side is turned towards the target.
         if (facing != null) {
             Vec3 direction = facing.subtract(at);
-            poses.mulPose(Axis.YP.rotation((float) Math.atan2(direction.x, direction.z)));
-            poses.mulPose(Axis.XP.rotation((float) -Math.atan2(direction.y, Math.sqrt(direction.x * direction.x + direction.z * direction.z))));
-        } else poses.mulPose(Axis.YP.rotationDegrees(-player.getYRot()));
+            poses.mulPose(Axis.YP.rotation((float) Math.atan2(-direction.x, -direction.z)));
+            poses.mulPose(Axis.XP.rotation((float) Math.atan2(direction.y, Math.sqrt(direction.x * direction.x + direction.z * direction.z))));
+        } else poses.mulPose(Axis.YP.rotationDegrees(180 - player.getYRot()));
         poses.translate(-.5, -.5, -.5);
-        renderModel(type, poses, minecraft.renderBuffers().bufferSource(), detailed && distance < 4, count > 50 || distance > 12);
+        renderModel(type, poses, minecraft.renderBuffers().bufferSource(), full, dense);
         poses.popPose();
     }
 

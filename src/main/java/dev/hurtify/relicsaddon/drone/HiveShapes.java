@@ -112,39 +112,37 @@ public final class HiveShapes {
 
     /**
      * Member {@code m} of a dense barrage clump of {@code count} drones around its charge, within
-     * {@code radius}: RF a thick shell swirling faster inside than out, Mana a breathing shell, Twins a
-     * thick octagonal disc across the line to the target ({@code facing}). The shells leave the middle
-     * to the glowing charge.
+     * {@code radius}. Every drone keeps to its own orbit round the charge, tilted its own way and run
+     * at its own pace and direction, so the clump swirls on every axis and leaves its middle to the
+     * glowing charge: RF quick, Mana slower and breathing, Twins between.
      */
     public static Vec3 clump(HiveType type, int m, int count, double time, Vec3 facing, double radius) {
         count = Math.max(1, count);
         double fill = (m + .5) / count;
-        return switch (type) {
-            case RF, MANA -> {
-                // Golden-ratio directions with depth growing by volume: an even, dense shell.
-                double y = 1 - 2 * ((m * .6180339887 + .25) % 1);
-                double ring = Math.sqrt(Math.max(0, 1 - y * y)), around = m * GOLDEN_ANGLE;
-                double depth = radius * (.55 + .45 * Math.cbrt(fill));
-                Vec3 direction = new Vec3(Math.cos(around) * ring, y, Math.sin(around) * ring);
-                if (type == HiveType.RF) {
-                    yield rotate(direction, RF_SWIRL, time * (.07 - .03 * fill)).scale(depth);
-                }
-                double breath = 1 + .07 * Math.sin(time * .12 + m * .4);
-                yield rotate(direction, new Vec3(0, 1, 0), -time * .035).scale(depth * breath);
-            }
-            case TWINS -> {
-                Vec3[] axes = axes(facing);
-                double spin = time * .02, angle = m * GOLDEN_ANGLE + spin;
-                // Spread evenly over the disc, then pushed out to the octagon's edge along each spoke.
-                double relative = ((angle - spin) % (Math.PI / 4) + Math.PI / 4) % (Math.PI / 4) - Math.PI / 8;
-                double r = radius * 1.2 * Math.sqrt(fill) * Math.cos(Math.PI / 8) / Math.cos(relative);
-                double thickness = (((m * .7548776662) % 1) - .5) * radius * .7;
-                yield axes[1].scale(Math.cos(angle) * r).add(axes[2].scale(Math.sin(angle) * r)).add(axes[0].scale(thickness));
-            }
+        Vec3 axis = new Vec3(hash(m, 1) * 2 - 1, hash(m, 2) * 2 - 1, hash(m, 3) * 2 - 1);
+        axis = axis.lengthSqr() < 1e-6 ? new Vec3(0, 1, 0) : axis.normalize();
+        Vec3 start = axis.cross(Math.abs(axis.y) > .9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize();
+        double pace = switch (type) {
+            case RF -> .09;
+            case MANA -> .05;
+            case TWINS -> .07;
         };
+        double speed = pace * (.7 + .6 * hash(m, 4)) * (hash(m, 5) < .5 ? -1 : 1);
+        double depth = radius * (.55 + .45 * Math.cbrt(fill));
+        if (type == HiveType.MANA) depth *= 1 + .07 * Math.sin(time * .12 + m * .4);
+        return rotate(start, axis, time * speed + hash(m, 6) * Math.PI * 2).scale(depth);
     }
 
-    private static final Vec3 RF_SWIRL = new Vec3(.3, 1, .2).normalize();
+    /** Stable per-drone random number in [0, 1). */
+    private static double hash(int index, int salt) {
+        long h = index * 0x9E3779B97F4A7C15L ^ salt * 0x165667B19E3779F9L;
+        h ^= h >>> 33;
+        h *= 0xFF51AFD7ED558CCDL;
+        h ^= h >>> 33;
+        h *= 0xC4CEB9FE1A85EC53L;
+        h ^= h >>> 33;
+        return (h >>> 11) * 0x1.0p-53;
+    }
 
     /** {@code v} turned by {@code angle} about the unit {@code axis}. */
     public static Vec3 rotate(Vec3 v, Vec3 axis, double angle) {
@@ -169,17 +167,32 @@ public final class HiveShapes {
      * below; drones stream along its lines.
      */
     public static Vec3 ward(int s, int count, double time, double scale) {
-        double rhombus = 4 * Math.hypot(1.1, 1.55), circle = Math.PI * 2 * 1.3;
-        double total = 3 * rhombus + 2 * circle;
+        double rhombus = 4 * Math.hypot(1.1, 1.55), circle = Math.PI * 2 * 1.3, hexagon = 6 * 1.1;
+        double total = 3 * rhombus + 2 * circle + hexagon;
         double at = ((s + .5) / count * total + time * .02) % total;
         double turn = time * .008;
         for (int index = 0; index < 3; index++) {
             if (at < rhombus) return rhombusPoint(at / rhombus, turn + index * Math.PI * 2 / 3).scale(scale);
             at -= rhombus;
         }
-        boolean top = at < circle;
-        double angle = (top ? at : at - circle) / circle * Math.PI * 2 - turn;
-        return new Vec3(Math.cos(angle) * 1.3, top ? 1.0 : -1.0, Math.sin(angle) * 1.3).scale(scale);
+        if (at < 2 * circle) {
+            boolean top = at < circle;
+            double angle = (top ? at : at - circle) / circle * Math.PI * 2 - turn;
+            return new Vec3(Math.cos(angle) * 1.3, top ? 1.0 : -1.0, Math.sin(angle) * 1.3).scale(scale);
+        }
+        return wardHexagonPoint((at - 2 * circle) / hexagon, turn).scale(scale);
+    }
+
+    /**
+     * A point {@code t} (0..1) round the ward's middle hexagon, which joins the rhombi's six side corners
+     * (each rhombus, turned by {@code turn} and then by thirds, has a corner on either side).
+     */
+    public static Vec3 wardHexagonPoint(double t, double turn) {
+        double along = (t - Math.floor(t)) * 6;
+        int side = (int) Math.floor(along) % 6;
+        double f = along - Math.floor(along);
+        double a0 = turn + side * Math.PI / 3, a1 = turn + (side + 1) * Math.PI / 3;
+        return new Vec3((Math.cos(a0) * (1 - f) + Math.cos(a1) * f) * 1.1, 0, (Math.sin(a0) * (1 - f) + Math.sin(a1) * f) * 1.1);
     }
 
     /** A point {@code t} (0..1) around an upright rhombus turned by {@code angle} about the vertical. */
@@ -210,7 +223,8 @@ public final class HiveShapes {
         double[][] tetra = {{1, 1, 1}, {1, -1, -1}, {-1, 1, -1}, {-1, -1, 1}};
         double[] d = tetra[sphere % 4];
         double turn = time * .01, length = Math.sqrt(3);
-        double x = d[0] / length, y = d[1] / length * .6, z = d[2] / length;
+        // Two spheres ride high and two level with the target, so none sinks below it into the ground.
+        double x = d[0] / length, y = d[1] > 0 ? .30 : .02, z = d[2] / length;
         return new Vec3((x * Math.cos(turn) - z * Math.sin(turn)) * distance, y * distance, (x * Math.sin(turn) + z * Math.cos(turn)) * distance);
     }
 

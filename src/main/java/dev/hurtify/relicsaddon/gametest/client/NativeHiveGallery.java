@@ -109,7 +109,7 @@ final class NativeHiveGallery extends Screen {
                 pose.translate(at.x, at.y, at.z);
                 pose.scale(.2F, .2F, .2F);
                 Vec3 facing = core.subtract(at);
-                pose.mulPose(Axis.YP.rotation((float) Math.atan2(facing.x, facing.z)));
+                pose.mulPose(Axis.YP.rotation((float) Math.atan2(-facing.x, -facing.z)));
                 pose.translate(-.5, -.5, -.5);
                 HiveVisualRenderer.renderModel(type, pose, graphics.bufferSource(), slot == 0, true);
                 pose.popPose();

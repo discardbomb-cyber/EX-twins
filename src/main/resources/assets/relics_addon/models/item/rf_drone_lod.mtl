@@ -49,12 +49,12 @@ Ka 0 0 0
 map_Kd relics_addon:item/materials/rf_mesh_white
 
 newmtl cyan
-Kd 0.32 0.77 1.0
+Kd 0.32 0.77 1
 Ka 1 1 1
 map_Kd relics_addon:item/materials/rf_mesh_white
 
 newmtl white
-Kd 0.93 0.98 1.0
+Kd 0.93 0.98 1
 Ka 1 1 1
 map_Kd relics_addon:item/materials/rf_mesh_white
 
