@@ -139,6 +139,7 @@ public final class HiveVisualRenderer {
         var fill = buffers.getBuffer(ShieldVisualRenderer.renderType());
         for (HiveModeVisual.Scene scene : scenes) HiveModeVisual.render(scene, camera, glow, fill, matrix);
         HiveJuice.render(camera, glow, fill, matrix, time);
+        HiveProjectiles.flush(camera, glow, fill, matrix);
         RfArmageddonVisual.scorches(time, camera, fill, matrix);
         if (EffectLights.enabled()) scenes.forEach(HiveModeVisual::light);
         // Horizons go in solid and write depth before any light, so nothing behind a black hole shows

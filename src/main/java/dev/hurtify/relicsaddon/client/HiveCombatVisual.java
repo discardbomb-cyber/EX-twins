@@ -73,8 +73,13 @@ public final class HiveCombatVisual {
                 double t = (time - shot.firedAt()) / Math.max(1, shot.impactAt() - shot.firedAt());
                 Vec3 flying = start.lerp(end, Math.clamp(t, 0, 1));
                 Vec3 at = flying.subtract(camera);
-                GlowBrush.dot(glow, matrix, at, .55, HiveModeVisual.color(type), 150);
-                GlowBrush.dot(glow, matrix, at, .22, 0xFFFFFF, 200);
+                if (type == HiveType.MANA) {
+                    GlowBrush.dot(glow, matrix, at, .55, HiveModeVisual.color(type), 150);
+                    GlowBrush.dot(glow, matrix, at, .22, 0xFFFFFF, 200);
+                } else {
+                    // The ring of lightning or the glass icosahedron, drawn with the constructs.
+                    HiveProjectiles.fly(type, flying, end.subtract(start), time, key);
+                }
                 EffectLights.glow(flying, 12, .55);
             }
         }

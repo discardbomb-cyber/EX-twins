@@ -394,21 +394,53 @@ public final class HiveModeVisual {
             double charge = charges[group], radius = HiveFormation.clumpRadius(s.members()[group]);
             // A soft halo so a clump reads from far off, then its charge glowing through the drones.
             GlowBrush.dot(glow, m, centre, radius * 2.8, color, 28 + 52 * charge);
-            chargeOrb(glow, m, centre, Math.max(.1, charge), radius * .8, group, s.time(), color);
-            if (s.type() == HiveType.TWINS && charge > .15) {
-                // Lightning runs round the octagon's rim while it charges.
-                long flicker = (long) Math.floor(s.time() / 2);
-                Vec3 facing = core.subtract(centre);
-                double spin = (s.time() + group * 29) * .02, rim = radius * 1.2;
-                for (int side = 0; side < 8; side++) {
-                    long seed = flicker * 131 + group * 17L + side;
-                    if (new Random(seed).nextDouble() > .5 * charge + .1) continue;
-                    Vec3 a = centre.add(HiveShapes.hexagonPoint(0, spin + side * Math.PI / 4, facing, rim));
-                    Vec3 b = centre.add(HiveShapes.hexagonPoint(0, spin + (side + 1) * Math.PI / 4, facing, rim));
-                    GlowBrush.lightning(glow, m, a, b, seed, 3, .25, .012, 0xE7C6FF, 210 * charge);
+            if (s.type() == HiveType.MANA) {
+                chargeOrb(glow, m, centre, Math.max(.1, charge), radius * .8, group, s.time(), color);
+                continue;
+            }
+            pattern(s, group, centre, core, charge, camera, glow, fill, m, color);
+        }
+        // Now and then lightning leaps between neighbouring clumps, where their drones hop.
+        if (s.type() != HiveType.MANA) {
+            long beat = (long) Math.floor(s.time() / 24);
+            int[][] links = HiveFormation.clusterLinks(s.type(), groups);
+            if (links.length > 0 && s.time() - beat * 24 < 4) {
+                int[] link = links[(int) Math.floorMod(beat * 7, links.length)];
+                if (s.members()[link[0]] > 0 && s.members()[link[1]] > 0) {
+                    GlowBrush.lightning(glow, m, centres[link[0]], centres[link[1]], beat * 53, 7, .12, .01, GlowBrush.mix(color, 0xFFFFFF, .5), 200);
                 }
             }
         }
+    }
+
+    /**
+     * An RF or Twins clump: its drones stand on the corners of a crown or an octagon, joined by lines of light,
+     * and its shot builds in the middle (a ring of lightning, a glass icosahedron) with thin discharges running
+     * from the corners into it. Lightning runs round the Twins octagon's rim as it charges.
+     */
+    private static void pattern(Scene s, int group, Vec3 centre, Vec3 core, double charge, Vec3 camera, VertexConsumer glow, VertexConsumer fill,
+            Matrix4f m, int color) {
+        int groups = s.groups(), members = s.members()[group], ring = Math.min(HiveShapes.CLUMP_RING, members);
+        Vec3[] corners = new Vec3[ring];
+        for (int corner = 0; corner < ring; corner++) {
+            int slot = corner * groups + group;
+            corners[corner] = slot < s.drones().length && s.drones()[slot] != null ? s.drones()[slot].subtract(camera) : null;
+        }
+        long flicker = (long) Math.floor(s.time() / 2);
+        for (int corner = 0; corner < ring; corner++) {
+            Vec3 a = corners[corner], b = corners[(corner + 1) % ring];
+            if (a == null || b == null) continue;
+            GlowBrush.beam(glow, m, a, b, .014, color, 70 + 90 * charge);
+            if (s.type() == HiveType.TWINS && charge > .15 && hashOf((int) flicker * 131 + group * 17, corner) < .5 * charge + .1) {
+                GlowBrush.lightning(glow, m, a, b, flicker * 131 + group * 17L + corner, 3, .25, .01, 0xE7C6FF, 210 * charge);
+            }
+            // Thin discharges from the corners into the charge.
+            if (charge > .2 && hashOf((int) flicker * 7 + group, corner + 40) < .35) {
+                GlowBrush.lightning(glow, m, a, centre, flicker * 17 + group * 5L + corner, 3, .2, .005, GlowBrush.mix(color, 0xFFFFFF, .5), 150 * charge);
+            }
+        }
+        if (s.type() == HiveType.RF) HiveProjectiles.ring(glow, m, centre, core.subtract(centre), Math.max(.05, charge), s.time(), group * 977L + 13);
+        else HiveProjectiles.icosahedron(glow, fill, m, centre, HiveProjectiles.RADIUS * (.35 + .65 * charge), s.time() * .06 + group, .4 + .6 * charge);
     }
 
     /** A barrage clump's charge, 0 to 1: it builds until the clump fires, then collapses within a few ticks. */

@@ -183,6 +183,7 @@ public final class HiveShapes {
      */
     public static Vec3 clump(HiveType type, int m, int count, double time, Vec3 facing, double radius) {
         count = Math.max(1, count);
+        if (type != HiveType.MANA) return clumpPattern(type, m, count, time, radius);
         double fill = (m + .5) / count;
         Vec3 axis = new Vec3(hash(m, 1) * 2 - 1, hash(m, 2) * 2 - 1, hash(m, 3) * 2 - 1);
         axis = axis.lengthSqr() < 1e-6 ? new Vec3(0, 1, 0) : axis.normalize();
@@ -196,6 +197,32 @@ public final class HiveShapes {
         double depth = radius * (.55 + .45 * Math.cbrt(fill));
         if (type == HiveType.MANA) depth *= 1 + .07 * Math.sin(time * .12 + m * .4);
         return rotate(start, axis, time * speed + hash(m, 6) * Math.PI * 2).scale(depth);
+    }
+
+    /** Corners of the ring an RF (crown) or Twins (octagon) clump's drones stand on, before any go to its inner ring. */
+    public static final int CLUMP_RING = 8;
+
+    /**
+     * An RF or Twins clump: its drones on the corners of a small pattern round the charge, a crown of eight
+     * with every other point raised on RF, an octagon on Twins; any more make a smaller ring inside it. The
+     * whole pattern tumbles over every axis, quicker on RF.
+     */
+    public static Vec3 clumpPattern(HiveType type, int m, int count, double time, double radius) {
+        int ring = Math.min(CLUMP_RING, count), inner = Math.max(1, count - CLUMP_RING);
+        Vec3 point;
+        if (m < CLUMP_RING) {
+            double angle = m * Math.PI * 2 / ring;
+            double lift = type == HiveType.RF && ring >= 4 ? (m % 2 == 0 ? .38 : -.2) : 0;
+            point = new Vec3(Math.cos(angle) * .92, lift, Math.sin(angle) * .92);
+        } else {
+            double angle = (m - CLUMP_RING + .5) * Math.PI * 2 / inner;
+            point = new Vec3(Math.cos(angle) * .62, type == HiveType.TWINS ? .3 : 0, Math.sin(angle) * .62);
+        }
+        double pace = type == HiveType.RF ? .06 : .04;
+        point = rotate(point, new Vec3(0, 1, 0), time * pace * 1.7);
+        point = rotate(point, new Vec3(1, 0, 0), time * pace);
+        point = rotate(point, new Vec3(0, 0, 1), time * pace * .6 + 1);
+        return point.scale(radius);
     }
 
     /** Stable per-drone random number in [0, 1). */
