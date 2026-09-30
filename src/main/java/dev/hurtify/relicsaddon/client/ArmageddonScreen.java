@@ -155,7 +155,17 @@ public final class ArmageddonScreen extends Screen {
 
         int y = top + FIRST_LINE;
         for (Line line : lines) {
-            g.drawString(font, line.text(), left + 18, y, line.color(), false);
+            // A line longer than the panel (Russian runs long) is narrowed to fit rather than left to spill past its edge.
+            int width = font.width(line.text()), room = WIDTH - 36;
+            if (width > room) {
+                g.pose().pushPose();
+                g.pose().translate(left + 18, y, 0);
+                g.pose().scale(room / (float) width, 1, 1);
+                g.drawString(font, line.text(), 0, 0, line.color(), false);
+                g.pose().popPose();
+            } else {
+                g.drawString(font, line.text(), left + 18, y, line.color(), false);
+            }
             y += LINE;
         }
         HoloPaint.bar(g, left + 18, top + FIRST_LINE + LINE * Math.max(4, lines.size()) + 4, WIDTH - 36, 7, 1, 0xFF000000 | accent);

@@ -182,14 +182,17 @@ public final class HiveVisualRenderer {
             targets.add(live);
             near |= live.feet().distanceTo(camera) < RANGE;
         }
+        ArmageddonState armageddon = stack.get(ModDataComponents.HIVE_ARMAGEDDON.get());
+        // An Armageddon's shot and escort fly out to its target, up to its whole reach away: someone near the target sees them come.
+        if (armageddon != null && armageddon.running(now)) near |= armageddon.target().distanceTo(camera) < RANGE;
         if (!near) return;
         long cycleStart = combat.changedAt() + combat.travel();
         int interval = HiveCombatController.strikeInterval(player, stack);
 
-        ArmageddonState armageddon = stack.get(ModDataComponents.HIVE_ARMAGEDDON.get());
         if (armageddon != null && armageddon.running(now)) {
-            armageddon(minecraft, event, player, type, armageddon, units, slots, fighters, count, owner, yaw, appear, seen, now, time, partial,
-                    camera, poses, glow, budget);
+            // The whole swarm goes into the shot, healers too: a hive given over to healing still builds its construct.
+            armageddon(minecraft, event, player, type, armageddon, units, Math.min(count, HiveType.MAX_DEPLOYED), count, count, owner, yaw, appear, seen,
+                    now, time, partial, camera, poses, glow, budget);
         } else if (combat.active() && slots > 0 && !targets.isEmpty()) {
             int groups = HiveSlots.groups(slots, combat.mode()), engaged = HiveFormation.engaged(targets.size(), groups);
             int[] members = new int[groups];
@@ -232,7 +235,7 @@ public final class HiveVisualRenderer {
         double supportAge = time - (enabled ? support.changedAt() : visibility.changedAt());
         double supportProgress = support.active() && enabled ? Mth.clamp(supportAge / 12, 0, 1)
                 : support.changedAt() > 0 ? Mth.clamp(1 - supportAge / 12, 0, 1) : 0;
-        if (supportProgress > 0) for (int index = 0; index < healerSlots; index++) {
+        if (supportProgress > 0 && !held) for (int index = 0; index < healerSlots; index++) {
             Vec3 at = HiveFormation.healing(owner, yaw, index, healerSlots, type, time, supportProgress);
             drawDrone(minecraft, event, player, type, at, null, appear * Math.min(1, supportProgress * 4), count, camera, poses, glow, budget);
         }
