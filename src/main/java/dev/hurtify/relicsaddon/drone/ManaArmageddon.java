@@ -34,7 +34,7 @@ public final class ManaArmageddon {
      * and fading, and the column of light, growing from COLUMN until the blast falls silent (BLAST). By WHITE it has
      * dissolved into a white sky; in the silence under it, until QUIET, sparks fall.
      */
-    public static final int FLASH = 8, SHOCK = 70, DOME = 10, EXPAND = 130, DOME_HOLD = 230, DOME_GONE = 330, COLUMN = 24, WHITE = BLAST + 30,
+    public static final int FLASH = 8, SHOCK = 70, DOME = 10, EXPAND = 130, DOME_HOLD = 170, DOME_GONE = 250, COLUMN = 24, WHITE = BLAST + 30,
             QUIET = WHITE + 70;
     /** The drones start home once the white has settled, and by END they are there. */
     public static final int RECOVER = IMPACT + QUIET, END = RECOVER + 30;
@@ -92,6 +92,37 @@ public final class ManaArmageddon {
 
     public static double ringRadius(int ring) {
         return RING_RADIUS[ring];
+    }
+
+    /**
+     * Ring {@code ring} of flower {@code side} {@code age} ticks in: its centre, two axes across it (turned as far as
+     * the ring has turned) and its normal. The seal's belt (ring 0) lies flat behind the flower; the gyroscope's rings
+     * lean their own ways round it, the right flower's mirroring the left's, and turn opposite ways.
+     */
+    public static Vec3[] ringFrame(ArmageddonState state, int side, int ring, double age) {
+        Vec3[] face = face(state, side);
+        Vec3 centre = heart(state, side).subtract(face[2].scale(ring == 0 ? SEAL_BEHIND : 0));
+        double lean = side < 0 ? RING_LEAN[ring] : Math.PI - RING_LEAN[ring], tilt = RING_TILT[ring];
+        Vec3 toward = face[0].scale(Math.cos(lean)).add(face[1].scale(Math.sin(lean)));
+        Vec3 normal = face[2].scale(Math.cos(tilt)).add(toward.scale(Math.sin(tilt))).normalize();
+        Vec3 first = ring == 0 ? face[0] : face[2].scale(-Math.sin(tilt)).add(toward.scale(Math.cos(tilt))).normalize();
+        Vec3 second = ring == 0 ? face[1] : normal.cross(first).normalize();
+        double turn = ringTurn(ring, age) * (ring == 0 ? 1 : side);
+        return new Vec3[]{centre, first.scale(Math.cos(turn)).add(second.scale(Math.sin(turn))), second.scale(Math.cos(turn)).subtract(first.scale(Math.sin(turn))), normal};
+    }
+
+    /** Where rune {@code rune} of a ring sits round it: from the top, clockwise as its owner sees it. */
+    public static double runeAngle(double rune) {
+        return Math.PI / 2 - rune * Math.PI * 2 / RUNES;
+    }
+
+    /** The central seal between the flowers, over the owner's head: its centre, right and up across it, and its normal towards the target. */
+    public static Vec3[] centralFrame(ArmageddonState state) {
+        Vec3 centre = state.origin().add(0, CENTRAL_UP, 0), normal = state.target().subtract(centre);
+        normal = normal.lengthSqr() < 1e-6 ? frame(state)[0] : normal.normalize();
+        Vec3 right = normal.cross(new Vec3(0, 1, 0));
+        right = right.lengthSqr() < 1e-6 ? frame(state)[1] : right.normalize();
+        return new Vec3[]{centre, right, right.cross(normal).normalize(), normal};
     }
 
     /** Where the flowers hang for an owner whose eyes are at {@code eye}: the point between their hearts, over the eyes and a little ahead. */
@@ -180,6 +211,11 @@ public final class ManaArmageddon {
     private static double[] flowerPlace(int index, int count) {
         int petal = index % PETALS, member = index / PETALS, members = (count - petal + PETALS - 1) / PETALS;
         return petalPlace(petal, member, Math.max(1, members));
+    }
+
+    /** When a flower place {@code out} of the way from the heart to a petal's tip (0..1) has landed: the heart's first. */
+    public static double filledBy(double out) {
+        return GATHER_STAGGER * Math.clamp(out, 0, 1) + GATHER;
     }
 
     /**
@@ -383,14 +419,14 @@ public final class ManaArmageddon {
     }
 
     /**
-     * The column of light's radius {@code sinceImpact} ticks after the burst: a thread as it rises at COLUMN, easing
-     * out to {@link #COLUMN_RADIUS} exactly as the blast falls silent at {@link #BLAST}, and no wider after, while it
-     * dissolves.
+     * The column of light's radius {@code sinceImpact} ticks after the burst: a thread as it rises at COLUMN, staying thin
+     * a while, then widening and easing out to {@link #COLUMN_RADIUS} exactly as the blast falls silent at {@link #BLAST},
+     * with no jump there, and no wider after, while it dissolves.
      */
     public static double column(double sinceImpact) {
         if (sinceImpact < COLUMN) return 0;
-        double u = Math.clamp((sinceImpact - COLUMN) / (BLAST - COLUMN), 0, 1);
-        return COLUMN_START + (COLUMN_RADIUS - COLUMN_START) * (1 - (1 - u) * (1 - u));
+        double u = Math.clamp((sinceImpact - COLUMN) / (BLAST - COLUMN), 0, 1), grown = 1 - Math.pow(u, 1.35);
+        return COLUMN_START + (COLUMN_RADIUS - COLUMN_START) * (1 - grown * grown);
     }
 
     /** How far the ring of stones has run along the ground {@code sinceImpact} ticks after the burst. */
