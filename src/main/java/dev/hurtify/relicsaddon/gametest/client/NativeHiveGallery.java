@@ -75,7 +75,7 @@ final class NativeHiveGallery extends Screen {
         boolean contain = mode == AttackMode.CONTAINMENT, droplet = mode == AttackMode.DROPLET;
         // Droplet figures form up in a fan behind their owner: that view is turned so the fan opens out
         // across the frame and the figures fly off to the right, and shifted to take in both ends.
-        double reach = contain ? 5.5 : droplet ? 9 : 8, shift = droplet ? 1.9 : 0;
+        double reach = contain ? 12 : droplet ? 9 : 8, shift = droplet ? 1.9 : 0;
         float turn = droplet ? .65F : 0F;
         double scale = Math.min((cw - 16) / (reach * 2), (height - 60) / (reach * 1.9));
         Vec3 target = droplet ? new Vec3(7.5, 0, 0) : Vec3.ZERO;
@@ -85,7 +85,7 @@ final class NativeHiveGallery extends Screen {
         }
         Vec3 owner = droplet ? new Vec3(-1.5, 0, 0) : new Vec3(contain ? -4.5 : -8, 0, 1.5);
         double cycleStart = combatStart + TRAVEL;
-        int groups = HiveSlots.groups(SLOTS);
+        int groups = HiveSlots.groups(SLOTS, mode);
         int[] members = new int[groups];
         Vec3[] drones = new Vec3[SLOTS];
         Vec3 core = HiveFormation.core(target, 1.8);

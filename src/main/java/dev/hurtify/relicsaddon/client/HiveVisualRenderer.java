@@ -115,7 +115,7 @@ public final class HiveVisualRenderer {
         int interval = HiveCombatController.strikeInterval(player, stack);
 
         if (combat.active() && slots > 0) {
-            int groups = HiveSlots.groups(slots);
+            int groups = HiveSlots.groups(slots, combat.mode());
             int[] members = new int[groups];
             Vec3[] drones = new Vec3[slots];
             Vec3 core = HiveFormation.core(feet, height);
