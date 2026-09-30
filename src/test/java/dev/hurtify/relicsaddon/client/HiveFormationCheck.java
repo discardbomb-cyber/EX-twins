@@ -9,6 +9,7 @@ import dev.hurtify.relicsaddon.drone.HiveSlots;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
 import dev.hurtify.relicsaddon.drone.HiveTarget;
 import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.drone.ManaArmageddon;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.world.phys.Vec3;
@@ -223,8 +224,114 @@ public final class HiveFormationCheck {
         for (int group = 0; group < 16; group++) total += HiveSlots.groupSize(group, 250, 16);
         require(total == 250, "every place belongs to exactly one group");
         armageddon();
+        manaArmageddon();
         System.out.println("Hive formation: every mode bounded, smooth and separated; launches land; blows due on time; lanes rotate; "
-                + "the Armageddon cannon forms, fires, devours and bursts on time");
+                + "the Armageddon cannon forms, fires, devours and bursts on time; the Mana flowers form apart, their streams meet head-on, "
+                + "and the column grows with the blast");
+    }
+
+    /**
+     * Mana Armageddon: its stages in order; the rings written one after another, the last as the charge fills; the
+     * flowers whole, smooth and clear of the gap between them, their drones spiralling in without a jump; the
+     * streams leaving the hearts and meeting head-on at the target; the vortex, the dome and the column true to
+     * their inverses and ends, the column widest exactly as the blast falls silent.
+     */
+    private static void manaArmageddon() {
+        require(ManaArmageddon.ASSEMBLED < ManaArmageddon.FIRE && ManaArmageddon.FIRE < ManaArmageddon.ARRIVE && ManaArmageddon.ARRIVE < ManaArmageddon.TEAR
+                && ManaArmageddon.TEAR < ManaArmageddon.IGNITE && ManaArmageddon.IGNITE < ManaArmageddon.IMPACT && ManaArmageddon.IMPACT < ManaArmageddon.RECOVER
+                && ManaArmageddon.RECOVER < ManaArmageddon.END, "Mana Armageddon's stages come in order");
+        require(ManaArmageddon.DOME + ManaArmageddon.EXPAND < ManaArmageddon.DOME_HOLD && ManaArmageddon.DOME_HOLD < ManaArmageddon.DOME_GONE
+                && ManaArmageddon.COLUMN < ManaArmageddon.BLAST && ManaArmageddon.BLAST < ManaArmageddon.WHITE && ManaArmageddon.WHITE < ManaArmageddon.QUIET
+                && ManaArmageddon.RECOVER == ManaArmageddon.IMPACT + ManaArmageddon.QUIET, "the blast's stages come in order, and the drones go home after the white");
+        require(ManaArmageddon.BLAST == Math.round(ManaArmageddon.BLAST_SECONDS * 20), "the blast lasts as many ticks as its sound's seconds");
+        require(ManaArmageddon.charge(0) == 0 && ManaArmageddon.charge(ManaArmageddon.FIRE) == 1, "the charge runs from empty to full as the streams leave");
+        for (int ring = 0; ring < ManaArmageddon.RINGS; ring++) {
+            double filled = ManaArmageddon.filledAt(ring), span = (ManaArmageddon.FIRE - ManaArmageddon.ASSEMBLED) / (double) ManaArmageddon.RINGS;
+            require(Math.abs(ManaArmageddon.written(ring, filled) - 1) < 1e-9 && ManaArmageddon.written(ring, filled - span) < 1e-9,
+                    "ring " + ring + " is written in its own share of the charge");
+            require(ManaArmageddon.ringTurn(ring, filled) == 0 && ManaArmageddon.ringTurn(ring, filled + 20) != 0, "a ring starts to turn once it is full");
+        }
+        require(Math.abs(ManaArmageddon.filledAt(ManaArmageddon.RINGS - 1) - ManaArmageddon.FIRE) < 1e-9, "the last ring fills as the charge does");
+
+        Vec3 eye = new Vec3(10, 70, 10);
+        for (Vec3 aim : new Vec3[]{new Vec3(0, -10, -60), new Vec3(180, 5, 170), new Vec3(3, -60, 4), new Vec3(0, 0, -12)}) {
+            Vec3 target = eye.add(aim);
+            ArmageddonState shot = new ArmageddonState(HiveType.MANA, 1_000, ManaArmageddon.origin(eye, target), target, true);
+            Vec3 left = ManaArmageddon.heart(shot, -1), right = ManaArmageddon.heart(shot, 1);
+            require(Math.abs(left.distanceTo(right) - 2 * ManaArmageddon.SPREAD) < 1e-9 && left.y > eye.y && right.y > eye.y,
+                    "the flowers hang over the owner's shoulders, one either side");
+            for (int side : new int[]{-1, 1}) {
+                require(ManaArmageddon.stream(shot, side, 0).distanceTo(ManaArmageddon.heart(shot, side)) < 1e-9
+                        && ManaArmageddon.stream(shot, side, 1).distanceTo(target) < 1e-9, "each stream runs from its flower's heart to the target");
+            }
+            require(ManaArmageddon.streamAxes(shot, -1, 1)[0].dot(ManaArmageddon.streamAxes(shot, 1, 1)[0]) < -.999, "the streams meet head-on");
+            double reach = target.distanceTo(shot.origin());
+            Vec3[] frame = ManaArmageddon.frame(shot);
+            for (int slots : new int[]{1, 7, 100, 250, 2000}) {
+                require(ManaArmageddon.flowered(slots) + ManaArmageddon.escorts(slots) == slots, "every place is in a flower or rides a stream");
+                int flowered = ManaArmageddon.flowered(slots);
+                Vec3[] previous = new Vec3[slots];
+                for (double age = 0; age <= ManaArmageddon.RECOVER; age += .5) {
+                    double time = shot.startedAt() + age;
+                    Vec3[] at = new Vec3[slots];
+                    for (int slot = 0; slot < slots; slot++) {
+                        Vec3 station = ManaArmageddon.station(shot, slot, slots, time);
+                        requireFinite(station, "Mana Armageddon station");
+                        // As the renderer flies them: from where they were (a little below the owner's eyes), spiralling in.
+                        double gathered = slot < flowered ? ManaArmageddon.gathered(slot, slots, age) : Math.clamp(age / ManaArmageddon.ASSEMBLED, 0, 1);
+                        Vec3 start = eye.add(Math.sin(slot) * .8, -1, Math.cos(slot) * .8);
+                        at[slot] = ManaArmageddon.spiral(shot, ManaArmageddon.side(slot < flowered ? slot : slot - flowered), start, station, gathered);
+                        requireFinite(at[slot], "Mana Armageddon drone");
+                        if (age < ManaArmageddon.FIRE) require(at[slot].distanceTo(shot.origin()) < 10, "the flowers keep together over their owner: "
+                                + at[slot].distanceTo(shot.origin()) + " at " + age);
+                        else require(at[slot].distanceTo(shot.origin()) < reach * 1.6 + 130, "the escort stays with the streams and the blast");
+                        if (previous[slot] != null) require(previous[slot].distanceTo(at[slot]) < 2 + reach * .05,
+                                "a Mana Armageddon drone must not jump: " + previous[slot].distanceTo(at[slot]) + " at " + age + " (" + slot + "/" + slots + ")");
+                        // Resting in its flower, a petal drone keeps clear of the gap between the flowers.
+                        if (slot < flowered && age >= ManaArmageddon.ASSEMBLED && age < ManaArmageddon.FIRE) {
+                            double off = Math.abs(at[slot].subtract(shot.origin()).dot(frame[1]));
+                            require(off > ManaArmageddon.SPREAD - ManaArmageddon.PETAL - .3, "the gap between the flowers stays empty: " + off);
+                        }
+                    }
+                    if (slots <= 250 && (age == 400 || age == ManaArmageddon.FIRE - 1)) for (int a = 0; a < slots; a++) for (int b = a + 1; b < slots; b++) {
+                        require(at[a].distanceToSqr(at[b]) > 1e-8, "Mana Armageddon places " + a + " and " + b + " of " + slots + " coincide");
+                    }
+                    previous = at;
+                }
+            }
+        }
+        // The petals: every place inside its petal.
+        for (int members : new int[]{1, 6, 25, 250}) for (int petal = 0; petal < ManaArmageddon.PETALS; petal++) for (int member = 0; member < members; member++) {
+            double[] place = ManaArmageddon.petalPlace(petal, member, members);
+            double angle = ManaArmageddon.petalAngle(petal);
+            double along = place[0] * Math.cos(angle) + place[1] * Math.sin(angle), across = -place[0] * Math.sin(angle) + place[1] * Math.cos(angle);
+            require(along > ManaArmageddon.PETAL_BASE && along < ManaArmageddon.PETAL && Math.abs(across) <= ManaArmageddon.petalHalfWidth(along) + 1e-9,
+                    "a petal drone rests inside its petal");
+        }
+
+        // The vortex tears the land from the middle out to its whole reach before the sun ignites, and its inverse agrees.
+        require(ManaArmageddon.torn(ManaArmageddon.TEAR) == 0 && Math.abs(ManaArmageddon.torn(ManaArmageddon.IGNITE - 4) - ManaArmageddon.CARVE_RADIUS) < 1e-9,
+                "the vortex tears the land out to its whole reach");
+        for (double distance = .5; distance < ManaArmageddon.CARVE_RADIUS; distance += 1.5) {
+            double when = ManaArmageddon.tornAt(distance);
+            require(Math.abs(ManaArmageddon.torn(when) - distance) < 1e-3, "a block is torn up when the vortex reaches it");
+        }
+        // The dome of light strikes nothing before it forms, sweeps out to the radius and agrees with its inverse.
+        require(ManaArmageddon.dome(ManaArmageddon.DOME - 1) == 0 && Math.abs(ManaArmageddon.dome(ManaArmageddon.DOME + ManaArmageddon.EXPAND) - ManaArmageddon.RADIUS) < 1e-9,
+                "the dome of light sweeps out to the radius");
+        for (double t = 0; t < ManaArmageddon.DOME + ManaArmageddon.EXPAND; t += 2.5) require(ManaArmageddon.dome(t + 2.5) >= ManaArmageddon.dome(t), "the dome only grows");
+        for (double distance = 1; distance <= ManaArmageddon.RADIUS; distance += 2.5) {
+            double when = ManaArmageddon.domeReaches(distance);
+            require(ManaArmageddon.dome(when) >= distance - 1e-6 && ManaArmageddon.dome(when - .01) < distance, "the dome reaches " + distance + " when it says it does");
+        }
+        // The column: a thread as it rises, never narrowing, widest exactly as the blast falls silent, easing into it with no jump.
+        require(Math.abs(ManaArmageddon.column(ManaArmageddon.COLUMN) - ManaArmageddon.COLUMN_START) < 1e-9
+                && Math.abs(ManaArmageddon.column(ManaArmageddon.BLAST) - ManaArmageddon.COLUMN_RADIUS) < 1e-9
+                && ManaArmageddon.column(ManaArmageddon.WHITE) == ManaArmageddon.COLUMN_RADIUS && ManaArmageddon.COLUMN_RADIUS <= ManaArmageddon.RADIUS,
+                "the column grows from a thread to its widest as the blast falls silent, no wider than the dome");
+        for (double t = ManaArmageddon.COLUMN; t < ManaArmageddon.BLAST; t += 1) require(ManaArmageddon.column(t + 1) >= ManaArmageddon.column(t), "the column never narrows");
+        require(ManaArmageddon.column(ManaArmageddon.BLAST) - ManaArmageddon.column(ManaArmageddon.BLAST - 1) < .01, "the column eases into its widest without a jump");
+        require(Math.abs(ManaArmageddon.shock(ManaArmageddon.SHOCK) - ManaArmageddon.SHOCK_RADIUS) < 1e-9, "the ring of stones runs out to its reach");
     }
 
     /** Armageddon: its stages in order, the cannon whole and smooth, the shot landing on its target, the front and the devouring true to their inverses. */

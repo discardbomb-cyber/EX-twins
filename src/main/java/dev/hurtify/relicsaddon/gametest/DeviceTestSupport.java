@@ -43,9 +43,14 @@ final class DeviceTestSupport {
 
     /** Same, standing at a position relative to the test structure. */
     static ServerPlayer player(GameTestHelper helper, Vec3 relative) {
+        return player(helper, relative, "device-test");
+    }
+
+    /** Same, with a name of its own (so a team can take it in without taking every other test player). */
+    static ServerPlayer player(GameTestHelper helper, Vec3 relative, String name) {
         helper.assertTrue(GameTestHooks.isGametestServer(), "Run with runGameTestServer");
         var server = helper.getLevel().getServer();
-        GameProfile profile = new GameProfile(UUID.randomUUID(), "device-test");
+        GameProfile profile = new GameProfile(UUID.randomUUID(), name);
         ServerPlayer player = new ServerPlayer(server, helper.getLevel(), profile, ClientInformation.createDefault());
         Connection connection = new Connection(PacketFlow.SERVERBOUND);
         EmbeddedChannel channel = new EmbeddedChannel(connection);

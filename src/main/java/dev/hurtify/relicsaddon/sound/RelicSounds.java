@@ -88,6 +88,17 @@ public final class RelicSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> ARMAGEDDON_BLAST = sound("hive.armageddon_blast");
     /** Played by each client as the blast's shock wave reaches it. */
     public static final DeferredHolder<SoundEvent, SoundEvent> ARMAGEDDON_SHOCK = sound("hive.armageddon_shock");
+    private static final DeferredHolder<SoundEvent, SoundEvent> MANA_ARMAGEDDON_CHARGE = sound("hive.mana_armageddon_charge");
+    private static final DeferredHolder<SoundEvent, SoundEvent> MANA_ARMAGEDDON_FIRE = sound("hive.mana_armageddon_fire");
+    private static final DeferredHolder<SoundEvent, SoundEvent> MANA_ARMAGEDDON_COLLISION = sound("hive.mana_armageddon_collision");
+    /**
+     * Each client plays the rest of Mana Armageddon itself, heard wherever it stands (see {@code ManaArmageddonVisual}):
+     * the sphere of runes cracking round the sun, the blast (exactly as long as its column of light grows), and the
+     * dome of light passing over it.
+     */
+    public static final DeferredHolder<SoundEvent, SoundEvent> MANA_ARMAGEDDON_SPHERE = sound("hive.mana_armageddon_sphere");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MANA_ARMAGEDDON_BLAST = sound("hive.mana_armageddon_blast");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MANA_ARMAGEDDON_SHOCK = sound("hive.mana_armageddon_shock");
 
     private static final int MAX_THROTTLE_ENTRIES = 2_048;
     private static final long STALE_TICKS = 1_200L;
@@ -188,16 +199,17 @@ public final class RelicSounds {
 
     /**
      * The sounds of an Armageddon before its blast: charging, the shot leaving, and the shot reaching its target
-     * (the Twins black hole devouring the land).
+     * (the Twins black hole devouring the land, the Mana streams colliding).
      */
     public enum Cannon { CHARGE, FIRE, ARRIVE }
 
     /** A {@code type} hive's Armageddon charging (heard about 64 blocks off), firing and reaching its target (about 128). */
     public static void armageddon(ServerLevel level, Vec3 position, HiveType type, Cannon sound) {
+        boolean mana = type == HiveType.MANA;
         DeferredHolder<SoundEvent, SoundEvent> event = switch (sound) {
-            case CHARGE -> ARMAGEDDON_CHARGE;
-            case FIRE -> ARMAGEDDON_FIRE;
-            case ARRIVE -> ARMAGEDDON_DEVOUR;
+            case CHARGE -> mana ? MANA_ARMAGEDDON_CHARGE : ARMAGEDDON_CHARGE;
+            case FIRE -> mana ? MANA_ARMAGEDDON_FIRE : ARMAGEDDON_FIRE;
+            case ARRIVE -> mana ? MANA_ARMAGEDDON_COLLISION : ARMAGEDDON_DEVOUR;
         };
         level.playSound(null, position.x, position.y, position.z, event.get(), SoundSource.PLAYERS, sound == Cannon.CHARGE ? 4F : 8F, 1F);
     }
