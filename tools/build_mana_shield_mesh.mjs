@@ -7,6 +7,7 @@
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { compactObjText } from "./compact_obj.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, "src/main/resources/assets/relics_addon/models/item");
@@ -104,7 +105,8 @@ class Mesh {
         lines.push(`f ${ids.map(i => `${i}/1/${i}`).join(" ")}`);
       }
     }
-    writeFileSync(join(OUT, `${name}.obj`), lines.join("\n") + "\n");
+    // Triangles share corners and normals; write the deduplicated records (the same mesh, a third of the text).
+    writeFileSync(join(OUT, `${name}.obj`), compactObjText(lines.join("\n") + "\n").text);
     const mtl = Object.entries(MATERIALS).map(([id, [kd, ka]]) =>
       `newmtl ${id}\nKd ${kd.join(" ")}\nKa ${ka} ${ka} ${ka}\nmap_Kd relics_addon:item/materials/rf_mesh_white\n`);
     writeFileSync(join(OUT, `${name}.mtl`), mtl.join("\n"));

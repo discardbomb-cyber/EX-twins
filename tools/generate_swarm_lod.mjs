@@ -10,6 +10,7 @@
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { compactObjText } from "./compact_obj.mjs";
 
 const MODELS = join(dirname(fileURLToPath(import.meta.url)), "../src/main/resources/assets/relics_addon/models/item");
 const TAU = Math.PI * 2;
@@ -75,15 +76,17 @@ class Mesh {
       });
       faces.push("f " + indices.join(" "));
     }
-    writeFileSync(join(MODELS, `${item}.obj`), ["# Relics-P04; model coordinates in block units; front faces -Z",
-      `mtllib ${item}.mtl`, ...vertices, "vt 0.5 0.5", ...normals, ...faces, ""].join("\n"), "ascii");
+    // Faces share corners and normals; write the deduplicated records (the same mesh, a third of the text).
+    const obj = compactObjText(["# Relics-P04; model coordinates in block units; front faces -Z",
+      `mtllib ${item}.mtl`, ...vertices, "vt 0.5 0.5", ...normals, ...faces, ""].join("\n"));
+    writeFileSync(join(MODELS, `${item}.obj`), obj.text, "ascii");
     const mtl = [];
     for (const [name, [color, emission]] of Object.entries(this.materials)) {
       mtl.push(`newmtl ${name}`, "Kd " + color.join(" "), `Ka ${emission} ${emission} ${emission}`,
         "map_Kd relics_addon:item/materials/rf_mesh_white", "");
     }
     writeFileSync(join(MODELS, `${item}.mtl`), mtl.join("\n"), "ascii");
-    return { faces: this.faces.length, vertices: vertices.length, groups: [...order.keys()] };
+    return { faces: this.faces.length, vertices: vertices.length, records: obj.counts, groups: [...order.keys()] };
   }
 }
 
