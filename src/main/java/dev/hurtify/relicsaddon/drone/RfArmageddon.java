@@ -6,14 +6,15 @@ import net.minecraft.world.phys.Vec3;
  * The RF hive's ultimate, RF Armageddon. The swarm flies in to the axis over its owner's head and builds a hologram
  * of the relay drone, thirteen blocks long with its nose towards the target: a cylindrical body belted with copper,
  * bundles of needle antennas at nose and stern, and four long panels, each a frame of drones with a grid of cells,
- * folded along the body. As the hive's charge pours in, the panels unfold click by click into a cross (fully open is
- * a full charge), their cells lighting row by row from the body out, and before the nose a ball grows with them: a
+ * folded along the body. As the hive's charge pours in, the panels unfold smoothly into a cross (fully open is a
+ * full charge), their cells lighting row by row from the body out, and before the nose a ball grows with them: a
  * dark core in a crackling electric rim, ringed by atomic orbits that multiply and quicken as it fills. A minute in,
  * the panels snap shut, the hologram scatters back into the swarm and the ball leaves, slow and heavy, ringed by an
- * escort of drones and striking the ground with bolts as it goes. It stops over the target and hangs there while the
- * world goes grey, then sinks into the ground and becomes a dome of ice-blue glass that swells and heats to white,
- * its edge cutting the land. Then the atomic flash: everything white, then black silhouettes on white while a shock
- * front runs out to the edge of the blast; and colour comes back over a round crater with a raised rim. Timings are
+ * escort of drones and striking the ground with bolts as it goes. It stops out from the face it is aimed at (over the
+ * ground, under a ceiling, before a wall) and hangs there while the world goes grey, then sinks into it and becomes a
+ * dome of ice-blue glass that swells and heats to white, its edge cutting the land. Then the atomic flash: everything
+ * white, then black silhouettes on white while a shock front runs out to the edge of the blast; and colour comes back
+ * over a round crater (with a raised rim, on the ground). Timings are
  * ticks from the start (ages) or from the moment the ball meets the ground ({@code sinceImpact}); everything here is
  * shared by the server and the client, so both see the same.
  */
@@ -27,9 +28,6 @@ public final class RfArmageddon {
      */
     public static final int ASSEMBLED = 80, FIRE = 1200, SNAP = 6, SCATTER = FIRE + SNAP, FLIGHT = 180, ARRIVE = FIRE + FLIGHT, HOVER = 80,
             DESCEND = ARRIVE + HOVER, SINK = 40, IMPACT = DESCEND + SINK;
-    /** The panels open in this many clicks, each a quick swing over the last share (CLICK_SWING) of its part of the charge. */
-    public static final int CLICKS = 12;
-    public static final double CLICK_SWING = .3;
     /** After the ball meets the ground: the dome swells and heats for DOME ticks, then the atomic flash. */
     public static final int DOME = 60, FLASH = DOME;
     /**
@@ -75,9 +73,10 @@ public final class RfArmageddon {
 
     /**
      * The ball: where it forms before the nose, its radius when the panels are fully open and when it hangs over the
-     * target, how high over the target it hangs and how far it bobs there.
+     * target, how far out from the target's face it hangs (less where there is less room: never nearer than LEAST_HOVER)
+     * and how far it bobs there.
      */
-    public static final double BALL_AT = 11, BALL_CHARGED = 3.2, BALL_HOVER = 11, HOVER_HEIGHT = 26, BOB = .7;
+    public static final double BALL_AT = 11, BALL_CHARGED = 3.2, BALL_HOVER = 11, HOVER_HEIGHT = 26, LEAST_HOVER = 4, BOB = .7;
     /** The dome the ball becomes swells to this radius, the crater's; the bowl goes this share of it deep. */
     public static final double DOME_RADIUS = 44, BOWL = .45;
     /** The crater's rim: this wide outside the bowl and this high at its crest; it only rises where the ground lies within RIM_REACH of the target's height. */
@@ -240,19 +239,11 @@ public final class RfArmageddon {
     }
 
     /**
-     * How far the panels have opened with the charge (0 folded along the body, 1 a full cross), click by click: click
-     * {@code k} swings them over the last share of its twelfth of the charge, so the cross is complete exactly as the
-     * charge is full.
+     * How far the panels have opened with the charge (0 folded along the body, 1 a full cross): smoothly, as the charge
+     * fills, so the cross is complete exactly as the charge is full. They are the charge bar.
      */
     public static double opened(double age) {
-        double clicks = charge(age) * CLICKS, step = Math.floor(clicks);
-        if (step >= CLICKS) return 1;
-        return (step + smooth((clicks - step - (1 - CLICK_SWING)) / CLICK_SWING)) / CLICKS;
-    }
-
-    /** When click {@code k} (0 to CLICKS - 1) starts to swing the panels. */
-    public static double clickAt(int k) {
-        return ASSEMBLED + (FIRE - ASSEMBLED) * (k + 1 - CLICK_SWING) / CLICKS;
+        return charge(age);
     }
 
     /** How far the panels are open {@code age} ticks in: opening with the charge, snapped shut in SNAP ticks as the ball leaves. */
@@ -342,7 +333,8 @@ public final class RfArmageddon {
         for (int panel = 0; panel < PANELS; panel++) panels[panel] = panel(state, f, panel, unfold);
         double flying = Math.min(age, IMPACT + FLASH), radius = ballRadius(Math.min(flying, DESCEND)) * ESCORT_RINGS;
         Vec3 centre = ball(state, Math.min(flying, DESCEND));
-        if (flying > DESCEND) centre = centre.lerp(state.target().add(0, radius * 1.05, 0), smooth((flying - DESCEND) / SINK));
+        // As the ball sinks the rings stay out from the face, round the dome it becomes.
+        if (flying > DESCEND) centre = centre.lerp(state.target().add(state.normal().scale(Math.min(radius * 1.05, lift(state.room())))), smooth((flying - DESCEND) / SINK));
         return new Pose(f, panels, centre, radius, flying);
     }
 
@@ -456,13 +448,21 @@ public final class RfArmageddon {
         return state.origin().add(frame(state)[0].scale(BALL_AT));
     }
 
-    /** Where the ball hangs over the target. */
+    /**
+     * How far out from the face it lands on the ball hangs: HOVER_HEIGHT, or less where the room out from the face (up to
+     * the next thing in the way, found by the server as the shot is asked for) cannot take the whole ball that far out.
+     */
+    public static double lift(double room) {
+        return Math.clamp(room - BALL_HOVER - 1, LEAST_HOVER, HOVER_HEIGHT);
+    }
+
+    /** Where the ball hangs: out from the face the shot lands on (over the ground, under a ceiling, before a wall). */
     public static Vec3 hover(ArmageddonState state) {
-        return state.target().add(0, HOVER_HEIGHT, 0);
+        return state.target().add(state.normal().scale(lift(state.room())));
     }
 
     /**
-     * The ball's radius {@code age} ticks in: a point at the first click, growing with the panels to BALL_CHARGED as
+     * The ball's radius {@code age} ticks in: a point as the panels start to open, growing with them to BALL_CHARGED as
      * they open fully; then swelling on its way out to BALL_HOVER.
      */
     public static double ballRadius(double age) {
@@ -478,16 +478,16 @@ public final class RfArmageddon {
         if (age <= FIRE) return nose(state);
         if (age < ARRIVE) return flight(state, smooth((age - FIRE) / FLIGHT));
         Vec3 hover = hover(state);
-        if (age < DESCEND) return hover.add(0, BOB * Math.sin(Math.PI * 4 * (age - ARRIVE) / HOVER), 0);
+        if (age < DESCEND) return hover.add(state.normal().scale(BOB * Math.sin(Math.PI * 4 * (age - ARRIVE) / HOVER)));
         double u = Math.clamp((age - DESCEND) / SINK, 0, 1);
         return hover.lerp(state.target(), u * u);
     }
 
-    /** The ball's way out: from before the nose, rising a little ahead, and coming down onto its hover from above. */
+    /** The ball's way out: from before the nose, rising a little ahead, and coming in onto its hover from further out from the face. */
     private static Vec3 flight(ArmageddonState state, double s) {
         Vec3 from = nose(state), to = hover(state), forward = frame(state)[0];
         double reach = to.distanceTo(from);
-        Vec3 out = from.add(forward.scale(Math.min(reach * .3, 40))).add(0, 3 + reach * .05, 0), in = to.add(0, 4 + reach * .08, 0);
+        Vec3 out = from.add(forward.scale(Math.min(reach * .3, 40))).add(0, 3 + reach * .05, 0), in = to.add(state.normal().scale(4 + reach * .08));
         double t = Math.clamp(s, 0, 1), r = 1 - t;
         return from.scale(r * r * r).add(out.scale(3 * r * r * t)).add(in.scale(3 * r * t * t)).add(to.scale(t * t * t));
     }
@@ -540,6 +540,48 @@ public final class RfArmageddon {
     /** When the dome cuts the land {@code distance} blocks from the target: the age at which {@link #carved} first reaches it. */
     public static double carvedAt(double distance) {
         return IMPACT + (distance <= BALL_HOVER ? 0 : domeReaches(Math.min(distance, DOME_RADIUS)));
+    }
+
+    /**
+     * The stretch of a column the dome takes (the column {@code dx}, {@code dz} from where the ball met the face whose
+     * way out is {@code normal}): everything inside the dome of {@code radius} out from the face, and a bowl behind it
+     * {@code depth} of the radius deep. Heights from the target's; null when it takes nothing of that column. On the
+     * ground this is the bowl under the dome; under a ceiling it is turned over, and in a wall turned on its side.
+     */
+    public static double[] bowl(Vec3 normal, double dx, double dz, double radius, double depth) {
+        double flat = dx * dx + dz * dz, most = radius * radius;
+        if (flat > most) return null;
+        double lo = Double.POSITIVE_INFINITY, hi = Double.NEGATIVE_INFINITY;
+        double across = dx * normal.x + dz * normal.z, rising = normal.y;
+        // In front of the face (out along its normal): the dome, a sphere.
+        double span = Math.sqrt(most - flat);
+        double[] front = beyond(-span, span, across, rising, true);
+        if (front != null) {
+            lo = Math.min(lo, front[0]);
+            hi = Math.max(hi, front[1]);
+        }
+        // Behind it: the bowl, the sphere squashed along the normal to depth of it.
+        double k = 1 / (depth * depth) - 1, a = 1 + k * rising * rising, b = 2 * k * across * rising, c = k * across * across + flat - most;
+        double disc = b * b - 4 * a * c;
+        if (disc >= 0) {
+            double root = Math.sqrt(disc);
+            double[] back = beyond((-b - root) / (2 * a), (-b + root) / (2 * a), across, rising, false);
+            if (back != null) {
+                lo = Math.min(lo, back[0]);
+                hi = Math.max(hi, back[1]);
+            }
+        }
+        return lo <= hi ? new double[]{lo, hi} : null;
+    }
+
+    /** The part of the stretch {@code lo} to {@code hi} of a column that lies in front of the face ({@code front}) or behind it. */
+    private static double[] beyond(double lo, double hi, double across, double rising, boolean front) {
+        // How far out of the face a height y of the column is: across + y * rising.
+        if (Math.abs(rising) < 1e-9) return (across >= 0) == front ? new double[]{lo, hi} : null;
+        double plane = -across / rising;
+        boolean above = front == rising > 0;
+        double from = above ? Math.max(lo, plane) : lo, to = above ? hi : Math.min(hi, plane);
+        return from <= to ? new double[]{from, to} : null;
     }
 
     /** How high the crater's rim stands {@code distance} blocks from its middle: a steep face inside, sloping gently away outside. */

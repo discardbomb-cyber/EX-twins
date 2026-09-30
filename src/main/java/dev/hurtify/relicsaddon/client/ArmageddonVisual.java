@@ -67,11 +67,14 @@ public final class ArmageddonVisual {
         }
     }
 
-    /** The server tells of a {@code hive} Armageddon's blast at {@code centre}, fired from {@code from}, bursting at {@code impactAt}. */
-    public static void told(dev.hurtify.relicsaddon.drone.HiveType hive, Vec3 centre, Vec3 from, long impactAt) {
+    /**
+     * The server tells of a {@code hive} Armageddon's blast at {@code centre} (on the block face {@code face}, with
+     * {@code room} free out from it), fired from {@code from}, bursting at {@code impactAt}.
+     */
+    public static void told(dev.hurtify.relicsaddon.drone.HiveType hive, Vec3 centre, Vec3 from, net.minecraft.core.Direction face, double room, long impactAt) {
         switch (hive) {
             case MANA -> ManaArmageddonVisual.blast(centre, from, impactAt);
-            case RF -> RfArmageddonVisual.blast(centre, from, impactAt);
+            case RF -> RfArmageddonVisual.blast(centre, from, face, room, impactAt);
             case TWINS -> blast(centre, impactAt);
         }
     }

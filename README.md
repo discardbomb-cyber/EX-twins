@@ -129,7 +129,7 @@ Ten levels grow the swarm from 100 to 2000 drones. At most 250 fly at once; the 
 
 ### Armageddon
 
-Armageddon is the ultimate of a level 10 Ex-Twins hive (a level 10 Mana hive has its own, [Mana Armageddon](#mana-armageddon)). When both of the hive's batteries are full (98% or more), press `G` (rebindable) to open the confirmation window. It aims at the point you look at, up to 256 blocks away. The window shows the distance, the blast radius, the charge time and what a worn Ex-Twins shield will add.
+Armageddon is the ultimate of a level 10 Ex-Twins hive (a level 10 Mana hive has its own, [Mana Armageddon](#mana-armageddon), and so does a level 10 RF hive, [RF Armageddon](#rf-armageddon)). When both of the hive's batteries are full (98% or more), press `G` (rebindable) to open the confirmation window. It aims at the point you look at, up to 256 blocks away. The window shows the distance, the blast radius, the charge time and what a worn Ex-Twins shield will add.
 
 - **Charge.** The whole swarm flies up into a cannon over its owner's head:
   - a core;
@@ -180,6 +180,26 @@ Mana Armageddon is the ultimate of a level 10 Mana hive. When its battery is ful
 
   The blast's length is one number, `ManaArmageddon.BLAST_SECONDS`. The sound generator reads it, the column grows by it, and `verifyArmageddonSounds` checks that each Mana sound lasts exactly as long as the stage it scores.
 - **Targets, aftermath and safe mode** work as for the Twins Armageddon. The blast never strikes the owner, their teammates or their pets, and the owner gets the kill credit. The hive keeps only the charge the shield gave it. With `armageddon.safeMode`, the vortex tears up no blocks.
+
+### RF Armageddon
+
+RF Armageddon is the ultimate of a level 10 RF hive. When its RF battery is full (98% or more), press `G` to open the confirmation window. It aims at the point you look at, up to 256 blocks away. The window shows how far off the ball will strike, the crater it leaves, the blast radius, the charge time, how long the blast lasts and what a worn RF shield will add.
+
+- **Charge.** The swarm flies in to the axis over its owner's head and builds a hologram of the relay drone, 13 blocks long, with its nose towards the target. The body goes up from the stern to the nose. Its drones sit on the frame's points and lines, joined by blue lines of light, with a scanline sweeping along them and a flicker running through.
+  - The body is a cylinder with three copper belts, a cap behind and a cone in front.
+  - Bundles of needle antennas stick out at the nose and the stern. The stern's are tipped with blinking redstone beacons.
+  - Four long panels lie folded along the body. Each is a frame of drones with a grid of cells.
+
+  The panels are the charge bar. They unfold smoothly as the charge fills, a servo labouring under them and their gears ticking over, until they stand in a full cross at a full charge. Their cells light row by row from the body out, and blue sparks run in along the grid to the body. The charge takes a minute and drains the hive's RF battery. A worn RF shield feeds it too, along a crackling link (a Twins or Mana shield does not), but never gives up the charge its own field needs.
+- **Ball.** A ball grows before the nose as the panels open, from a point to about 6 blocks across. It has a near-black navy core in a bright electric rim, with lightning crawling over it and short discharges leaping to it from the nose's needles. Atomic orbits ring it, each with a bright electron. There are three at first and five by a full charge, and they spin faster as it fills.
+- **Flight.** The panels snap shut, the hologram scatters back into the swarm, and the ball leaves. It flies slow and heavy, ringed by an escort of drones in three tori, and swells as it goes. Thick jagged bolts leap from its rim to whatever they can reach within about 48 blocks (the ground, a wall, a ceiling), throwing sparks and leaving scorch marks; with nothing in reach, a bolt lashes out into the air and dies there. The ball stops out from the face it was aimed at and hangs there: 26 blocks over the ground, under a ceiling or before a wall, nearer where there is less room. Its bolts come faster, its orbits close in on it, and the world turns grey: only the ball's rim, its lightning and the dome after it keep their colour.
+- **Dome.** The ball comes in to that face (down into the ground, up into a ceiling, sideways into a wall) and becomes a dome of ice-blue glass standing out of it, with lightning inside and blocks floating out in its haze. Over three seconds it swells to 88 blocks across and heats to white, and its edge cuts a bowl into the face.
+- **Atomic flash.** The orbits blaze out and a white flash floods everything. For a few seconds the world is pure black silhouettes on white, clouds included. A shock front runs out to 256 blocks, with rays raking the land behind it. Then the colour comes back over a round crater. In the ground its rim is pushed up round the edge, steep inside and sloping away outside; a crater in a ceiling or a wall is left as the dome cut it. Debris falls from the sky for a few seconds. A blue glow fades slowly at the crater's heart, and small discharges run over its floor. Then the drones come home.
+
+  The dome's edge, and then the shock front, strike each creature as they pass it: 2000 at the heart, falling to 20 at the edge. All of it is drawn in the world. With a shader pack (Iris or Oculus) in use, simpler stand-ins are drawn and the world is not greyed.
+
+  The blast's length is one number, `RfArmageddon.BLAST_SECONDS` (40 seconds from the flash). The sound generator reads it, the crater's glow fades by it, and `verifyArmageddonSounds` checks that each RF sound lasts exactly as long as the stage it scores. The ball's flight is heard from where the ball is, with a crack for every bolt it strikes.
+- **Targets, aftermath and safe mode** work as for the other Armageddons. With `armageddon.safeMode`, no blocks are broken and no crater is dug. A rim of the land's own blocks stands round the edge only while the blast lasts, then sinks back. The real rim only rises from plain ground (earth, stone, sand and the like, the `relics_addon:crater_rim` block tag), only into open air, and only where the owner could build.
 
 ## Verification
 

@@ -57,15 +57,13 @@ const MANA = javaConstants("src/main/java/dev/hurtify/relicsaddon/drone/ManaArma
 for (const name of ["ASSEMBLED", "FIRE", "ARRIVE", "IGNITE", "IMPACT", "BLAST_SECONDS", "RINGS", "RUNES", "SPHERE_RISE", "SPHERE_WRITE", "SHOCK", "DOME", "EXPAND", "COLUMN"]) {
   if (!Number.isFinite(MANA[name])) throw new Error(`ManaArmageddon.${name} could not be read`);
 }
-// RF Armageddon's timings, likewise: its charge clicks with the panels, its flight cracks with every bolt the ball
+// RF Armageddon's timings, likewise: its panels open as long as it charges, its flight cracks with every bolt the ball
 // strikes, and its blast lasts exactly BLAST_SECONDS, as long as its light takes to fade.
 const RF = javaConstants("src/main/java/dev/hurtify/relicsaddon/drone/RfArmageddon.java");
-for (const name of ["ASSEMBLED", "FIRE", "SNAP", "ARRIVE", "HOVER", "DESCEND", "SINK", "IMPACT", "CLICKS", "CLICK_SWING", "DOME", "FLASH", "BLAST_SECONDS",
+for (const name of ["ASSEMBLED", "FIRE", "SNAP", "ARRIVE", "HOVER", "DESCEND", "SINK", "IMPACT", "DOME", "FLASH", "BLAST_SECONDS",
   "BOLT_FLIGHT_GAP", "BOLT_HOVER_GAP", "SHOCK", "SILHOUETTES"]) {
   if (!Number.isFinite(RF[name])) throw new Error(`RfArmageddon.${name} could not be read`);
 }
-/** When each of the panels' clicks starts to swing them, in seconds from the start (RfArmageddon.clickAt). */
-const rfClick = k => (RF.ASSEMBLED + (RF.FIRE - RF.ASSEMBLED) * (k + 1 - RF.CLICK_SWING) / RF.CLICKS) / 20;
 /** When each bolt the ball strikes the ground with lands, in seconds from the moment it leaves: the schedule RfArmageddon builds. */
 const rfBolts = (() => {
   const bolts = [];
@@ -826,10 +824,11 @@ function synthesize(name, family, seconds) {
     case "rf_armageddon_charge": {
       // A minute of the relay hologram charging. As the swarm lands it powers up like a great transformer: a mains
       // hum sliding up to pitch with relays clacking as the drones lock in, then humming on under everything, swelling
-      // with the charge. At every click of the panels a hard ratchet click, a servo whining as they swing, and a clunk
-      // as they lock. The ball before the nose crackles with electricity, faint at first, thick and spitting by the end,
-      // and zaps as it swells with each click; in the last seconds it all strains to the shot.
-      const built = RF.ASSEMBLED / 20, full = RF.FIRE / 20, swing = (full - built) / RF.CLICKS * RF.CLICK_SWING;
+      // with the charge. While the panels open, smoothly all the way, a servo drones on under them, labouring a little
+      // higher as they spread, and their gears tick over steadily. The ball before the nose crackles with electricity,
+      // faint at first, thick and spitting by the end, now and then zapping as it swells; in the last seconds it all
+      // strains to the shot.
+      const built = RF.ASSEMBLED / 20, full = RF.FIRE / 20;
       const charge = t => Math.min(1, Math.max(0, (t - built) / (full - built)));
       const powered = t => Math.min(1, t / built);
       // The hum: 50 Hz mains and the buzz at twice it, sliding up to pitch as the hologram powers up.
@@ -843,20 +842,19 @@ function synthesize(name, family, seconds) {
         const at = built * Math.sqrt(v.random()) * .95, length = Math.round(.03 * RATE);
         v.add(mul(bandpass(v.noise(length), 1800 + 2600 * v.random(), 5), env(length, .0005, .006)), .35, at);
       }
-      // The panels: a ratchet click, a servo swinging them, a clunk as they lock.
-      for (let k = 0; k < RF.CLICKS; k++) {
-        const at = rfClick(k);
-        v.add(mul(highpass(v.noise(), 2500), env(n, .0004, .004)), 1.1, at);
-        v.add(mul(bell(n, 2350 + 90 * k, [1, 2.76, 5.4], .05), env(n, .0005, .06)), .35, at);
-        const servo = osc(n, t => 170 + 60 * Math.min(1, t / swing), "saw");
-        const whirr = osc(n, 31).map(x => .75 + .25 * x);
-        v.add(bandpass(servo, 900, 2).map((x, i) => { const t = i / RATE; return t > swing ? 0 : x * whirr[i] * Math.sin(Math.PI * t / swing) ** .5; }), .32, at);
-        // Locked a moment before the next click starts (the last just before the shot, inside the charge).
-        const lock = at + swing - .05;
-        v.add(mul(osc(n, t => 95 * Math.exp(-t * 9) + 55), env(n, .002, .09)), .8, lock);
-        v.add(mul(highpass(v.noise(), 1500), env(n, .0006, .012)), .5, lock);
-        // The ball swells with a zap.
-        v.add(mul(fm(n, t => 900 + 2600 * Math.min(1, t / .18), 1.41, 3, .06), env(n, .003, .12)), .12 + .12 * charge(at), at + swing * .6);
+      // The panels opening: a servo labouring under them all the while, its gears ticking over steadily.
+      const moving = t => Math.min(1, Math.max(0, (t - built) / 1.5)) * (t < full - .3 ? 1 : Math.max(0, (full - t) / .3));
+      const servo = bandpass(osc(n, t => 150 + 110 * charge(t), "saw"), t => 700 + 500 * charge(t), 2);
+      const whirr = osc(n, 29).map(x => .75 + .25 * x);
+      v.add(servo.map((x, i) => x * whirr[i] * moving(i / RATE)), .22);
+      for (let at = built + .4; at < full - .3; at += .28 + .06 * v.random()) {
+        const length = Math.round(.03 * RATE);
+        v.add(mul(highpass(v.noise(length), 2600), env(length, .0003, .003)), .28 + .2 * charge(at), at);
+        v.add(mul(bell(Math.round(.08 * RATE), 2300 + 300 * v.random(), [1, 2.76], .025), env(Math.round(.08 * RATE), .0005, .03)), .08, at);
+      }
+      // The ball swelling, now and then with a zap, more often as it fills.
+      for (let at = built + 2; at < full - .5; at += 3.2 - 2.4 * charge(at) + v.random()) {
+        v.add(mul(fm(n, t => 900 + 2600 * Math.min(1, t / .18), 1.41, 3, .06), env(n, .003, .12)), .1 + .14 * charge(at), at);
       }
       // The ball crackling, thicker as it grows, and its arc singing.
       v.add(highpass(crackle(v, t => t < built ? 0 : 12 + 520 * charge(t) ** 1.6, .0012), 1500), .75);

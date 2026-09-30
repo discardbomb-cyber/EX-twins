@@ -81,11 +81,12 @@ public final class ArmageddonVolume {
      * An RF blast (or a ball still charging) as it stands this frame (see {@link RfArmageddonVisual#stage}): how grey,
      * dimmed, silhouetted and flooded white the world is; how far the shock front has run and how strongly it shows; the
      * ball (camera-relative), its radius, how opaque its core and how bright its rim, and its age for the core's swirl;
-     * the dome's radius, how much of its glass is there, how hot it is, how thick its haze and how bright its cutting edge.
+     * the dome's radius, how much of its glass is there, how hot it is, how thick its haze and how bright its cutting
+     * edge, and the way out of the face it stands on (up on the ground, down under a ceiling, sideways on a wall).
      */
     record RfStage(double grey, double dim, double silhouette, double flood, double shockRadius, double shock,
                    Vec3 ball, double ballRadius, double ballCore, double ballRim, double age,
-                   double dome, double domeGlass, double domeHeat, double domeHaze, double domeEdge) { }
+                   double dome, double domeGlass, double domeHeat, double domeHaze, double domeEdge, Vec3 axis) { }
 
     /**
      * A Mana blast as it stands this frame (see {@link ManaArmageddonVisual#stage}): {@code t} ticks from its burst, the
@@ -260,6 +261,9 @@ public final class ArmageddonVolume {
                 RfStage s = blast.stage;
                 if (s.ballRadius() <= .02 && (s.dome() <= .5 || s.domeGlass() <= .001)) continue;
                 begin(rfVolume, inverseProjection, position(view, blast.centre), axes, main.width, main.height);
+                // The dome stands out of the face the ball came down on.
+                Vector3f axis = view.transformDirection(new Vector3f((float) s.axis().x, (float) s.axis().y, (float) s.axis().z)).normalize();
+                rfVolume.safeGetUniform("Up").set(axis.x, axis.y, axis.z);
                 Vector3f ball = position(view, s.ball());
                 rfVolume.safeGetUniform("BallCentre").set(ball.x, ball.y, ball.z);
                 set(rfVolume, "BallRadius", s.ballRadius());

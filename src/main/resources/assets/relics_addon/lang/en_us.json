@@ -289,7 +289,7 @@
   "subtitles.relics_addon.hive_mana_armageddon_shock": "Dome of light passes",
   "screen.relics_addon.rf_armageddon.title": "RF ARMAGEDDON",
   "screen.relics_addon.rf_armageddon.question": "Charge the relay and launch the ball?",
-  "screen.relics_addon.rf_armageddon.target": "The ball comes down %s blocks away",
+  "screen.relics_addon.rf_armageddon.target": "The ball strikes %s blocks away",
   "screen.relics_addon.rf_armageddon.crater": "Its dome leaves a crater %s blocks across, with a raised rim.",
   "screen.relics_addon.rf_armageddon.radius": "Its shock front strikes all within %s blocks but you and your allies.",
   "screen.relics_addon.rf_armageddon.drain": "Charges %s s from the RF battery and empties it; the blast lasts %s s.",
