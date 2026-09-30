@@ -240,8 +240,10 @@ public final class ArchitectureCheck {
         private static final Pattern FOREIGN_ROOT = Pattern.compile("(?<![\\w$.])(net\\.minecraft\\.|net\\.neoforged\\.|com\\.mojang\\."
                 + "|com\\.lowdragmc\\.|com\\.google\\.|top\\.theillusivec4\\.|dev\\.lambdaurora\\.|io\\.netty\\.|org\\.lwjgl\\.|org\\.joml\\."
                 + "|org\\.slf4j\\.|javax\\.)");
-        private static final Pattern OWN_ROOT_DOMAIN = Pattern.compile("(?<![\\w$.])dev\\.hurtify\\.relicsaddon\\.(?!domain\\.)");
-        private static final Pattern OWN_ROOT_APPLICATION = Pattern.compile("(?<![\\w$.])dev\\.hurtify\\.relicsaddon\\.(?!domain\\.|application\\.)");
+        /** The mod's own names outside the allowed packages; the allowed package itself ({@code ...domain;}) is fine too. */
+        private static final Pattern OWN_ROOT_DOMAIN = Pattern.compile("(?<![\\w$.])dev\\.hurtify\\.relicsaddon\\.(?!domain(?![\\w$]))");
+        private static final Pattern OWN_ROOT_APPLICATION = Pattern.compile(
+                "(?<![\\w$.])dev\\.hurtify\\.relicsaddon\\.(?!(?:domain|application)(?![\\w$]))");
         private static final Pattern IMPURE = Pattern.compile("(?<![\\w$])(System\\s*\\.\\s*(out|err|currentTimeMillis|nanoTime|getProperty|getenv)\\b"
                 + "|new\\s+Thread\\b|Thread\\s*\\.|Math\\s*\\.\\s*random\\b|ThreadLocalRandom\\b|new\\s+Random\\s*\\(\\s*\\))");
 
