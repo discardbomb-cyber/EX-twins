@@ -12,6 +12,8 @@ import net.minecraft.nbt.IntTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.VarInt;
+import net.minecraft.network.VarLong;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.phys.Vec3;
 
@@ -115,16 +117,35 @@ public final class NetworkCodecCheck {
         ShieldImpact strike = ShieldImpact.strike(new Vec3(0, 0, 1), 1_234L, 2, 4.5F, .3F);
         roundTrip(ShieldImpact.STREAM_CODEC, strike, "shield strike");
         require(strike.isStrike() && !new ShieldImpact(new Vec3(0, 1, 0), 5L, 0, 2, false).isStrike(), "Only strikes are marked as strikes");
-        // An Armageddon under way travels exactly; broken numbers never get into it.
-        roundTrip(ArmageddonState.STREAM_CODEC, new ArmageddonState(123_456_789L, new Vec3(1.25, 70.5, -3), new Vec3(-200.5, 63, 180.25), true), "armageddon");
-        roundTrip(ArmageddonState.STREAM_CODEC, new ArmageddonState(0, Vec3.ZERO, new Vec3(0, -64, 0), false), "armageddon unlinked");
-        ArmageddonState broken = new ArmageddonState(-5, new Vec3(Double.NaN, 0, 0), new Vec3(0, Double.POSITIVE_INFINITY, 0), false);
+        // An Armageddon under way travels exactly, whichever hive fires it, its counters as variable-length
+        // numbers; broken numbers never get into it.
+        int armageddonBytes = roundTrip(ArmageddonState.STREAM_CODEC,
+                new ArmageddonState(HiveType.TWINS, 123_456_789L, new Vec3(1.25, 70.5, -3), new Vec3(-200.5, 63, 180.25), true), "armageddon");
+        require(armageddonBytes < 57, "an Armageddon's counters travel as variable-length numbers, took " + armageddonBytes + " bytes");
+        roundTrip(ArmageddonState.STREAM_CODEC, new ArmageddonState(HiveType.MANA, 987_654_321L, new Vec3(-4, 80.5, 12), new Vec3(30, 64, -220.75), true), "mana armageddon");
+        roundTrip(ArmageddonState.STREAM_CODEC, new ArmageddonState(HiveType.TWINS, 0, Vec3.ZERO, new Vec3(0, -64, 0), false), "armageddon unlinked");
+        ArmageddonState broken = new ArmageddonState(HiveType.RF, -5, new Vec3(Double.NaN, 0, 0), new Vec3(0, Double.POSITIVE_INFINITY, 0), false);
         require(broken.origin().equals(Vec3.ZERO) && broken.target().equals(Vec3.ZERO), "an Armageddon keeps only finite places");
+        require(broken.type() == HiveType.TWINS && new ArmageddonState(null, 0, Vec3.ZERO, Vec3.ZERO, false).type() == HiveType.TWINS,
+                "only Twins and Mana hives fire an Armageddon: anything else is taken for Twins");
         roundTrip(ArmageddonState.STREAM_CODEC, broken, "armageddon started before the world's first tick");
         require(broken.running(100) && broken.age(100) == 105, "a shot with a head start in a young world is just as far along");
-        ArmageddonState running = new ArmageddonState(1_000, Vec3.ZERO, new Vec3(0, 0, 60), false);
-        require(!running.running(999) && running.running(1_000) && running.running(1_000 + Armageddon.END - 1) && !running.running(1_000 + Armageddon.END),
-                "an Armageddon runs from its start until its drones are home");
+        ByteBuf stray = Unpooled.buffer();
+        VarInt.write(stray, 99);
+        VarLong.write(stray, 7);
+        for (int coordinate = 0; coordinate < 6; coordinate++) stray.writeDouble(coordinate);
+        stray.writeBoolean(false);
+        require(ArmageddonState.STREAM_CODEC.decode(stray).type() == HiveType.TWINS && stray.readableBytes() == 0, "a hive family from nowhere reads as Twins");
+        for (HiveType type : new HiveType[]{HiveType.TWINS, HiveType.MANA}) {
+            int end = ArmageddonTimeline.of(type).end();
+            ArmageddonState running = new ArmageddonState(type, 1_000, Vec3.ZERO, new Vec3(0, 0, 60), false);
+            require(!running.running(999) && running.running(1_000) && running.running(1_000 + end - 1) && !running.running(1_000 + end),
+                    "a " + type + " Armageddon runs from its start until its drones are home");
+        }
+        roundTrip(dev.hurtify.relicsaddon.network.ArmageddonPayloads.Blast.STREAM_CODEC,
+                new dev.hurtify.relicsaddon.network.ArmageddonPayloads.Blast(HiveType.MANA, new Vec3(-12.5, 63, 400.25), new Vec3(3, 75.5, 250), 1_234_567L), "mana blast");
+        roundTrip(dev.hurtify.relicsaddon.network.ArmageddonPayloads.Blast.STREAM_CODEC,
+                new dev.hurtify.relicsaddon.network.ArmageddonPayloads.Blast(HiveType.TWINS, Vec3.ZERO, new Vec3(0, 6.5, 1.5), -3L), "twins blast in a young world");
         System.out.println("Network codecs: " + HiveType.MAX_DRONES + "-drone swarm (" + swarmBytes + " bytes, " + restingBytes + " at rest), old saves, "
                 + "settings, combat, batteries, shield impacts and Armageddon round-trip exactly");
     }

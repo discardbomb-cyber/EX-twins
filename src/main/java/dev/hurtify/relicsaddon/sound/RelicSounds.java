@@ -186,15 +186,18 @@ public final class RelicSounds {
         play(level, position, event, Category.CONTAIN, 10, .7F, 1F);
     }
 
-    /** The sounds of Armageddon before its blast: the cannon charging and firing, and the black hole devouring the land. */
-    public enum Cannon { CHARGE, FIRE, DEVOUR }
+    /**
+     * The sounds of an Armageddon before its blast: charging, the shot leaving, and the shot reaching its target
+     * (the Twins black hole devouring the land).
+     */
+    public enum Cannon { CHARGE, FIRE, ARRIVE }
 
-    /** The Armageddon cannon charging (heard about 64 blocks off) and firing, and its black hole devouring (about 128). */
-    public static void armageddon(ServerLevel level, Vec3 position, Cannon sound) {
+    /** A {@code type} hive's Armageddon charging (heard about 64 blocks off), firing and reaching its target (about 128). */
+    public static void armageddon(ServerLevel level, Vec3 position, HiveType type, Cannon sound) {
         DeferredHolder<SoundEvent, SoundEvent> event = switch (sound) {
             case CHARGE -> ARMAGEDDON_CHARGE;
             case FIRE -> ARMAGEDDON_FIRE;
-            case DEVOUR -> ARMAGEDDON_DEVOUR;
+            case ARRIVE -> ARMAGEDDON_DEVOUR;
         };
         level.playSound(null, position.x, position.y, position.z, event.get(), SoundSource.PLAYERS, sound == Cannon.CHARGE ? 4F : 8F, 1F);
     }

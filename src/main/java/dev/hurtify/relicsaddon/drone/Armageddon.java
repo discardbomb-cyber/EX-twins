@@ -325,6 +325,30 @@ public final class Armageddon {
         return BALL + EXPAND * (1 - Math.pow(1 - f, 2 / 3.0));
     }
 
+    /**
+     * The Twins Armageddon's course: the black hole devours the land round its target from HUNGER, until
+     * the ball of light is crushed back in, and drags creatures in until it bursts; every client is told of
+     * the blast as it bursts.
+     */
+    public static final ArmageddonTimeline TIMELINE = new ArmageddonTimeline() {
+        @Override public int assembled() { return ASSEMBLED; }
+        @Override public int fire() { return FIRE; }
+        @Override public int arrive() { return ARRIVE; }
+        @Override public int told() { return IMPACT; }
+        @Override public int impact() { return IMPACT; }
+        @Override public int recover() { return RECOVER; }
+        @Override public int end() { return END; }
+        @Override public double carveRadius() { return DEVOUR_RADIUS; }
+        @Override public double carved(double age) { return devoured(age); }
+        @Override public double carvedAt(double distance) { return devouredAt(distance); }
+        @Override public int carvedUntil() { return IMPACT + CRUSHED; }
+        @Override public boolean drags(double age) { return age >= HUNGER && age < IMPACT; }
+        @Override public double radius() { return RADIUS; }
+        @Override public double reach(double sinceImpact) { return Armageddon.reach(sinceImpact); }
+        @Override public double reaches(double distance) { return Armageddon.reaches(distance); }
+        @Override public int swept() { return BALL + EXPAND; }
+    };
+
     private Armageddon() {
     }
 }

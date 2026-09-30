@@ -1,32 +1,45 @@
 package dev.hurtify.relicsaddon.drone;
 
 import io.netty.buffer.ByteBuf;
+import net.minecraft.network.VarInt;
+import net.minecraft.network.VarLong;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * A Twins hive's Armageddon in progress: when it started, where the cannon hangs and where the shot
- * lands, and whether a Twins shield feeds it. Transient, like the combat state: it only lives while
- * the shot is under way.
+ * A hive's Armageddon in progress: which hive fires it (a Twins or a Mana hive, each with its own
+ * {@link ArmageddonTimeline}), when it started, where its construct hangs and where the shot lands, and
+ * whether a worn shield of the same family feeds it. Transient, like the combat state: it only lives
+ * while the shot is under way.
  */
-public record ArmageddonState(long startedAt, Vec3 origin, Vec3 target, boolean shieldLinked) {
+public record ArmageddonState(HiveType type, long startedAt, Vec3 origin, Vec3 target, boolean shieldLinked) {
     public static final StreamCodec<ByteBuf, ArmageddonState> STREAM_CODEC = new StreamCodec<>() {
         public void encode(ByteBuf buffer, ArmageddonState value) {
-            buffer.writeLong(value.startedAt);
+            VarInt.write(buffer, value.type.ordinal());
+            VarLong.write(buffer, value.startedAt);
             write(buffer, value.origin);
             write(buffer, value.target);
             buffer.writeBoolean(value.shieldLinked);
         }
 
         public ArmageddonState decode(ByteBuf buffer) {
-            return new ArmageddonState(buffer.readLong(), read(buffer), read(buffer), buffer.readBoolean());
+            int type = VarInt.read(buffer);
+            return new ArmageddonState(type >= 0 && type < HiveType.values().length ? HiveType.values()[type] : HiveType.TWINS,
+                    VarLong.read(buffer), read(buffer), read(buffer), buffer.readBoolean());
         }
     };
 
     public ArmageddonState {
-        // A start before the world's first tick is fine (a head start in a young world): only the places are checked.
+        // Only Twins and Mana hives fire an Armageddon. A start before the world's first tick is fine (a head
+        // start in a young world): only the places are checked.
+        type = type == HiveType.MANA ? HiveType.MANA : HiveType.TWINS;
         origin = finite(origin);
         target = finite(target);
+    }
+
+    /** This Armageddon's course in time. */
+    public ArmageddonTimeline timeline() {
+        return ArmageddonTimeline.of(type);
     }
 
     /** Ticks since the start at {@code time}. */
@@ -36,7 +49,7 @@ public record ArmageddonState(long startedAt, Vec3 origin, Vec3 target, boolean 
 
     /** Whether the shot is still under way at {@code now}: from the start until the drones are home. */
     public boolean running(long now) {
-        return now >= startedAt && now < startedAt + Armageddon.END;
+        return now >= startedAt && now < startedAt + timeline().end();
     }
 
     private static Vec3 finite(Vec3 value) {
