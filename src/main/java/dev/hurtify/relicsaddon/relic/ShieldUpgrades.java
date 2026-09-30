@@ -1,15 +1,16 @@
 package dev.hurtify.relicsaddon.relic;
 
+import dev.hurtify.relicsaddon.domain.device.DeviceUpgrade;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 /** Standalone shield upgrades, purchased with this mod's own device points. */
 public final class ShieldUpgrades {
-    public static final String DISTRIBUTION = "damage_distribution";
-    public static final String GATHER = "shield_gather";
-    public static final String RESTORATION = "shield_restoration";
-    public static final String STABILIZATION = "shield_stabilization";
+    public static final String DISTRIBUTION = DeviceUpgrade.DISTRIBUTION.id();
+    public static final String GATHER = DeviceUpgrade.GATHER.id();
+    public static final String RESTORATION = DeviceUpgrade.RESTORATION.id();
+    public static final String STABILIZATION = DeviceUpgrade.STABILIZATION.id();
     public static double sharing(Player player, ItemStack stack) {
         if (!RelicRuntime.canOperate(player, stack) || !(stack.getItem() instanceof AutonomousRelicItem item)) return 0;
         int rank = RelicRuntime.progression(stack).rank(DISTRIBUTION);

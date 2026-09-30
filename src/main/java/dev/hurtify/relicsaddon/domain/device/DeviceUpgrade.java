@@ -1,17 +1,14 @@
 package dev.hurtify.relicsaddon.domain.device;
 
-import dev.hurtify.relicsaddon.relic.HiveUpgrades;
-import dev.hurtify.relicsaddon.relic.ShieldUpgrades;
-
 /** Compact ids and requirements used by the standalone device menu. */
 public enum DeviceUpgrade {
-    DISTRIBUTION(0, ShieldUpgrades.DISTRIBUTION, 2),
-    GATHER(1, ShieldUpgrades.GATHER, 2),
-    RESTORATION(2, ShieldUpgrades.RESTORATION, 3),
-    STABILIZATION(3, ShieldUpgrades.STABILIZATION, 4),
-    COMBAT(4, HiveUpgrades.COMBAT, 2),
-    SUPPORT(5, HiveUpgrades.SUPPORT, 3),
-    RECOVERY(6, HiveUpgrades.RECOVERY, 4);
+    DISTRIBUTION(0, "damage_distribution", 2),
+    GATHER(1, "shield_gather", 2),
+    RESTORATION(2, "shield_restoration", 3),
+    STABILIZATION(3, "shield_stabilization", 4),
+    COMBAT(4, "combat_protocol", 2),
+    SUPPORT(5, "support_protocol", 3),
+    RECOVERY(6, "recovery_protocol", 4);
 
     private final int bit;
     private final String id;

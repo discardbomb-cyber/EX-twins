@@ -1,14 +1,15 @@
 package dev.hurtify.relicsaddon.relic;
 
+import dev.hurtify.relicsaddon.domain.device.DeviceUpgrade;
 import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 /** Standalone hive upgrade effects. */
 public final class HiveUpgrades {
-    public static final String COMBAT = "combat_protocol";
-    public static final String SUPPORT = "support_protocol";
-    public static final String RECOVERY = "recovery_protocol";
+    public static final String COMBAT = DeviceUpgrade.COMBAT.id();
+    public static final String SUPPORT = DeviceUpgrade.SUPPORT.id();
+    public static final String RECOVERY = DeviceUpgrade.RECOVERY.id();
     public static double damageMultiplier(Player player, ItemStack stack) {
         return 1 + rankValue(player, stack, COMBAT, switch (type(stack)) { case RF -> .10; case MANA -> .08; case TWINS -> .12; }, 3);
     }
