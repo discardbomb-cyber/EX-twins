@@ -37,7 +37,10 @@ import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import top.theillusivec4.curios.api.CuriosApi;
@@ -66,6 +69,8 @@ public final class ArmageddonController {
     private static final int BITES = 12000;
     /** The most blocks the eruption's beam bores away in one tick. */
     private static final int BORES = 6000;
+    /** The most places carving or boring looks at in one tick, taken or not (air and bedrock too); it goes on from there the next. */
+    private static final int LOOKS = 48000;
     /** Shots in progress, by owner. */
     private static final Map<UUID, Shot> SHOTS = new HashMap<>();
     /** Shots already fired whose owner has gone: they fly on, feed and burst where they were fired. */
@@ -175,10 +180,12 @@ public final class ArmageddonController {
         if (reason != null) return reason;
         String identity = hive.get(ModDataComponents.INSTANCE_ID.get());
         if (identity == null) return NO_HIVE;
-        // The aim can be no further off than the reach.
+        // The aim can be no further off than the reach, and lands on the first thing in its way, as the owner's own aim does.
         Vec3 eye = owner.getEyePosition(), aim = target.subtract(eye);
         if (aim.length() > Armageddon.REACH + 2) target = eye.add(aim.normalize().scale(Armageddon.REACH));
         if (aim.lengthSqr() < 1) target = eye.add(owner.getLookAngle().scale(Armageddon.REACH));
+        BlockHitResult blocked = owner.level().clip(new ClipContext(eye, target, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, owner));
+        if (blocked.getType() != HitResult.Type.MISS) target = blocked.getLocation();
         ItemStack shield = shield(owner, type);
         int shieldGives = shield.isEmpty() ? 0 : shieldGives(owner, shield, hive);
         ArmageddonTimeline timeline = ArmageddonTimeline.of(type);
@@ -267,8 +274,10 @@ public final class ArmageddonController {
         }
         int owed = (int) Math.round(shot.shieldGives * drained) - shot.shieldGiven;
         if (owed > 0) {
+            // Never more than the shield can spare right now: a shield switched off, or drained in a fight, gives what it still can.
             ItemStack shield = shield(owner, shot.state.type());
-            if (!shield.isEmpty() && DevicePower.drain(owner, shield, owed)) shot.shieldGiven += owed;
+            int give = shield.isEmpty() ? 0 : Math.min(owed, spare(owner, shield));
+            if (give > 0 && DevicePower.canAfford(owner, shield, give) && DevicePower.drain(owner, shield, give)) shot.shieldGiven += give;
         }
     }
 
@@ -279,10 +288,15 @@ public final class ArmageddonController {
      */
     public static int shieldGives(Player owner, ItemStack shield, ItemStack hive) {
         if (!RelicRuntime.enabled(shield) || !DevicePower.required() || owner.getAbilities().instabuild) return RelicRuntime.enabled(shield) ? 1 : 0;
+        return Math.min(spare(owner, shield), (int) Math.round(points(hive) * SHIELD_SHARE));
+    }
+
+    /** What a switched-on shield holds above the reserve it keeps for its own field, in points; nothing from one switched off. */
+    private static int spare(Player owner, ItemStack shield) {
+        if (!RelicRuntime.enabled(shield)) return 0;
         DeviceEnergy energy = DevicePower.energy(shield);
         int held = energy.rf() / DevicePower.FE_PER_POINT + energy.mana();
-        int spare = held - (int) Math.round(points(shield) * SHIELD_KEEPS);
-        return Math.max(0, Math.min(spare, (int) Math.round(points(hive) * SHIELD_SHARE)));
+        return Math.max(0, held - (int) Math.round(points(shield) * SHIELD_KEEPS));
     }
 
     private static void finish(ServerPlayer owner, ItemStack hive, Shot shot) {
@@ -316,18 +330,21 @@ public final class ArmageddonController {
     private static void carve(ServerLevel level, Shot shot, long age) {
         Vec3 centre = shot.state.target();
         double radius = shot.timeline.carveRadius(), reach = shot.timeline.carved(age), most = radius * radius;
-        int budget = BITES;
+        int budget = BITES, looks = LOOKS;
         BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
-        while (shot.crater != null && budget > 0 && shot.eaten < shot.crater.length) {
+        // Asked every tick, so a server turned safe partway through keeps the rest of its land.
+        while (shot.crater != null && !safe() && budget > 0 && looks > 0 && shot.eaten < shot.crater.length) {
             int x = (int) (shot.crater[shot.eaten] >> 32), z = (int) shot.crater[shot.eaten];
             double dx = x + .5 - centre.x, dz = z + .5 - centre.z, flat = dx * dx + dz * dz;
             if (flat > reach * reach) break;
             double span = Math.sqrt(Math.max(0, most - flat));
             int floor = Math.max(level.getMinBuildHeight(), (int) Math.ceil(centre.y - span));
             at.set(x, floor, z);
-            if (level.isLoaded(at)) {
+            // Never inside spawn protection or beyond the world border, where its owner could not break a block either.
+            if (level.isLoaded(at) && level.mayInteract(shot.owner, at)) {
                 int top = Math.min(shot.eatenTo, Math.min(level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z), (int) Math.floor(centre.y + span)));
-                for (int y = top; y >= floor && budget > 0; y--) {
+                for (int y = top; y >= floor && budget > 0 && looks > 0; y--) {
+                    looks--;
                     at.setY(y);
                     // Checked as it is taken: nothing unbreakable goes.
                     BlockState state = level.getBlockState(at);
@@ -336,7 +353,7 @@ public final class ArmageddonController {
                     level.setBlock(at, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SUPPRESS_DROPS);
                     budget--;
                 }
-                if (budget <= 0 && shot.eatenTo >= floor) break;
+                if ((budget <= 0 || looks <= 0) && shot.eatenTo >= floor) break;
             }
             shot.eaten++;
             shot.eatenTo = Integer.MAX_VALUE;
@@ -371,24 +388,25 @@ public final class ArmageddonController {
         Vec3 centre = shot.state.target();
         if (shot.shaft == null) shot.shaft = columns(centre, Armageddon.BEAM);
         int floor = Math.max(level.getMinBuildHeight(), (int) Math.floor(centre.y - Armageddon.BORE_DEPTH));
-        int budget = BORES;
+        int budget = BORES, looks = LOOKS;
         BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
-        while (budget > 0 && shot.bored < shot.shaft.length) {
+        while (budget > 0 && looks > 0 && shot.bored < shot.shaft.length) {
             int x = (int) (shot.shaft[shot.bored] >> 32), z = (int) shot.shaft[shot.bored];
             double dx = x + .5 - centre.x, dz = z + .5 - centre.z;
             if (dx * dx + dz * dz > radius * radius) break;
             at.set(x, floor, z);
-            if (level.isLoaded(at)) {
+            if (level.isLoaded(at) && level.mayInteract(shot.owner, at)) {
                 int top = Math.min(shot.boredTo, level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z));
-                for (int y = top; y >= floor && budget > 0; y--) {
+                for (int y = top; y >= floor && budget > 0 && looks > 0; y--) {
+                    looks--;
                     at.setY(y);
                     BlockState state = level.getBlockState(at);
+                    shot.boredTo = y - 1;
                     if (state.isAir() || state.getDestroySpeed(level, at) < 0) continue;
                     level.setBlock(at, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SUPPRESS_DROPS);
                     budget--;
-                    shot.boredTo = y - 1;
                 }
-                if (budget <= 0 && shot.boredTo >= floor) break;
+                if ((budget <= 0 || looks <= 0) && shot.boredTo >= floor) break;
             }
             shot.bored++;
             shot.boredTo = Integer.MAX_VALUE;
@@ -440,7 +458,8 @@ public final class ArmageddonController {
 
     /** The owner, their allies and pets, players who cannot be hurt, and every player when the server forbids fights. */
     static boolean spared(ServerLevel level, Player owner, LivingEntity entity) {
-        if (owner != null && (entity == owner || ShieldCoverage.friendly(owner, entity))) return true;
+        // By UUID: an owner who died or left and came back is a new player object, and is still spared.
+        if (owner != null && (entity.getUUID().equals(owner.getUUID()) || ShieldCoverage.friendly(owner, entity))) return true;
         if (entity instanceof Player player) return player.isCreative() || player.isSpectator() || !level.getServer().isPvpAllowed();
         return false;
     }
