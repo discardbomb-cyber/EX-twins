@@ -395,7 +395,7 @@ tasks.register('inspectShieldSave', JavaExec) {
 
 // NeoForge can exit zero after a loading error, before running any tests. The count is pinned, so a
 // GameTest that silently stops being discovered fails the run too.
-def expectedGameTests = 37
+def expectedGameTests = 41
 
 tasks.named('runGameTestServer').configure {
     doFirst { ext.testStartedMillis = System.currentTimeMillis() }
