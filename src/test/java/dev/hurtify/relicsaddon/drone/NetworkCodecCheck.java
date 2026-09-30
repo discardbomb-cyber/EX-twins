@@ -52,7 +52,8 @@ public final class NetworkCodecCheck {
         require(roundTrip(HiveStackState.STREAM_CODEC, settled, "settled swarm") < HiveType.MAX_DRONES + 60, "a settled swarm is back to about a byte per drone");
         for (int lane = 0; lane < slots; lane++) {
             if (lane == 3) continue;
-            require(HiveSlots.occupant(settled.units(), lane, slots, fighters, 6_000) == lane, "a settled lane is flown by its first drone");
+            require(HiveFlightPlan.of(HiveType.RF, HiveType.MAX_DRONES, HiveSettings.DEFAULT).wing(AttackMode.BARRAGE).occupant(settled.units(), lane, 6_000) == lane,
+                    "a settled lane is flown by its first drone");
         }
         require(settled.settle(6_000, slots, fighters, 120) == settled, "settling twice changes nothing");
         HiveStackState foreign = new HiveStackState(true, List.of(HiveStackState.Unit.fresh().hit(1, 9_000_000, 9_000_200)));
@@ -82,30 +83,58 @@ public final class NetworkCodecCheck {
         require(old.units().size() == 5 && old.units().get(0).hp() == HiveType.DRONE_HP && old.units().get(2).hp() == 0
                 && old.units().get(2).readyAt() == 900, "an old save must load with whole drones and the destroyed one rebuilding");
 
-        // Settings: the attack mode travels and saves; old saves held only a healer count.
-        for (AttackMode mode : AttackMode.values()) {
-            HiveSettings settings = new HiveSettings(37, mode);
-            roundTrip(HiveSettings.STREAM_CODEC, settings, "settings " + mode);
-            require(decode(HiveSettings.CODEC, encode(HiveSettings.CODEC, settings)).equals(settings), "settings " + mode + " did not survive a save");
+        // Settings: every mode's drones travel and save, with or without a notice, counts as variable-length
+        // numbers; old saves held one mode for every fighter, or only a healer count.
+        HiveSettings full = new HiveSettings(HiveType.MAX_DRONES, HiveType.MAX_DRONES, HiveType.MAX_DRONES, HiveType.MAX_DRONES);
+        require(roundTrip(HiveSettings.STREAM_CODEC, full, "full settings") == 4 * 2 + 1, "settings counts travel as variable-length numbers");
+        require(roundTrip(HiveSettings.STREAM_CODEC, new HiveSettings(0, 60, 120, 70), "small settings") == 4 + 1, "small counts take a byte each");
+        for (AttackMode mode : AttackMode.values()) for (HiveSettings.Notice.Kind kind : HiveSettings.Notice.Kind.values()) {
+            HiveSettings settings = new HiveSettings(37, 60, 0, 1_999, new HiveSettings.Notice(kind, mode, 300, 1_024));
+            roundTrip(HiveSettings.STREAM_CODEC, settings, "settings " + mode + " " + kind);
+            require(decode(HiveSettings.CODEC, encode(HiveSettings.CODEC, settings)).equals(settings), "settings " + mode + " " + kind + " did not survive a save");
         }
-        require(decode(HiveSettings.CODEC, IntTag.valueOf(12)).equals(new HiveSettings(12, AttackMode.BARRAGE)), "an old healer count must still load");
+        require(decode(HiveSettings.CODEC, encode(HiveSettings.CODEC, new HiveSettings(3, 16, 0, 18))).equals(new HiveSettings(3, 16, 0, 18)),
+                "settings without a notice survive a save");
+        require(decode(HiveSettings.CODEC, IntTag.valueOf(12)).equals(HiveSettings.legacy(12, AttackMode.BARRAGE)), "an old healer count must still load");
+        for (AttackMode mode : AttackMode.values()) {
+            CompoundTag single = new CompoundTag();
+            single.putInt("healers", 5);
+            single.putString("mode", mode.id());
+            require(decode(HiveSettings.CODEC, single).equals(HiveSettings.legacy(5, mode)), "an old single-mode save loads as that mode (" + mode + ")");
+        }
+        CompoundTag barrageSave = new CompoundTag();
+        barrageSave.putInt("healers", 0);
+        require(decode(HiveSettings.CODEC, barrageSave).equals(HiveSettings.DEFAULT), "an old save that left out its default mode is a Barrage one");
+        for (int[] bad : new int[][]{{-1}, {HiveType.MAX_DRONES + 1}}) {
+            ByteBuf buffer = Unpooled.buffer();
+            VarInt.write(buffer, 1);
+            VarInt.write(buffer, bad[0]);
+            boolean refused = false;
+            try { HiveSettings.STREAM_CODEC.decode(buffer); } catch (RuntimeException expected) { refused = true; }
+            require(refused, "a settings packet with " + bad[0] + " drones in a mode is refused");
+        }
 
         List<HiveCombatState.Shot> shots = new ArrayList<>();
         for (int index = 0; index < HiveCombatState.MAX_SHOTS; index++) {
             shots.add(new HiveCombatState.Shot(HiveType.MAX_DRONES - 1 - index, 5_000L + index, 4 + index % 7, 1, 2, 3, 4, 5, 6, 5_010L + index));
         }
-        for (AttackMode mode : AttackMode.values()) {
-            roundTrip(HiveCombatState.STREAM_CODEC, new HiveCombatState(true, 42, 77L, 1.5, 2.5, 3.5, mode, 44, shots), "combat " + mode);
+        List<List<HiveCombatState.Wing>> wingSets = List.of(List.of(), List.of(new HiveCombatState.Wing(true, 77, 12345),
+                new HiveCombatState.Wing(false, 0, 0), new HiveCombatState.Wing(true, 9_000_000_000L, -7)));
+        for (List<HiveCombatState.Wing> wings : wingSets) {
+            String mode = wings.size() + " wings";
+            roundTrip(HiveCombatState.STREAM_CODEC, new HiveCombatState(true, 42, 77L, 1.5, 2.5, 3.5, wings, 44, shots), "combat " + mode);
             List<HiveTarget> targets = new ArrayList<>(), previous = new ArrayList<>();
             for (int index = 0; index < HiveCombatState.MAX_TARGETS; index++) {
                 targets.add(new HiveTarget(100 + index, index * 1.5, 64, -index, .6 + index * .1, 1.8));
                 if (index % 2 == 0) previous.add(new HiveTarget(200 + index, -index, 70, index * 2.5, 1.2F, 2.9F));
             }
-            HiveCombatState engaged = HiveCombatState.engage(targets, 77L, mode, 44).withShots(shots).retarget(targets, 90L);
-            roundTrip(HiveCombatState.STREAM_CODEC, new HiveCombatState(true, 100, 77L, 0, 64, 0, mode, 44, shots, targets, previous, 90L),
+            HiveCombatState engaged = HiveCombatState.engage(targets, 77L, wings, 44).withShots(shots).retarget(targets, 90L, 3);
+            roundTrip(HiveCombatState.STREAM_CODEC, new HiveCombatState(true, 100, 77L, 0, 64, 0, wings, 44, shots, targets, previous, 90L, 2),
                     "combat with targets " + mode);
-            require(engaged.previous().equals(engaged.targets()) && engaged.retargetedAt() == 90L && engaged.changedAt() == 77L,
-                    "a retarget keeps the fight's start and remembers the old targets");
+            roundTrip(HiveCombatState.STREAM_CODEC, engaged, "retargeted combat " + mode);
+            require(engaged.previous().equals(engaged.targets()) && engaged.retargetedAt() == 90L && engaged.changedAt() == 77L && engaged.previousHeld() == 3,
+                    "a retarget keeps the fight's start and remembers the old targets and how many were held");
+            require(decode(HiveCombatState.CODEC, encode(HiveCombatState.CODEC, engaged)).equals(engaged), "combat " + mode + " did not survive a save");
         }
 
         for (DeviceEnergy.ManaSource source : DeviceEnergy.ManaSource.values()) {

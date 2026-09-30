@@ -1,69 +1,37 @@
 package dev.hurtify.relicsaddon.drone;
 
-import java.util.List;
-
 /**
- * Which drones fly right now; shared by the server and the renderer so both agree without extra data.
+ * How a wing's places ({@link HiveFlightPlan.Wing}) make strike groups; shared by the server and the
+ * renderer so both agree without extra data.
  *
- * <p>At most {@link HiveType#MAX_DEPLOYED} drones are out at once: healers take their places first
- * and fighters hold the rest. Every fighter place has a queue of drones, its lane: units {@code k},
- * {@code k + slots}, {@code k + 2 slots} and so on. The place is flown by the lane's drone that has
- * been ready longest, so a hit drone turns for home while the next one launches at once, and a
- * repaired drone waits in reserve rather than bumping its replacement.
+ * <p>Each place of a wing has a queue of drones, its lane, and is flown by the lane's drone that has been
+ * ready longest, so a hit drone turns for home while the next one launches at once, and a repaired drone
+ * waits in reserve rather than bumping its replacement.
  *
- * <p>Fighters form two to sixteen strike groups of about sixteen drones; place {@code s} belongs to
- * group {@code s % groups}, as member {@code s / groups}.
+ * <p>A wing's places form strike groups; place {@code s} belongs to group {@code s % groups}, as member
+ * {@code s / groups}. A Droplet group is one figure and a Containment group one construct, so there are as
+ * many groups as whole figures fit in the wing (one at least, sixteen at most); the places left over
+ * stand on the figures' finer points. Barrage groups are clumps, about sixteen drones each, and each target's
+ * clumps make one pattern, so a wing has at least as many clumps as its pattern has corners.
  */
 public final class HiveSlots {
-    public static int healerSlots(int units, HiveSettings settings) {
-        return Math.min(settings.healerCount(units), HiveType.MAX_DEPLOYED);
-    }
-
-    public static int fighterSlots(int units, HiveSettings settings) {
-        return Math.max(0, Math.min(settings.fighters(units), HiveType.MAX_DEPLOYED - healerSlots(units, settings)));
-    }
-
-    /** The unit flying fighter place {@code slot}, or -1 when every drone of its lane is away. */
-    public static int occupant(List<HiveStackState.Unit> units, int slot, int slots, int fighters, long now) {
-        int best = -1;
-        long bestReady = Long.MAX_VALUE;
-        for (int unit = slot; unit < fighters && unit < units.size(); unit += slots) {
-            HiveStackState.Unit state = units.get(unit);
-            if (state.ready(now) && state.readyAt() < bestReady) {
-                best = unit;
-                bestReady = state.readyAt();
-            }
-        }
-        return best;
-    }
-
-    /** When {@code occupant} took its place: the latest hit among the rest of its lane, or -1 if it has flown from the start. */
-    public static long since(List<HiveStackState.Unit> units, int slot, int slots, int fighters, int occupant, long now) {
-        long since = -1;
-        for (int unit = slot; unit < fighters && unit < units.size(); unit += slots) {
-            if (unit == occupant) continue;
-            long hit = units.get(unit).lastHit();
-            if (hit >= 0 && hit <= now) since = Math.max(since, hit);
-        }
-        return since;
-    }
-
-    /** Fighter place a unit belongs to (its lane), or -1 for a healer. */
-    public static int lane(int unit, int slots, int fighters) {
-        return slots <= 0 || unit >= fighters ? -1 : unit % slots;
-    }
-
-    public static int groups(int slots) {
-        return slots < 2 ? 1 : Math.clamp(Math.round(slots / 16F), 2, 16);
+    /** Strike groups of a wing of {@code mode} with {@code slots} places in a hive of {@code type}. */
+    public static int groups(int slots, AttackMode mode, HiveType type) {
+        if (slots <= 0) return 1;
+        int minimum = HiveFigures.minimum(type, mode);
+        if (mode != AttackMode.BARRAGE) return Math.clamp(slots / minimum, 1, 16);
+        if (slots < minimum) return slots;
+        // Whole patterns only, of about sixteen drones a clump: each target's clumps make one pattern, and no clump is left over from one.
+        int patterns = Math.clamp(Math.round(slots / (16F * minimum)), 1, Math.max(1, Math.min(16 / minimum, slots / minimum)));
+        return patterns * minimum;
     }
 
     /**
-     * Strike groups in {@code mode}. Barrage clumps draw a pattern around the target, so there are at
-     * least three of them, a triangle, as soon as there are three drones to make them.
+     * Figures {@code groups} strike groups of {@code mode} make: as many creatures as the wing can take on.
+     * Each Droplet or Containment group is a figure; Barrage clumps make a pattern round each target.
      */
-    public static int groups(int slots, AttackMode mode) {
-        int groups = groups(slots);
-        return mode == AttackMode.BARRAGE ? Math.min(Math.max(groups, 3), Math.max(1, slots)) : groups;
+    public static int figures(int groups, AttackMode mode, HiveType type) {
+        return mode == AttackMode.BARRAGE ? Math.max(1, groups / HiveFormation.patternCorners(type)) : Math.max(1, groups);
     }
 
     public static int group(int slot, int groups) { return slot % groups; }

@@ -266,6 +266,7 @@ tasks.named('check') {
     dependsOn 'verifyNetworkCodecs'
     dependsOn 'verifyRegistryFilter'
     dependsOn 'verifyHiveFormation'
+    dependsOn 'verifyHiveAllocation'
     dependsOn 'verifyArmageddonSounds'
     dependsOn 'verifyHiveLayers'
     dependsOn 'verifyEffectLights'
@@ -326,6 +327,13 @@ tasks.register('verifyDevicePower', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
     mainClass = 'dev.hurtify.relicsaddon.power.DevicePowerCheck'
+}
+
+// Each attack mode's minimum is its figure's corner count; the places in the air add up; the console never asks for a forbidden allocation.
+tasks.register('verifyHiveAllocation', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.drone.HiveAllocationCheck'
 }
 
 tasks.register('verifyNetworkCodecs', JavaExec) {

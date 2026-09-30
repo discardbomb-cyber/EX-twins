@@ -91,7 +91,7 @@ final class NativeHiveGallery extends Screen {
         }
         Vec3 owner = droplet ? new Vec3(-1.5, 0, 0) : new Vec3(contain ? -4.5 : -8, 0, 1.5);
         double cycleStart = combatStart + TRAVEL;
-        int groups = HiveSlots.groups(SLOTS, mode);
+        int groups = HiveSlots.groups(SLOTS, mode, type);
         int[] members = new int[groups];
         Vec3[] drones = new Vec3[SLOTS];
         Vec3 core = HiveFormation.core(target, 1.8);

@@ -1,5 +1,7 @@
 package dev.hurtify.relicsaddon.server;
 
+import dev.hurtify.relicsaddon.RelicsAddon;
+import dev.hurtify.relicsaddon.drone.HiveSettings;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
 import dev.hurtify.relicsaddon.drone.HiveType;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
@@ -61,11 +63,29 @@ public final class HiveController {
 
     /** Drops timings the swarm no longer needs, so it goes back to one byte per drone on the wire (see {@link HiveStackState#settle}). */
     private static void settle(Player player, ItemStack stack, HiveStackState state) {
-        var settings = HiveTaskController.settings(stack);
-        int units = state.units().size();
-        HiveStackState settled = state.settle(player.level().getGameTime(), dev.hurtify.relicsaddon.drone.HiveSlots.fighterSlots(units, settings),
-                settings.fighters(units), SETTLE_QUIET_TICKS);
+        HiveType type = HiveType.of(((AutonomousRelicItem) stack.getItem()).role());
+        HiveStackState settled = state.settle(player.level().getGameTime(), HiveCombatController.plan(stack, type, state.units().size()).lanes(),
+                SETTLE_QUIET_TICKS);
         if (settled != state) stack.set(ModDataComponents.HIVE_STACK_STATE.get(), settled);
+    }
+
+    /**
+     * Makes the hive's orders fit its family and size, writing the fix back so the owner sees it: an old
+     * save's single mode counted out, a mode that can no longer build its figure switched off. The reason
+     * goes to the console's Swarm tab and the log.
+     */
+    public static HiveSettings normalize(Player player, ItemStack stack) {
+        HiveType type = HiveType.of(((AutonomousRelicItem) stack.getItem()).role());
+        HiveSettings current = HiveTaskController.settings(stack), resolved = current.resolve(type, capacity(player, stack));
+        if (resolved == current) return current;
+        stack.set(ModDataComponents.HIVE_SETTINGS.get(), resolved);
+        HiveSettings.Notice notice = resolved.notice();
+        if (notice != null && !notice.equals(current.notice())) {
+            RelicsAddon.LOGGER.info("{}'s {} hive: {} {} ({} drones, its figure needs {})", player.getName().getString(), type,
+                    notice.kind() == HiveSettings.Notice.Kind.CUT ? "switched off" : notice.kind() == HiveSettings.Notice.Kind.MOVED
+                            ? "moved to barrage from" : "left with no mode instead of", notice.mode().id(), notice.had(), notice.need());
+        }
+        return resolved;
     }
 
     /** HP regained by drones that already existed; drones added by a larger capacity arrive free. */
@@ -80,7 +100,10 @@ public final class HiveController {
         if (player.level().isClientSide()) return;
         HiveCombatController.tick(player);
         if (player.level().getGameTime() % 10 != 0) return;
-        for (Equipped hive : active(player)) settle(player, hive.stack(), prepare(player, hive.stack(), true));
+        for (Equipped hive : active(player)) {
+            normalize(player, hive.stack());
+            settle(player, hive.stack(), prepare(player, hive.stack(), true));
+        }
     }
 
     private HiveController() { }

@@ -382,7 +382,7 @@ public final class WorldScenarios {
         AutonomousRelicItem.ensureState(stack);
         stack.set(ModDataComponents.DEVICE_PROGRESSION.get(), new DeviceProgression(0, level, 0, 0));
         stack.set(ModDataComponents.DEVICE_ENERGY.get(), DevicePower.full(stack));
-        if (mode != null) stack.set(ModDataComponents.HIVE_SETTINGS.get(), new HiveSettings(0, mode));
+        if (mode != null) stack.set(ModDataComponents.HIVE_SETTINGS.get(), HiveSettings.legacy(0, mode));
         return stack;
     }
 
