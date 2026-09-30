@@ -1,8 +1,8 @@
 package dev.hurtify.relicsaddon.registry;
 
 import dev.hurtify.relicsaddon.RelicsAddon;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
-import dev.hurtify.relicsaddon.relic.RelicRole;
 import java.util.List;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
@@ -12,9 +12,9 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 public final class ModItems {
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(RelicsAddon.MOD_ID);
 
-    public static final DeferredItem<dev.hurtify.relicsaddon.relic.HiveRelicItem> RF_HIVE = hive(dev.hurtify.relicsaddon.drone.HiveType.RF);
-    public static final DeferredItem<dev.hurtify.relicsaddon.relic.HiveRelicItem> MANA_HIVE = hive(dev.hurtify.relicsaddon.drone.HiveType.MANA);
-    public static final DeferredItem<dev.hurtify.relicsaddon.relic.HiveRelicItem> TWINS_HIVE = hive(dev.hurtify.relicsaddon.drone.HiveType.TWINS);
+    public static final DeferredItem<dev.hurtify.relicsaddon.relic.HiveRelicItem> RF_HIVE = hive(dev.hurtify.relicsaddon.domain.hive.HiveType.RF);
+    public static final DeferredItem<dev.hurtify.relicsaddon.relic.HiveRelicItem> MANA_HIVE = hive(dev.hurtify.relicsaddon.domain.hive.HiveType.MANA);
+    public static final DeferredItem<dev.hurtify.relicsaddon.relic.HiveRelicItem> TWINS_HIVE = hive(dev.hurtify.relicsaddon.domain.hive.HiveType.TWINS);
 
     // Crafting parts: a shared circuit, one battery per energy family, a core per shield and drone parts per hive.
     public static final DeferredItem<Item> RESONANT_CIRCUIT = component("resonant_circuit", Rarity.COMMON);
@@ -34,7 +34,7 @@ public final class ModItems {
         return ITEMS.register(id, () -> new dev.hurtify.relicsaddon.relic.ComponentItem(new Item.Properties().rarity(rarity)));
     }
 
-    private static DeferredItem<dev.hurtify.relicsaddon.relic.HiveRelicItem> hive(dev.hurtify.relicsaddon.drone.HiveType type) {
+    private static DeferredItem<dev.hurtify.relicsaddon.relic.HiveRelicItem> hive(dev.hurtify.relicsaddon.domain.hive.HiveType type) {
         return ITEMS.register(type.role.itemId(), () -> {
             var properties = new Item.Properties().stacksTo(1).rarity(Rarity.RARE);
             return switch (type) {

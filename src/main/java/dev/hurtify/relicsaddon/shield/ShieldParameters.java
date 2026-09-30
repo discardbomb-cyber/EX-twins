@@ -1,9 +1,10 @@
 package dev.hurtify.relicsaddon.shield;
 
 import dev.hurtify.relicsaddon.AddonConfig;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
-import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;

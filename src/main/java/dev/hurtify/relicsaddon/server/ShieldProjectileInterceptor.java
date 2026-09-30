@@ -3,7 +3,7 @@ package dev.hurtify.relicsaddon.server;
 import dev.hurtify.relicsaddon.AddonConfig;
 import dev.hurtify.relicsaddon.RelicsAddon;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
-import dev.hurtify.relicsaddon.relic.RelicRole;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.shield.ShieldField;
 import dev.hurtify.relicsaddon.shield.ShieldImpact;

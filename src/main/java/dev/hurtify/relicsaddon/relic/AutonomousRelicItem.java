@@ -1,10 +1,11 @@
 package dev.hurtify.relicsaddon.relic;
 
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.server.EquippedRelicSetResolver;
 import dev.hurtify.relicsaddon.shield.ShieldParameters;
 import dev.hurtify.relicsaddon.shield.ShieldStackState;
-import dev.hurtify.relicsaddon.shield.ShieldTopology;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.ChatFormatting;

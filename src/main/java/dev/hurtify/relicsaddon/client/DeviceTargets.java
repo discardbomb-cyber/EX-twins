@@ -1,8 +1,8 @@
 package dev.hurtify.relicsaddon.client;
 
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.network.OpenDevicePayload;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
-import dev.hurtify.relicsaddon.relic.RelicRole;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;

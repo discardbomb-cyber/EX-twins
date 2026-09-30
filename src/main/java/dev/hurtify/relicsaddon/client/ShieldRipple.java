@@ -25,8 +25,8 @@ public final class ShieldRipple {
     private static double gain = 1;
 
     /** How strongly each shell bends: Twins keep their layered look with a softer wave than Mana. */
-    public static double roleScale(dev.hurtify.relicsaddon.relic.RelicRole role) {
-        return role == dev.hurtify.relicsaddon.relic.RelicRole.TWINS_SHIELD ? .4 : 1;
+    public static double roleScale(dev.hurtify.relicsaddon.domain.device.RelicRole role) {
+        return role == dev.hurtify.relicsaddon.domain.device.RelicRole.TWINS_SHIELD ? .4 : 1;
     }
 
     public static void begin(List<ShieldImpact> impacts, double time) {

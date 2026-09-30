@@ -4,9 +4,9 @@ import static dev.hurtify.relicsaddon.gametest.DeviceTestSupport.ARENA;
 import static dev.hurtify.relicsaddon.gametest.DeviceTestSupport.TEMPLATE;
 
 import dev.hurtify.relicsaddon.AddonConfig;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
-import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.server.HiveCombatController;
 import dev.hurtify.relicsaddon.server.ShieldController;
 import dev.hurtify.relicsaddon.server.ShieldEffectGuard;

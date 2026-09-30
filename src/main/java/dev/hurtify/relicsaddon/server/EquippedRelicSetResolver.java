@@ -1,7 +1,7 @@
 package dev.hurtify.relicsaddon.server;
 
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
-import dev.hurtify.relicsaddon.relic.RelicRole;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;

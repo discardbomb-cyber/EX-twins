@@ -1,4 +1,4 @@
-package dev.hurtify.relicsaddon.relic;
+package dev.hurtify.relicsaddon.domain.device;
 
 public enum RelicRole {
     RF_SHIELD("rf_shield", "rf_shield", "charm", Kind.SHIELD, 0x26C6DA),

@@ -1,5 +1,6 @@
-package dev.hurtify.relicsaddon.shield;
+package dev.hurtify.relicsaddon.domain.shield;
 
+import dev.hurtify.relicsaddon.shield.ShieldStackState;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -58,7 +59,7 @@ public final class ShieldTopology {
     /** Maps a saved 42-cell ID to the current cell nearest that historical region's center. */
     public int migrateLegacyCell(int legacyCell) { return legacyToCurrent[legacyCell]; }
 
-    int legacyRegionFor(float[] point) { return nearest(point, legacyCenters); }
+    public int legacyRegionFor(float[] point) { return nearest(point, legacyCenters); }
 
     private static ShieldTopology create() {
         float[][] sites = relaxedSites(CELL_COUNT);

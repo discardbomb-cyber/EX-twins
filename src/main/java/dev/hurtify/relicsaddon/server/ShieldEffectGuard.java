@@ -1,8 +1,8 @@
 package dev.hurtify.relicsaddon.server;
 
 import dev.hurtify.relicsaddon.AddonConfig;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.power.DevicePower;
-import dev.hurtify.relicsaddon.relic.RelicRole;
 import java.util.Map;
 import java.util.WeakHashMap;
 import net.minecraft.network.chat.Component;

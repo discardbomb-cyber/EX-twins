@@ -1,4 +1,7 @@
-package dev.hurtify.relicsaddon.relic;
+package dev.hurtify.relicsaddon.domain.device;
+
+import dev.hurtify.relicsaddon.relic.HiveUpgrades;
+import dev.hurtify.relicsaddon.relic.ShieldUpgrades;
 
 /** Compact ids and requirements used by the standalone device menu. */
 public enum DeviceUpgrade {

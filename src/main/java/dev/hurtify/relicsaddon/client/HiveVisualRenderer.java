@@ -2,13 +2,13 @@ package dev.hurtify.relicsaddon.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import dev.hurtify.relicsaddon.drone.HiveCombatState;
 import dev.hurtify.relicsaddon.drone.HiveFormation;
 import dev.hurtify.relicsaddon.drone.HiveSettings;
 import dev.hurtify.relicsaddon.drone.HiveSlots;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
 import dev.hurtify.relicsaddon.drone.HiveSupportState;
-import dev.hurtify.relicsaddon.drone.HiveType;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.server.HiveCombatController;
 import dev.hurtify.relicsaddon.server.HiveController;

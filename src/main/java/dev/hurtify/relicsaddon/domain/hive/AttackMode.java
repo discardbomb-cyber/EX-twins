@@ -1,4 +1,4 @@
-package dev.hurtify.relicsaddon.drone;
+package dev.hurtify.relicsaddon.domain.hive;
 
 import java.util.Locale;
 

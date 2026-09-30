@@ -2,13 +2,13 @@ package dev.hurtify.relicsaddon.server;
 
 import dev.hurtify.relicsaddon.AddonConfig;
 import dev.hurtify.relicsaddon.RelicsAddon;
-import dev.hurtify.relicsaddon.drone.AttackMode;
+import dev.hurtify.relicsaddon.domain.hive.AttackMode;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import dev.hurtify.relicsaddon.drone.HiveCombatState;
 import dev.hurtify.relicsaddon.drone.HiveFormation;
 import dev.hurtify.relicsaddon.drone.HiveSettings;
 import dev.hurtify.relicsaddon.drone.HiveSlots;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
-import dev.hurtify.relicsaddon.drone.HiveType;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.HiveUpgrades;

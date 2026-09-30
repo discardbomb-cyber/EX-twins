@@ -1,7 +1,7 @@
 package dev.hurtify.relicsaddon.client;
 
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
-import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.server.EquippedRelicSetResolver;
 import dev.hurtify.relicsaddon.server.ShieldController;
 import dev.hurtify.relicsaddon.server.ShieldProjectileInterceptor;

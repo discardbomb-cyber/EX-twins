@@ -1,6 +1,6 @@
 package dev.hurtify.relicsaddon.client;
 
-import dev.hurtify.relicsaddon.shield.ShieldTopology;
+import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
 
 /** Quality settings must not change the authoritative cell IDs. */
 final class ShieldHexMesh {

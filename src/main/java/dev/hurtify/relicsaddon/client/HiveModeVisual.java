@@ -1,10 +1,10 @@
 package dev.hurtify.relicsaddon.client;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import dev.hurtify.relicsaddon.drone.AttackMode;
+import dev.hurtify.relicsaddon.domain.hive.AttackMode;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import dev.hurtify.relicsaddon.drone.HiveFormation;
 import dev.hurtify.relicsaddon.drone.HiveShapes;
-import dev.hurtify.relicsaddon.drone.HiveType;
 import java.util.Random;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;

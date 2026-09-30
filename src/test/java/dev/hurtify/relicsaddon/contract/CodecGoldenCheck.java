@@ -1,13 +1,13 @@
 package dev.hurtify.relicsaddon.contract;
 
 import com.mojang.serialization.Codec;
-import dev.hurtify.relicsaddon.drone.AttackMode;
+import dev.hurtify.relicsaddon.domain.hive.AttackMode;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import dev.hurtify.relicsaddon.drone.DroneStackState;
 import dev.hurtify.relicsaddon.drone.HiveCombatState;
 import dev.hurtify.relicsaddon.drone.HiveSettings;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
 import dev.hurtify.relicsaddon.drone.HiveSupportState;
-import dev.hurtify.relicsaddon.drone.HiveType;
 import dev.hurtify.relicsaddon.network.OpenDevicePayload;
 import dev.hurtify.relicsaddon.power.DeviceEnergy;
 import dev.hurtify.relicsaddon.relic.DeviceProgression;

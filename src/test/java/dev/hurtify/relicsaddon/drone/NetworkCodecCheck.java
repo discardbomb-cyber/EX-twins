@@ -1,6 +1,8 @@
 package dev.hurtify.relicsaddon.drone;
 
 import com.mojang.serialization.Codec;
+import dev.hurtify.relicsaddon.domain.hive.AttackMode;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import dev.hurtify.relicsaddon.power.DeviceEnergy;
 import dev.hurtify.relicsaddon.shield.ShieldImpact;
 import io.netty.buffer.ByteBuf;

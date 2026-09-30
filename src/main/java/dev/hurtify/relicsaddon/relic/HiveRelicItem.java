@@ -1,6 +1,7 @@
 package dev.hurtify.relicsaddon.relic;
 
-import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import net.minecraft.world.item.ItemStack;
 import top.theillusivec4.curios.api.CuriosApi;
 import top.theillusivec4.curios.api.SlotContext;

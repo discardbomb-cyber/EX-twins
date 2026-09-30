@@ -1,15 +1,15 @@
 package dev.hurtify.relicsaddon.server;
 
 import dev.hurtify.relicsaddon.RelicsAddon;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
-import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.shield.ShieldField;
 import dev.hurtify.relicsaddon.shield.ShieldImpact;
 import dev.hurtify.relicsaddon.shield.ShieldImpactHistory;
 import dev.hurtify.relicsaddon.shield.ShieldParameters;
-import dev.hurtify.relicsaddon.shield.ShieldTopology;
 import dev.hurtify.relicsaddon.sound.RelicSounds;
 import java.util.Map;
 import java.util.WeakHashMap;

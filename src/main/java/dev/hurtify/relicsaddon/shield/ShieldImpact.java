@@ -2,6 +2,7 @@ package dev.hurtify.relicsaddon.shield;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
 import io.netty.buffer.ByteBuf;
 import java.util.List;
 import net.minecraft.network.codec.ByteBufCodecs;

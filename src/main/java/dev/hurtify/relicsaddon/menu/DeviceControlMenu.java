@@ -1,13 +1,13 @@
 package dev.hurtify.relicsaddon.menu;
 
-import dev.hurtify.relicsaddon.drone.AttackMode;
+import dev.hurtify.relicsaddon.domain.device.DeviceUpgrade;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.hive.AttackMode;
 import dev.hurtify.relicsaddon.power.DeviceEnergy;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.registry.ModMenus;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
-import dev.hurtify.relicsaddon.relic.DeviceUpgrade;
-import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.server.EquippedRelicSetResolver;
 import dev.hurtify.relicsaddon.server.HiveController;

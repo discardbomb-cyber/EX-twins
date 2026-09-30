@@ -1,5 +1,6 @@
 package dev.hurtify.relicsaddon.drone;
 
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import net.minecraft.world.phys.Vec3;
 
 /**

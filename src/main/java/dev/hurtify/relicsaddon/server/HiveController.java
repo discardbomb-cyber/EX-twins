@@ -1,10 +1,10 @@
 package dev.hurtify.relicsaddon.server;
 
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
-import dev.hurtify.relicsaddon.drone.HiveType;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
-import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import java.util.ArrayList;
 import java.util.List;

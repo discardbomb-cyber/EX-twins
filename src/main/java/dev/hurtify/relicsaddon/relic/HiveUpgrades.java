@@ -1,6 +1,6 @@
 package dev.hurtify.relicsaddon.relic;
 
-import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 

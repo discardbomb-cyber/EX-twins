@@ -1,5 +1,7 @@
 package dev.hurtify.relicsaddon.drone;
 
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
+
 /** Fibonacci shell avoids clustering at 50 drones; shared by server and renderer. */
 public final class HiveOrbit {
     public record Point(double x, double y, double z) { }

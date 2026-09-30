@@ -48,7 +48,7 @@ REGISTRY_GAME_TESTS = (
     ROOT / "src/main/java/dev/hurtify/relicsaddon/gametest/AcquisitionGameTests.java",
     ROOT / "src/main/java/dev/hurtify/relicsaddon/gametest/ShieldCellGameTests.java",
 )
-HIVE_TYPE_SOURCE = ROOT / "src/main/java/dev/hurtify/relicsaddon/drone/HiveType.java"
+HIVE_TYPE_SOURCE = ROOT / "src/main/java/dev/hurtify/relicsaddon/domain/hive/HiveType.java"
 HIVE_STATE_SOURCE = ROOT / "src/main/java/dev/hurtify/relicsaddon/drone/HiveCombatState.java"
 HIVE_RENDERER_SOURCE = ROOT / "src/main/java/dev/hurtify/relicsaddon/client/HiveVisualRenderer.java"
 

@@ -1,5 +1,6 @@
 package dev.hurtify.relicsaddon.relic;
 
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 

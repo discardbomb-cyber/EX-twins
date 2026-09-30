@@ -2,6 +2,7 @@ package dev.hurtify.relicsaddon.drone;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.DecoderException;
 import java.util.ArrayList;

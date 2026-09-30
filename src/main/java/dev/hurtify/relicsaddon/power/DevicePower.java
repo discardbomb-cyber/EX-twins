@@ -1,11 +1,11 @@
 package dev.hurtify.relicsaddon.power;
 
 import dev.hurtify.relicsaddon.AddonConfig;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
 import dev.hurtify.relicsaddon.relic.DeviceProgression;
-import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.server.EquippedRelicSetResolver;
 import dev.hurtify.relicsaddon.server.HiveController;
@@ -157,7 +157,7 @@ public final class DevicePower {
                     .ifPresent(shield -> drain(player, shield, SHIELD_UPKEEP));
             for (HiveController.Equipped hive : HiveController.active(player)) {
                 int drones = hive.stack().getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), HiveStackState.DEFAULT).units().size();
-                drain(player, hive.stack(), HIVE_UPKEEP + Math.min(drones, dev.hurtify.relicsaddon.drone.HiveType.MAX_DEPLOYED) / 10);
+                drain(player, hive.stack(), HIVE_UPKEEP + Math.min(drones, dev.hurtify.relicsaddon.domain.hive.HiveType.MAX_DEPLOYED) / 10);
             }
         }
         if (now % 10 != 5 || free(player)) return;

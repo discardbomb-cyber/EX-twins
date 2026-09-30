@@ -1,7 +1,7 @@
 package dev.hurtify.relicsaddon.server;
 
 import dev.hurtify.relicsaddon.RelicsAddon;
-import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

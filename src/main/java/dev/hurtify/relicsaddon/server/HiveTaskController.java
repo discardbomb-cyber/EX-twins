@@ -1,6 +1,6 @@
 package dev.hurtify.relicsaddon.server;
 
-import dev.hurtify.relicsaddon.relic.RelicRole;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.AddonConfig;
 import dev.hurtify.relicsaddon.drone.HiveSettings;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
@@ -37,7 +37,7 @@ public final class HiveTaskController {
     }
 
     /** Switches how the hive's fighters attack; a swarm in combat regroups for the new mode. */
-    public static boolean configureMode(Player owner, boolean charm, int slot, String identity, dev.hurtify.relicsaddon.drone.AttackMode mode) {
+    public static boolean configureMode(Player owner, boolean charm, int slot, String identity, dev.hurtify.relicsaddon.domain.hive.AttackMode mode) {
         if (owner.level().isClientSide() || !owner.isAlive() || owner.isSpectator() || !EquippedRelicSetResolver.isRealPlayer(owner) || mode == null) return false;
         ItemStack stack = locate(owner, charm, slot);
         if (!(stack.getItem() instanceof AutonomousRelicItem item) || !item.role().isHive() || identity.isEmpty()

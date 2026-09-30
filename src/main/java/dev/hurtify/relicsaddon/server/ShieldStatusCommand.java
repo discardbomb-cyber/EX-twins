@@ -1,9 +1,9 @@
 package dev.hurtify.relicsaddon.server;
 
 import com.mojang.brigadier.arguments.DoubleArgumentType;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
-import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.shield.ShieldParameters;
 import dev.hurtify.relicsaddon.shield.ShieldSettings;
@@ -47,7 +47,7 @@ public final class ShieldStatusCommand {
                 context.getSource().sendSuccess(() -> Component.translatable("message.relics_addon.shield_status",
                         stack.getHoverName(), index + 1, Component.translatable("message.relics_addon.status." + reason),
                         state.totalIntegrity(), ShieldParameters.totalCapacity(player, stack), state.livingCells(),
-                        dev.hurtify.relicsaddon.shield.ShieldTopology.CELL_COUNT, state.sharedBuffer(), ShieldParameters.capacity(player, stack)), false);
+                        dev.hurtify.relicsaddon.domain.shield.ShieldTopology.CELL_COUNT, state.sharedBuffer(), ShieldParameters.capacity(player, stack)), false);
                 found++;
             }
         }

@@ -2,6 +2,7 @@ package dev.hurtify.relicsaddon.relic;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.hurtify.relicsaddon.domain.device.DeviceUpgrade;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 

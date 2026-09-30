@@ -1,6 +1,6 @@
-package dev.hurtify.relicsaddon.drone;
+package dev.hurtify.relicsaddon.domain.hive;
 
-import dev.hurtify.relicsaddon.relic.RelicRole;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 
 /**
  * Hive families. A player runs one hive at a time; its swarm grows to {@link #MAX_DRONES} drones, of

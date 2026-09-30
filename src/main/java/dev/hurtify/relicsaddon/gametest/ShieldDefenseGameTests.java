@@ -6,7 +6,7 @@ import static dev.hurtify.relicsaddon.gametest.DeviceTestSupport.TEMPLATE;
 import dev.hurtify.relicsaddon.power.DeviceEnergy;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
-import dev.hurtify.relicsaddon.relic.RelicRole;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.server.ShieldBarrier;
 import dev.hurtify.relicsaddon.server.ShieldEffectGuard;
