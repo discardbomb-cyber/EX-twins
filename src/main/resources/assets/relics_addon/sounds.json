@@ -491,6 +491,49 @@
       }
     ]
   },
+  "hive.rf_armageddon_charge": {
+    "subtitle": "subtitles.relics_addon.hive_rf_armageddon_charge",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_rf_armageddon_charge",
+        "stream": true
+      }
+    ]
+  },
+  "hive.rf_armageddon_fire": {
+    "subtitle": "subtitles.relics_addon.hive_rf_armageddon_fire",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_rf_armageddon_fire"
+      }
+    ]
+  },
+  "hive.rf_armageddon_flight": {
+    "subtitle": "subtitles.relics_addon.hive_rf_armageddon_flight",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_rf_armageddon_flight",
+        "stream": true
+      }
+    ]
+  },
+  "hive.rf_armageddon_dome": {
+    "subtitle": "subtitles.relics_addon.hive_rf_armageddon_dome",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_rf_armageddon_dome"
+      }
+    ]
+  },
+  "hive.rf_armageddon_blast": {
+    "subtitle": "subtitles.relics_addon.hive_rf_armageddon_blast",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_rf_armageddon_blast",
+        "stream": true
+      }
+    ]
+  },
   "hive.rf_seal": {
     "subtitle": "subtitles.relics_addon.hive_rf_seal",
     "sounds": [
