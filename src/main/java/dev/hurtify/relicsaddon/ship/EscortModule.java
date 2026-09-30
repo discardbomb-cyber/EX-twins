@@ -2,11 +2,10 @@ package dev.hurtify.relicsaddon.ship;
 
 import dev.hurtify.relicsaddon.AddonConfig;
 import javax.annotation.Nullable;
-import net.minecraft.ChatFormatting;
+import dev.hurtify.relicsaddon.sound.RelicSounds;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
@@ -16,7 +15,7 @@ import net.minecraft.world.phys.Vec3;
  * leaves the hive, keeps watch round the ship, goes after a threat on its own (the two wings take different ones when
  * they can), circles it, strikes it with the arc between its two drones and sends its little drones diving at it, and
  * never strays further from the ship than its leash. A wing flies on its own charge and comes home to fill up from the
- * hive's FE when it runs low, or when the hive is switched off.
+ * hive's FE when it runs low, or when the hive is switched off; a hive newly set down fills its wings before they fly.
  */
 public final class EscortModule implements ShipModule {
     public static final int WINGS = 2;
@@ -41,7 +40,7 @@ public final class EscortModule implements ShipModule {
         Phase phase = Phase.DOCKED;
         long phaseAt = NEVER, arcAt = NEVER, diveAt = NEVER, positionAt = NEVER;
         Vec3 position, velocity = Vec3.ZERO;
-        int charge = FULL, targetId = -1;
+        int charge, targetId = -1;
         @Nullable
         LivingEntity target;
 
@@ -102,11 +101,11 @@ public final class EscortModule implements ShipModule {
         boolean changed = false;
         unpowered = false;
         Vec3 middle = frame.middle();
-        double leash = leash(), orbit = orbit(frame);
+        double leash = leash(), orbit = Math.min(orbit(frame), leash - 2);
         for (int index = 0; index < WINGS; index++) {
             Wing wing = wings[index];
             Vec3 dock = dock(frame.centre(), normal, across, index);
-            if (wing.position == null || wing.position.distanceToSqr(middle) > sq(leash * 3 + orbit)) {
+            if (wing.position == null || wing.position.distanceToSqr(dock) > sq(leash * 2 + orbit + 32)) {
                 // First tick, or the ship went far away all at once (a teleport): the wing is home.
                 wing.position = dock;
                 wing.velocity = Vec3.ZERO;
@@ -122,7 +121,9 @@ public final class EscortModule implements ShipModule {
                         if (hive.draw(REFILL * energyPerPoint())) wing.charge = Math.min(FULL, wing.charge + REFILL);
                         else unpowered = true;
                     }
-                    if (on && wing.charge >= FULL * 6 / 10) to(wing, Phase.LAUNCH, now);
+                    if (on && wing.charge >= FULL * 6 / 10 && to(wing, Phase.LAUNCH, now)) {
+                        RelicSounds.ship(level, dock, RelicSounds.Ship.ESCORT_LAUNCH, 1, 1 + index * .12F);
+                    }
                 }
                 case LAUNCH -> {
                     fly(wing, dock.add(normal.scale(5)), frame.velocity());
@@ -137,19 +138,20 @@ public final class EscortModule implements ShipModule {
                     else if (mark != null) {
                         if (wing.phase != Phase.ENGAGE) to(wing, Phase.ENGAGE, now);
                         brain.claim(mark, now);
-                        engage(hive, wing, index, mark, level, now);
+                        engage(hive, wing, index, mark, level, brain, middle, leash, now);
                     } else {
                         if (wing.phase != Phase.PATROL) to(wing, Phase.PATROL, now);
                         double angle = now * .02 + index * Math.PI;
                         Vec3 round = frame.turn(new Vec3(Math.cos(angle) * orbit, 3, Math.sin(angle) * orbit));
-                        fly(wing, middle.add(round), frame.velocity());
+                        fly(wing, leashed(middle, middle.add(round), leash), frame.velocity());
                     }
                 }
                 case RETURN -> {
                     wing.target = null;
                     wing.targetId = -1;
                     fly(wing, dock, frame.velocity());
-                    if (wing.position.distanceToSqr(dock) < .8 * .8) to(wing, Phase.DOCKED, now);
+                    // The wing has moved on to next tick's place, and so will the dock with its ship.
+                    if (wing.position.distanceToSqr(dock.add(frame.velocity())) < .8 * .8) to(wing, Phase.DOCKED, now);
                 }
             }
             wing.positionAt = now;
@@ -194,28 +196,36 @@ public final class EscortModule implements ShipModule {
         return picked != null ? picked : keep ? kept : null;
     }
 
-    /** Circles the mark and strikes it: the pair's arc now and then, a dive of its swarm more often. */
-    private void engage(ShipHiveBlockEntity hive, Wing wing, int index, LivingEntity mark, ServerLevel level, long now) {
+    /**
+     * Circles the mark (never past the leash) and strikes it: the pair's arc now and then, a dive of its swarm more
+     * often; only while it is still a threat, and from where the wing is.
+     */
+    private void engage(ShipHiveBlockEntity hive, Wing wing, int index, LivingEntity mark, ServerLevel level, ShipBrain brain, Vec3 middle,
+            double leash, long now) {
         Vec3 at = mark.getBoundingBox().getCenter();
         double angle = now * .07 + index * Math.PI;
         Vec3 round = new Vec3(Math.cos(angle) * CIRCLE, ABOVE, Math.sin(angle) * CIRCLE);
-        fly(wing, at.add(round), mark.getDeltaMovement());
-        if (wing.position.distanceTo(at) > STRIKE_REACH || !ShipRays.clear(level, wing.position, at)) return;
+        fly(wing, leashed(middle, at.add(round), leash), mark.getDeltaMovement());
+        if (wing.position.distanceTo(at) > STRIKE_REACH || !ShipRays.clear(level, wing.position, at) || !(ShipAllies.threat(brain, mark, now) > 0)) return;
         if (now - wing.arcAt >= ARC_EVERY && wing.charge > ARC_COST) {
             wing.arcAt = now;
             wing.charge -= ARC_COST;
-            strike(hive, level, mark, arcDamage());
+            mark.hurt(ShipDamage.source(level, ShipDamage.ESCORT, hive, wing.position), arcDamage());
+            RelicSounds.ship(level, at, RelicSounds.Ship.ESCORT_ARC, 1, .95F + index * .1F);
             hive.changed();
         } else if (now - wing.diveAt >= DIVE_EVERY && wing.charge > DIVE_COST) {
             wing.diveAt = now;
             wing.charge -= DIVE_COST;
-            strike(hive, level, mark, arcDamage() * .35F);
+            mark.hurt(ShipDamage.source(level, ShipDamage.ESCORT, hive, wing.position), arcDamage() * .35F);
             hive.changed();
         }
     }
 
-    private static void strike(ShipHiveBlockEntity hive, ServerLevel level, LivingEntity victim, float amount) {
-        victim.hurt(level.damageSources().source(ShipDamage.ESCORT, hive.owner() == null ? null : level.getPlayerByUUID(hive.owner())), amount);
+    /** {@code goal}, drawn in to within {@code leash} of the ship's middle. */
+    private static Vec3 leashed(Vec3 middle, Vec3 goal, double leash) {
+        Vec3 out = goal.subtract(middle);
+        double length = out.length();
+        return length <= leash || length < 1e-6 ? goal : middle.add(out.scale(leash / length));
     }
 
     /** Steers the wing towards {@code goal}, easing in as it arrives, moving along with {@code carried} (its ship, or its mark). */
@@ -252,16 +262,16 @@ public final class EscortModule implements ShipModule {
     }
 
     @Override
-    public Component status() {
+    public ShipStatus.Line status() {
         int out = 0, fighting = 0;
         for (Wing wing : wings) {
             if (wing.phase != Phase.DOCKED) out++;
             if (wing.phase == Phase.ENGAGE) fighting++;
         }
-        if (fighting > 0) return Component.translatable("ship.relics_addon.status.escort.fighting", fighting).withStyle(ChatFormatting.AQUA);
-        if (out > 0) return Component.translatable("ship.relics_addon.status.escort.patrol", out).withStyle(ChatFormatting.GREEN);
-        if (unpowered) return Component.translatable("ship.relics_addon.status.unpowered").withStyle(ChatFormatting.GOLD);
-        return Component.translatable("ship.relics_addon.status.escort.docked").withStyle(ChatFormatting.GRAY);
+        if (fighting > 0) return ShipStatus.ESCORT_FIGHTING.with(fighting);
+        if (out > 0) return ShipStatus.ESCORT_PATROL.with(out);
+        if (unpowered) return ShipStatus.UNPOWERED.line();
+        return ShipStatus.ESCORT_DOCKED.line();
     }
 
     @Override
@@ -274,7 +284,7 @@ public final class EscortModule implements ShipModule {
     @Override
     public void load(CompoundTag tag) {
         int[] charges = tag.getIntArray("Charges");
-        for (int k = 0; k < WINGS; k++) wings[k].charge = k < charges.length ? Math.clamp(charges[k], 0, FULL) : FULL;
+        for (int k = 0; k < WINGS; k++) wings[k].charge = k < charges.length ? Math.clamp(charges[k], 0, FULL) : 0;
     }
 
     @Override

@@ -41,6 +41,7 @@ public final class ClientEventRegistrar {
 
     private static void registerScreens(net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event) {
         event.register(dev.hurtify.relicsaddon.registry.ModMenus.DEVICE_CONTROL.get(), DeviceControlScreen::new);
+        event.register(dev.hurtify.relicsaddon.registry.ModMenus.SHIP_HIVE.get(), ShipHiveScreen::new);
     }
 
     private static void registerItemExtensions(RegisterClientExtensionsEvent event) {

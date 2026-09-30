@@ -47,6 +47,8 @@ public final class ShipHiveRenderer {
         final Vec3[] wings = new Vec3[EscortModule.WINGS];
         /** The last arc of each wing that has thrown its light. */
         final long[] flashed = new long[EscortModule.WINGS];
+        /** The lance's beam as it is heard, while it burns. */
+        ShipBeamSound beam;
         double spin, drawnAt = Double.NaN, firingSince = Double.NaN;
         long sparkTick = Long.MIN_VALUE;
     }
@@ -142,6 +144,10 @@ public final class ShipHiveRenderer {
             int link = lance.overheated() ? hot : LANCE_COLOR;
             GlowBrush.lightning(glow, matrix, a, b, (long) (time / 3) * 31 + k, 5, .035, .018, link, (lance.firing() ? 150 : 70) * shown);
         }
+        if (lance.firing() && (view.beam == null || view.beam.isStopped())) {
+            view.beam = new ShipBeamSound(hive);
+            minecraft.getSoundManager().play(view.beam);
+        }
         if (!lance.firing()) {
             view.firingSince = Double.NaN;
             if (lance.overheated()) vent(level, view, drones, time);
@@ -221,7 +227,9 @@ public final class ShipHiveRenderer {
             GlowBrush.dot(glow, matrix, at.subtract(camera), .3, AEGIS_COLOR, 60 + 120 * shown);
             if (shown > .05) GlowBrush.line(glow, matrix, face.subtract(camera), at.subtract(camera), .02, AEGIS_COLOR, 55 * shown);
         }
-        if (shown > .02) shell(glow, matrix, frame, shape, aegis, stations, shown, time, camera);
+        if (shown > .02 && event.getFrustum().isVisible(new AABB(middle, middle).inflate(shape.reach()))) {
+            shell(glow, matrix, frame, shape, aegis, stations, shown, time, camera, middle.distanceTo(camera) - shape.reach() > 64);
+        }
         if (shown > .3) EffectLights.glow(middle, 6 * shown, Math.min(15, shape.reach()));
     }
 
@@ -243,8 +251,8 @@ public final class ShipHiveRenderer {
             boolean docked = wing.phase() == EscortModule.Phase.DOCKED || wing.position() == null;
             Vec3 goal = docked ? dock : wing.position().add(wing.velocity().scale(Math.clamp(time - wing.positionAt(), 0, 10)));
             Vec3 shown = view.wings[index];
-            if (shown == null || shown.distanceToSqr(goal) > 64 * 64) shown = goal;
-            shown = shown.lerp(goal, docked ? Math.min(1, .25 * step) : Math.min(1, .35 * step));
+            if (docked || shown == null || shown.distanceToSqr(goal) > 64 * 64) shown = goal;
+            else shown = shown.add(wing.velocity().scale(step)).lerp(goal, Math.min(1, .3 * step));
             view.wings[index] = shown;
             Entity target = wing.targetId() >= 0 ? level.getEntity(wing.targetId()) : null;
             Vec3 mark = target == null ? null : target.getPosition(partial).add(0, target.getBbHeight() * .5, 0);
@@ -334,7 +342,7 @@ public final class ShipHiveRenderer {
 
     /** The shield's honeycomb: every cell's rim, bright at the shell's edge as seen, round the drones and where it was hit. */
     private static void shell(VertexConsumer glow, Matrix4f matrix, ShipFrame frame, AegisShape shape, AegisModule aegis, Vec3[] stations,
-            double shown, double time, Vec3 camera) {
+            double shown, double time, Vec3 camera, boolean far) {
         double charge = aegis.charge() / (double) AegisModule.FULL;
         double width = Math.clamp(shape.reach() * .004, .02, .08);
         for (ShieldHoneycomb.Cell cell : ShieldHoneycomb.CELLS) {
@@ -357,7 +365,8 @@ public final class ShipHiveRenderer {
             // A weak shield flickers.
             if (charge < .25) light *= .55 + .45 * Math.abs(Math.sin(time * .9 + c[0] * 13 + c[2] * 7));
             light *= shown;
-            if (light < 3) continue;
+            // From far off only what glows is drawn: the rim, the drones' pieces and the hits, not the faint lattice.
+            if (light < (far ? 30 : 3)) continue;
             int color = light > 140 ? GlowBrush.mix(AEGIS_COLOR, AEGIS_HIT, (light - 140) / 160) : AEGIS_COLOR;
             float[] p = cell.perimeter();
             int corners = p.length / 3;
@@ -394,8 +403,10 @@ public final class ShipHiveRenderer {
         poses.pushPose();
         poses.translate(at.x - camera.x, at.y - camera.y, at.z - camera.z);
         // The models look along -Z: their -Z goes to forward, their +Y to up.
-        Vector3f z = new Vector3f((float) -forward.x, (float) -forward.y, (float) -forward.z);
+        Vector3f z = new Vector3f((float) -forward.x, (float) -forward.y, (float) -forward.z).normalize();
         Vector3f y = new Vector3f((float) up.x, (float) up.y, (float) up.z);
+        // Looking straight along its up, a drone takes whichever axis lies most across its sight instead.
+        if (new Vector3f(y).cross(z).lengthSquared() < 1e-6F) y = Math.abs(z.y) < .9F ? new Vector3f(0, 1, 0) : new Vector3f(1, 0, 0);
         Vector3f x = new Vector3f(y).cross(z).normalize();
         y = new Vector3f(z).cross(x).normalize();
         poses.mulPose(new Quaternionf().setFromNormalized(new Matrix3f(x, y, z)));

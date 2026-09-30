@@ -133,20 +133,35 @@ public final class ShipHiveBlockEntity extends BlockEntity {
         return stored <= 0 ? 0 : Math.max(1, (int) ((long) stored * 15 / battery.getMaxEnergyStored()));
     }
 
-    /** A right click: an unowned hive is claimed; the owner switches it with a sneak; anyone else sees its state. */
+    /**
+     * A right click: an unowned hive is claimed; with a sneak its owner switches it at once, and anyone sees its state;
+     * otherwise its window opens.
+     */
     void use(Player player) {
         if (owner == null) claim(player);
-        if (player.isShiftKeyDown() && (player.getUUID().equals(owner) || player.hasPermissions(2))) setEnabled(!enabled);
-        if (player instanceof ServerPlayer server) server.displayClientMessage(status(), true);
+        if (!(player instanceof ServerPlayer server)) return;
+        if (player.isShiftKeyDown()) {
+            if (controlledBy(player)) setEnabled(!enabled);
+            server.displayClientMessage(statusLine(), true);
+        } else dev.hurtify.relicsaddon.menu.ShipHiveMenu.open(server, this);
     }
 
-    private Component status() {
+    /** What the hive is doing: switched off or grounded, or else what its drones are doing. */
+    public ShipStatus.Line status() {
+        if (!enabled) return ShipStatus.OFF.line();
+        if (level != null && level.hasNeighborSignal(worldPosition)) return ShipStatus.GROUNDED.line();
+        return module.status();
+    }
+
+    private Component statusLine() {
         int percent = (int) Math.round(100.0 * battery.getEnergyStored() / battery.getMaxEnergyStored());
-        Component state = !enabled ? Component.translatable("ship.relics_addon.status.off").withStyle(ChatFormatting.GRAY)
-                : level != null && level.hasNeighborSignal(worldPosition) ? Component.translatable("ship.relics_addon.status.grounded").withStyle(ChatFormatting.GOLD)
-                : module.status();
         return Component.translatable("block.relics_addon." + kind.id).withStyle(ChatFormatting.AQUA)
-                .append(Component.literal("  " + percent + "%  ").withStyle(ChatFormatting.WHITE)).append(state);
+                .append(Component.literal("  " + percent + "%  ").withStyle(ChatFormatting.WHITE)).append(status().text());
+    }
+
+    /** Whether {@code player} may switch the hive: its owner, an operator, or anyone while it has no owner. */
+    public boolean controlledBy(Player player) {
+        return owner == null || player.getUUID().equals(owner) || player.hasPermissions(2);
     }
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, ShipHiveBlockEntity hive) {
