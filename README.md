@@ -106,26 +106,51 @@ RF hives have four silver mechanical bay doors, Mana has six ivory/gold shells, 
 
 Ten levels grow the swarm from 100 to 2000 drones. At most 250 fly at once; the rest wait in the hive as replacements. Only one hive can be equipped (Curios rejects a second one), and only one operates.
 
-- The flying drones are split into 2 to 16 strike groups. Pick one of three attack modes in the console's Swarm tab:
-  - **Droplet.** Each group forms one big figure in a fan behind and above its owner: a Mana drop, an RF tesseract turning through the fourth dimension, or Ex-Twins hexagons with lightning arcing between them. In turn, each figure flies at the target like a projectile, strikes it whole and knocks it back, then flies home to re-form. Ex-Twins figures bend space as they fly.
-  - **Barrage.** Each group packs into a dense, glowing clump around the target, and the clumps draw the family's pattern: an RF crown, a Mana star, Ex-Twins octagons. A ball of lightning charges inside each clump. When it fires, it passes through walls and bursts on the target in a lightning blast that warps the space around it. Now and then a few drones hop to a neighbouring clump. Ex-Twins clumps are octagons that crackle with lightning and shed violet smoke.
-  - **Containment.** Every family stuns what it holds:
+- Share the drones between three attack modes in the console's Swarm tab (see [Sharing the drones](#sharing-the-drones)). The modes fight at once, each with its own drones:
+  - **Droplet.** Its drones form figures, as many whole ones as they make (one to sixteen), in a fan behind and above its owner: a Mana drop, an RF tesseract turning through the fourth dimension, or Ex-Twins hexagons with lightning arcing between them. In turn, each figure flies at the target like a projectile, strikes it whole and knocks it back, then flies home to re-form. Ex-Twins figures bend space as they fly.
+  - **Barrage.** Its drones pack into dense, glowing clumps of about sixteen around the target, and each target's clumps draw the family's pattern: an RF crown, a Mana star, Ex-Twins octagons. A ball of lightning charges inside each clump. When it fires, it passes through walls and bursts on the target in a lightning blast that warps the space around it. Now and then a few drones hop to a neighbouring clump. Ex-Twins clumps are octagons that crackle with lightning and shed violet smoke.
+  - **Containment.** Each construct holds one creature, so a mode with drones for several constructs holds several. Every family stuns what it holds:
     - RF seals the target in three slim tori of hexagons, turning like the rings of a Dyson swarm, that zap it and swallow its shots. Each torus is a particle collider: two beams race round inside it in opposite directions and burst where their bunches meet.
     - Mana builds a ward of three rhombi and two rings. Drones keep a reflection buffer charged, and the ward turns blows back on the attacker.
     - Ex-Twins swallows the target in a black hole with a violet accretion disk, ringed by three denser purple collider tori, and lifts it into the air until the tori clear the ground. The black hole bends the world behind it and darkens it the nearer it gets.
     - Every construct is sized from the creature it holds: its inside clears the hitbox by a fifth of its size on every side.
     - Players and bosses cannot be held.
 - Swarm blows land as the swarm's own damage type, which may knock the target back. Containment zaps never knock it about.
-- The hive fights within 128 blocks of its owner by default. It takes on every creature that attacks its owner at once: whoever the owner fights, whoever strikes the owner or their shield, and every mob that has the owner as its target, up to one per strike group. The strike groups are shared out evenly among them. A target stays engaged until it dies, leaves that range, becomes allied or changes dimension, or the hive is switched off. When one falls, its drones fly straight on to the others from where they are instead of going home first.
+- The hive fights within 128 blocks of its owner by default. It takes on every creature that attacks its owner at once: whoever the owner fights, whoever strikes the owner or their shield, and every mob that has the owner as its target, up to 16. Containment holds the first ones, one per construct. Droplet and Barrage take on the rest first and then the held ones, one figure or pattern each at least, so the modes may strike the same creature. A target stays engaged until it dies, leaves that range, becomes allied or changes dimension, or the hive is switched off. When one falls, its drones fly straight on to the others from where they are instead of going home first.
 - Each drone has 3 HP. Targets in reach swing at nearby drones, and explosions damage them too. A hit drone flies home for repair, and the next drone in its lane launches at once to take its place. A repaired drone waits in reserve.
 - Drones pour out of the hive along their own curved paths and stream back when a task ends. Healers ring their owner's chest.
-- Open the console with `H`, select a hive and use the Swarm tab to set the attack mode and to move drones between fighters and healers (±1 / ±10). Assignments persist on the item. Healers restore only their owner and never attack. Healing is capped at 4 HP/second by default, which the server can configure.
+- Open the console with `H` and select a hive. The Swarm tab shares its drones between the modes and the healers. Assignments persist on the item. Healers restore only their owner and never attack. Healing is capped at 4 HP/second by default, which the server can configure.
 - Each hive has three upgrades: combat damage, healing strength, and repair/reconstruction. They never raise the 2000-drone cap or the healing limit.
 - Drones do not absorb damage for their owner; protection is the shield's job. Hives only attack and heal.
 - Drone hits use their own damage type: the owner gets the kill credit, but hundreds of hits never knock the target around.
 - Drones cannot target or damage their wearer, teammates or allied pets. They have no attackable projectile entities of their own, so swarms never damage each other. Creative/spectator players and disallowed PvP targets are excluded.
 - Swarms contain no server-side drone entities or pathfinding. The item stores a compact drone array, and the network sends about one byte per resting drone. Flight is deterministic and computed identically on server and client, so blows land exactly where the shapes are drawn. Distant drones render as glowing points, and the renderer culls by frustum and distance.
 - Hives are not a substitute for the shield's melee/explosion protection. Every family has original synthesized attack/impact and summon/dismiss sounds, shields have absorption, cell-break, collapse and ripple sounds, and the console has its own feedback sounds (`tools/build_combat_sounds.mjs`). Playback is spatially rate-limited to avoid hundreds of simultaneous voices.
+
+### Sharing the drones
+
+The Swarm tab has a row for each mode and one for the healers. A row shows how many drones it has, its minimum, how many of them fly, and a slider. The free drones, given to no one, are counted at the top. For example, 64 drones in Droplet, 120 in Barrage and 72 in Containment fight at once.
+
+![The Swarm tab: drones shared between the three modes and the healers](docs/console-swarm-shared.png)
+
+- **Minimum.** Drones stand on the corners of their mode's figure, so a mode has either no drones (it is off) or at least one per corner of one figure:
+
+  | Family | Droplet | Barrage | Containment |
+  | --- | --- | --- | --- |
+  | RF | 16: a tesseract's corners | 4: a crown (every other point raised) | 18: a hexagon round each of 3 tori |
+  | Mana | 14: a drop's tip, two rings of 6 and its back | 6: a star | 8: the ward's two tips and six side corners |
+  | Ex-Twins | 18: three hexagons | 8: an octagon | 24: an octagon round each of 3 tori |
+
+  Drones beyond the corners stand on finer points of the figures: tesseract edges, the drop's skin, smaller hexagons inside the Twins ones, the tori's hexagons, the ward's lines.
+- **Sliders.** Drag a mode's slider to give it drones or take them back to the free ones. It stops only on whole figures: 0, 16, 32, 48… for the RF tesseract, 0, 8, 16… for the Mana ward, with a tick at each. The lighter part of the track is as far as the free drones reach. A mode whose figure the free drones cannot build is greyed out, and hovering it says why ("Needs at least 18 drones: its figure has 18 corners"). The healers' slider moves one drone at a time, to and from the free drones. **All** puts every fighter into that mode and switches the others off, as a hive fought before the modes could be mixed. The server checks the same rules and refuses anything else, whatever the client sends.
+
+  ![A mode the free drones cannot build is greyed out, with the reason](docs/console-swarm-refused.png)
+- **In the air.** At most 250 drones fly. Healers take their places first; the modes share the rest in proportion to their drones. A mode whose share is smaller than its minimum does not fly at all, and its places go to the others. Its row shows this ahead of time: "flying 0: no room".
+
+  ![A Mana droplet of 14 squeezed out of the air by 1986 drones in Barrage](docs/console-swarm-no-room.png)
+- **Losses.** A hit drone flies home and the next one in its lane takes its place; a lane that has run dry takes a spare drone of its mode. When a mode has no spare left and fewer drones in the air than one figure, it goes home instead of hanging as a broken figure. Once repairs give it enough again, it flies back into the fight by itself.
+- **Smaller hive.** If a hive holds fewer drones than it has given out (after loading or a change of level), healers keep theirs first, then Droplet, Barrage and Containment in turn. A mode left short of its minimum is switched off and its drones are freed. The last line of the Swarm tab says which mode and why, and the server log says so too.
+- **Old saves.** A hive saved when every fighter used one mode puts them all in that mode. If they are too few for its figure, they go to Barrage, and if they are too few even for that, they stay free. The Swarm tab says so.
 
 ### Armageddon
 
