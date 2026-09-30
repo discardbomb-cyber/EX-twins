@@ -73,10 +73,11 @@ public final class RfArmageddon {
 
     /**
      * The ball: where it forms before the nose, its radius when the panels are fully open and when it hangs over the
-     * target, how far out from the target's face it hangs (less where there is less room: never nearer than LEAST_HOVER)
-     * and how far it bobs there.
+     * target (with room for it: in a tight place it grows no bigger than fits, never under SMALLEST of it), how far out
+     * from the target's face it hangs (less where there is less room: never nearer than LEAST_HOVER, the smallest ball's
+     * radius) and how far it bobs there.
      */
-    public static final double BALL_AT = 11, BALL_CHARGED = 3.2, BALL_HOVER = 11, HOVER_HEIGHT = 26, LEAST_HOVER = 4, BOB = .7;
+    public static final double BALL_AT = 11, BALL_CHARGED = 3.2, BALL_HOVER = 11, HOVER_HEIGHT = 26, SMALLEST = .3, LEAST_HOVER = BALL_HOVER * SMALLEST, BOB = .7;
     /** The dome the ball becomes swells to this radius, the crater's; the bowl goes this share of it deep. */
     public static final double DOME_RADIUS = 44, BOWL = .45;
     /** The crater's rim: this wide outside the bowl and this high at its crest; it only rises where the ground lies within RIM_REACH of the target's height. */
@@ -331,7 +332,7 @@ public final class RfArmageddon {
         double unfold = unfold(Math.min(age, SCATTER));
         Vec3[][] panels = new Vec3[PANELS][];
         for (int panel = 0; panel < PANELS; panel++) panels[panel] = panel(state, f, panel, unfold);
-        double flying = Math.min(age, IMPACT + FLASH), radius = ballRadius(Math.min(flying, DESCEND)) * ESCORT_RINGS;
+        double flying = Math.min(age, IMPACT + FLASH), radius = ballRadius(state, Math.min(flying, DESCEND)) * ESCORT_RINGS;
         Vec3 centre = ball(state, Math.min(flying, DESCEND));
         // As the ball sinks the rings stay out from the face, round the dome it becomes.
         if (flying > DESCEND) centre = centre.lerp(state.target().add(state.normal().scale(Math.min(radius * 1.05, lift(state.room())))), smooth((flying - DESCEND) / SINK));
@@ -449,11 +450,21 @@ public final class RfArmageddon {
     }
 
     /**
-     * How far out from the face it lands on the ball hangs: HOVER_HEIGHT, or less where the room out from the face (up to
-     * the next thing in the way, found by the server as the shot is asked for) cannot take the whole ball that far out.
+     * How big the ball can grow where there is {@code room} out from the face it is aimed at (up to the next thing in the
+     * way, found by the server as the shot is asked for): whole with room for it and a little over, smaller in a tight
+     * place, never under SMALLEST of its size.
+     */
+    public static double fit(double room) {
+        return Math.clamp(room / (2 * BALL_HOVER + 2), SMALLEST, 1);
+    }
+
+    /**
+     * How far out from the face it lands on the ball hangs: HOVER_HEIGHT, or less where the room out from the face cannot
+     * take the whole ball that far out; never so near that the ball cuts into the face before it comes in.
      */
     public static double lift(double room) {
-        return Math.clamp(room - BALL_HOVER - 1, LEAST_HOVER, HOVER_HEIGHT);
+        double radius = BALL_HOVER * fit(room);
+        return Math.clamp(room - radius - 1, radius, HOVER_HEIGHT);
     }
 
     /** Where the ball hangs: out from the face the shot lands on (over the ground, under a ceiling, before a wall). */
@@ -468,6 +479,13 @@ public final class RfArmageddon {
     public static double ballRadius(double age) {
         if (age < FIRE) return BALL_CHARGED * Math.pow(opened(age), 1.2);
         return BALL_CHARGED + (BALL_HOVER - BALL_CHARGED) * smooth((age - FIRE) / FLIGHT);
+    }
+
+    /** The ball's radius {@code age} ticks into {@code state}'s shot: on its way out it swells only as far as fits where it is going. */
+    public static double ballRadius(ArmageddonState state, double age) {
+        if (age < FIRE) return ballRadius(age);
+        double whole = Math.max(BALL_CHARGED, BALL_HOVER * fit(state.room()));
+        return BALL_CHARGED + (whole - BALL_CHARGED) * smooth((age - FIRE) / FLIGHT);
     }
 
     /**

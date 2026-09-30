@@ -354,8 +354,10 @@ public final class HiveFormationCheck {
             double lift = RfArmageddon.lift(room);
             require(out.subtract(normal.scale(out.dot(normal))).length() < 1e-9 && Math.abs(out.dot(normal) - lift) < 1e-9
                     && lift >= RfArmageddon.LEAST_HOVER && lift <= RfArmageddon.HOVER_HEIGHT, "the ball hangs straight out from the " + face + " face");
-            require(room < RfArmageddon.LEAST_HOVER + RfArmageddon.BALL_HOVER + 1 || lift + RfArmageddon.BALL_HOVER < room,
-                    "where there is room for it, the whole ball hangs clear of what is in front of the face");
+            double whole = RfArmageddon.ballRadius(shot, RfArmageddon.ARRIVE);
+            require(Math.abs(whole - Math.max(RfArmageddon.BALL_CHARGED, RfArmageddon.BALL_HOVER * RfArmageddon.fit(room))) < 1e-9 && lift >= whole - 1e-9,
+                    "the ball grows only as big as fits, and never hangs so near the face that it cuts into it");
+            require(room < 2 * RfArmageddon.LEAST_HOVER + 1 || lift + whole < room, "where there is room for it, the whole ball hangs clear of what is in front of the face");
             require(RfArmageddon.ball(shot, RfArmageddon.ARRIVE).distanceTo(hover) < 1e-9 && RfArmageddon.ball(shot, RfArmageddon.IMPACT).distanceTo(target) < 1e-9,
                     "the ball hangs out from the face and meets it at the target");
             for (double age = RfArmageddon.DESCEND; age < RfArmageddon.IMPACT; age += 1) {
