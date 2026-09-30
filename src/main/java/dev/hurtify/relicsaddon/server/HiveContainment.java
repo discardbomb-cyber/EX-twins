@@ -65,14 +65,9 @@ public final class HiveContainment {
             this.type = type;
             this.since = since;
             this.seen = since;
-            // Every construct stays centred on its creature, which is lifted just clear of the ground for it:
-            // Twins and RF into the middle of their tori, Mana above the ward's lower tips.
-            double width = target.getBbWidth(), height = target.getBbHeight();
-            double wanted = switch (type) {
-                case TWINS -> dev.hurtify.relicsaddon.drone.HiveFormation.twinsLift(width, height);
-                case RF -> dev.hurtify.relicsaddon.drone.HiveFormation.ringLift(width, height, false);
-                case MANA -> dev.hurtify.relicsaddon.drone.HiveFormation.wardLift(width, height);
-            };
+            // Every construct stays centred on its creature, which is lifted just clear of the ground for it: the RF
+            // cage and the Mana lotus clear it, the Twins rift lifts its creature four blocks at least.
+            double wanted = dev.hurtify.relicsaddon.drone.HiveFormation.constructLift(type, target.getBbWidth(), target.getBbHeight());
             anchor = groundBelow(target, wanted);
             lift = headroom(target, anchor, wanted);
             startLift = Math.clamp(target.getY() - anchor.y, 0, lift);
@@ -132,7 +127,13 @@ public final class HiveContainment {
     }
 
     public static void release(LivingEntity target) {
-        if (HELD.remove(target) != null) restoreGravity(target);
+        Hold hold = HELD.remove(target);
+        if (hold == null) return;
+        restoreGravity(target);
+        // The construct comes apart into its drones.
+        if (target.level() instanceof net.minecraft.server.level.ServerLevel level) {
+            dev.hurtify.relicsaddon.sound.RelicSounds.constructRelease(level, target.getBoundingBox().getCenter(), hold.type);
+        }
     }
 
     /** Releases everything held by one owner's hive of {@code type} (null: any type). */

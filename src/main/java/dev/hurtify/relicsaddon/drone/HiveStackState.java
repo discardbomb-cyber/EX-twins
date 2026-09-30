@@ -131,6 +131,15 @@ public record HiveStackState(boolean enabled, List<Unit> units) {
      * than {@code now}) are pulled back to it.
      */
     public HiveStackState settle(long now, int slots, int fighters, long quiet) {
+        return settle(now, new int[][]{{0, fighters, slots}}, quiet);
+    }
+
+    /**
+     * As above for a swarm whose fighters fly in several wings ({@link HiveFlightPlan#lanes}): each of
+     * {@code lanes} is {base, pool, slots}, a wing's first unit, its drones and its places. Drones in no
+     * flying lane (free, grounded or healing) drop spent timers one by one.
+     */
+    public HiveStackState settle(long now, int[][] lanes, long quiet) {
         List<Unit> work = units;
         // Timings from another world's clock (a hive carried between worlds) are pulled back to now.
         for (int index = 0; index < work.size(); index++) {
@@ -141,22 +150,25 @@ public record HiveStackState(boolean enabled, List<Unit> units) {
                         Math.min(unit.attackReadyAt(), now)));
             }
         }
-        fighters = Math.min(fighters, work.size());
-        for (int lane = 0; lane < Math.min(slots, fighters); lane++) {
-            boolean still = true, stamped = false;
-            for (int index = lane; index < fighters; index += slots) {
-                Unit unit = work.get(index);
-                if (!settled(unit, now, quiet)) {
-                    still = false;
-                    break;
+        boolean[] laned = new boolean[work.size()];
+        for (int[] wing : lanes) {
+            int base = Math.max(0, wing[0]), end = Math.min(work.size(), base + Math.max(0, wing[1])), slots = wing[2];
+            if (slots <= 0) continue;
+            for (int lane = base; lane < Math.min(base + slots, end); lane++) {
+                boolean still = true, stamped = false;
+                for (int index = lane; index < end; index += slots) {
+                    laned[index] = true;
+                    Unit unit = work.get(index);
+                    if (still && !settled(unit, now, quiet)) still = false;
+                    stamped |= !unit.equals(Unit.fresh());
                 }
-                stamped |= !unit.equals(Unit.fresh());
+                if (!still || !stamped) continue;
+                if (work == units) work = new ArrayList<>(units);
+                for (int index = lane; index < end; index += slots) work.set(index, Unit.fresh());
             }
-            if (!still || !stamped) continue;
-            if (work == units) work = new ArrayList<>(units);
-            for (int index = lane; index < fighters; index += slots) work.set(index, Unit.fresh());
         }
-        for (int index = Math.max(0, fighters); index < work.size(); index++) {
+        for (int index = 0; index < work.size(); index++) {
+            if (laned[index]) continue;
             Unit unit = work.get(index);
             if (unit.equals(Unit.fresh()) || !settled(unit, now, quiet)) continue;
             if (work == units) work = new ArrayList<>(units);
