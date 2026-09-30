@@ -101,7 +101,7 @@ void main() {
             float height = 20.0 + 3.0 * Pillar * fract(sin((fk + 7.0) * 91.3458) * 47453.5453) + 2.5 * Pillar * age;
             float radius = Pillar * (0.12 + 0.12 * fract(sin((fk + 9.0) * 91.3458) * 47453.5453)) * (age < 0.1 ? age / 0.1 : 1.0 - smoothstep(0.6, 1.0, age));
             balls[ballCount] = vec4(cos(angle) * out_, height, sin(angle) * out_, radius);
-            ballCount++;
+            ballCount += 1;
         }
     }
 

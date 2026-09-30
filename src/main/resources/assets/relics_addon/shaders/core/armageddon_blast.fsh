@@ -35,7 +35,7 @@ void addLayer(float at, vec3 light, float cover) {
     if (layers < MAX_LAYERS) {
         layerAt[layers] = at;
         layerColour[layers] = vec4(light, clamp(cover, 0.0, 1.0));
-        layers++;
+        layers += 1;
     }
 }
 
