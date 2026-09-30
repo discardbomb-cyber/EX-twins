@@ -32,13 +32,13 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
 /**
  * Containment: the swarm holds its target fast. Every family roots it where it stands; RF and Twins
  * also smother its attacks (and RF eats every shot it fires), Mana lets it strike but turns each blow
- * back on it from a ward the drones keep topping up, and Twins lift it up to four blocks into the air
- * over a black hole, as far as the space above it allows. Bosses and players are never pinned, only
+ * back on it from a ward the drones keep topping up, and Twins swallow it in a black hole. Every family
+ * lifts it just far enough for its construct to clear the ground, as far as the space above it allows
+ * (Twins, whose tori ring the wide black hole, highest). Bosses and players are never pinned, only
  * hurt. A creature held by one player's swarm stays in that hold while it lasts; another player's
  * swarm joins in rather than taking it over.
  */
 public final class HiveContainment {
-    public static final int LIFT = 4;
     private static final int LIFT_TICKS = 30;
     /** Marks a held creature whose gravity we switched off, so a crash or reload can never leave it floating. */
     private static final String GRAVITY = RelicsAddon.MOD_ID + ":held_gravity";
@@ -66,14 +66,14 @@ public final class HiveContainment {
             this.since = since;
             this.seen = since;
             // Every construct stays centred on its creature, which is lifted just clear of the ground for it:
-            // Twins about four blocks into their tori, RF into the middle of theirs, Mana above the ward's lower tips.
+            // Twins and RF into the middle of their tori, Mana above the ward's lower tips.
             double width = target.getBbWidth(), height = target.getBbHeight();
             double wanted = switch (type) {
                 case TWINS -> dev.hurtify.relicsaddon.drone.HiveFormation.twinsLift(width, height);
                 case RF -> dev.hurtify.relicsaddon.drone.HiveFormation.ringLift(width, height, false);
                 case MANA -> dev.hurtify.relicsaddon.drone.HiveFormation.wardLift(width, height);
             };
-            anchor = groundBelow(target);
+            anchor = groundBelow(target, wanted);
             lift = headroom(target, anchor, wanted);
             startLift = Math.clamp(target.getY() - anchor.y, 0, lift);
         }
@@ -148,11 +148,14 @@ public final class HiveContainment {
         return target instanceof Player || target.getType().is(Tags.EntityTypes.BOSSES);
     }
 
-    /** Where a target stands, or the ground a few blocks under it if it is in the air, so a new lift never stacks on an old one. */
-    private static Vec3 groundBelow(LivingEntity target) {
+    /**
+     * Where a target stands, or the ground under it if it is in the air (looking down a little further
+     * than the {@code lift} it is to get), so a new lift never stacks on an old one.
+     */
+    private static Vec3 groundBelow(LivingEntity target, double lift) {
         Vec3 at = target.position();
         if (target.onGround()) return at;
-        BlockHitResult ground = target.level().clip(new ClipContext(at, at.subtract(0, LIFT + 2, 0), ClipContext.Block.COLLIDER,
+        BlockHitResult ground = target.level().clip(new ClipContext(at, at.subtract(0, Math.max(4, lift) + 2, 0), ClipContext.Block.COLLIDER,
                 ClipContext.Fluid.NONE, target));
         return ground.getType() == HitResult.Type.MISS ? at : ground.getLocation();
     }

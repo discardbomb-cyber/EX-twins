@@ -166,19 +166,19 @@ public final class HiveShapes {
         return dense ? 10 : 6;
     }
 
-    /** Radius of the tube of torus {@code ring} in a construct of {@code radius}; the denser Twins tori are thicker. */
+    /** Radius of the tube of torus {@code ring} in a construct of {@code radius}: slim, like a collider's beam pipe; the denser Twins tori a little less so. */
     public static double ringTube(int ring, double radius, boolean dense) {
         return radius * RING_RADII[ring] * ringTubeScale(dense) + ringTubeBase(dense);
     }
 
     /** A tube's radius is this share of its torus's radius... */
     public static double ringTubeScale(boolean dense) {
-        return dense ? .17 : .13;
+        return dense ? .11 : .09;
     }
 
     /** ...plus this much. */
     public static double ringTubeBase(boolean dense) {
-        return dense ? .14 : .1;
+        return dense ? .07 : .045;
     }
 
     /** Columns of hexagons along torus {@code ring}, so its hexagons come out about as wide as they are tall. */
@@ -215,12 +215,17 @@ public final class HiveShapes {
      * drawn a little inside its cell so neighbours keep a seam.
      */
     public static Vec3 ringHexCorner(int ring, int column, int row, int corner, double time, double radius, boolean dense) {
+        return ringHexCorner(ringFrame(ring, time), ring, column, row, corner, time, radius, dense);
+    }
+
+    /** As above, in the torus's {@link #ringFrame frame}, worked out once for all its hexagons. */
+    public static Vec3 ringHexCorner(Vec3[] frame, int ring, int column, int row, int corner, double time, double radius, boolean dense) {
         int rows = ringRows(dense), columns = ringColumns(ring, radius, dense);
         double u = (column + (row % 2) * .5) / columns * Math.PI * 2, v = row / (double) rows * Math.PI * 2;
         double angle = Math.PI / 6 + corner * Math.PI / 3;
         double du = Math.PI * 2 / columns * Math.cos(angle) / Math.sqrt(3) * .9;
         double dv = Math.PI * 2 / rows * Math.sin(angle) / 1.5 * .9;
-        return ringPoint(ring, u + du, v + dv, 1, time, radius, dense);
+        return ringPoint(frame, ring, u + du, v + dv, 1, time, radius, dense);
     }
 
     /**
@@ -228,7 +233,11 @@ public final class HiveShapes {
      * the tube's radius from its core line. The torus turns about its axis and its tube pattern rolls.
      */
     public static Vec3 ringPoint(int ring, double u, double v, double out, double time, double radius, boolean dense) {
-        Vec3[] frame = ringFrame(ring, time);
+        return ringPoint(ringFrame(ring, time), ring, u, v, out, time, radius, dense);
+    }
+
+    /** As above, in the torus's {@link #ringFrame frame}, worked out once for many points. */
+    public static Vec3 ringPoint(Vec3[] frame, int ring, double u, double v, double out, double time, double radius, boolean dense) {
         double major = radius * RING_RADII[ring], tube = ringTube(ring, radius, dense) * out;
         double along = u + time * RING_SPIN[ring], round = v + time * .015;
         double reach = major + tube * Math.cos(round);

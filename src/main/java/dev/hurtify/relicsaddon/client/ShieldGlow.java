@@ -30,9 +30,18 @@ public final class ShieldGlow {
                     .setWriteMaskState(RenderStateShard.COLOR_WRITE)
                     .setCullState(RenderStateShard.NO_CULL)
                     .createCompositeState(false));
+    /** A black hole's horizon: solid, and writing depth so that no light from behind it shows through. */
+    static final RenderType HORIZON = RenderType.create("relic_black_hole_horizon", DefaultVertexFormat.POSITION_COLOR,
+            VertexFormat.Mode.TRIANGLES, 1 << 12, false, false,
+            RenderType.CompositeState.builder()
+                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
+                    .setTransparencyState(RenderStateShard.NO_TRANSPARENCY)
+                    .setDepthTestState(RenderStateShard.LEQUAL_DEPTH_TEST)
+                    .setWriteMaskState(RenderStateShard.COLOR_DEPTH_WRITE)
+                    .setCullState(RenderStateShard.NO_CULL)
+                    .createCompositeState(false));
     private static final MultiBufferSource.BufferSource BUFFERS = MultiBufferSource.immediate(new ByteBufferBuilder(1 << 20));
-    /** Light drawn before the refraction pass, so lenses bend it too (a black hole's own disk). */
-    private static final MultiBufferSource.BufferSource EARLY = MultiBufferSource.immediate(new ByteBufferBuilder(1 << 18));
+    private static final MultiBufferSource.BufferSource HORIZONS = MultiBufferSource.immediate(new ByteBufferBuilder(1 << 16));
     private static final Vec3[][] LOW_SPHERE = sphere(16), HIGH_SPHERE = sphere(32);
 
     public static VertexConsumer consumer() {
@@ -43,13 +52,13 @@ public final class ShieldGlow {
         BUFFERS.endBatch(TYPE);
     }
 
-    /** The early layer: filled during a frame, flushed just before {@link ShieldRefraction#flush}. */
-    public static VertexConsumer earlyConsumer() {
-        return EARLY.getBuffer(TYPE);
+    /** Black hole horizons: filled during a frame, flushed before any light, which they then hide behind them. */
+    public static VertexConsumer horizonConsumer() {
+        return HORIZONS.getBuffer(HORIZON);
     }
 
-    public static void flushEarly() {
-        EARLY.endBatch(TYPE);
+    public static void flushHorizons() {
+        HORIZONS.endBatch(HORIZON);
     }
 
     static int color(RelicRole role) {

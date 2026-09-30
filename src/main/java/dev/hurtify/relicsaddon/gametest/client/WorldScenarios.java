@@ -72,7 +72,12 @@ public final class WorldScenarios {
             new Scene("containment-mana", RelicRole.MANA_HIVE, 10, AttackMode.CONTAINMENT, null,
                     List.of(new Vec3(0, 0, -9)), false, new Vec3(13, 8, -2), new Vec3(0, 5.5, -9), 60, 70, -1),
             new Scene("containment-twins", RelicRole.TWINS_HIVE, 10, AttackMode.CONTAINMENT, null,
-                    List.of(new Vec3(0, 0, -9)), false, new Vec3(13, 9, -2), new Vec3(0, 7, -9), 70, 80, -1),
+                    List.of(new Vec3(0, 0, -9)), false, new Vec3(21, 12, 0), new Vec3(0, 8.3, -9), 70, 80, -1),
+            // Close by: the colliders inside the tori, and the world bent and darkened round the black hole.
+            new Scene("containment-twins-close", RelicRole.TWINS_HIVE, 10, AttackMode.CONTAINMENT, null,
+                    List.of(new Vec3(0, 0, -9)), false, new Vec3(11, 10, -1), new Vec3(0, 8.3, -9), 70, 60, -1),
+            new Scene("containment-rf-close", RelicRole.RF_HIVE, 10, AttackMode.CONTAINMENT, null,
+                    List.of(new Vec3(0, 0, -9)), false, new Vec3(4.5, 5, -4), new Vec3(0, 3.4, -9), 60, 60, -1),
             // A crossbowman shoots at the owner; the level 0 shield (radius 2) stops the bolts, and the swarm answers the shooter.
             new Scene("shield-provoke", RelicRole.TWINS_HIVE, 10, AttackMode.BARRAGE, RelicRole.RF_SHIELD,
                     List.of(new Vec3(0, 0, -10)), true, new Vec3(9, 5, 0), new Vec3(0, 2, -5), 5, 110, -1),
@@ -84,10 +89,13 @@ public final class WorldScenarios {
             new Scene("containment-mana-golem", RelicRole.MANA_HIVE, 10, AttackMode.CONTAINMENT, null, List.of(new Vec3(0, 0, -10)), false,
                     new Vec3(13, 8, -2), new Vec3(0, 5, -10), 60, 60, -1, "minecraft:iron_golem"),
             new Scene("containment-twins-golem", RelicRole.TWINS_HIVE, 10, AttackMode.CONTAINMENT, null, List.of(new Vec3(0, 0, -10)), false,
-                    new Vec3(14, 9, -2), new Vec3(0, 7, -10), 70, 60, -1, "minecraft:iron_golem"),
+                    new Vec3(27, 15, 0), new Vec3(0, 11.4, -10), 70, 60, -1, "minecraft:iron_golem"),
             // A slower, level 3 hive keeps its figures in the fan longer, close to the camera.
             new Scene("drone-closeup", RelicRole.RF_HIVE, 3, AttackMode.DROPLET, null,
                     List.of(new Vec3(0, 0, -26)), false, new Vec3(2.5, 3.6, -2.2), new Vec3(0, 3.8, 3), 60, 50, -1));
+
+    /** Scenes filmed against a chequered wall behind the black hole, so that its lens shows. */
+    private static final java.util.Set<String> BACKDROP = java.util.Set.of("containment-twins", "containment-twins-close", "containment-twins-golem");
 
     private enum Phase { WAIT_WORLD, SETUP, WARM, CAPTURE, TEARDOWN, DONE }
 
@@ -215,6 +223,7 @@ public final class WorldScenarios {
             origin = new Vec3(x + .5, level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z), z + .5);
         }
         clear(level);
+        backdrop(level, BACKDROP.contains(scene.name()));
         level.setDayTime(11_500);
         level.setWeatherParameters(6000, 0, false, false);
         player.setGameMode(GameType.SURVIVAL);
@@ -282,10 +291,27 @@ public final class WorldScenarios {
 
     private static void teardown(ServerLevel level) {
         clear(level);
+        backdrop(level, false);
         ServerPlayer player = owner(level);
         CuriosApi.getCuriosInventory(player).ifPresent(curios -> curios.getStacksHandler(RelicRole.EQUIPMENT_SLOT).ifPresent(handler -> {
             for (int slot = 0; slot < handler.getStacks().getSlots(); slot++) handler.getStacks().setStackInSlot(slot, ItemStack.EMPTY);
         }));
+    }
+
+    /**
+     * Builds (or takes down) a wall of black and white squares 22 blocks west of the owner, 60 blocks long
+     * and 30 high: the cameras of the black hole scenes look west past the hole onto it.
+     */
+    private static void backdrop(ServerLevel level, boolean build) {
+        net.minecraft.core.BlockPos base = net.minecraft.core.BlockPos.containing(origin.x - 22, origin.y, origin.z);
+        for (int z = -48; z < 12; z++) for (int y = 0; y < 30; y++) {
+            net.minecraft.core.BlockPos at = base.offset(0, y, z);
+            var state = !build ? net.minecraft.world.level.block.Blocks.AIR.defaultBlockState()
+                    : Math.floorMod(Math.floorDiv(z, 3) + Math.floorDiv(y, 3), 2) == 0
+                    ? net.minecraft.world.level.block.Blocks.WHITE_CONCRETE.defaultBlockState()
+                    : net.minecraft.world.level.block.Blocks.BLACK_CONCRETE.defaultBlockState();
+            if (level.getBlockState(at) != state) level.setBlock(at, state, 2);
+        }
     }
 
     /** Removes every creature, arrow and item round the stage but the owner. */

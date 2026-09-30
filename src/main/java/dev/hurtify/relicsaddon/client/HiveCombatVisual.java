@@ -64,7 +64,7 @@ public final class HiveCombatVisual {
             if ((shot.kind() == HiveCombatState.DROPLET || shot.kind() == HiveCombatState.BALL) && age >= 0 && age < WARP_TICKS) {
                 Vec3 at = end.subtract(camera);
                 double grow = age / WARP_TICKS;
-                ShieldRefraction.queueLens(at.x, at.y, at.z, grow * 1.8, .6 + grow * 3.2, .9 * (1 - grow), false);
+                ShieldRefraction.queueLens(at.x, at.y, at.z, grow * 1.8, .6 + grow * 3.2, .9 * (1 - grow));
             }
             // A charge in flight glows along its path.
             if (shot.kind() == HiveCombatState.BALL && time < shot.impactAt()) {

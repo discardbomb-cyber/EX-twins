@@ -74,15 +74,19 @@ public final class HiveVisualRenderer {
                 renderHive(minecraft, event, player, hive, cached.present().contains(hive.type()), now, time, partial, camera, poses, glow, budget, scenes);
             }
         }
-        // Drone models are drawn first; the glass of the constructs goes in a buffer taken only after
+        // Black holes bend and darken the world behind them first, before the drones and the light go
+        // over it, so those stay crisp and the drones stay where their hexagons are.
+        for (HiveModeVisual.Scene scene : scenes) HiveModeVisual.lenses(scene, camera);
+        BlackHoleLens.flush(matrix);
+        // Drone models are drawn next; the glass of the constructs goes in a buffer taken only after
         // that batch ends, since ending it would also end (and invalidate) a buffer taken before.
         buffers.endBatch();
         var fill = buffers.getBuffer(ShieldVisualRenderer.renderType());
         for (HiveModeVisual.Scene scene : scenes) HiveModeVisual.render(scene, camera, glow, fill, matrix);
         if (EffectLights.enabled()) scenes.forEach(HiveModeVisual::light);
-        // Light that space should bend with it (a black hole's disk) goes in first; then space bends,
-        // and the glass and the rest of the light are laid over it.
-        ShieldGlow.flushEarly();
+        // Horizons go in solid and write depth before any light, so nothing behind a black hole shows
+        // through it; then space bends round blasts, and the glass and the light are laid over it.
+        ShieldGlow.flushHorizons();
         ShieldRefraction.flush(matrix);
         buffers.endBatch(ShieldVisualRenderer.renderType());
         ShieldGlow.flush();

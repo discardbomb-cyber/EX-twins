@@ -111,7 +111,7 @@ public final class HiveModeGameTests {
         helper.runAfterDelay(80, () -> {
             double lift = dev.hurtify.relicsaddon.drone.HiveFormation.twinsLift(fight.husk.getBbWidth(), fight.husk.getBbHeight());
             helper.assertTrue(Math.abs(fight.husk.getY() - ground - lift) < .1,
-                    "The rifts hold the target four blocks up (" + (fight.husk.getY() - ground) + ")");
+                    "The black hole holds the target " + lift + " blocks up (" + (fight.husk.getY() - ground) + ")");
             helper.assertTrue(fight.husk.isNoGravity(), "It hangs there");
             RelicRuntime.setEnabled(fight.player, fight.hive, false);
         });
