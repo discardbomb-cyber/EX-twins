@@ -261,11 +261,17 @@ tasks.named('check') {
     dependsOn 'verifyEffectLightSources'
     dependsOn 'verifyReleaseContents'
     dependsOn 'verifyArchitecture'
+    dependsOn 'verifyContracts'
     dependsOn 'verifyEntrypoints'
+    dependsOn 'verifyCodecGolden'
+    dependsOn 'verifyGeometryGolden'
     dependsOn 'verifyTwinsShieldLayers'
 }
 
 // Safety net of the hexagonal migration (docs/architecture/hexagonal-migration.md, sections 3 and 11).
+// Golden masters live in src/test/resources/golden and are frozen: -PgoldenRecord rewrites them (S0 only).
+def goldenRecord = providers.gradleProperty('goldenRecord').isPresent()
+def goldenDir = file('src/test/resources/golden')
 // Architecture limits per stage come from section 11; the task prepends the main classes and the source root.
 def architectureArgs = ['--max-legacy', '56', '--min-domain', '0', '--min-application', '0', '--min-adapter', '0']
 
@@ -277,11 +283,40 @@ tasks.register('verifyArchitecture', JavaExec) {
           '--sources', file('src/main/java/dev/hurtify/relicsaddon').absolutePath] + architectureArgs)
 }
 
+// Resource bytes and the string constants of the compiled mod (ids, keys, messages) against their goldens.
+tasks.register('verifyContracts', JavaExec) {
+    dependsOn tasks.named('classes'), tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.hurtify.relicsaddon.contract.ContractCheck'
+    args '--root', projectDir.absolutePath, '--golden', goldenDir.absolutePath,
+            '--resources', file('src/main/resources').absolutePath, '--resources', file('src/generated/resources').absolutePath,
+            '--classes', layout.buildDirectory.dir('classes/java/main').get().asFile.absolutePath
+    if (goldenRecord) args '--record'
+}
+
 // Classes named only in strings (the reflective client hook, the LambDynamicLights entrypoint) must resolve.
 tasks.register('verifyEntrypoints', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
     mainClass = 'dev.hurtify.relicsaddon.contract.EntrypointCheck'
+}
+
+// Saved and synced forms, byte for byte, including old saves and malformed packets.
+tasks.register('verifyCodecGolden', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.contract.CodecGoldenCheck'
+    args new File(goldenDir, 'codecs.txt').absolutePath
+    if (goldenRecord) args '--record'
+}
+
+// The geometry shared by server and client, bit for bit.
+tasks.register('verifyGeometryGolden', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.contract.GeometryGoldenCheck'
+    args new File(goldenDir, 'geometry.txt').absolutePath
+    if (goldenRecord) args '--record'
 }
 
 tasks.register('verifyTwinsShieldLayers', JavaExec) {
