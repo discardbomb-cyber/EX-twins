@@ -1,9 +1,9 @@
 package dev.hurtify.relicsaddon.client;
 
 import dev.hurtify.relicsaddon.domain.shield.ShieldCellDefense;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
 import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
 import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
-import dev.hurtify.relicsaddon.shield.ShieldImpact;
 import java.util.List;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;

@@ -1,11 +1,11 @@
 package dev.hurtify.relicsaddon.server;
 
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.shield.ShieldField;
 import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
-import dev.hurtify.relicsaddon.shield.ShieldField;
 import dev.hurtify.relicsaddon.shield.ShieldParameters;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MoverType;

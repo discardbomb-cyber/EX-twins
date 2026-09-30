@@ -5,8 +5,8 @@ import dev.hurtify.relicsaddon.RelicsAddon;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
-import dev.hurtify.relicsaddon.shield.ShieldField;
-import dev.hurtify.relicsaddon.shield.ShieldImpact;
+import dev.hurtify.relicsaddon.domain.shield.ShieldField;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
 import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
 import dev.hurtify.relicsaddon.domain.shield.ShieldCellDefense;
 import dev.hurtify.relicsaddon.shield.ShieldParameters;
@@ -130,7 +130,7 @@ public final class ShieldProjectileInterceptor {
         if (distance < ShieldParameters.radius(player, shield) - 1e-4) impact = impact.atDistance(distance);
         shield.set(ModDataComponents.SHIELD_IMPACT.get(), impact);
         shield.set(ModDataComponents.SHIELD_IMPACTS.get(), shield.getOrDefault(ModDataComponents.SHIELD_IMPACTS.get(),
-                dev.hurtify.relicsaddon.shield.ShieldImpactHistory.EMPTY).append(impact));
+                dev.hurtify.relicsaddon.domain.shield.ShieldImpactHistory.EMPTY).append(impact));
         dev.hurtify.relicsaddon.sound.RelicSounds.shield((ServerLevel) player.level(), point,
                 ((dev.hurtify.relicsaddon.relic.AutonomousRelicItem) shield.getItem()).role(), impact.broken(), next.totalIntegrity() == 0);
         if (absorbed > 0) {

@@ -355,7 +355,7 @@ tasks.register('verifyHiveLayers', JavaExec) {
 tasks.register('verifyHiveFormation', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
-    mainClass = 'dev.hurtify.relicsaddon.client.HiveFormationCheck'
+    mainClass = 'dev.hurtify.relicsaddon.domain.hive.HiveFormationCheck'
 }
 
 tasks.named('compileTestJava', JavaCompile) {

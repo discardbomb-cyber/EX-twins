@@ -1,11 +1,5 @@
-package dev.hurtify.relicsaddon.client;
+package dev.hurtify.relicsaddon.domain.hive;
 
-import dev.hurtify.relicsaddon.domain.hive.AttackMode;
-import dev.hurtify.relicsaddon.domain.hive.HiveSettings;
-import dev.hurtify.relicsaddon.domain.hive.HiveSlots;
-import dev.hurtify.relicsaddon.domain.hive.HiveStackState;
-import dev.hurtify.relicsaddon.domain.hive.HiveType;
-import dev.hurtify.relicsaddon.drone.HiveFormation;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.world.phys.Vec3;
@@ -113,7 +107,7 @@ public final class HiveFormationCheck {
                     require(apart > radius * 2.9, type + " clumps " + a + " and " + b + " of " + groups + " touch: " + apart);
                 }
                 for (int member = 0; member < members; member += Math.max(1, members / 30)) {
-                    Vec3 offset = dev.hurtify.relicsaddon.drone.HiveShapes.clump(type, member, members, time, new Vec3(1, -.3, .2), radius);
+                    Vec3 offset = dev.hurtify.relicsaddon.domain.hive.HiveShapes.clump(type, member, members, time, new Vec3(1, -.3, .2), radius);
                     double limit = type == HiveType.TWINS ? radius * 1.25 : radius * 1.08;
                     require(offset.length() < limit, type + " clump member strays: " + offset.length() + " of " + radius);
                     if (type != HiveType.TWINS) require(offset.length() > radius * .5, "RF and Mana clumps leave their middle to the charge");

@@ -1,12 +1,12 @@
 package dev.hurtify.relicsaddon.client;
 
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.shield.ShieldField;
 import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.server.EquippedRelicSetResolver;
 import dev.hurtify.relicsaddon.server.ShieldController;
 import dev.hurtify.relicsaddon.server.ShieldProjectileInterceptor;
-import dev.hurtify.relicsaddon.shield.ShieldField;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;

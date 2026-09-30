@@ -5,6 +5,7 @@ import static dev.hurtify.relicsaddon.gametest.DeviceTestSupport.TEMPLATE;
 
 import dev.hurtify.relicsaddon.AddonConfig;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.shield.ShieldField;
 import dev.hurtify.relicsaddon.domain.shield.ShieldSettings;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
@@ -13,7 +14,6 @@ import dev.hurtify.relicsaddon.server.ShieldController;
 import dev.hurtify.relicsaddon.server.ShieldEffectGuard;
 import dev.hurtify.relicsaddon.server.ShieldProjectileInterceptor;
 import dev.hurtify.relicsaddon.server.ShieldStrike;
-import dev.hurtify.relicsaddon.shield.ShieldField;
 import dev.hurtify.relicsaddon.shield.ShieldParameters;
 import java.util.List;
 import net.minecraft.gametest.framework.GameTest;

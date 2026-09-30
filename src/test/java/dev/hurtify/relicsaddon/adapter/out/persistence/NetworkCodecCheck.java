@@ -8,7 +8,7 @@ import dev.hurtify.relicsaddon.domain.hive.HiveSettings;
 import dev.hurtify.relicsaddon.domain.hive.HiveSlots;
 import dev.hurtify.relicsaddon.domain.hive.HiveStackState;
 import dev.hurtify.relicsaddon.domain.hive.HiveType;
-import dev.hurtify.relicsaddon.shield.ShieldImpact;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import java.util.ArrayList;

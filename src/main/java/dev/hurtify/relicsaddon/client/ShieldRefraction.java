@@ -12,7 +12,7 @@ import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import dev.hurtify.relicsaddon.RelicsAddon;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
-import dev.hurtify.relicsaddon.shield.ShieldImpact;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;

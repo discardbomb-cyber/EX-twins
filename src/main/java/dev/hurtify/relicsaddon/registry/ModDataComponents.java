@@ -6,8 +6,8 @@ import dev.hurtify.relicsaddon.adapter.out.persistence.DeviceCodecs;
 import dev.hurtify.relicsaddon.adapter.out.persistence.HiveCodecs;
 import dev.hurtify.relicsaddon.adapter.out.persistence.LegacyDroneStackState;
 import dev.hurtify.relicsaddon.adapter.out.persistence.ShieldCodecs;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
 import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
-import dev.hurtify.relicsaddon.shield.ShieldImpact;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.codec.ByteBufCodecs;
@@ -72,7 +72,7 @@ public final class ModDataComponents {
                     .persistent(ShieldCodecs.IMPACT)
                     .networkSynchronized(ShieldCodecs.IMPACT_STREAM));
 
-    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.shield.ShieldImpactHistory>> SHIELD_IMPACTS =
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.domain.shield.ShieldImpactHistory>> SHIELD_IMPACTS =
             DATA_COMPONENTS.registerComponentType("shield_impacts", builder -> builder
                     .networkSynchronized(ShieldCodecs.IMPACT_HISTORY_STREAM));
 

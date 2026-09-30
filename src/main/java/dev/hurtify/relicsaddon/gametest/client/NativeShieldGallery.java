@@ -4,7 +4,7 @@ import dev.hurtify.relicsaddon.RelicsAddon;
 import dev.hurtify.relicsaddon.client.ShieldResponse;
 import dev.hurtify.relicsaddon.client.ShieldVisualRenderer;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
-import dev.hurtify.relicsaddon.shield.ShieldImpact;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
 import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
 import dev.hurtify.relicsaddon.domain.shield.ShieldCellDefense;
 import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;

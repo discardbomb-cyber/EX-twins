@@ -8,8 +8,8 @@ import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
-import dev.hurtify.relicsaddon.shield.ShieldImpact;
-import dev.hurtify.relicsaddon.shield.ShieldField;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
+import dev.hurtify.relicsaddon.domain.shield.ShieldField;
 import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
 import dev.hurtify.relicsaddon.domain.shield.ShieldCellDefense;
 import dev.hurtify.relicsaddon.shield.ShieldParameters;
@@ -146,7 +146,7 @@ public final class ShieldController {
         if (sourcePosition != null && direction.length() < ShieldParameters.radius(player, shield)) impact = impact.atDistance(direction.length());
         shield.set(ModDataComponents.SHIELD_IMPACT.get(), impact);
         shield.set(ModDataComponents.SHIELD_IMPACTS.get(), shield.getOrDefault(ModDataComponents.SHIELD_IMPACTS.get(),
-                dev.hurtify.relicsaddon.shield.ShieldImpactHistory.EMPTY).append(impact));
+                dev.hurtify.relicsaddon.domain.shield.ShieldImpactHistory.EMPTY).append(impact));
         RelicSounds.shield((net.minecraft.server.level.ServerLevel) player.level(), player.position().add(0, ShieldField.CENTER_Y, 0)
                 .add(impact.normal().scale(impact.distance() >= 0 ? impact.distance() : ShieldParameters.radius(player, shield))),
                 ((AutonomousRelicItem) shield.getItem()).role(), impact.broken(), next.totalIntegrity() == 0);

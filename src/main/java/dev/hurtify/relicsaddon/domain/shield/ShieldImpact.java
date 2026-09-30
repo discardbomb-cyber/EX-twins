@@ -1,7 +1,5 @@
-package dev.hurtify.relicsaddon.shield;
+package dev.hurtify.relicsaddon.domain.shield;
 
-import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
-import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
 import java.util.List;
 import net.minecraft.world.phys.Vec3;
 

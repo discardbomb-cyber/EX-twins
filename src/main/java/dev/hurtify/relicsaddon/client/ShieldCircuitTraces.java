@@ -1,8 +1,8 @@
 package dev.hurtify.relicsaddon.client;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import dev.hurtify.relicsaddon.shield.ShieldField;
-import dev.hurtify.relicsaddon.shield.ShieldImpact;
+import dev.hurtify.relicsaddon.domain.shield.ShieldField;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;

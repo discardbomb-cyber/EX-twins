@@ -2,10 +2,10 @@ package dev.hurtify.relicsaddon.client;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.shield.ShieldField;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
 import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
 import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
-import dev.hurtify.relicsaddon.shield.ShieldField;
-import dev.hurtify.relicsaddon.shield.ShieldImpact;
 import java.util.List;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;

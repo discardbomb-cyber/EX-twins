@@ -1,6 +1,6 @@
 package dev.hurtify.relicsaddon.server;
 
-import dev.hurtify.relicsaddon.shield.ShieldField;
+import dev.hurtify.relicsaddon.domain.shield.ShieldField;
 import dev.hurtify.relicsaddon.shield.ShieldParameters;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;

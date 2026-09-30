@@ -1,6 +1,6 @@
 package dev.hurtify.relicsaddon.client;
 
-import dev.hurtify.relicsaddon.shield.ShieldImpact;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
 import java.util.List;
 
 /**

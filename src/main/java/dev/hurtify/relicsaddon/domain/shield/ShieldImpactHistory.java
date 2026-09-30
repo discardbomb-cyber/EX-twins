@@ -1,4 +1,4 @@
-package dev.hurtify.relicsaddon.shield;
+package dev.hurtify.relicsaddon.domain.shield;
 
 import java.util.ArrayList;
 import java.util.List;

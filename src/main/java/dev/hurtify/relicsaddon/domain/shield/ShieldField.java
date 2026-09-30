@@ -1,4 +1,4 @@
-package dev.hurtify.relicsaddon.shield;
+package dev.hurtify.relicsaddon.domain.shield;
 
 import net.minecraft.world.phys.Vec3;
 
