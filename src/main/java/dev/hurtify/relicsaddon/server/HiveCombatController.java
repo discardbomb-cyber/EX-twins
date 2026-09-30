@@ -93,7 +93,7 @@ public final class HiveCombatController {
         }
         for (HiveType type : HiveType.values()) if (!liveTypes[type.ordinal()]) HiveContainment.releaseAll(serverPlayer.getUUID(), type);
         // A shot whose hive was switched off or taken off is called off.
-        if (!liveTypes[HiveType.TWINS.ordinal()] && !liveTypes[HiveType.MANA.ordinal()]) ArmageddonController.abort(serverPlayer);
+        if (!liveTypes[HiveType.TWINS.ordinal()] && !liveTypes[HiveType.MANA.ordinal()]) ArmageddonController.abort(serverPlayer, "called off: its hive is switched off or gone");
         clearMissing(serverPlayer.getUUID(), liveTypes);
     }
 
@@ -589,7 +589,7 @@ public final class HiveCombatController {
 
     public static void clear(Player player) {
         if (player == null) return;
-        ArmageddonController.abort(player);
+        ArmageddonController.abort(player, "called off: its owner is gone");
         FLIGHTS.remove(player.getUUID());
         ATTACKERS.remove(player.getUUID());
         HiveContainment.releaseAll(player.getUUID(), null);

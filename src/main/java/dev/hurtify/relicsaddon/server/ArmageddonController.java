@@ -214,7 +214,7 @@ public final class ArmageddonController {
         }
         if (!shot.hive.equals(hive.get(ModDataComponents.INSTANCE_ID.get()))) {
             // Another hive is worn now: the shot goes on (or ends) without the hive that fired it.
-            abort(owner);
+            abort(owner, "left behind by its hive");
             return false;
         }
         long age = now - shot.state.startedAt();
@@ -429,8 +429,14 @@ public final class ArmageddonController {
 
     /** Called off when the owner leaves, dies or changes dimension before the shot leaves; a shot already fired still lands. */
     public static void abort(Player owner) {
+        abort(owner, "called off");
+    }
+
+    /** As {@link #abort(Player)}, noting in the log why. */
+    public static void abort(Player owner, String why) {
         Shot shot = SHOTS.remove(owner.getUUID());
         if (shot == null) return;
+        RelicsAddon.LOGGER.info("Armageddon of {} {} at {} ticks in", owner.getName().getString(), why, owner.level().getGameTime() - shot.state.startedAt());
         ItemStack hive = hive(owner);
         if (!hive.isEmpty() && shot.hive.equals(hive.get(ModDataComponents.INSTANCE_ID.get()))) hive.remove(ModDataComponents.HIVE_ARMAGEDDON.get());
         // A shot already fired flies on, feeds and bursts on time, where it was fired.
