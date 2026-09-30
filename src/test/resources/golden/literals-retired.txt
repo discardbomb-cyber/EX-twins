@@ -1,1 +1,2 @@
 literal	stage	reason
+_activity	S2	RelicProgression was deleted as dead code (no callers); its combatSource, role.itemId() + "_activity", was the only use
