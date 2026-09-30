@@ -104,6 +104,24 @@ public final class WorldScenarios {
             // of the sky, the column running up out of sight, the shock wave reaching the camera after the column falls.
             new Scene("armageddon-blast", RelicRole.TWINS_HIVE, 10, AttackMode.DROPLET, RelicRole.TWINS_SHIELD,
                     List.of(new Vec3(-8, 0, -58), new Vec3(6, 0, -66)), false, new Vec3(150, 8, 80), new Vec3(0, 36, -60), 40, 900, -1),
+            // Mana Armageddon in one take, from the swarm spiralling into the flowers to the white sky after the blast:
+            // the flowers over the owner (a Mana shield feeds them) fire their streams at a crowd 150 blocks off.
+            new Scene("mana-armageddon", RelicRole.MANA_HIVE, 10, AttackMode.DROPLET, RelicRole.MANA_SHIELD,
+                    List.of(new Vec3(-6, 0, -148), new Vec3(4, 0, -152), new Vec3(9, 0, -145), new Vec3(-10, 0, -156), new Vec3(0, 0, -160)), false,
+                    new Vec3(16, 9, 17), new Vec3(-1, 6, -40), 40, 2600, -1),
+            // The flowers close up from in front and to the side, as their runes are written.
+            new Scene("mana-armageddon-flowers", RelicRole.MANA_HIVE, 10, AttackMode.DROPLET, RelicRole.MANA_SHIELD,
+                    List.of(new Vec3(0, 0, -60)), false, new Vec3(5.5, 4.2, -8.5), new Vec3(0, 2.7, 0), 40, 260, -1),
+            // Everything at the target from 150 blocks off: the streams arriving and colliding, the vortex, the sphere
+            // on its seal, the blast, the dome and the column growing until it dissolves into the white sky.
+            new Scene("mana-armageddon-blast", RelicRole.MANA_HIVE, 10, AttackMode.DROPLET, RelicRole.MANA_SHIELD,
+                    List.of(new Vec3(-8, 0, -58), new Vec3(6, 0, -66)), false, new Vec3(120, 14, 70), new Vec3(0, 26, -60), 200, 1400, -1),
+            // The sphere of runes and the seal under it from above and to the side, from the sun igniting through the blast.
+            new Scene("mana-armageddon-seal", RelicRole.MANA_HIVE, 10, AttackMode.DROPLET, RelicRole.MANA_SHIELD,
+                    List.of(new Vec3(-8, 0, -58)), false, new Vec3(46, 38, -22), new Vec3(0, 4, -60), 200, 420, -1),
+            // Looking up from beside the blast at the column rising into the sky, the white it dissolves into and the moon.
+            new Scene("mana-armageddon-sky", RelicRole.MANA_HIVE, 10, AttackMode.DROPLET, RelicRole.MANA_SHIELD,
+                    List.of(new Vec3(-8, 0, -58)), false, new Vec3(70, 3, 20), new Vec3(0, 150, -20), 200, 400, -1),
             // A slower, level 3 hive keeps its figures in the fan longer, close to the camera.
             new Scene("drone-closeup", RelicRole.RF_HIVE, 3, AttackMode.DROPLET, null,
                     List.of(new Vec3(0, 0, -26)), false, new Vec3(2.5, 3.6, -2.2), new Vec3(0, 3.8, 3), 60, 50, -1));
@@ -116,7 +134,10 @@ public final class WorldScenarios {
     private record Shot(Vec3 aim, int headStart, int cadence, float tickRate) { }
     private static final java.util.Map<String, Shot> ARMAGEDDON = java.util.Map.of(
             "armageddon", new Shot(new Vec3(0, 0, -150), 0, 1, 20), "armageddon-close", new Shot(new Vec3(0, 0, -60), 1000, 2, 20),
-            "armageddon-devour", new Shot(new Vec3(0, 0, -60), 1150, 1, 5), "armageddon-blast", new Shot(new Vec3(0, 0, -60), 1265, 1, 5));
+            "armageddon-devour", new Shot(new Vec3(0, 0, -60), 1150, 1, 5), "armageddon-blast", new Shot(new Vec3(0, 0, -60), 1265, 1, 5),
+            "mana-armageddon", new Shot(new Vec3(0, 0, -150), 0, 1, 20), "mana-armageddon-flowers", new Shot(new Vec3(0, 0, -60), 300, 2, 20),
+            "mana-armageddon-blast", new Shot(new Vec3(0, 0, -60), 1160, 1, 20), "mana-armageddon-seal", new Shot(new Vec3(0, 0, -60), 1300, 1, 20),
+            "mana-armageddon-sky", new Shot(new Vec3(0, 0, -60), 1423, 3, 20));
     /** How many frames may be on their way to disk at once. */
     private static final int GRABS_IN_FLIGHT = 6;
     /** When the current take started, in game time: an Armageddon take ends when its blast has burnt out. */
@@ -220,8 +241,9 @@ public final class WorldScenarios {
             if (!FOES.isEmpty() && level.getEntity(FOES.getFirst()) instanceof net.minecraft.world.entity.LivingEntity foe) foe.kill();
         });
         Shot filming = ARMAGEDDON.get(current.name());
-        boolean burntOut = filming != null && minecraft.level != null
-                && minecraft.level.getGameTime() - captureStart >= dev.hurtify.relicsaddon.drone.Armageddon.IMPACT + dev.hurtify.relicsaddon.drone.Armageddon.GONE + 40 - filming.headStart();
+        int burnsOut = current.hive() == RelicRole.MANA_HIVE ? dev.hurtify.relicsaddon.drone.ManaArmageddon.IMPACT + dev.hurtify.relicsaddon.drone.ManaArmageddon.QUIET + 40
+                : dev.hurtify.relicsaddon.drone.Armageddon.IMPACT + dev.hurtify.relicsaddon.drone.Armageddon.GONE + 40;
+        boolean burntOut = filming != null && minecraft.level != null && minecraft.level.getGameTime() - captureStart >= burnsOut - filming.headStart();
         if (frame >= current.frames() || burntOut) {
             RelicsAddon.LOGGER.info("World scenario {}: {} frames", current.name(), frame);
             onServer(minecraft, WorldScenarios::teardown);

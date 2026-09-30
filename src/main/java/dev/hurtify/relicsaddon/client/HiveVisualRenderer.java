@@ -59,11 +59,16 @@ public final class HiveVisualRenderer {
     private static final double RANGE = 176, MODEL_RANGE = 48, FULL_RANGE = 4, SWARM_RANGE = 10;
 
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
+        if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_LEVEL) {
+            afterLevel(event);
+            return;
+        }
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null || minecraft.player == null) {
             ACTIVE.clear(); VISIBILITY.clear(); SEEN.clear(); LAUNCHES.clear(); PREY.clear();
             ArmageddonVisual.BLASTS.clear();
+            ManaArmageddonVisual.BLASTS.clear();
             return;
         }
         float partial = event.getPartialTick().getGameTimeDeltaPartialTick(false);
@@ -88,10 +93,13 @@ public final class HiveVisualRenderer {
         }
         ArmageddonVisual.debris(minecraft, time, camera, poses);
         ArmageddonVisual.flushDebris();
+        ManaArmageddonVisual.debris(minecraft, time, camera, poses);
+        ManaArmageddonVisual.flushDebris();
         // Black holes bend and darken the world behind them first, before the drones and the light go
         // over it, so those stay crisp and the drones stay where their hexagons are.
         for (HiveModeVisual.Scene scene : scenes) HiveModeVisual.lenses(scene, camera);
         ArmageddonVisual.lenses(time, camera);
+        ManaArmageddonVisual.volumes(time, camera, glow, ManaRunes.consumer(), matrix);
         BlackHoleLens.flush(matrix);
         ArmageddonVolume.flush(matrix);
         // Drone models are drawn next; the glass of the constructs goes in a buffer taken only after
@@ -109,6 +117,23 @@ public final class HiveVisualRenderer {
         ShieldGlow.flush();
         ManaRunes.flush();
         buffers.endBatch(HiveCombatVisual.renderType());
+    }
+
+    /**
+     * Once the whole level is drawn, clouds, weather and (with Fabulous graphics) its transparent layers put together:
+     * Mana Armageddon's passes and the light it throws round the target, so its white sky covers the clouds, its column
+     * stands in front of or behind them as it should, and its light goes over all. The level's view no longer stands on
+     * the render system here, so it is carried in the matrix everything is drawn with.
+     */
+    private static void afterLevel(RenderLevelStageEvent event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null || minecraft.player == null) return;
+        double time = minecraft.level.getGameTime() + event.getPartialTick().getGameTimeDeltaPartialTick(false);
+        var matrix = new org.joml.Matrix4f(event.getModelViewMatrix());
+        ArmageddonVolume.flushMana(matrix);
+        ManaArmageddonVisual.blasts(time, event.getCamera().getPosition(), ShieldGlow.consumer(), ManaRunes.consumer(), matrix);
+        ShieldGlow.flush();
+        ManaRunes.flush();
     }
 
     private static void renderHive(Minecraft minecraft, RenderLevelStageEvent event, Player player, HiveController.Equipped hive, boolean present,
@@ -268,8 +293,14 @@ public final class HiveVisualRenderer {
                 at = ManaArmageddon.spiral(shot, ManaArmageddon.side(slot < flowered ? slot : slot - flowered), start, station, gathered);
             }
             seen[unit] = at;
-            drawDrone(minecraft, event, player, type, at, time >= recover ? null : shot.target(), appear, count, camera, poses, glow, budget);
+            // Petal drones a little smaller than the swarm's, so the petals read as petals.
+            double scale = slot < flowered && age < ManaArmageddon.IGNITE + ManaArmageddon.COLLAPSE ? .7 : 1;
+            drawDrone(minecraft, event, player, type, at, time >= recover ? null : shot.target(), appear * scale, count, camera, poses, glow, budget);
+            if (slot < flowered && age < ManaArmageddon.IGNITE) ManaArmageddonVisual.twinkle(glow, poses.last().pose(), at.subtract(camera), slot, time, ManaArmageddon.side(slot));
         }
+        Vec3 chest = new Vec3(Mth.lerp(partial, player.xo, player.getX()), Mth.lerp(partial, player.yo, player.getY()) + player.getBbHeight() * .6,
+                Mth.lerp(partial, player.zo, player.getZ()));
+        ManaArmageddonVisual.construct(shot, chest, time, camera, glow, ManaRunes.consumer(), poses.last().pose());
     }
 
     /**

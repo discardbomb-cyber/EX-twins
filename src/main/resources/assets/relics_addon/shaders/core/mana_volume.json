@@ -1,0 +1,37 @@
+{
+  "vertex": "relics_addon:armageddon_volume",
+  "fragment": "relics_addon:mana_volume",
+  "samplers": [
+    { "name": "Sampler1" }
+  ],
+  "uniforms": [
+    { "name": "InverseProj", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+    { "name": "TargetSize", "type": "float", "count": 2, "values": [ 1.0, 1.0 ] },
+    { "name": "Centre", "type": "float", "count": 3, "values": [ 0.0, 0.0, -1.0 ] },
+    { "name": "Up", "type": "float", "count": 3, "values": [ 0.0, 1.0, 0.0 ] },
+    { "name": "East", "type": "float", "count": 3, "values": [ 1.0, 0.0, 0.0 ] },
+    { "name": "North", "type": "float", "count": 3, "values": [ 0.0, 0.0, 1.0 ] },
+    { "name": "Seam", "type": "float", "count": 3, "values": [ 0.0, 0.0, 1.0 ] },
+    { "name": "Time", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "Reach", "type": "float", "count": 1, "values": [ 1.0 ] },
+    { "name": "Vortex", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "SphereRadius", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "SphereFog", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "SunRadius", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "SunLift", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "SunGlow", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "Flash", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "ShockRadius", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "Shock", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "DarkCore", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "Front", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "Wave", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "Glare", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "ColumnRadius", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "ColumnFog", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "ColumnTop", "type": "float", "count": 1, "values": [ 1.0 ] },
+    { "name": "SealRadius", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "GroundHaze", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "White", "type": "float", "count": 1, "values": [ 0.0 ] }
+  ]
+}
