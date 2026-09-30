@@ -156,6 +156,9 @@ public final class DevicePower {
             EquippedRelicSetResolver.findFirstActive(player, RelicRole.EQUIPMENT_SLOT, RelicRole.shields())
                     .ifPresent(shield -> drain(player, shield, SHIELD_UPKEEP));
             for (HiveController.Equipped hive : HiveController.active(player)) {
+                // A hive whose Armageddon is under way spends nothing on upkeep: its whole swarm is in the shot, which already
+                // took its charge (what is left of it, a sliver, must last until its drones are home).
+                if (hive.stack().has(ModDataComponents.HIVE_ARMAGEDDON.get())) continue;
                 int drones = hive.stack().getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), HiveStackState.DEFAULT).units().size();
                 drain(player, hive.stack(), HIVE_UPKEEP + Math.min(drones, dev.hurtify.relicsaddon.drone.HiveType.MAX_DEPLOYED) / 10);
             }

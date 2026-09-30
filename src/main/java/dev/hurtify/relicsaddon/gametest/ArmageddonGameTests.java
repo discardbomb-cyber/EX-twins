@@ -416,6 +416,30 @@ public final class ArmageddonGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = ARENA, batch = "rf_armageddon_upkeep", timeoutTicks = 200)
+    public static void anRfHiveSpendsNothingOnUpkeepWhileItsShotIsUnderWay(GameTestHelper helper) {
+        Setting setting = Setting.of(helper, false, true);
+        ServerPlayer owner = DeviceTestSupport.player(helper, new Vec3(2.5, 1, 6.5));
+        ItemStack hive = topHive(helper, owner, RelicRole.RF_HIVE);
+        // Just after the ball has left: the charge is poured in on the first tick, leaving the hive its sliver.
+        String refused = ArmageddonController.request(owner, helper.absoluteVec(new Vec3(9.5, 1, 6.5)), RfArmageddon.FIRE + 2);
+        helper.assertTrue(refused == null, "The RF shot fires (refused: " + refused + ")");
+        HiveCombatController.tick(owner);
+        int left = DevicePower.energy(hive).rf();
+        int[] ticks = {0};
+        helper.onEachTick(() -> {
+            DevicePower.onPlayerTick(new net.neoforged.neoforge.event.tick.PlayerTickEvent.Post(owner));
+            HiveCombatController.tick(owner);
+            if (++ticks[0] < 110) return;
+            helper.assertTrue(ArmageddonController.shooting(owner), "The shot is still under way");
+            helper.assertTrue(!DevicePower.required() || DevicePower.energy(hive).rf() == left,
+                    "The hive spends nothing on upkeep while its shot is under way, so its sliver lasts until the drones are home");
+            ArmageddonController.abort(owner);
+            setting.restore();
+            helper.succeed();
+        });
+    }
+
     @GameTest(template = ARENA, batch = "rf_armageddon_crater", timeoutTicks = 200, skyAccess = true)
     public static void theRfDomeCutsACraterWithARim(GameTestHelper helper) {
         craters(helper, false);
