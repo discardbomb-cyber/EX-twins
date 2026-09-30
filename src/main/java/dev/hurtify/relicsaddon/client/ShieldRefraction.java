@@ -43,8 +43,8 @@ public final class ShieldRefraction {
     private static Boolean irisPresent;
 
     private record Job(double x, double y, double z, double radius, RelicRole role, List<ShieldImpact> impacts, double time) { }
-    /** A round warp facing the camera: a ring bump ({@code funnel} false) or a funnel steepest at {@code inner}. */
-    private record Lens(double x, double y, double z, double inner, double radius, double strength, boolean funnel) { }
+    /** A round warp facing the camera: a ring bump between {@code inner} and {@code radius}. */
+    private record Lens(double x, double y, double z, double inner, double radius, double strength) { }
     private static final List<Lens> LENSES = new ArrayList<>();
 
     public static void registerShaders(RegisterShadersEvent event) throws IOException {
@@ -61,13 +61,13 @@ public final class ShieldRefraction {
     }
 
     /**
-     * Queues a round warp of space at a camera-relative point: a blast's ring ({@code funnel} false,
-     * a bump between {@code inner} and {@code radius}) or the pull around a black hole ({@code funnel}
-     * true, steepest at {@code inner}). Drawn by the next {@link #flush}.
+     * Queues a round warp of space at a camera-relative point: a blast's ring, a bump between
+     * {@code inner} and {@code radius}. Drawn by the next {@link #flush}. Black holes bend space with
+     * {@link BlackHoleLens}.
      */
-    static void queueLens(double x, double y, double z, double inner, double radius, double strength, boolean funnel) {
+    static void queueLens(double x, double y, double z, double inner, double radius, double strength) {
         if (!enabled() || !(radius > inner) || Math.abs(strength) < .01 || LENSES.size() > 64) return;
-        LENSES.add(new Lens(x, y, z, Math.max(0, inner), radius, strength, funnel));
+        LENSES.add(new Lens(x, y, z, Math.max(0, inner), radius, strength));
     }
 
     static void flush(Matrix4f pose) {
@@ -80,7 +80,8 @@ public final class ShieldRefraction {
         }
     }
 
-    private static boolean enabled() {
+    /** Whether screen-space bending is on: the setting, and no shader pack replacing the pipeline. */
+    static boolean enabled() {
         return AddonClientConfig.refraction() && AddonClientConfig.refractionStrength() > 0 && !shaderPackActive();
     }
 
@@ -173,7 +174,7 @@ public final class ShieldRefraction {
         }
     }
 
-    /** A disc facing the camera whose height (red) is a ring bump or a funnel, faded out at both edges. */
+    /** A disc facing the camera whose height (red) is a ring bump, faded out at both edges. */
     private static void lens(BufferBuilder builder, Matrix4f pose, Lens lens) {
         Vec3 centre = new Vec3(lens.x, lens.y, lens.z);
         if (centre.lengthSqr() < 1e-6) return;
@@ -185,8 +186,7 @@ public final class ShieldRefraction {
         int[][] colors = new int[rings + 1][segments + 1];
         for (int ring = 0; ring <= rings; ring++) {
             double t = ring / (double) rings, r = lens.inner + (lens.radius - lens.inner) * t;
-            double height = lens.funnel ? lens.strength * (1 - t) * (1 - t) : lens.strength * Math.sin(Math.PI * t);
-            double window = lens.funnel ? Math.min(1, t * 6) * (1 - t) : Math.sin(Math.PI * t);
+            double height = lens.strength * Math.sin(Math.PI * t), window = Math.sin(Math.PI * t);
             int red = (int) Math.round(Math.clamp(height * .5 + .5, 0, 1) * 255);
             int alpha = (int) Math.round(Math.clamp(window, 0, 1) * 255);
             for (int segment = 0; segment <= segments; segment++) {

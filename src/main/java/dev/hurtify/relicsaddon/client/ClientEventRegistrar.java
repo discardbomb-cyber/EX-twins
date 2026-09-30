@@ -28,8 +28,9 @@ public final class ClientEventRegistrar {
     private static void registerShaders(net.neoforged.neoforge.client.event.RegisterShadersEvent event) {
         try {
             ShieldRefraction.registerShaders(event);
+            BlackHoleLens.registerShaders(event);
         } catch (java.io.IOException exception) {
-            throw new java.io.UncheckedIOException("Failed to load shield refraction shader", exception);
+            throw new java.io.UncheckedIOException("Failed to load the refraction shaders", exception);
         }
     }
 

@@ -37,6 +37,10 @@ public final class HiveFormation {
      * as a radius from the creature's middle, per block of its larger side.
      */
     private static final double ENCLOSURE = 1.4 / 2;
+    /** The Twins black hole's horizon per block of enclosure: wider than the creature it swallows. */
+    private static final double HORIZON = 1.86;
+    /** The Twins tori keep this much room round the black hole's horizon. */
+    private static final double HORIZON_CLEARANCE = 1.25;
     /** Droplet fan: half its opening angle (a half circle from shoulder to shoulder), how far apart its figures sit, and how far it leans back from the target. */
     private static final double FAN = Math.PI / 2, FAN_SPACING = 2.7, FAN_LEAN = .44;
 
@@ -402,9 +406,18 @@ public final class HiveFormation {
         return Math.max(saneSize(targetWidth, .6), saneSize(targetHeight, 1.8)) * ENCLOSURE;
     }
 
-    /** Radius of the outer RF or Twins torus: the inner torus's inner side runs round the enclosure. */
+    /** Radius of the Twins black hole's horizon round a creature: it swallows the creature whole. */
+    public static double horizon(double targetWidth, double targetHeight) {
+        return enclosure(targetWidth, targetHeight) * HORIZON;
+    }
+
+    /**
+     * Radius of the outer RF ({@code dense} false) or Twins ({@code dense} true) torus. The inner torus's
+     * inner side runs round the enclosure, or on Twins round the black hole, which is wider still.
+     */
     public static double ringsRadius(double targetWidth, double targetHeight, boolean dense) {
-        double inner = (enclosure(targetWidth, targetHeight) + HiveShapes.ringTubeBase(dense)) / (1 - HiveShapes.ringTubeScale(dense));
+        double clearance = dense ? horizon(targetWidth, targetHeight) * HORIZON_CLEARANCE : enclosure(targetWidth, targetHeight);
+        double inner = (clearance + HiveShapes.ringTubeBase(dense)) / (1 - HiveShapes.ringTubeScale(dense));
         return inner / HiveShapes.RING_RADII[0];
     }
 
@@ -414,7 +427,7 @@ public final class HiveFormation {
         return Math.max(0, reach + .15 - saneSize(targetHeight, 1.8) * .55);
     }
 
-    /** Twins lift their target about four blocks, or as far as their thick tori need. */
+    /** Twins lift their target at least four blocks, or as far as their tori round the black hole need. */
     public static double twinsLift(double targetWidth, double targetHeight) { return Math.max(4, ringLift(targetWidth, targetHeight, true)); }
 
     /** The Mana ward's scale: the rhombi's edges, its innermost lines (.9 of the scale from its middle), run round the enclosure. */

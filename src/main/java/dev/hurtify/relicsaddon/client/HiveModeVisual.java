@@ -21,8 +21,9 @@ import org.joml.Matrix4f;
  *   <li>Barrage: dense clumps in a soft halo, joined into their pattern by lines of light; each
  *       clump's charge swells inside it into a glowing ball traced with circuitry, and Twins clumps
  *       are octagons with lightning running round their rims.</li>
- *   <li>Containment: the RF torus's lattice, the Mana ward's rhombi and circles over a glass bubble,
- *       the Twins rift spheres around a black hole with a violet accretion disk.</li>
+ *   <li>Containment: the RF tori's hexagons with a particle collider running inside each, the Mana
+ *       ward's rhombi and circles over a glass bubble, and the Twins' denser collider tori round a
+ *       black hole with a violet accretion disk that bends and darkens the world behind it.</li>
  * </ul>
  * Positions are world space; {@code camera} is subtracted here.
  */
@@ -121,8 +122,8 @@ public final class HiveModeVisual {
                     switch (part.type()) {
                         case RF -> EffectLights.glow(centre(part), 9, HiveFormation.ringsRadius(part.width(), part.height(), false) * .8);
                         case MANA -> EffectLights.glow(centre(part), 9, 1.45 * HiveFormation.wardScale(part.width(), part.height()));
-                        // The accretion disk reaches about four horizons out.
-                        case TWINS -> EffectLights.glow(core, 11, horizon(part) * 4);
+                        // The accretion disk reaches about three horizons out.
+                        case TWINS -> EffectLights.glow(core, 11, horizon(part) * (DISK_INNER + DISK_SPAN));
                     }
                 }
             }
@@ -196,7 +197,7 @@ public final class HiveModeVisual {
                     }
                     GlowBrush.dot(glow, m, c, size * (.5 + .15 * Math.sin(s.time() * .9)), color, 60 + 120 * heat);
                     // Space bends round a figure in flight.
-                    if (flying && !GlowBrush.flat()) ShieldRefraction.queueLens(c.x, c.y, c.z, size * .4, size * 2.2, .8 * heat, false);
+                    if (flying && !GlowBrush.flat()) ShieldRefraction.queueLens(c.x, c.y, c.z, size * .4, size * 2.2, .8 * heat);
                 }
             }
         }
@@ -327,28 +328,164 @@ public final class HiveModeVisual {
 
     // --- containment -----------------------------------------------------------------------------
 
-    /** RF: three tori covered in hexagons, turning round the target like the rings of a Dyson swarm, the outer ones faster. */
+    /** Beam bunches race round a collider at these speeds (radians a tick), the inner torus fastest. */
+    private static final double[] BUNCH_SPEED = {.2, .17, .15};
+    /** Ticks a collision's flash and spray last. */
+    private static final double COLLISION_TICKS = 12;
+    /** Colours of the tracks a collision throws out, on RF and on Twins. */
+    private static final int[] RF_TRACKS = {0x38E8FF, 0xA8FFF6, 0xFFD27A}, TWINS_TRACKS = {0xB151FF, 0xFF7BE5, 0xE7C6FF};
+
+    /** RF: three collider tori covered in hexagons, turning round the target like the rings of a Dyson swarm, the outer ones faster. */
     private static void torus(Scene s, Vec3 camera, VertexConsumer glow, Matrix4f m, int color) {
-        tori(s, camera, glow, m, GlowBrush.mix(color, 0xFFFFFF, .35), false, 105);
+        tori(s, camera, glow, m, GlowBrush.mix(color, 0xFFFFFF, .35), color, RF_TRACKS, false, 105);
         GlowBrush.dot(glow, m, HiveFormation.core(s.target(), s.height()).subtract(camera), Math.max(.6, s.width()), color, 45);
     }
 
-    /** The three hexagon-covered tori of an RF or (denser) Twins containment. */
-    private static void tori(Scene s, Vec3 camera, VertexConsumer glow, Matrix4f m, int line, boolean dense, double alpha) {
+    /**
+     * The three hexagon-covered tori of an RF or (denser) Twins containment. Each is a particle collider:
+     * two beams race round inside its tube in opposite directions, crossing at four interaction points
+     * where their bunches meet and burst, and the tube lights up round each burst.
+     */
+    private static void tori(Scene s, Vec3 camera, VertexConsumer glow, Matrix4f m, int line, int beam, int[] tracks, boolean dense, double alpha) {
         Vec3 core = centre(s).subtract(camera);
-        double radius = HiveFormation.ringsRadius(s.width(), s.height(), dense);
+        double radius = HiveFormation.ringsRadius(s.width(), s.height(), dense), time = s.time();
         int rows = HiveShapes.ringRows(dense);
         for (int ring = 0; ring < 3; ring++) {
+            Vec3[] frame = HiveShapes.ringFrame(ring, time);
+            double tube = HiveShapes.ringTube(ring, radius, dense), major = radius * HiveShapes.RING_RADII[ring];
+            double[][] bursts = collisions(ring, time);
             int columns = HiveShapes.ringColumns(ring, radius, dense);
-            for (int column = 0; column < columns; column++) for (int row = 0; row < rows; row++) {
-                Vec3 previous = null;
-                for (int corner = 0; corner <= 6; corner++) {
-                    Vec3 at = core.add(HiveShapes.ringHexCorner(ring, column, row, corner % 6, s.time(), radius, dense));
-                    if (previous != null) GlowBrush.line(glow, m, previous, at, dense ? .018 : .022, line, alpha);
-                    previous = at;
+            for (int column = 0; column < columns; column++) {
+                // The tube lights up round a fresh burst.
+                double u = (column + .25) / columns * Math.PI * 2, lit = 0;
+                for (double[] burst : bursts) {
+                    double apart = Math.abs(Math.IEEEremainder(u - burst[0], Math.PI * 2)) * major / (tube * 1.8);
+                    lit += Math.exp(-burst[1] / 3 - apart * apart);
+                }
+                lit = Math.min(1, lit);
+                int color = GlowBrush.mix(line, 0xFFFFFF, .3 * lit);
+                for (int row = 0; row < rows; row++) {
+                    Vec3 previous = null;
+                    for (int corner = 0; corner <= 6; corner++) {
+                        Vec3 at = core.add(HiveShapes.ringHexCorner(frame, ring, column, row, corner % 6, time, radius, dense));
+                        if (previous != null) GlowBrush.line(glow, m, previous, at, dense ? .018 : .022, color, alpha * (1 + .6 * lit));
+                        previous = at;
+                    }
+                }
+            }
+            collider(glow, m, core, frame, ring, radius, dense, time, beam, tracks, bursts);
+        }
+    }
+
+    /**
+     * The bursts still showing on collider {@code ring}: where along it (u), how old, and a seed for their
+     * spray. Two bunches race each way round, so every quarter lap of theirs they meet at two opposite
+     * interaction points, the other pair each time.
+     */
+    private static double[][] collisions(int ring, double time) {
+        double speed = BUNCH_SPEED[ring], clock = time + ring * 23, period = Math.PI / (2 * speed);
+        long event = (long) Math.floor(clock / period);
+        double[][] bursts = new double[4][];
+        int count = 0;
+        for (long e = event; e >= event - 1; e--) {
+            double age = clock - e * period;
+            if (age < 0 || age >= COLLISION_TICKS) continue;
+            for (int side = 0; side < 2; side++) {
+                bursts[count++] = new double[]{Math.floorMod(e, 2) * Math.PI / 2 + side * Math.PI, age, e * 2 + side + ring * 1_000_003L};
+            }
+        }
+        return java.util.Arrays.copyOf(bursts, count);
+    }
+
+    /** One torus's collider: its two beams and their bunches, the detectors ringing its interaction points, and its bursts. */
+    private static void collider(VertexConsumer glow, Matrix4f m, Vec3 core, Vec3[] frame, int ring, double radius, boolean dense, double time,
+            int color, int[] tracks, double[][] bursts) {
+        double tube = HiveShapes.ringTube(ring, radius, dense), speed = BUNCH_SPEED[ring], clock = time + ring * 23;
+        int hot = GlowBrush.mix(color, 0xFFFFFF, .55);
+        for (int sign = -1; sign <= 1; sign += 2) {
+            Vec3 previous = null;
+            for (int step = 0; step <= 96; step++) {
+                Vec3 at = core.add(beamPoint(frame, ring, sign, Math.PI * 2 * step / 96, time, radius, dense));
+                if (previous != null) GlowBrush.line(glow, m, previous, at, tube * .08, color, 110);
+                previous = at;
+            }
+            for (int bunch = 0; bunch < 2; bunch++) {
+                double head = sign * speed * clock + bunch * Math.PI;
+                Vec3 last = core.add(beamPoint(frame, ring, sign, head, time, radius, dense));
+                GlowBrush.dot(glow, m, last, tube * .5, 0xFFFFFF, 255);
+                GlowBrush.dot(glow, m, last, tube * .9, hot, 170);
+                for (int k = 1; k <= 16; k++) {
+                    Vec3 at = core.add(beamPoint(frame, ring, sign, head - sign * k * .05, time, radius, dense));
+                    double fade = 1 - k / 17.0;
+                    GlowBrush.line(glow, m, last, at, tube * .24 * fade, hot, 240 * fade);
+                    last = at;
                 }
             }
         }
+        for (int point = 0; point < 4; point++) {
+            double u = point * Math.PI / 2, flash = 0;
+            for (double[] burst : bursts) {
+                if (Math.abs(Math.IEEEremainder(u - burst[0], Math.PI * 2)) < 1e-6) flash = Math.max(flash, Math.exp(-burst[1] / 4));
+            }
+            Vec3[] axes = crossSection(frame, ring, u, time, radius, dense);
+            Vec3 at = core.add(HiveShapes.ringPoint(frame, ring, u, 0, 0, time, radius, dense));
+            GlowBrush.circle(glow, m, at, axes[1], axes[2], tube * 1.3, 20, tube * .06, GlowBrush.mix(color, 0xFFFFFF, .5 * flash), 70 + 170 * flash);
+        }
+        for (double[] burst : bursts) burst(glow, m, core, frame, ring, burst, radius, dense, time, tube, tracks);
+    }
+
+    /** Where beam {@code sign} (+1 or -1) runs at {@code u}: weaving across the tube, crossing the other beam at the four interaction points. */
+    private static Vec3 beamPoint(Vec3[] frame, int ring, int sign, double u, double time, double radius, boolean dense) {
+        return HiveShapes.ringPoint(frame, ring, u, 0, sign * .42 * Math.sin(2 * u), time, radius, dense);
+    }
+
+    /** The collider's own axes at {@code u}: along the beams, and two across the tube. */
+    private static Vec3[] crossSection(Vec3[] frame, int ring, double u, double time, double radius, boolean dense) {
+        Vec3 middle = HiveShapes.ringPoint(frame, ring, u, 0, 0, time, radius, dense);
+        Vec3 along = HiveShapes.ringPoint(frame, ring, u + .01, 0, 0, time, radius, dense)
+                .subtract(HiveShapes.ringPoint(frame, ring, u - .01, 0, 0, time, radius, dense)).normalize();
+        Vec3 out = HiveShapes.ringPoint(frame, ring, u, 0, 1, time, radius, dense).subtract(middle).normalize();
+        return new Vec3[]{along, out, along.cross(out)};
+    }
+
+    /** A burst where two bunches meet: a white flash, and the spray of particles it throws out curling in the collider's field. */
+    private static void burst(VertexConsumer glow, Matrix4f m, Vec3 core, Vec3[] frame, int ring, double[] burst, double radius, boolean dense,
+            double time, double tube, int[] tracks) {
+        double age = burst[1], life = age / COLLISION_TICKS, fade = (1 - life) * (1 - life);
+        long seed = (long) burst[2];
+        Vec3 at = core.add(HiveShapes.ringPoint(frame, ring, burst[0], 0, 0, time, radius, dense));
+        Vec3[] axes = crossSection(frame, ring, burst[0], time, radius, dense);
+        GlowBrush.dot(glow, m, at, tube * (1.1 - .6 * life), 0xFFFFFF, 255 * Math.exp(-age / 2));
+        GlowBrush.dot(glow, m, at, tube * 1.9, tracks[0], 90 * fade);
+        double grown = Math.min(1, age / 3 + .2);
+        for (int track = 0; track < 12; track++) {
+            double spin = hash(seed, track, 1) * Math.PI * 2, bend = hash(seed, track, 3);
+            // Most tracks bend gently; the slow few curl up tight.
+            double curl = (hash(seed, track, 2) < .5 ? -1 : 1) * (.4 + 2.2 * bend * bend) / tube;
+            double pitch = (hash(seed, track, 4) * 2 - 1) * .8, length = tube * (1.1 + 1.6 * hash(seed, track, 5)) * grown;
+            Vec3 across = axes[1].scale(Math.cos(spin)).add(axes[2].scale(Math.sin(spin)));
+            Vec3 aside = axes[1].scale(-Math.sin(spin)).add(axes[2].scale(Math.cos(spin)));
+            int color = tracks[track % tracks.length];
+            double heading = 0, step = length / 10;
+            Vec3 point = at;
+            for (int k = 1; k <= 10; k++) {
+                // Losing energy, a track curls ever tighter.
+                heading += curl * (1 + 1.6 * k / 10.0) * step;
+                Vec3 next = point.add(across.scale(Math.cos(heading) * step)).add(aside.scale(Math.sin(heading) * step)).add(axes[0].scale(pitch * step));
+                GlowBrush.line(glow, m, point, next, tube * .075, GlowBrush.mix(color, 0xFFFFFF, .4 * (1 - k / 10.0)), 255 * fade * (1 - .35 * k / 10.0));
+                point = next;
+            }
+        }
+    }
+
+    private static double hash(long seed, int a, int b) {
+        long h = seed * 0x9E3779B97F4A7C15L + a * 0xC2B2AE3D27D4EB4FL + b * 0x165667B19E3779F9L;
+        h ^= h >>> 33;
+        h *= 0xFF51AFD7ED558CCDL;
+        h ^= h >>> 33;
+        h *= 0xC4CEB9FE1A85EC53L;
+        h ^= h >>> 33;
+        return (h >>> 11) * 0x1.0p-53;
     }
 
     /** Mana: the ward's three rhombi and two circles in light over a glass bubble. */
@@ -376,12 +513,30 @@ public final class HiveModeVisual {
         GlowBrush.sphere(fill, m, core, 1.45 * scale, 0x0B5E62, color, 10, 80, 16);
     }
 
-    /** Twins: three dense purple hexagon tori round a black hole with a violet accretion disk. */
+    /** Twins: three dense purple collider tori round a black hole with a violet accretion disk. */
     private static void rifts(Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
-        tori(s, camera, glow, m, GlowBrush.mix(color, 0xE7C6FF, .3), true, 115);
-        // The black hole's own light goes in before the lens pass, so space bends it with everything behind.
+        tori(s, camera, glow, m, GlowBrush.mix(color, 0xE7C6FF, .3), GlowBrush.mix(color, 0xFF7BE5, .25), TWINS_TRACKS, true, 115);
+        // In the world the horizon goes in solid and writes depth, so nothing behind it shines through.
         Vec3 core = HiveFormation.core(s.target(), s.height()).subtract(camera);
-        blackHole(GlowBrush.flat() ? glow : ShieldGlow.earlyConsumer(), fill, m, core, horizon(s), s.time());
+        blackHole(glow, GlowBrush.flat() ? fill : ShieldGlow.horizonConsumer(), m, core, horizon(s), s.time());
+    }
+
+    /** How far out a black hole pulls on the world behind it, in horizons: past the edge of its disk. */
+    private static final double LENS_REACH = 3.6;
+    /** The accretion disk's inner edge and its width, in horizons. */
+    private static final double DISK_INNER = 1.35, DISK_SPAN = 1.55;
+
+    /**
+     * Queues the pull of each Twins black hole on the world behind it. The renderer draws it before the
+     * drones and the light, which stay unbent over it.
+     */
+    public static void lenses(Scene s, Vec3 camera) {
+        if (s.mode() != AttackMode.CONTAINMENT || s.type() != HiveType.TWINS || !s.formed() || GlowBrush.flat()) return;
+        for (int index = 0; index < s.engaged(); index++) {
+            Scene part = part(s, index);
+            double horizon = horizon(part);
+            BlackHoleLens.queue(HiveFormation.core(part.target(), part.height()).subtract(camera), horizon, horizon * LENS_REACH);
+        }
     }
 
     /** Centre of the containment construct, resting on the ground under its target. */
@@ -389,32 +544,32 @@ public final class HiveModeVisual {
         return HiveFormation.containmentCentre(s.type(), s.target(), s.width(), s.height(), s.slots());
     }
 
-    /** The black hole's horizon grows with the creature it holds (its disk, rings and lens follow it). */
+    /** The black hole's horizon: wider than the creature it swallows (its disk, rings and lens follow it). */
     private static double horizon(Scene s) {
-        return HiveFormation.enclosure(s.width(), s.height()) * .62;
+        return HiveFormation.horizon(s.width(), s.height());
     }
 
     /**
-     * A black hole: a black horizon ringed by a thin photon ring, a tilted violet accretion disk turning
-     * round it (hot white at its inner edge), the lensed far side of the disk arching round the horizon,
-     * and space pulled into a funnel.
+     * A black hole: a solid black horizon ringed by a thin photon ring, a tilted violet accretion disk
+     * turning round it (hot white at its inner edge) whose far side hides behind the horizon, and that far
+     * side's lensed image arching round the horizon. Its pull on the world behind it is {@link BlackHoleLens}.
      */
-    static void blackHole(VertexConsumer glow, VertexConsumer fill, Matrix4f m, Vec3 core, double horizon, double time) {
-        GlowBrush.sphere(fill, m, core, horizon, 0x000000, 0x1A0630, 250, 235, 14);
+    static void blackHole(VertexConsumer glow, VertexConsumer horizonFill, Matrix4f m, Vec3 core, double horizon, double time) {
+        GlowBrush.sphere(horizonFill, m, core, horizon, 0x000000, 0x12031F, 255, 255, 20);
         Vec3 eye = GlowBrush.view(core);
         Vec3 right = eye.cross(Math.abs(eye.y) > .95 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize();
         Vec3 up = right.cross(eye);
-        GlowBrush.circle(glow, m, core, right, up, horizon * 1.08, 64, horizon * .035, 0xF2DDFF, 220);
+        GlowBrush.circle(glow, m, core, right, up, horizon * 1.03, 128, horizon * .02, 0xF2DDFF, 230);
         // The far side of the disk, bent over and under the horizon.
-        GlowBrush.circle(glow, m, core, right, up, horizon * 1.45, 64, horizon * .12, 0xA24BFF, 90);
+        GlowBrush.circle(glow, m, core, right, up, horizon * 1.22, 128, horizon * .06, 0xA24BFF, 90);
         // The disk itself, tilted and turning: a solid band of light, hot white inside and violet out,
         // brighter where it swings towards the viewer, with denser streams of matter over it.
         double tilt = .62;
         Vec3 u = new Vec3(1, 0, 0), v = new Vec3(0, Math.sin(tilt), Math.cos(tilt));
-        int bands = 12, segments = 96;
+        int bands = 12, segments = 128;
         for (int band = 0; band < bands; band++) {
             double t0 = band / (double) bands, t1 = (band + 1) / (double) bands;
-            double r0 = horizon * (1.45 + 2.9 * t0), r1 = horizon * (1.45 + 2.9 * t1);
+            double r0 = horizon * (DISK_INNER + DISK_SPAN * t0), r1 = horizon * (DISK_INNER + DISK_SPAN * t1);
             int c0 = GlowBrush.mix(0xFFF0FF, 0x7A22D6, Math.pow(t0, .6)), c1 = GlowBrush.mix(0xFFF0FF, 0x7A22D6, Math.pow(t1, .6));
             for (int step = 0; step < segments; step++) {
                 double a0 = Math.PI * 2 * step / segments, a1 = Math.PI * 2 * (step + 1) / segments;
@@ -429,7 +584,7 @@ public final class HiveModeVisual {
         int rings = 28;
         for (int ring = 0; ring < rings; ring++) {
             double t = ring / (double) (rings - 1);
-            double radius = horizon * (1.5 + 2.8 * t);
+            double radius = horizon * (DISK_INNER + .05 + (DISK_SPAN - .1) * t);
             int ringColor = GlowBrush.mix(0xFFF0FF, 0x7A22D6, Math.pow(t, .6));
             Vec3 previous = null;
             for (int step = 0; step <= segments; step++) {
@@ -440,7 +595,7 @@ public final class HiveModeVisual {
                     Vec3 tangent = point.subtract(previous).normalize();
                     double doppler = 1 + .6 * tangent.dot(eye);
                     double alpha = (1 - t) * (1 - t) * 150 * swirl * doppler + 20;
-                    GlowBrush.line(glow, m, previous, point, horizon * (.08 + .05 * (1 - t)), ringColor, alpha);
+                    GlowBrush.line(glow, m, previous, point, horizon * (.035 + .025 * (1 - t)), ringColor, alpha);
                 }
                 previous = point;
             }
@@ -448,12 +603,10 @@ public final class HiveModeVisual {
         // Matter spiralling in.
         for (int mote = 0; mote < 64; mote++) {
             double life = ((time * .02 + mote * .618) % 1);
-            double radius = horizon * (4.3 - 2.9 * life), angle = mote * 2.4 + time * (.08 + .1 * life);
+            double radius = horizon * (DISK_INNER + DISK_SPAN - (DISK_SPAN - .1) * life), angle = mote * 2.4 + time * (.08 + .1 * life);
             Vec3 at = core.add(u.scale(Math.cos(angle) * radius)).add(v.scale(Math.sin(angle) * radius));
-            GlowBrush.dot(glow, m, at, horizon * .08, 0xE7C6FF, 160 * Math.sin(Math.PI * life));
+            GlowBrush.dot(glow, m, at, horizon * .045, 0xE7C6FF, 160 * Math.sin(Math.PI * life));
         }
-        // Space bends round the whole black hole, out past the edge of its disk.
-        if (!GlowBrush.flat()) ShieldRefraction.queueLens(core.x, core.y, core.z, horizon * 1.02, horizon * 6, 1.8, true);
     }
 
     /** Brightness of the disk at radius fraction {@code t} and angle {@code angle}: hot inside, swirling, Doppler-bright on the approaching side. */
