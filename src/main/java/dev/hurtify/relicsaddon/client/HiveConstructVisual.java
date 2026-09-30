@@ -43,6 +43,10 @@ final class HiveConstructVisual {
         }
     }
 
+    static void clear() {
+        HELD.clear();
+    }
+
     static void render(HiveModeVisual.Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
         double room = HiveFormation.enclosure(s.width(), s.height()), age = HiveFormation.constructAge(s.time(), s.cycleStart());
         Vec3 middle = HiveFormation.core(s.target(), s.height());

@@ -276,7 +276,7 @@ public final class RelicSounds {
             if (distance > FAR) continue;
             boolean close = distance <= NEAR;
             // A far listener gets just enough range to hear the boom, quietly: it fades in over the last fifth of it.
-            float reach = close ? volume : (float) Math.max(1, distance / 16 * 1.25);
+            float reach = close ? (float) Math.max(volume, NEAR / 16) : (float) Math.max(1, distance / 16 * 1.25);
             player.connection.send(new net.minecraft.network.protocol.game.ClientboundSoundPacket(close ? nearHolder : farHolder, SoundSource.PLAYERS,
                     position.x, position.y, position.z, reach, close ? pitch : .9F + (float) level.getRandom().nextGaussian() * .05F, seed));
         }
