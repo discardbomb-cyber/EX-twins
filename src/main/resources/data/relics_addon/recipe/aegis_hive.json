@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "MMM",
+    "CSC",
+    "MIM"
+  ],
+  "key": {
+    "M": {
+      "item": "relics_addon:mana_drone_shell"
+    },
+    "C": {
+      "item": "relics_addon:resonant_circuit"
+    },
+    "S": {
+      "item": "relics_addon:mana_shield_core"
+    },
+    "I": {
+      "item": "minecraft:iron_block"
+    }
+  },
+  "result": {
+    "id": "relics_addon:aegis_hive",
+    "count": 1
+  }
+}

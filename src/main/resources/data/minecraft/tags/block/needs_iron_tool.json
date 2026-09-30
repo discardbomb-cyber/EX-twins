@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "relics_addon:aegis_hive",
+    "relics_addon:escort_hive",
+    "relics_addon:lance_hive"
+  ]
+}

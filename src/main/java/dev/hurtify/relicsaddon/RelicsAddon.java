@@ -23,7 +23,10 @@ public final class RelicsAddon {
         modEventBus.addListener(net.neoforged.fml.event.config.ModConfigEvent.Reloading.class, AddonConfig::onConfigLoad);
         dev.hurtify.relicsaddon.sound.RelicSounds.register(modEventBus);
         ModDataComponents.DATA_COMPONENTS.register(modEventBus);
+        dev.hurtify.relicsaddon.registry.ModBlocks.BLOCKS.register(modEventBus);
         ModItems.ITEMS.register(modEventBus);
+        dev.hurtify.relicsaddon.registry.ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
+        modEventBus.addListener(dev.hurtify.relicsaddon.registry.ModBlockEntities::registerCapabilities);
         ModCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
         dev.hurtify.relicsaddon.registry.ModMenus.MENUS.register(modEventBus);
         modEventBus.addListener(dev.hurtify.relicsaddon.network.OpenDevicePayload::register);
@@ -49,8 +52,19 @@ public final class RelicsAddon {
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.ArmageddonController::onServerStopping);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.HiveCombatController::onPlayerChangedDimension);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.ShieldStatusCommand::register);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.ship.ShipBrain::onDamage);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.ship.ShipBrain::onExplosion);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.ship.ShipBrain::onProjectileImpact);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.ship.ShipBrain::onServerStopping);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.ship.ShipBrain::onServerTick);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.ship.AegisFields::onEntityTick);
+        // The ship's shield is the outer one: it takes a blow before a personal shield would.
+        NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.HIGH, dev.hurtify.relicsaddon.ship.AegisFields::onIncomingDamage);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.ship.AegisFields::onExplosion);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.ship.AegisFields::onServerTick);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.ship.AegisFields::onServerStopping);
         registerClientOnly(modEventBus);
-        LOGGER.info("Loaded three shields and three typed defender hives");
+        LOGGER.info("Loaded three shields, three typed defender hives and three ship hives");
     }
 
     private static void registerClientOnly(IEventBus modEventBus) {
