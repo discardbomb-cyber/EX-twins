@@ -27,4 +27,10 @@ public enum AttackMode {
         AttackMode[] values = values();
         return ordinal >= 0 && ordinal < values.length ? values[ordinal] : BARRAGE;
     }
+
+    /** The mode with this id; an unknown id gives {@link #BARRAGE}, the default mode. */
+    public static AttackMode byId(String id) {
+        for (AttackMode mode : values()) if (mode.id().equals(id)) return mode;
+        return BARRAGE;
+    }
 }
