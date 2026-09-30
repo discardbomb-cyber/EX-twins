@@ -2,6 +2,10 @@ package dev.hurtify.relicsaddon.client;
 
 import dev.hurtify.relicsaddon.RelicsAddon;
 import dev.hurtify.relicsaddon.drone.AttackMode;
+import dev.hurtify.relicsaddon.drone.HiveFigures;
+import dev.hurtify.relicsaddon.drone.HiveFlightPlan;
+import dev.hurtify.relicsaddon.drone.HiveSettings;
+import dev.hurtify.relicsaddon.drone.HiveType;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
 import dev.hurtify.relicsaddon.menu.DeviceControlMenu;
 import dev.hurtify.relicsaddon.power.DeviceEnergy;
@@ -144,27 +148,27 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
                 }
             }
             case SWARM -> {
-                AttackMode[] modes = AttackMode.values();
-                int modeWidth = (CR - CX - 4) / modes.length;
-                for (int index = 0; index < modes.length; index++) {
-                    AttackMode mode = modes[index];
-                    controls.add(new Control(CX + index * (modeWidth + 2), 50, modeWidth, 14,
-                            () -> Component.translatable("screen.relics_addon.mode." + mode.id()),
-                            () -> true, () -> HiveTaskController.settings(device()).allocated(mode) > 0,
+                // One row per attack mode, then the healers: a count, four step buttons and, for a mode, "all in".
+                for (AttackMode mode : AttackMode.values()) {
+                    int y = SWARM_ROW_Y + mode.ordinal() * SWARM_ROW_H;
+                    for (int step = 0; step < DeviceControlMenu.STEPS.length; step++) {
+                        int delta = DeviceControlMenu.STEPS[step], id = DeviceControlMenu.allocationButton(mode, step);
+                        controls.add(new Control(STEP_X[step], y, STEP_W, 13, () -> Component.literal(stepLabel(delta)),
+                                () -> allocation().adjust(hiveType(), hiveCapacity(), mode, delta).allowed(), () -> false, () -> press(id),
+                                () -> stepTooltip(allocation().adjust(hiveType(), hiveCapacity(), mode, delta), mode, delta)));
+                    }
+                    controls.add(new Control(ALL_X, y, ALL_W, 13, () -> Component.translatable("screen.relics_addon.all_in"),
+                            () -> allocation().allInto(hiveType(), hiveCapacity(), mode).allowed(),
+                            () -> allocation().allocated(mode) > 0 && allocation().allocated(mode) == allocation().fighters(hiveCapacity()),
                             () -> press(DeviceControlMenu.BUTTON_MODE_BASE + mode.ordinal()),
-                            () -> List.of(Component.translatable("screen.relics_addon.mode." + mode.id()).withStyle(ChatFormatting.AQUA),
-                                    Component.translatable("screen.relics_addon.mode." + mode.id() + ".hint." + role().itemId()).withStyle(ChatFormatting.GRAY))));
+                            () -> allInTooltip(mode)));
                 }
-                int[] ids = {DeviceControlMenu.BUTTON_HEALERS_MINUS_10, DeviceControlMenu.BUTTON_HEALERS_MINUS_1,
-                        DeviceControlMenu.BUTTON_HEALERS_PLUS_1, DeviceControlMenu.BUTTON_HEALERS_PLUS_10};
-                String[] labels = {"−10", "−1", "+1", "+10"};
-                int[] xs = {CX, CX + 32, CR - 62, CR - 30};
-                for (int index = 0; index < ids.length; index++) {
-                    int id = ids[index];
-                    String label = labels[index];
-                    controls.add(new Control(xs[index], 88, 30, 14, () -> Component.literal(label),
-                            () -> id <= DeviceControlMenu.BUTTON_HEALERS_MINUS_1 ? healers() > 0 : healers() < hiveCapacity(),
-                            () -> false, () -> press(id), () -> List.of(Component.translatable("screen.relics_addon.healers_adjust", label))));
+                int healersY = SWARM_ROW_Y + AttackMode.values().length * SWARM_ROW_H;
+                for (int step = 0; step < DeviceControlMenu.STEPS.length; step++) {
+                    int delta = DeviceControlMenu.STEPS[step], id = DeviceControlMenu.BUTTON_HEALERS_MINUS_10 + step;
+                    controls.add(new Control(STEP_X[step], healersY, STEP_W, 13, () -> Component.literal(stepLabel(delta)),
+                            () -> allocation().adjustHealers(hiveType(), hiveCapacity(), delta).allowed(), () -> false, () -> press(id),
+                            () -> healerTooltip(delta)));
                 }
             }
         }
@@ -203,7 +207,54 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
     }
 
     private int hiveCapacity() { return minecraft == null || minecraft.player == null ? 0 : HiveController.capacity(minecraft.player, device()); }
-    private int healers() { return HiveTaskController.settings(device()).healerCount(hiveCapacity()); }
+    private HiveType hiveType() { return role().isHive() ? HiveType.of(role()) : HiveType.RF; }
+    /** The hive's orders as the server will read them: an old save counted out, a mode that no longer fits switched off. */
+    private HiveSettings allocation() { return HiveTaskController.settings(device()).resolve(hiveType(), hiveCapacity()); }
+
+    // --- swarm tab -----------------------------------------------------------------------------
+
+    private static final int SWARM_ROW_Y = 49, SWARM_ROW_H = 17, STEP_W = 17, ALL_W = 22;
+    private static final int ALL_X = CR - ALL_W, STEPS_X = ALL_X - 3 - 4 * (STEP_W + 1);
+    private static final int[] STEP_X = {STEPS_X, STEPS_X + STEP_W + 1, STEPS_X + 2 * (STEP_W + 1), STEPS_X + 3 * (STEP_W + 1)};
+
+    private static String stepLabel(int delta) {
+        return (delta < 0 ? "−" : "+") + Math.abs(delta);
+    }
+
+    /** What a step button would do, or why it cannot. */
+    private List<Component> stepTooltip(HiveSettings.Change change, AttackMode mode, int delta) {
+        Component name = Component.translatable("screen.relics_addon.mode." + mode.id());
+        int minimum = HiveFigures.minimum(hiveType(), mode);
+        if (change.allowed()) {
+            return List.of(Component.translatable("screen.relics_addon.allocation_step", name, change.value()).withStyle(ChatFormatting.AQUA),
+                    Component.translatable("screen.relics_addon.allocation_minimum", minimum).withStyle(ChatFormatting.GRAY));
+        }
+        return List.of(name.copy().withStyle(ChatFormatting.AQUA), refusal(change.refusal(), minimum));
+    }
+
+    private List<Component> healerTooltip(int delta) {
+        HiveSettings.Change change = allocation().adjustHealers(hiveType(), hiveCapacity(), delta);
+        if (change.allowed()) return List.of(Component.translatable("screen.relics_addon.healers_step", change.value()).withStyle(ChatFormatting.AQUA));
+        return List.of(refusal(change.refusal(), 0));
+    }
+
+    private List<Component> allInTooltip(AttackMode mode) {
+        HiveSettings.Change change = allocation().allInto(hiveType(), hiveCapacity(), mode);
+        Component name = Component.translatable("screen.relics_addon.mode." + mode.id());
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.translatable("screen.relics_addon.all_in.hint", name).withStyle(ChatFormatting.AQUA));
+        if (!change.allowed()) lines.add(refusal(change.refusal(), HiveFigures.minimum(hiveType(), mode)));
+        lines.add(Component.translatable("screen.relics_addon.mode." + mode.id() + ".hint." + role().itemId()).withStyle(ChatFormatting.GRAY));
+        return lines;
+    }
+
+    private static Component refusal(HiveSettings.Refusal refusal, int minimum) {
+        return switch (refusal) {
+            case BELOW_MINIMUM -> Component.translatable("screen.relics_addon.allocation_below_minimum", minimum, minimum).withStyle(ChatFormatting.RED);
+            case NONE_FREE -> Component.translatable("screen.relics_addon.allocation_none_free").withStyle(ChatFormatting.RED);
+            case NOTHING_LEFT -> Component.translatable("screen.relics_addon.allocation_nothing_left").withStyle(ChatFormatting.GRAY);
+        };
+    }
 
     private static String upgradeKey(RelicRole role, DeviceUpgrade upgrade) { return "upgrade.relics_addon." + role.itemId() + "." + upgrade.id(); }
 
@@ -373,21 +424,54 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
         }
     }
 
+    /**
+     * The swarm tab: free drones at the top, then a row per mode (its drones, its figure's corners, how many of
+     * them fly) and the healers; the last line says why the hive changed its orders by itself, if it did.
+     */
     private void renderSwarm(GuiGraphics g) {
         int x = leftPos, y = topPos;
-        int capacity = hiveCapacity(), healers = healers(), fighters = capacity - healers;
-        g.drawString(font, Component.translatable("screen.relics_addon.swarm_title"), x + CX, y + CY + 2, HoloPaint.TEXT, false);
-        int barX = x + CX, barY = y + 70, barW = CR - CX;
-        g.fill(barX, barY, barX + barW, barY + 12, 0x80101317);
-        int split = capacity == 0 ? barW : (int) Math.round(barW * fighters / (double) capacity);
-        g.fill(barX + 1, barY + 1, barX + Math.max(1, split), barY + 11, 0xC0000000 | accent() & 0xFFFFFF);
-        g.fill(barX + split, barY + 1, barX + barW - 1, barY + 11, 0xC05FCB7A);
-        HoloPaint.box(g, barX, barY, barW, 12, 0x90E6EBF0);
-        g.drawString(font, Component.translatable("screen.relics_addon.fighters", fighters), barX + 4, barY + 2, HoloPaint.TEXT, true);
-        Component healing = Component.translatable("screen.relics_addon.healers", healers);
-        g.drawString(font, healing, barX + barW - 4 - font.width(healing), barY + 2, HoloPaint.TEXT, true);
-        fit(g, Component.translatable("screen.relics_addon.healers_move"), x + CX + 64, y + 91, CR - CX - 128, HoloPaint.TEXT_DIM, false, true);
-        paragraph(g, Component.translatable("screen.relics_addon.swarm_hint"), x + CX, y + 106, CR - CX, 20, HoloPaint.TEXT_FAINT);
+        int capacity = hiveCapacity();
+        HiveSettings settings = allocation();
+        HiveFlightPlan plan = HiveFlightPlan.of(hiveType(), capacity, settings);
+        fit(g, Component.translatable("screen.relics_addon.swarm_title"), x + CX, y + CY + 1, 70, HoloPaint.TEXT, false, false);
+        Component free = Component.translatable("screen.relics_addon.allocation_free", settings.free(capacity), capacity);
+        fit(g, free, x + CX + 72, y + CY + 1, CR - CX - 72, settings.free(capacity) > 0 ? 0xFFE0B04A : HoloPaint.TEXT_DIM, false, false);
+        int labelW = STEPS_X - 3 - CX;
+        for (AttackMode mode : AttackMode.values()) {
+            int ry = y + SWARM_ROW_Y + mode.ordinal() * SWARM_ROW_H;
+            HiveFlightPlan.Wing wing = plan.wing(mode);
+            int count = settings.allocated(mode);
+            fit(g, Component.translatable("screen.relics_addon.allocation_row", Component.translatable("screen.relics_addon.mode." + mode.id()), count),
+                    x + CX, ry, labelW, count > 0 ? HoloPaint.TEXT : HoloPaint.TEXT_DIM, false, false);
+            Component detail = wing.grounded()
+                    ? Component.translatable("screen.relics_addon.allocation_grounded", HiveFigures.minimum(hiveType(), mode))
+                    : Component.translatable("screen.relics_addon.allocation_detail", HiveFigures.minimum(hiveType(), mode), wing.slots());
+            smallLine(g, detail, x + CX, ry + 9, labelW, wing.grounded() ? 0xFFF2837B : HoloPaint.TEXT_FAINT);
+        }
+        int hy = y + SWARM_ROW_Y + AttackMode.values().length * SWARM_ROW_H;
+        fit(g, Component.translatable("screen.relics_addon.healers", settings.healerCount(capacity)), x + CX, hy, labelW, 0xFF5FCB7A, false, false);
+        smallLine(g, Component.translatable("screen.relics_addon.healers_detail", plan.healerSlots()), x + CX, hy + 9, labelW, HoloPaint.TEXT_FAINT);
+        HiveSettings.Notice notice = settings.notice();
+        if (notice != null && notice.kind() != HiveSettings.Notice.Kind.LEGACY) {
+            Component name = Component.translatable("screen.relics_addon.mode." + notice.mode().id());
+            Component text = Component.translatable("screen.relics_addon.notice." + notice.kind().name().toLowerCase(Locale.ROOT), name, notice.had(), notice.need());
+            fit(g, text, x + CX, hy + 18, CR - CX, 0xFFF2C94C, false, false);
+        }
+    }
+
+    /** One line of small text within {@code width}; cut with an ellipsis if it still does not fit. */
+    private void smallLine(GuiGraphics g, Component text, int x, int y, int width, int color) {
+        g.pose().pushPose();
+        g.pose().translate(x, y, 0);
+        g.pose().scale(.75F, .75F, 1);
+        String shown = text.getString();
+        int room = (int) (width / .75F);
+        if (font.width(shown) > room) {
+            shown = font.plainSubstrByWidth(shown, Math.max(0, room - font.width("…"))) + "…";
+            clipped.add(new Clipped(x, y - 1, width, 8, text));
+        }
+        g.drawString(font, shown, 0, 0, color, false);
+        g.pose().popPose();
     }
 
     private void renderHelp(GuiGraphics g) {
