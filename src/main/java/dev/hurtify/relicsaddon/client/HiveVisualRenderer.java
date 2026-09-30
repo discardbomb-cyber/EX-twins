@@ -93,6 +93,7 @@ public final class HiveVisualRenderer {
         if (minecraft.level == null || minecraft.player == null) {
             ACTIVE.clear(); VISIBILITY.clear(); SEEN.clear(); LAUNCHES.clear(); PREY.clear();
             HiveJuice.clear();
+            HiveLoopSounds.clear();
             ArmageddonVisual.BLASTS.clear();
             ManaArmageddonVisual.BLASTS.clear();
             RfArmageddonVisual.clear();

@@ -47,6 +47,7 @@ final class HiveConstructVisual {
         double room = HiveFormation.enclosure(s.width(), s.height()), age = HiveFormation.constructAge(s.time(), s.cycleStart());
         Vec3 middle = HiveFormation.core(s.target(), s.height());
         HELD.put(s.targets().getFirst().id(), new Held(middle, s.type(), room, s.time()));
+        if (!GlowBrush.flat()) HiveLoopSounds.hum(s.targets().getFirst().id(), s.type(), middle, s.slots(), s.time());
         // It locks shut with a flash.
         double lock = age - HiveConstructs.CLOSING;
         if (lock >= 0 && lock < 6) {

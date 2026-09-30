@@ -127,7 +127,13 @@ public final class HiveContainment {
     }
 
     public static void release(LivingEntity target) {
-        if (HELD.remove(target) != null) restoreGravity(target);
+        Hold hold = HELD.remove(target);
+        if (hold == null) return;
+        restoreGravity(target);
+        // The construct comes apart into its drones.
+        if (target.level() instanceof net.minecraft.server.level.ServerLevel level) {
+            dev.hurtify.relicsaddon.sound.RelicSounds.constructRelease(level, target.getBoundingBox().getCenter(), hold.type);
+        }
     }
 
     /** Releases everything held by one owner's hive of {@code type} (null: any type). */

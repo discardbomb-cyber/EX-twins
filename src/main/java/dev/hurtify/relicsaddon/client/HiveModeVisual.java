@@ -145,6 +145,13 @@ public final class HiveModeVisual {
         };
     }
 
+    /** Names the player whose swarm a scene is (the one standing where its owner does), for its sounds. */
+    private static long ownerKey(Scene s) {
+        var level = net.minecraft.client.Minecraft.getInstance().level;
+        var player = level == null ? null : level.getNearestPlayer(s.owner().x, s.owner().y, s.owner().z, 3, false);
+        return player == null ? 0 : player.getId();
+    }
+
     /** Ticks until a group's cycle next passes {@code mark} (its blow or its shot). */
     private static double until(Scene s, int group, double mark) {
         double phase = HiveFormation.groupPhase(s.time(), s.cycleStart(), s.interval(), s.timingGroup(group), s.timingGroups());
@@ -178,6 +185,7 @@ public final class HiveModeVisual {
             };
             if (s.type() == HiveType.TWINS) rifts(s, group, home, core, sortie, camera, glow, fill, m, color);
             if (HiveFormation.dropletHidden(s.type(), sortie)) continue;
+            if (sortie > 0 && sortie < 2 && !GlowBrush.flat()) HiveLoopSounds.flying(ownerKey(s) << 8 | (long) s.type().ordinal() << 5 | group, s.type(), centre, s.time());
             Vec3[] axes = HiveShapes.axes(facing);
             double size = HiveFormation.shapeSize(s.members()[group]);
             Vec3 c = centre.subtract(camera);

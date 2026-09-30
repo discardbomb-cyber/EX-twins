@@ -304,7 +304,7 @@ public final class HiveCombatController {
                     // The figure leaves the owner's fan so that it arrives exactly when its blow is due.
                     long flight = Math.round(HiveFormation.flightTicks(muster.distanceTo(core), interval));
                     if (HiveFormation.passes(now + flight, cycleStart, interval, group, groups, HiveFormation.IMPACT) && sound()) {
-                        RelicSounds.chargeFire(level, muster, type);
+                        RelicSounds.launch(level, muster, type, group);
                     }
                     if (!HiveFormation.passes(now, cycleStart, interval, group, groups, HiveFormation.IMPACT)) continue;
                     if (!reeling(target)) {
@@ -315,7 +315,7 @@ public final class HiveCombatController {
                         }
                     }
                     shots.add(new HiveCombatState.Shot(group, now, HiveCombatState.DROPLET, muster.x, muster.y, muster.z, core.x, core.y, core.z, now));
-                    if (sound()) RelicSounds.swarmStrike(level, core, type);
+                    if (sound()) RelicSounds.swarmStrike(level, core, type, group);
                 }
             }
             case BARRAGE -> {
@@ -336,7 +336,13 @@ public final class HiveCombatController {
             }
             case CONTAINMENT -> {
                 if (now >= Math.max(state.changedAt(), fight.state().since()) + state.travel() / 2) {
+                    // Each construct locks shut with a sound as it closes.
+                    double age = HiveFormation.constructAge(now, cycleStart);
                     for (int index = 0; index < engaged; index++) {
+                        if (age >= dev.hurtify.relicsaddon.drone.HiveConstructs.CLOSING && age < dev.hurtify.relicsaddon.drone.HiveConstructs.CLOSING + 1 && sound()) {
+                            HiveTarget frame = fight.frames().get(index);
+                            RelicSounds.constructLock(level, HiveFormation.core(frame.feet(), frame.height()), type);
+                        }
                         contain(owner, level, stack, type, fight, index, members, perDrone, interval, shots, now);
                     }
                 }
@@ -395,6 +401,7 @@ public final class HiveCombatController {
         }
         for (Vec3 point : HiveContainment.drainIntercepted(hold)) {
             shots.add(new HiveCombatState.Shot(0, now, HiveCombatState.INTERCEPT, point.x, point.y, point.z, point.x, point.y, point.z, now));
+            if (type == HiveType.RF && sound()) RelicSounds.groundBolt(level, point);
         }
         for (Vec3 point : HiveContainment.drainReflected(hold)) {
             shots.add(new HiveCombatState.Shot(0, now, HiveCombatState.WARD, point.x, point.y, point.z, point.x, point.y, point.z, now));
@@ -635,7 +642,7 @@ public final class HiveCombatController {
                         living -> living != hit.entity() && struckBy(owner, living, flight.target) && living.distanceToSqr(point) < 4)) {
                     swarmHit(owner, near, flight.damage * .4F, near.position().subtract(point), knockback(flight.members) * .5, SWARM_STRIKE);
                 }
-                if (sound()) RelicSounds.swarmExplosion(level, point, type);
+                if (sound()) RelicSounds.chargeLanded(level, point, type);
                 finishShot(shots, flight, point, now);
                 iterator.remove();
                 continue;
