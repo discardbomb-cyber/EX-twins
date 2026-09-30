@@ -49,7 +49,7 @@ void main() {
         vec2 level = vec2(dot(p, East), dot(p, North));
         float d = length(level);
         front = exp(-abs(d - ShockRadius) / 3.0) * Shock;
-        within = smoothstep(ShockRadius + 4.0, ShockRadius - 24.0, d) * smoothstep(8.0, 34.0, d) * Shock;
+        within = (1.0 - smoothstep(ShockRadius - 24.0, ShockRadius + 4.0, d)) * smoothstep(8.0, 34.0, d) * Shock;
         float angle = atan(level.y, level.x);
         float rays = fract(angle / TAU * 48.0 + 0.18 * sin(angle * 7.0));
         ray = smoothstep(0.36, 0.5, rays) * (1.0 - smoothstep(0.5, 0.64, rays));

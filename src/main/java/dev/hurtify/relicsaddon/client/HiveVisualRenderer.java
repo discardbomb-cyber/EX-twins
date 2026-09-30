@@ -78,10 +78,10 @@ public final class HiveVisualRenderer {
             RfArmageddonVisual.clear();
             return;
         }
-        RfArmageddonVisual.startFrame();
         float partial = event.getPartialTick().getGameTimeDeltaPartialTick(false);
         long now = minecraft.level.getGameTime();
         double time = now + partial;
+        RfArmageddonVisual.startFrame(time);
         Vec3 camera = event.getCamera().getPosition();
         var buffers = minecraft.renderBuffers().bufferSource();
         PoseStack poses = event.getPoseStack();

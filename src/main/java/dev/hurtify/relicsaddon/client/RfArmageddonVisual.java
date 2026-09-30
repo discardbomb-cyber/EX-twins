@@ -119,8 +119,9 @@ public final class RfArmageddonVisual {
         CHARGING.clear();
     }
 
-    /** A new frame: the shots charging are noted afresh as their drones are drawn. */
-    static void startFrame() {
+    /** A new frame: blasts of another world or long faded are dropped before anything draws them, and the shots charging are noted afresh as their drones are drawn. */
+    static void startFrame(double time) {
+        prune(time);
         CHARGING.clear();
     }
 
@@ -904,9 +905,10 @@ public final class RfArmageddonVisual {
     /** How hard the ground shakes at {@code camera}: the heavy ball overhead, its meeting the ground, the dome swelling and the shock front passing. */
     static double shake(Vec3 camera, double time) {
         double shake = 0;
+        var level = Minecraft.getInstance().level;
         for (Blast blast : BLASTS) {
             double age = blast.age(time), t = age - RfArmageddon.IMPACT, distance = camera.distanceTo(blast.centre());
-            if (distance > RfArmageddon.RADIUS * 1.3) continue;
+            if (blast.level != level || distance > RfArmageddon.RADIUS * 1.3) continue;
             double near = 1 - distance / (RfArmageddon.RADIUS * 1.3);
             double hum = age > RfArmageddon.FIRE && age < RfArmageddon.IMPACT ? .1 + .3 * smooth((age - RfArmageddon.ARRIVE) / RfArmageddon.HOVER) : 0;
             double thud = t >= 0 ? .9 * Math.exp(-t / 10) : 0, swelling = t >= 0 && t < RfArmageddon.FLASH ? .25 + .5 * t / RfArmageddon.FLASH : 0;

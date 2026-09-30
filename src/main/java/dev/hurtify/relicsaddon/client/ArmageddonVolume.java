@@ -153,9 +153,10 @@ public final class ArmageddonVolume {
         RenderTarget main = size();
         depth.copyDepthFrom(main);
         captured = true;
-        // The copy leaves no target bound: give back the one the world is being drawn into (Fabulous draws the weather into its own).
+        // The copy leaves no target bound (and making the targets may have left the viewport at a smaller one's size): give
+        // back the one the world is being drawn into, whole (Fabulous draws the weather into its own).
         RenderTarget weather = Minecraft.useShaderTransparency() ? Minecraft.getInstance().levelRenderer.getWeatherTarget() : null;
-        (weather != null ? weather : main).bindWrite(false);
+        (weather != null ? weather : main).bindWrite(true);
     }
 
     /**
@@ -206,6 +207,10 @@ public final class ArmageddonVolume {
      */
     private static void drawRf(Matrix4f pose) {
         RenderTarget main = targets();
+        // Made before any state is set: making a target binds it and sets its own.
+        if (scene == null) scene = new TextureTarget(main.width, main.height, false, Minecraft.ON_OSX);
+        else if (scene.width != main.width || scene.height != main.height) scene.resize(main.width, main.height, Minecraft.ON_OSX);
+        main.bindWrite(true);
         Matrix4f view = new Matrix4f(RenderSystem.getModelViewMatrix()).mul(pose);
         Vector3f[] axes = {view.transformDirection(new Vector3f(0, 1, 0)).normalize(), view.transformDirection(new Vector3f(1, 0, 0)).normalize(),
                 view.transformDirection(new Vector3f(0, 0, 1)).normalize()};
@@ -227,8 +232,6 @@ public final class ArmageddonVolume {
                 if (strongest == null || s.shock() + s.silhouette() > strongest.stage.shock() + strongest.stage.silhouette()) strongest = blast;
             }
             if (grey + silhouette + flood + strongest.stage.shock() > .002) {
-                if (scene == null) scene = new TextureTarget(main.width, main.height, false, Minecraft.ON_OSX);
-                else if (scene.width != main.width || scene.height != main.height) scene.resize(main.width, main.height, Minecraft.ON_OSX);
                 GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, main.frameBufferId);
                 GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, scene.frameBufferId);
                 GlStateManager._glBlitFrameBuffer(0, 0, main.width, main.height, 0, 0, scene.width, scene.height, GL11.GL_COLOR_BUFFER_BIT, GL11.GL_NEAREST);
