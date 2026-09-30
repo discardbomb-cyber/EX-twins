@@ -266,6 +266,7 @@ tasks.named('check') {
     dependsOn 'verifyNetworkCodecs'
     dependsOn 'verifyRegistryFilter'
     dependsOn 'verifyHiveFormation'
+    dependsOn 'verifyArmageddonSounds'
     dependsOn 'verifyHiveLayers'
     dependsOn 'verifyEffectLights'
     dependsOn 'verifyEffectLightSources'
@@ -295,6 +296,14 @@ tasks.register('verifyHiveFormation', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
     mainClass = 'dev.hurtify.relicsaddon.client.HiveFormationCheck'
+}
+
+// Mana Armageddon's sounds must last exactly as long as the stages they score (the blast as long as its column grows).
+tasks.register('verifyArmageddonSounds', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.sound.ArmageddonSoundCheck'
+    workingDir = projectDir
 }
 
 tasks.named('compileTestJava', JavaCompile) {

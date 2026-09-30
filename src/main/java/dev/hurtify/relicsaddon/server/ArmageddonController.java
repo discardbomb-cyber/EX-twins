@@ -5,6 +5,7 @@ import dev.hurtify.relicsaddon.drone.Armageddon;
 import dev.hurtify.relicsaddon.drone.ArmageddonState;
 import dev.hurtify.relicsaddon.drone.ArmageddonTimeline;
 import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.drone.ManaArmageddon;
 import dev.hurtify.relicsaddon.network.ArmageddonPayloads;
 import dev.hurtify.relicsaddon.power.DeviceEnergy;
 import dev.hurtify.relicsaddon.power.DevicePower;
@@ -110,7 +111,11 @@ public final class ArmageddonController {
     /** The family of hive whose Armageddon {@code hive} fires, or null if it fires none. */
     public static HiveType fires(ItemStack hive) {
         if (!(hive.getItem() instanceof AutonomousRelicItem item)) return null;
-        return item.role() == RelicRole.TWINS_HIVE ? HiveType.TWINS : null;
+        return switch (item.role()) {
+            case TWINS_HIVE -> HiveType.TWINS;
+            case MANA_HIVE -> HiveType.MANA;
+            default -> null;
+        };
     }
 
     /** The translation key of a refusal ({@code level}, {@code charge} or {@code running}) in the words of {@code type}'s Armageddon. */
@@ -132,11 +137,22 @@ public final class ArmageddonController {
         return null;
     }
 
-    /** Whether both of the hive's batteries are full, near enough (always, when power is off or in Creative). */
+    /**
+     * Whether every battery the hive has is full, near enough: both of a Twins hive's, the one of a Mana hive
+     * (always, when power is off or in Creative).
+     */
     static boolean full(Player owner, ItemStack hive) {
         if (!DevicePower.required() || owner.getAbilities().instabuild) return true;
         DeviceEnergy energy = DevicePower.energy(hive);
-        return energy.rf() >= DevicePower.feCapacity(hive) * FULL && energy.mana() >= DevicePower.capacity(hive) * FULL;
+        RelicRole role = DevicePower.role(hive);
+        return (!DevicePower.hasRf(role) || energy.rf() >= DevicePower.feCapacity(hive) * FULL)
+                && (!DevicePower.hasMana(role) || energy.mana() >= DevicePower.capacity(hive) * FULL);
+    }
+
+    /** How many points {@code device}'s batteries hold between them when full: two batteries for Twins, one for the others. */
+    public static int points(ItemStack device) {
+        RelicRole role = DevicePower.role(device);
+        return (DevicePower.hasRf(role) ? DevicePower.capacity(device) : 0) + (DevicePower.hasMana(role) ? DevicePower.capacity(device) : 0);
     }
 
     /**
@@ -173,9 +189,9 @@ public final class ArmageddonController {
         return null;
     }
 
-    /** Where {@code type}'s construct hangs for an owner whose eyes are at {@code eye}. */
+    /** Where {@code type}'s construct hangs for an owner whose eyes are at {@code eye}: the Twins cannon, or the point between the Mana flowers. */
     private static Vec3 origin(HiveType type, Vec3 eye, Vec3 target) {
-        return Armageddon.origin(eye, target);
+        return type == HiveType.MANA ? ManaArmageddon.origin(eye, target) : Armageddon.origin(eye, target);
     }
 
     /**
@@ -265,8 +281,8 @@ public final class ArmageddonController {
         if (!RelicRuntime.enabled(shield) || !DevicePower.required() || owner.getAbilities().instabuild) return RelicRuntime.enabled(shield) ? 1 : 0;
         DeviceEnergy energy = DevicePower.energy(shield);
         int held = energy.rf() / DevicePower.FE_PER_POINT + energy.mana();
-        int spare = held - (int) Math.round(2 * DevicePower.capacity(shield) * SHIELD_KEEPS);
-        return Math.max(0, Math.min(spare, (int) Math.round(2 * DevicePower.capacity(hive) * SHIELD_SHARE)));
+        int spare = held - (int) Math.round(points(shield) * SHIELD_KEEPS);
+        return Math.max(0, Math.min(spare, (int) Math.round(points(hive) * SHIELD_SHARE)));
     }
 
     private static void finish(ServerPlayer owner, ItemStack hive, Shot shot) {
@@ -276,7 +292,9 @@ public final class ArmageddonController {
         // The shot took the hive's whole charge; what the shield gave is all it has left.
         int kept = shot.shieldGiven;
         DeviceEnergy energy = DevicePower.energy(hive);
-        hive.set(ModDataComponents.DEVICE_ENERGY.get(), energy.withRf(kept / 2 * DevicePower.FE_PER_POINT).withMana(kept - kept / 2));
+        boolean rf = DevicePower.hasRf(DevicePower.role(hive)), mana = DevicePower.hasMana(DevicePower.role(hive));
+        int toRf = rf ? mana ? kept / 2 : kept : 0;
+        hive.set(ModDataComponents.DEVICE_ENERGY.get(), energy.withRf(toRf * DevicePower.FE_PER_POINT).withMana(mana ? kept - toRf : 0));
     }
 
     /** Whether the server keeps Armageddon from breaking blocks. */
@@ -292,7 +310,8 @@ public final class ArmageddonController {
     /**
      * The land round the shot's target goes from the middle out: column by column, as its reach passes each,
      * every breakable block within the sphere of the course's carve radius, a few thousand a tick; and every
-     * creature it would strike is dragged in, towards the Twins black hole.
+     * creature it would strike is dragged in: towards the Twins black hole, or swept round and up into the Mana
+     * vortex.
      */
     private static void carve(ServerLevel level, Shot shot, long age) {
         Vec3 centre = shot.state.target();
@@ -330,7 +349,14 @@ public final class ArmageddonController {
             Vec3 in = centre.subtract(entity.position());
             double distance = in.length();
             if (distance < 1 || distance > pull) continue;
-            entity.setDeltaMovement(entity.getDeltaMovement().scale(.6).add(in.scale(.25 * (1.2 - distance / pull) / distance)));
+            double strength = 1.2 - distance / pull;
+            if (shot.state.type() == HiveType.MANA) {
+                Vec3 flat = new Vec3(in.x, 0, in.z);
+                double across = flat.length();
+                Vec3 round = across < 1e-3 ? Vec3.ZERO : new Vec3(-flat.z, 0, flat.x).scale(1 / across);
+                Vec3 inwards = across < 1e-3 ? Vec3.ZERO : flat.scale(1 / across);
+                entity.setDeltaMovement(entity.getDeltaMovement().scale(.6).add(round.scale(.32 * strength)).add(inwards.scale(.07 * strength)).add(0, .11 * strength, 0));
+            } else entity.setDeltaMovement(entity.getDeltaMovement().scale(.6).add(in.scale(.25 * strength / distance)));
             entity.hurtMarked = true;
         }
     }

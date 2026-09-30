@@ -18,6 +18,46 @@ const WAV_OUT = join(ROOT, "work/sound-preview");
 const RATE = 48_000;
 const TAU = Math.PI * 2;
 
+/**
+ * The scalar constants of a Java class ({@code static final int|double NAME = expression}), worked out in
+ * order, so a sound can be made exactly as long as the stage it scores.
+ */
+function javaConstants(file) {
+  const source = readFileSync(join(ROOT, file), "utf8");
+  const values = {};
+  for (const [, body] of source.matchAll(/static final (?:int|double) ([^;{]+);/g)) {
+    let depth = 0, part = "";
+    const parts = [];
+    for (const c of body) {
+      if (c === "(") depth++;
+      if (c === ")") depth--;
+      if (c === "," && depth === 0) { parts.push(part); part = ""; } else part += c;
+    }
+    parts.push(part);
+    for (const declaration of parts) {
+      const match = declaration.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*([\s\S]+)$/);
+      if (!match) continue;
+      const expression = match[2].replace(/\(\s*(?:int|long|double|float)\s*\)/g, "").replace(/(\d)_(?=\d)/g, "$1");
+      let unknown = false;
+      const js = expression.replace(/[A-Za-z_][A-Za-z0-9_.]*/g, name => {
+        if (["Math.round", "Math.min", "Math.max", "Math.PI"].includes(name)) return name;
+        if (name in values) return String(values[name]);
+        unknown = true;
+        return "0";
+      });
+      if (!unknown && /^[\d\s.+\-*/(),MathroundinaxPI]*$/.test(js)) values[match[1]] = Function(`return (${js});`)();
+    }
+  }
+  return values;
+}
+
+// The Mana Armageddon's timings, as the game runs them: its sounds are cut to its stages, and its blast lasts
+// exactly BLAST_SECONDS, the one number the column of light that grows while the blast is heard is made from.
+const MANA = javaConstants("src/main/java/dev/hurtify/relicsaddon/drone/ManaArmageddon.java");
+for (const name of ["ASSEMBLED", "FIRE", "ARRIVE", "IGNITE", "IMPACT", "BLAST_SECONDS", "RINGS", "RUNES", "SPHERE_RISE", "SPHERE_WRITE", "SHOCK", "DOME", "EXPAND", "COLUMN"]) {
+  if (!Number.isFinite(MANA[name])) throw new Error(`ManaArmageddon.${name} could not be read`);
+}
+
 // name, family, seconds. Names must match sounds.json (relics_addon:combat/<name>).
 const SPECS = [
   ["rf_attack_1", "rf_attack", .26], ["rf_attack_2", "rf_attack", .30],
@@ -50,6 +90,15 @@ const SPECS = [
   // Armageddon: the cannon charging (it lasts exactly until the shot), the shot, and the blast.
   ["hive_armageddon_charge", "armageddon_charge:twins", 60.0], ["hive_armageddon_fire", "armageddon_fire:twins", 1.2],
   ["hive_armageddon_blast", "armageddon_blast:twins", 30.0], ["hive_armageddon_shock", "armageddon_shock:twins", 4.0], ["hive_armageddon_devour", "armageddon_devour:twins", 3.0],
+  // Mana Armageddon, each as long as the stage it scores: the flowers charging, the streams loosed, their collision
+  // at the target, the sphere of runes cracking round the sun, the blast (as long as the column of light grows), and
+  // the dome of light passing.
+  ["hive_mana_armageddon_charge", "mana_armageddon_charge:mana", MANA.FIRE / 20],
+  ["hive_mana_armageddon_fire", "mana_armageddon_fire:mana", 2.0],
+  ["hive_mana_armageddon_collision", "mana_armageddon_collision:mana", (MANA.IGNITE - MANA.ARRIVE) / 20],
+  ["hive_mana_armageddon_sphere", "mana_armageddon_sphere:mana", (MANA.IMPACT - MANA.IGNITE) / 20],
+  ["hive_mana_armageddon_blast", "mana_armageddon_blast:mana", MANA.BLAST_SECONDS],
+  ["hive_mana_armageddon_shock", "mana_armageddon_shock:mana", 4.0],
 ];
 
 // Base pitch per family: RF is metallic and bright, Mana glassy and high, Twins dark and low.
@@ -76,7 +125,7 @@ class Voice {
     this.random = rng(name);
   }
   gauss() { return Math.sqrt(-2 * Math.log(this.random() + 1e-12)) * Math.cos(TAU * this.random()); }
-  noise() { const b = new Float64Array(this.n); for (let i = 0; i < this.n; i++) b[i] = this.gauss(); return b; }
+  noise(length = this.n) { const b = new Float64Array(length); for (let i = 0; i < length; i++) b[i] = this.gauss(); return b; }
   add(buffer, gain = 1, offset = 0) {
     const start = Math.round(offset * RATE);
     for (let i = 0; i < buffer.length && start + i < this.n; i++) if (start + i >= 0) this.out[start + i] += buffer[i] * gain;
@@ -597,6 +646,152 @@ function synthesize(name, family, seconds) {
       space = .3;
       break;
     }
+    case "mana_armageddon_charge": {
+      // A minute of the flowers charging. Under it all a warm, golden hum; over it a cool turquoise shimmer of
+      // glass, both swelling as the charge fills. The runes are written one by one on both flowers at once, each
+      // a pen's scratch through the air and a small chime as it is done; each ring, once full, blooms into a
+      // chord and starts to turn with a soft whirr of its own. In the last seconds the flowers blaze and a shimmer
+      // rises to the shot.
+      const start = MANA.ASSEMBLED / 20, full = MANA.FIRE / 20, ringTime = (full - start) / MANA.RINGS;
+      const charge = t => Math.min(1, Math.max(0, (t - start) / (full - start)));
+      const fadeIn = t => Math.min(1, t / 2.5);
+      const hum = osc(n, t => 55 * (1 + .004 * Math.sin(TAU * .09 * t)), "saw");
+      v.add(lowpass(lowpass(hum, t => 150 + 650 * charge(t) ** 1.4), 900).map((x, i) => { const t = i / RATE; return x * fadeIn(t) * (.35 + .65 * charge(t)); }), .8);
+      v.add(osc(n, 27.5).map((x, i) => { const t = i / RATE; return x * fadeIn(t) * (.45 + .55 * charge(t)); }), .75);
+      v.add(osc(n, 110 * 1.002).map((x, i) => { const t = i / RATE; return x * fadeIn(t) * (.2 + .5 * charge(t)); }), .18);
+      [[880, .11], [1318.5, .085], [1760, .065], [2637, .04], [3520, .025]].forEach(([f, g], k) => {
+        const a = osc(n, t => f * (1 + .0025 * Math.sin(TAU * (.07 + .03 * k) * t))), b = osc(n, f * 1.0035);
+        v.add(a.map((x, i) => { const t = i / RATE; return (x + b[i]) * .5 * fadeIn(t) * (.12 + .88 * charge(t)) * (.75 + .25 * Math.sin(TAU * (.21 + .05 * k) * t)); }), g);
+      });
+      for (let ring = 0; ring < MANA.RINGS; ring++) for (let rune = 0; rune < MANA.RUNES; rune++) {
+        const at = start + ringTime * (ring + rune / MANA.RUNES), each = ringTime / MANA.RUNES;
+        const length = Math.round(Math.min(each * .8, .24) * RATE), rising = v.random() < .5;
+        const scratch = bandpass(v.noise(length), (t, x) => (rising ? 2200 + 3800 * x : 6200 - 3200 * x) * (1 + .08 * ring), 7);
+        v.add(mul(scratch, env(length, .012, .05, .05)), .42 + .12 * charge(at), at);
+        v.add(bell(Math.round(.4 * RATE), (1760 + 196 * (rune % 5)) * (ring % 2 ? 1.5 : 1) * detune, [1, 2.76, 5.4], .12), .07 + .05 * charge(at), at + each * .7);
+      }
+      for (let ring = 0; ring < MANA.RINGS; ring++) {
+        const at = start + ringTime * (ring + 1);
+        if (at > seconds - .5) continue;
+        [1, 1.25, 1.5, 2, 2.5, 3].forEach(step => v.add(bell(Math.round(3.5 * RATE), 330 * step * (1 + .25 * ring), [1, 2.76], 1.2), .085, at));
+        v.add(mul(bandpass(v.noise(), 3000, 3), env(n, .004, .25)), .25, at);
+        const whirr = bandpass(v.noise(), t => 900 + 400 * ring + 350 * Math.sin(TAU * (.6 + .25 * ring) * t), 5);
+        v.add(whirr.map((x, i) => { const t = i / RATE - at; return t < 0 ? 0 : x * Math.min(1, t / 1.5); }), .12);
+      }
+      const blaze = t => Math.max(0, (t - (seconds - 9)) / 9);
+      let flutter = 0;
+      const shimmer = new Float64Array(n);
+      const air = highpass(v.noise(), 5500);
+      for (let i = 0; i < n; i++) { const t = i / RATE, b = blaze(t); flutter += (7 + 16 * b * b) / RATE; shimmer[i] = air[i] * b * b * (.6 + .4 * Math.sin(TAU * flutter)); }
+      v.add(shimmer, .5);
+      v.add(fm(n, t => 440 * (1 + blaze(t) ** 2), 3.5, 1.3, 2).map((x, i) => x * blaze(i / RATE) ** 2), .22);
+      const cut = new Float64Array(n);
+      for (let i = 0; i < n; i++) { const t = i / RATE; cut[i] = t < seconds - .06 ? 1 : Math.max(0, (seconds - t) / .06); }
+      v.out = mul(reverb(v.out, .22, 1.1), cut);
+      space = 0;
+      break;
+    }
+    case "mana_armageddon_fire": {
+      // Both streams loosed at once: a deep push, the turquoise stream's dense slithering hiss, and the gold beam's
+      // glassy rise, sparkling.
+      v.add(mul(osc(n, t => 30 + 80 * Math.exp(-t * 9)), env(n, .002, .35)), 1.3);
+      const slither = osc(n, t => 9 + 5 * t);
+      v.add(bandpass(v.noise(), (t, x) => 900 + 650 * Math.sin(TAU * 9 * t) + 1400 * x, 2.4).map((x, i) => { const t = i / RATE; return x * Math.min(1, t / .03) * Math.exp(-t / .75) * (.7 + .3 * slither[i]); }), 1.1);
+      [1, 1.5, 2, 3].forEach(step => v.add(mul(fm(n, (t, x) => 660 * step * (1 + .5 * x) * detune, 3.5, 1.2, .3), env(n, .01, .65)), .15));
+      v.add(highpass(crackle(v, (t, x) => 2600 * (1 - x) ** 1.5, .0008), 3500), .4);
+      space = .25;
+      break;
+    }
+    case "mana_armageddon_collision": {
+      // The streams meet head-on: a crack and a boom, then two jets roaring into each other, pulsing as they push,
+      // sparks crackling and flakes of glass tinkling off, the land grinding as it is torn up, and the vortex
+      // swirling ever higher, until the streams are cut.
+      const build = t => Math.min(1, .55 + .45 * t / seconds);
+      v.add(mul(highpass(v.noise(), 800), env(n, .0006, .05)), 1.2);
+      v.add(mul(osc(n, t => 26 + 90 * Math.exp(-t * 7)), env(n, .002, .8)), 1.5);
+      const push = osc(n, t => 3.2 + .8 * t).map(x => .75 + .25 * x);
+      v.add(bandpass(v.noise(), t => 620 + 60 * Math.sin(TAU * .7 * t), 2).map((x, i) => x * push[i] * build(i / RATE)), 1.1);
+      v.add(bandpass(v.noise(), t => 2300 + 300 * Math.sin(TAU * 1.1 * t), 3).map((x, i) => x * (1.25 - push[i] * .5) * build(i / RATE)), .6);
+      v.add(highpass(crackle(v, t => 900 + 500 * t, .0008), 2800), .5);
+      for (let g = 0; g < 70; g++) v.add(bell(Math.round(.14 * RATE), 1400 + 3000 * v.random(), [1, 2.76, 5.4], .04), .05, .1 + v.random() * (seconds - .3));
+      for (let g = 0; g < 26; g++) {
+        const length = Math.round(.05 * RATE);
+        v.add(mul(bandpass(v.noise(length), 3000 + 2000 * v.random(), 4), env(length, .004, .012)), .3, .2 + v.random() * (seconds - .5));
+      }
+      v.add(lowpass(pink(v), t => 120 + 380 * t / seconds).map((x, i) => x * Math.min(1, i / RATE / .8) * build(i / RATE)), 1.4);
+      v.add(bandpass(v.noise(), t => 300 + 900 * (t / seconds) + 250 * Math.sin(TAU * (.5 + .4 * t / seconds) * t), 3).map((x, i) => x * Math.min(1, i / RATE / 1.2)), .7);
+      v.add(lowpass(crackle(v, t => 25 + 20 * t / seconds, .02), 500), 1.0);
+      v.out = vast(v.out, .18, 2.5).map((x, i) => { const t = i / RATE; return x * (t < seconds - .05 ? 1 : Math.max(0, (seconds - t) / .05)); });
+      space = 0;
+      break;
+    }
+    case "mana_armageddon_sphere": {
+      // The sun ignites with a bright bloom and the sphere of runes rises round it in a glassy sweep; its runes are
+      // written in a running cascade of glass; then the sun presses from inside, a rising, beating drone over a
+      // swelling depth, and light cracks through the glyphs, faster and faster, until it gives.
+      const rise = MANA.SPHERE_RISE / 20, write = MANA.SPHERE_WRITE / 20;
+      v.add(mul(osc(n, t => 40 + 60 * Math.exp(-t * 5)), env(n, .003, .6)), 1.0);
+      [1, 1.26, 1.5, 2, 3].forEach(step => v.add(bell(n, 523.25 * step * detune, [1, 2.76, 5.4], 1.4), .09));
+      v.add(mul(bandpass(v.noise(), t => 400 + 6000 * Math.min(1, t / rise), 3), env(n, rise * .8, .15)), .6);
+      for (let k = 0; k < 90; k++) v.add(bell(Math.round(.12 * RATE), 2000 + 2600 * v.random(), [1, 2.76], .03), .07, rise + write * Math.sqrt(k / 90));
+      const press = t => Math.max(0, (t - write * .6) / (seconds - write * .6));
+      v.add(osc(n, t => 110 * (1 + .8 * press(t) ** 2)).map((x, i) => x * (.3 + press(i / RATE))), .45);
+      v.add(osc(n, t => 110 * 1.012 * (1 + .8 * press(t) ** 2)).map((x, i) => x * (.3 + press(i / RATE))), .45);
+      v.add(osc(n, t => 34 + 12 * press(t)).map((x, i) => x * press(i / RATE) ** 1.5), 1.2);
+      v.add(bandpass(v.noise(), t => 500 + 3000 * press(t) ** 2, 2).map((x, i) => x * press(i / RATE) ** 3), .6);
+      for (let at = write; at < seconds - .05; at += .42 * (1 - press(at)) ** 2 + .03) {
+        const length = Math.round(.18 * RATE);
+        v.add(mul(highpass(v.noise(length), 2500), env(length, .0004, .004)), .6 + .4 * press(at), at);
+        v.add(bell(length, 2800 + 2200 * v.random(), [1, 1.73, 2.76], .05), .12, at);
+      }
+      v.out = reverb(v.out, .2, 1).map((x, i) => { const t = i / RATE; return x * (t < seconds - .03 ? 1 : Math.max(0, (seconds - t) / .03)); });
+      space = 0;
+      break;
+    }
+    case "mana_armageddon_blast": {
+      // The sphere shatters into its runes and a thin flash cuts across everything; a ring of stones runs out along
+      // the ground with a boom and a roaring rush; the dome of light sweeps out as a vast chord of light swells up;
+      // and while the column of light grows, the chord holds and swells with it, fuller and brighter, the light
+      // streaming up louder, until at its widest it falls silent.
+      const shock = MANA.SHOCK / 20, dome = MANA.DOME / 20, column = MANA.COLUMN / 20;
+      const grow = t => t < column ? 0 : Math.min(1, (t - column) / (seconds - column));
+      const ends = t => t < seconds - .12 ? 1 : Math.max(0, (seconds - t) / .12);
+      v.add(mul(highpass(v.noise(), 1200), env(n, .0005, .06)), 1.4);
+      for (let g = 0; g < 160; g++) v.add(bell(Math.round(.25 * RATE), 900 + 5200 * v.random() ** 1.5, [1, 2.76, 5.4, 8.93], .08), .07, v.random() ** 2 * .9);
+      v.add(mul(osc(n, t => 22 + 110 * Math.exp(-t * 8)), env(n, .001, .9)), 1.6);
+      v.add(mul(lowpass(pink(v), t => 2500 * Math.exp(-t / 1.2) + 150), env(n, .02, shock * .9)), 1.5);
+      v.add(lowpass(crackle(v, t => t < shock ? 60 * (1 - t / shock) : 0, .015), 700), 1.1);
+      const swell = t => Math.min(1, Math.max(0, (t - dome) / 1.2)) * (.22 + .78 * grow(t) ** 1.3) * ends(t);
+      const choir = new Float64Array(n);
+      [220, 277.18, 329.63, 440, 554.37, 659.25, 880, 1108.73].forEach((f, k) => {
+        for (const spread of [-.0045, 0, .005]) {
+          const voice = osc(n, t => f * (1 + spread) * (1 + .003 * Math.sin(TAU * (4.6 + k * .3) * t + k)));
+          for (let i = 0; i < n; i++) choir[i] += voice[i] * swell(i / RATE) * (k >= 6 ? grow(i / RATE) : 1) / (1 + k * .18);
+        }
+      });
+      // Sung on an open vowel: two formants over the chord.
+      v.add(choir, .05);
+      v.add(bandpass(choir, 750, 3), .09);
+      v.add(bandpass(choir, 1250, 4), .06);
+      let flutter = 0;
+      const stream = lowpass(highpass(pink(v), 60), t => 600 + 4000 * grow(t));
+      for (let i = 0; i < n; i++) { const t = i / RATE; flutter += (3 + 9 * grow(t)) / RATE; stream[i] *= Math.min(1, Math.max(0, (t - dome) / 2)) * (.15 + .85 * grow(t) ** 1.2) * (.8 + .2 * Math.sin(TAU * flutter)) * ends(t); }
+      v.add(stream, 1.1);
+      v.add(osc(n, 55).map((x, i) => x * swell(i / RATE)), .8);
+      v.add(osc(n, 27.5).map((x, i) => x * swell(i / RATE) * grow(i / RATE)), .6);
+      v.out = vast(v.out, .3, 4).map((x, i) => x * ends(i / RATE));
+      space = 0;
+      break;
+    }
+    case "mana_armageddon_shock": {
+      // The dome of light passing over the listener: a rush of air, a soft deep boom and a glassy shimmer going by.
+      v.add(mul(bandpass(v.noise(), (t, x) => 250 + 2200 * Math.min(1, t / .2), 2), env(n, .18, .15)), .7);
+      v.add(mul(osc(n, t => 28 + 50 * Math.exp(-t * 5)), env(n, .005, 1.0)), 1.2);
+      v.add(mul(lowpass(v.noise(), t => 500 * Math.exp(-t * 2) + 90), env(n, .03, 1.3)), 1.1);
+      [1, 1.5, 2, 3].forEach(step => v.add(bell(n, 880 * step * detune, [1, 2.76], .9), .05));
+      space = .3;
+      break;
+    }
     default:
       throw new Error(`Unhandled family ${family}`);
   }
@@ -606,7 +801,7 @@ function synthesize(name, family, seconds) {
   const mean = out.reduce((a, b) => a + b, 0) / out.length;
   out = out.map(x => x - mean);
   let peak = out.reduce((a, b) => Math.max(a, Math.abs(b)), 0);
-  const loud = kind.startsWith("armageddon");
+  const loud = kind.startsWith("armageddon") || kind.startsWith("mana_armageddon");
   if (loud && peak) {
     // Bass everywhere: the sub (under 90 Hz) is driven into harmonics a phone or laptop can play, kept
     // under 250 Hz, and laid back under the sound with the lows lifted besides.
@@ -614,12 +809,13 @@ function synthesize(name, family, seconds) {
     const drivenSub = sub.map(x => Math.tanh(5 * x / peak) * peak);
     const harmonics = lowpass(lowpass(highpass(drivenSub, 55), 250), 250);
     const lows = lowpass(out, 160);
-    const blast = kind === "armageddon_blast";
+    const blast = kind.endsWith("armageddon_blast");
     out = out.map((x, i) => x + (blast ? .8 : 1.6) * harmonics[i] + (blast ? .2 : .9) * lows[i]);
     peak = out.reduce((a, b) => Math.max(a, Math.abs(b)), 0);
     // Driven into a soft limiter, so the quiet parts stay quiet but everything loud is as loud as it gets
     // (the blast hardest of all: it should hurt).
-    const drive = blast ? 6 : kind === "armageddon_charge" ? 4.5 : 3.2;
+    const drive = { armageddon_blast: 6, armageddon_charge: 4.5, mana_armageddon_blast: 3, mana_armageddon_charge: 3,
+      mana_armageddon_collision: 4.5, mana_armageddon_sphere: 3.6 }[kind] ?? 3.2;
     out = out.map(x => Math.tanh(drive * x / peak) / Math.tanh(drive));
     // Driving a lopsided wave that hard leaves it off centre: take that back out below hearing.
     out = highpass(out, 12);
@@ -681,6 +877,9 @@ async function validate() {
     if (channelData.length !== 1) problems.push(`${path}: ${channelData.length} channels (positional sounds must be mono)`);
     if (sampleRate !== RATE) problems.push(`${path}: ${sampleRate} Hz`);
     if (peak > .99 || peak < .2) problems.push(`${path}: peak ${peak.toFixed(3)}`);
+    // Every sound is as long as its spec says: the long Armageddon ones score stages of exactly that length.
+    const spec = SPECS.find(([name]) => `combat/${name}` === path);
+    if (spec && Math.abs(pcm.length / sampleRate - spec[2]) > .05) problems.push(`${path}: ${(pcm.length / sampleRate).toFixed(3)} s, not ${spec[2]} s`);
     if (Math.abs(dc) > .01) problems.push(`${path}: dc ${dc.toFixed(4)}`);
   }
   const lang = ["en_us", "ru_ru"].map(l => JSON.parse(readFileSync(join(ASSETS, `lang/${l}.json`), "utf8")));

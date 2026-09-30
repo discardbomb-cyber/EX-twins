@@ -57,6 +57,6 @@ public interface ArmageddonTimeline {
 
     /** The course of the Armageddon a hive of {@code type} fires. */
     static ArmageddonTimeline of(HiveType type) {
-        return Armageddon.TIMELINE;
+        return type == HiveType.MANA ? ManaArmageddon.TIMELINE : Armageddon.TIMELINE;
     }
 }

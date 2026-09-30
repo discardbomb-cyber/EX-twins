@@ -441,6 +441,56 @@
       }
     ]
   },
+  "hive.mana_armageddon_charge": {
+    "subtitle": "subtitles.relics_addon.hive_mana_armageddon_charge",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_mana_armageddon_charge",
+        "stream": true
+      }
+    ]
+  },
+  "hive.mana_armageddon_fire": {
+    "subtitle": "subtitles.relics_addon.hive_mana_armageddon_fire",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_mana_armageddon_fire"
+      }
+    ]
+  },
+  "hive.mana_armageddon_collision": {
+    "subtitle": "subtitles.relics_addon.hive_mana_armageddon_collision",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_mana_armageddon_collision"
+      }
+    ]
+  },
+  "hive.mana_armageddon_sphere": {
+    "subtitle": "subtitles.relics_addon.hive_mana_armageddon_sphere",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_mana_armageddon_sphere"
+      }
+    ]
+  },
+  "hive.mana_armageddon_blast": {
+    "subtitle": "subtitles.relics_addon.hive_mana_armageddon_blast",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_mana_armageddon_blast",
+        "stream": true
+      }
+    ]
+  },
+  "hive.mana_armageddon_shock": {
+    "subtitle": "subtitles.relics_addon.hive_mana_armageddon_shock",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_mana_armageddon_shock"
+      }
+    ]
+  },
   "hive.rf_seal": {
     "subtitle": "subtitles.relics_addon.hive_rf_seal",
     "sounds": [

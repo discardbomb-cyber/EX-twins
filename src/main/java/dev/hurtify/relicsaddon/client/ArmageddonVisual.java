@@ -69,7 +69,7 @@ public final class ArmageddonVisual {
 
     /** The server tells of a {@code hive} Armageddon's blast at {@code centre}, fired from {@code from}, bursting at {@code impactAt}. */
     public static void told(dev.hurtify.relicsaddon.drone.HiveType hive, Vec3 centre, Vec3 from, long impactAt) {
-        blast(centre, impactAt);
+        if (hive == dev.hurtify.relicsaddon.drone.HiveType.TWINS) blast(centre, impactAt);
     }
 
     /** A blast lands: remembered for the frames to come, heard at once, wherever this client is. */

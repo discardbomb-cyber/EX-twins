@@ -12,6 +12,7 @@ import dev.hurtify.relicsaddon.drone.HiveStackState;
 import dev.hurtify.relicsaddon.drone.HiveSupportState;
 import dev.hurtify.relicsaddon.drone.HiveTarget;
 import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.drone.ManaArmageddon;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.server.HiveCombatController;
 import dev.hurtify.relicsaddon.server.HiveController;
@@ -196,6 +197,16 @@ public final class HiveVisualRenderer {
         HiveCombatVisual.renderShots(combat.shots(), type, camera, poses.last().pose(), time);
     }
 
+    /** Where each drone was when {@code shot} began, noted once per shot (the last element marks which shot it is). */
+    private static Vec3[] launches(Player player, HiveType type, ArmageddonState shot, Vec3[] seen, int count) {
+        return LAUNCHES.computeIfAbsent(player, ignored -> new EnumMap<>(HiveType.class)).compute(type, (ignored, old) -> {
+            if (old != null && old.length == count + 1 && old[count] != null && (long) old[count].x == shot.startedAt()) return old;
+            Vec3[] start = java.util.Arrays.copyOf(seen, count + 1);
+            start[count] = new Vec3(shot.startedAt(), 0, 0);
+            return start;
+        });
+    }
+
     /**
      * The swarm in the Armageddon cannon: every drone flies from where it was to its place in it, faces
      * the target while it charges and fires, and flies home once it comes apart.
@@ -203,13 +214,12 @@ public final class HiveVisualRenderer {
     private static void armageddon(Minecraft minecraft, RenderLevelStageEvent event, Player player, HiveType type, ArmageddonState shot,
             List<HiveStackState.Unit> units, int slots, int fighters, int count, Vec3 owner, float yaw, double appear, Vec3[] seen, long now,
             double time, float partial, Vec3 camera, PoseStack poses, com.mojang.blaze3d.vertex.VertexConsumer glow, int[] budget) {
-        Vec3[] from = LAUNCHES.computeIfAbsent(player, ignored -> new EnumMap<>(HiveType.class)).compute(type, (ignored, old) -> {
-            if (old != null && old.length == count + 1 && old[count] != null && (long) old[count].x == shot.startedAt()) return old;
-            // Where each drone was when the shot began (the last element marks which shot this is).
-            Vec3[] start = java.util.Arrays.copyOf(seen, count + 1);
-            start[count] = new Vec3(shot.startedAt(), 0, 0);
-            return start;
-        });
+        if (shot.type() == HiveType.MANA) {
+            manaArmageddon(minecraft, event, player, type, shot, units, slots, fighters, count, owner, yaw, appear, seen, now, time, partial,
+                    camera, poses, glow, budget);
+            return;
+        }
+        Vec3[] from = launches(player, type, shot, seen, count);
         double recover = shot.startedAt() + Armageddon.RECOVER;
         // The escort is flung off when the containment breaks and lost until the cannon comes apart and calls it home.
         boolean lost = time > shot.startedAt() + Armageddon.BROKEN + 4 && time < recover;
@@ -229,6 +239,36 @@ public final class HiveVisualRenderer {
                 Mth.lerp(partial, player.zo, player.getZ()));
         ArmageddonVisual.cannon(shot, chest, time, camera, glow, poses.last().pose());
         swallow(minecraft, shot, time, camera, poses);
+    }
+
+    /**
+     * The swarm in Mana Armageddon: every drone spirals in from where it was to its place in a flower, the
+     * places nearest the hearts filling first; the escort rides the streams out, swirls round the collision
+     * and holds the sphere of runes until it shatters and flings them off; and all fly home once the white
+     * has settled.
+     */
+    private static void manaArmageddon(Minecraft minecraft, RenderLevelStageEvent event, Player player, HiveType type, ArmageddonState shot,
+            List<HiveStackState.Unit> units, int slots, int fighters, int count, Vec3 owner, float yaw, double appear, Vec3[] seen, long now,
+            double time, float partial, Vec3 camera, PoseStack poses, com.mojang.blaze3d.vertex.VertexConsumer glow, int[] budget) {
+        Vec3[] from = launches(player, type, shot, seen, count);
+        double age = shot.age(time), recover = shot.startedAt() + ManaArmageddon.RECOVER;
+        // The escort is flung off as the sphere shatters and lost until the drones are called home.
+        boolean lost = age > ManaArmageddon.IMPACT + 30 && time < recover;
+        int flowered = ManaArmageddon.flowered(slots);
+        for (int slot = 0; slot < slots; slot++) {
+            int unit = HiveSlots.occupant(units, slot, slots, fighters, now);
+            if (unit < 0 || lost && slot >= flowered) continue;
+            Vec3 station = ManaArmageddon.station(shot, slot, slots, Math.min(time, recover));
+            Vec3 at;
+            if (time >= recover) at = HiveFormation.returning(owner, yaw, station, unit, count, type, time, recover);
+            else {
+                double gathered = slot < flowered ? ManaArmageddon.gathered(slot, slots, age) : Math.clamp(age / ManaArmageddon.ASSEMBLED, 0, 1);
+                Vec3 start = from[unit] != null ? from[unit] : HiveFormation.idle(owner, yaw, unit, count, type, shot.startedAt());
+                at = ManaArmageddon.spiral(shot, ManaArmageddon.side(slot < flowered ? slot : slot - flowered), start, station, gathered);
+            }
+            seen[unit] = at;
+            drawDrone(minecraft, event, player, type, at, time >= recover ? null : shot.target(), appear, count, camera, poses, glow, budget);
+        }
     }
 
     /**
