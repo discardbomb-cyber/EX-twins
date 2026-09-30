@@ -376,7 +376,7 @@ public final class HiveFormation {
                 yield at;
             }
             case CONTAINMENT -> containmentCentre(type, target, targetWidth, targetHeight, slots).add(switch (type) {
-                case RF -> HiveShapes.torus(slot, slots, time, torusMajor(targetWidth), torusMinor(slots));
+                case RF -> HiveShapes.dysonRing(slot, slots, time, ringsRadius(targetWidth));
                 case MANA -> HiveShapes.ward(slot, slots, time, wardScale(targetHeight));
                 case TWINS -> HiveShapes.riftSpheres(slot, slots, time, riftDistance(targetWidth), riftRadius());
             });
@@ -399,7 +399,8 @@ public final class HiveFormation {
         targetHeight = saneSize(targetHeight, 1.8);
         Vec3 core = core(target, targetHeight);
         double below = switch (type) {
-            case RF -> torusMinor(slots);
+            // The rings stay round the target itself; the hold lifts the target clear of the ground instead.
+            case RF -> 0;
             case MANA -> 1.55 * wardScale(targetHeight);
             case TWINS -> riftRadius() - .02 * riftDistance(targetWidth);
         };
@@ -408,7 +409,12 @@ public final class HiveFormation {
     }
 
     public static double torusMajor(double targetWidth) { return Math.max(1.25, saneSize(targetWidth, .6) * .7 + .8) * CONTAINMENT_SCALE; }
-    public static double torusMinor(int slots) { return (.42 + .02 * Math.cbrt(Math.max(1, slots))) * CONTAINMENT_SCALE; }
+    /** Radius of the outer RF ring. */
+    public static double ringsRadius(double targetWidth) { return torusMajor(targetWidth) * 1.1; }
+    /** How far an RF hold lifts its target so the rings round it clear the ground: the outer ring and its hexagons. */
+    public static double ringLift(double targetWidth, double targetHeight) {
+        return Math.max(0, ringsRadius(targetWidth) * 1.12 + .15 - saneSize(targetHeight, 1.8) * .55);
+    }
     public static double wardScale(double targetHeight) { return Math.max(1, saneSize(targetHeight, 1.8) / 1.8) * CONTAINMENT_SCALE; }
     public static double riftDistance(double targetWidth) { return Math.max(1.5, saneSize(targetWidth, .6) * .7 + 1.1) * CONTAINMENT_SCALE; }
     public static double riftRadius() { return HiveShapes.RIFT_RADIUS * CONTAINMENT_SCALE; }

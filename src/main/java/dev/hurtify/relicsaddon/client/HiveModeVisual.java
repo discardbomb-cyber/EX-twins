@@ -327,26 +327,25 @@ public final class HiveModeVisual {
 
     // --- containment -----------------------------------------------------------------------------
 
-    /** RF: the torus's lattice, each drone joined to its neighbours along and across the rows. */
+    /** RF: three rings of hexagons turning round the target like a Dyson swarm, the outer ones faster. */
     private static void torus(Scene s, Vec3 camera, VertexConsumer glow, Matrix4f m, int color) {
-        int rows = 6, count = s.slots(), perRow = Math.max(1, (count + rows - 1) / rows);
-        for (int slot = 0; slot < count; slot++) {
-            Vec3 drone = s.drones()[slot];
-            if (drone == null) continue;
-            Vec3 at = drone.subtract(camera);
-            int along = slot + rows, across = slot / rows * rows + (slot % rows + 1) % rows;
-            if (along >= count) along = slot % rows;
-            for (int other : new int[]{along, across}) {
-                if (other < count && s.drones()[other] != null) {
-                    Vec3 to = s.drones()[other].subtract(camera);
-                    // Neighbours only: the lattice spacing grows with the construct.
-                    double reach = 1.5 * HiveFormation.CONTAINMENT_SCALE * HiveFormation.CONTAINMENT_SCALE;
-                    if (to.distanceToSqr(at) < reach) GlowBrush.line(glow, m, at, to, .02, color, 110);
+        Vec3 core = centre(s).subtract(camera);
+        double radius = HiveFormation.ringsRadius(s.width());
+        int light = GlowBrush.mix(color, 0xFFFFFF, .35);
+        for (int ring = 0; ring < 3; ring++) {
+            int hexagons = HiveShapes.ringHexagons(ring, s.slots());
+            for (int hex = 0; hex < hexagons; hex++) {
+                Vec3 previous = null;
+                for (int corner = 0; corner <= 6; corner++) {
+                    Vec3 at = core.add(HiveShapes.ringCorner(ring, hex, corner % 6, hexagons, s.time(), radius));
+                    if (previous != null) GlowBrush.line(glow, m, previous, at, .028, light, 120);
+                    previous = at;
                 }
             }
+            Vec3[] frame = HiveShapes.ringFrame(ring, s.time());
+            GlowBrush.circle(glow, m, core, frame[0], frame[1], radius * HiveShapes.RING_RADII[ring], 96, .02, color, 55);
         }
-        Vec3 core = HiveFormation.core(s.target(), s.height()).subtract(camera);
-        GlowBrush.dot(glow, m, core, Math.max(.6, s.width()), color, 45);
+        GlowBrush.dot(glow, m, HiveFormation.core(s.target(), s.height()).subtract(camera), Math.max(.6, s.width()), color, 45);
     }
 
     /** Mana: the ward's three rhombi and two circles in light over a glass bubble. */

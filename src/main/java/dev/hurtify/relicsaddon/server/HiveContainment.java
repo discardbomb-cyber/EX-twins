@@ -65,9 +65,12 @@ public final class HiveContainment {
             this.type = type;
             this.since = since;
             this.seen = since;
-            if (type == HiveType.TWINS) {
+            if (type != HiveType.MANA) {
+                // Twins lift four blocks into their rifts; RF lift just enough to sit in the middle of their rings.
+                double wanted = type == HiveType.TWINS ? LIFT
+                        : dev.hurtify.relicsaddon.drone.HiveFormation.ringLift(target.getBbWidth(), target.getBbHeight());
                 anchor = groundBelow(target);
-                lift = headroom(target, anchor, LIFT);
+                lift = headroom(target, anchor, wanted);
                 startLift = Math.clamp(target.getY() - anchor.y, 0, lift);
             } else {
                 anchor = target.position();
@@ -171,7 +174,7 @@ public final class HiveContainment {
 
     private static void pin(LivingEntity target, Hold hold, long now) {
         Vec3 at = hold.anchor;
-        if (hold.type == HiveType.TWINS) {
+        if (hold.type != HiveType.MANA) {
             double t = Math.min(1, (now - hold.since) / (double) LIFT_TICKS);
             at = at.add(0, hold.startLift + (hold.lift - hold.startLift) * t * t * (3 - 2 * t), 0);
             CompoundTag data = target.getPersistentData();

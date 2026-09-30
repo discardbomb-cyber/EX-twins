@@ -118,6 +118,16 @@ neoForge {
             systemProperty 'relics_addon.captureAndExit', 'true'
         }
 
+        // Scripted fights in a real world, filmed from a side camera (gametest.client.WorldScenarios). The run
+        // directory needs options.txt and a superflat world with cheats in saves/Scenario.
+        worldScenarioClient {
+            client()
+            gameDirectory = file('run-scenario')
+            programArgument '--quickPlaySingleplayer'
+            programArgument 'Scenario'
+            systemProperty 'relics_addon.worldScenario', providers.gradleProperty('scenario').getOrElse('all')
+        }
+
         featureGifClient {
             client()
             gameDirectory = file('run-feature-gif')

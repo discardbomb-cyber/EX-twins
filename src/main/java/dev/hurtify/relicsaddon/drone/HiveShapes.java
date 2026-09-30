@@ -152,14 +152,65 @@ public final class HiveShapes {
 
     // --- containment mode ----------------------------------------------------------------------
 
-    /** RF: a torus of hexagon rows around the target, turning and twisting slowly. */
-    public static Vec3 torus(int s, int count, double time, double major, double minor) {
-        int rows = 6, perRow = Math.max(1, (count + rows - 1) / rows);
-        int row = s % rows, column = s / rows;
-        double u = Math.PI * 2 * (column + (row % 2) * .5) / perRow + time * .015;
-        double v = Math.PI * 2 * row / rows + time * .03;
-        double ring = major + minor * Math.cos(v);
-        return new Vec3(Math.cos(u) * ring, minor * Math.sin(v), Math.sin(u) * ring);
+    /**
+     * RF: three rings round the target like a Dyson swarm, each a band of hexagons, of growing radius,
+     * each tilted its own way and turning in its own plane; the further out a ring, the faster it turns
+     * and the faster its tilt sweeps round.
+     */
+    public static final double[] RING_RADII = {.5, .75, 1};
+    private static final double[] RING_SPIN = {.012, .022, .036}, RING_PRECESSION = {.004, .007, .011};
+    /** Each ring's tilt: an axis in the level plane and an angle from level. */
+    private static final double[][] RING_TILT = {{1, 0, 0, .44}, {0, 0, 1, 1.13}, {.7071, 0, .7071, 1.92}};
+
+    /** Place {@code s} of {@code count}: a corner of one of the hexagons of its ring. */
+    public static Vec3 dysonRing(int s, int count, double time, double radius) {
+        count = Math.max(1, count);
+        s = Math.clamp(s, 0, count - 1);
+        int ring = 0;
+        while (ring < 2 && s >= ringStart(ring + 1, count)) ring++;
+        int local = s - ringStart(ring, count), hexagons = ringHexagons(ring, count);
+        return ringCorner(ring, local / 6 % hexagons, local % 6, hexagons, time, radius);
+    }
+
+    /** The first place of ring {@code ring}: the rings share the places as their circumferences do. */
+    public static int ringStart(int ring, int count) {
+        double before = 0, total = 0;
+        for (int index = 0; index < RING_RADII.length; index++) {
+            if (index < ring) before += RING_RADII[index];
+            total += RING_RADII[index];
+        }
+        return (int) Math.round(count * before / total);
+    }
+
+    /** Hexagons in ring {@code ring}: one for every six of its places. */
+    public static int ringHexagons(int ring, int count) {
+        return Math.max(3, (ringStart(ring + 1, count) - ringStart(ring, count) + 5) / 6);
+    }
+
+    /**
+     * Corner {@code corner} (0..5) of hexagon {@code hex} of {@code hexagons} round ring {@code ring} of a
+     * construct of {@code radius}. The hexagons stand across the ring's band and are drawn a little inside
+     * their cells, so neighbours keep a seam.
+     */
+    public static Vec3 ringCorner(int ring, int hex, int corner, int hexagons, double time, double radius) {
+        Vec3[] frame = ringFrame(ring, time);
+        double r = radius * RING_RADII[ring];
+        double phi = Math.PI * 2 * hex / hexagons + time * RING_SPIN[ring];
+        Vec3 out = frame[0].scale(Math.cos(phi)).add(frame[1].scale(Math.sin(phi)));
+        Vec3 along = frame[0].scale(-Math.sin(phi)).add(frame[1].scale(Math.cos(phi)));
+        // Hexagons nearly touch when the ring is full, and never grow past a tenth of the construct when it is not.
+        double size = Math.min(Math.PI * 2 * r / hexagons / Math.sqrt(3) * .92, radius * .1);
+        double a = Math.PI / 6 + corner * Math.PI / 3;
+        return out.scale(r).add(along.scale(Math.cos(a) * size)).add(frame[2].scale(Math.sin(a) * size));
+    }
+
+    /** A ring's plane: two axes in it and its normal, tilted its own way and sweeping round the vertical. */
+    public static Vec3[] ringFrame(int ring, double time) {
+        double[] tilt = RING_TILT[ring];
+        Vec3 normal = rotate(new Vec3(0, 1, 0), new Vec3(tilt[0], tilt[1], tilt[2]), tilt[3]);
+        normal = rotate(normal, new Vec3(0, 1, 0), time * RING_PRECESSION[ring]);
+        Vec3 u = normal.cross(Math.abs(normal.y) > .95 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize();
+        return new Vec3[]{u, normal.cross(u), normal};
     }
 
     /**
