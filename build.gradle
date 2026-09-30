@@ -262,6 +262,7 @@ tasks.named('check') {
     dependsOn 'verifyTwinsFacets'
     dependsOn 'verifyShieldImpact'
     dependsOn 'verifyShieldRipple'
+    dependsOn 'verifyShieldShell'
     dependsOn 'verifyDevicePower'
     dependsOn 'verifyNetworkCodecs'
     dependsOn 'verifyRegistryFilter'
@@ -330,6 +331,12 @@ tasks.register('verifyShieldRipple', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
     mainClass = 'dev.hurtify.relicsaddon.client.ShieldRippleCheck'
+}
+
+tasks.register('verifyShieldShell', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.client.ShieldShellEquivalenceCheck'
 }
 
 tasks.register('verifyDevicePower', JavaExec) {

@@ -23,6 +23,8 @@ public final class ShieldRipple {
     private static final double[] AGE = new double[MAX_WAVES], STRENGTH = new double[MAX_WAVES];
     private static int count;
     private static double gain = 1;
+    /** Wave profiles evaluated since {@link #resetEvaluations}; the checks count them per frame. */
+    private static long evaluations;
 
     /** How strongly each shell bends: Twins keep their layered look with a softer wave than Mana. */
     public static double roleScale(dev.hurtify.relicsaddon.relic.RelicRole role) {
@@ -34,8 +36,13 @@ public final class ShieldRipple {
     }
 
     public static void begin(List<ShieldImpact> impacts, double time, double scale) {
+        begin(impacts, time, scale, AddonClientConfig.rippleStrength());
+    }
+
+    /** As {@link #begin(List, double, double)} with the configured ripple strength given, for checks without a config. */
+    static void begin(List<ShieldImpact> impacts, double time, double scale, double configuredStrength) {
         count = 0;
-        gain = AddonClientConfig.rippleStrength() * scale;
+        gain = configuredStrength * scale;
         if (gain <= 0) return;
         for (ShieldImpact impact : impacts) {
             double age = time - impact.gameTime();
@@ -63,13 +70,27 @@ public final class ShieldRipple {
         for (int index = 0; index < count; index++) {
             sum += profile(x * NX[index] + y * NY[index] + z * NZ[index], AGE[index]) * STRENGTH[index];
         }
+        evaluations += count;
         return Math.clamp(sum * gain, -1, 1);
     }
 
     /** Multiplier for the shell radius at a direction; exactly 1 when no wave is active. */
     public static double scale(double x, double y, double z) {
         if (count == 0) return 1;
-        return 1 + Math.clamp(height(x, y, z) * AMPLITUDE, -MAX_OFFSET, MAX_OFFSET);
+        return scaleOf(height(x, y, z));
+    }
+
+    /** {@link #scale} for a {@link #height} already computed at that direction, so the waves are summed once per vertex. */
+    public static double scaleOf(double height) {
+        return 1 + Math.clamp(height * AMPLITUDE, -MAX_OFFSET, MAX_OFFSET);
+    }
+
+    static long evaluations() {
+        return evaluations;
+    }
+
+    static void resetEvaluations() {
+        evaluations = 0;
     }
 
     /** Height contribution of one wave, for the refraction band which draws each wave separately. */
