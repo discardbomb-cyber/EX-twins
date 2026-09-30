@@ -237,6 +237,23 @@ public final class RelicSounds {
         level.playSound(null, position.x, position.y, position.z, event.get(), SoundSource.PLAYERS, sound == Cannon.CHARGE ? 4F : 8F, 1F);
     }
 
+    /**
+     * Hushes a {@code type} Armageddon's charging for everyone who could hear it at {@code position}: a shot called
+     * off before it fires must not go on humming for the rest of its minute-long recording.
+     */
+    public static void hushCharge(ServerLevel level, Vec3 position, HiveType type) {
+        SoundEvent charge = (switch (type) {
+            case MANA -> MANA_ARMAGEDDON_CHARGE;
+            case RF -> RF_ARMAGEDDON_CHARGE;
+            case TWINS -> ARMAGEDDON_CHARGE;
+        }).get();
+        var stop = new net.minecraft.network.protocol.game.ClientboundStopSoundPacket(charge.getLocation(), SoundSource.PLAYERS);
+        // Heard out to 16 blocks per unit of its volume of 4; a little further, for someone walking away as it stops.
+        for (var player : level.players()) {
+            if (player.position().distanceToSqr(position) < 80 * 80) player.connection.send(stop);
+        }
+    }
+
     /** The Mana ward turns a blow back on its attacker. */
     public static void reflect(ServerLevel level, Vec3 position) {
         play(level, position, WARD_REFLECT, Category.REFLECT, 3, .75F, 1F);

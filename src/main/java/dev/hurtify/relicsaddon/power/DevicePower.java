@@ -172,6 +172,9 @@ public final class DevicePower {
     private static void chargeMana(ServerPlayer player, ItemStack stack) {
         RelicRole role = role(stack);
         if (role == null || !hasMana(role) || !RelicRuntime.enabled(stack)) return;
+        // A hive whose Armageddon is under way takes no refill: the shot holds its battery at what the shot left, so
+        // mana or experience drawn now would only be burnt.
+        if (stack.has(ModDataComponents.HIVE_ARMAGEDDON.get())) return;
         DeviceEnergy energy = energy(stack);
         int missing = capacity(stack) - energy.mana();
         if (!energy.manaOn() || missing <= 0) return;

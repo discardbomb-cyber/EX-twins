@@ -235,6 +235,33 @@ public final class ArmageddonGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = ARENA, batch = "mana_armageddon_switches", timeoutTicks = 100)
+    public static void aSwitchedOffBatteryNeitherChargesNorFeedsTheManaArmageddon(GameTestHelper helper) {
+        if (!DevicePower.required()) {
+            helper.succeed();
+            return;
+        }
+        Setting setting = Setting.of(helper, false, true);
+        ServerPlayer owner = DeviceTestSupport.player(helper, new Vec3(2.5, 1, 6.5));
+        ItemStack hive = topHive(helper, owner, RelicRole.MANA_HIVE);
+        Vec3 target = helper.absoluteVec(new Vec3(9.5, 1, 6.5));
+        hive.set(ModDataComponents.DEVICE_ENERGY.get(), DevicePower.full(hive).withManaOn(false));
+        helper.assertTrue(MANA_CHARGE.equals(ArmageddonController.request(owner, target)),
+                "A full Mana battery switched off is no charge: the shot is refused, not started and then called off");
+        hive.set(ModDataComponents.DEVICE_ENERGY.get(), DevicePower.full(hive));
+        ItemStack mana = DeviceTestSupport.equip(helper, owner, RelicRole.MANA_SHIELD, 1);
+        RelicRuntime.setEnabled(owner, mana, true);
+        ItemStack worn = DeviceTestSupport.charm(helper, owner, 1);
+        worn.set(ModDataComponents.DEVICE_ENERGY.get(), DevicePower.full(worn).withManaOn(false));
+        helper.assertTrue(ArmageddonController.shieldGives(owner, worn, hive) == 0, "A shield whose battery is switched off promises nothing");
+        String refused = ArmageddonController.request(owner, target, ManaArmageddon.FIRE - 5);
+        ArmageddonState state = hive.get(ModDataComponents.HIVE_ARMAGEDDON.get());
+        helper.assertTrue(refused == null && state != null && !state.shieldLinked(), "and the shot goes out without its link (refused: " + refused + ")");
+        ArmageddonController.abort(owner);
+        setting.restore();
+        helper.succeed();
+    }
+
     @GameTest(template = ARENA, batch = "mana_armageddon_shields", timeoutTicks = 100)
     public static void onlyAManaShieldFeedsTheManaArmageddon(GameTestHelper helper) {
         Setting setting = Setting.of(helper, false, true);
