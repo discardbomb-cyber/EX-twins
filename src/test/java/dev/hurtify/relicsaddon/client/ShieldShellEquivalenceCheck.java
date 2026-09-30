@@ -3,7 +3,10 @@ package dev.hurtify.relicsaddon.client;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.shield.ShieldField;
+import dev.hurtify.relicsaddon.shield.ShieldCellDefense;
 import dev.hurtify.relicsaddon.shield.ShieldImpact;
+import dev.hurtify.relicsaddon.shield.ShieldStackState;
+import dev.hurtify.relicsaddon.shield.ShieldTopology;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,8 +41,98 @@ public final class ShieldShellEquivalenceCheck {
             }
         }
         require(checked > 1_000_000, "Enough halo vertices compared: " + checked);
+        long shells = compareShells(none, one, two, twelve);
         measureHalo();
-        System.out.println("Shield shells: halo identical over " + checked + " vertices (waves, hits, inside/outside, low/high)");
+        measureShells(twelve);
+        System.out.println("Shield shells: halo identical over " + checked + " vertices, shells over " + shells
+                + " (waves, hits, threats, holes, gathering, inside/outside, low/high)");
+    }
+
+    // --- shells (dome, honeycomb, light) --------------------------------------------------------------
+
+    private static long compareShells(List<ShieldImpact> none, List<ShieldImpact> one, List<ShieldImpact> two, List<ShieldImpact> twelve) {
+        int struck = ShieldTopology.INSTANCE.nearest(-HIT.x, HIT.y, HIT.z);
+        List<ShieldImpact> broken = List.of(new ShieldImpact(HIT, 250, 0, 6, true, List.of(struck)));
+        ShieldStackState whole = ShieldStackState.DEFAULT;
+        ShieldStackState hit = whole.damageCell(struck, 12, 6, 250);
+        var health = new ArrayList<>(whole.cells());
+        for (int id = 0; id < ShieldTopology.CELL_COUNT; id++) health.set(id, id * 17 % ShieldTopology.CELL_COUNT < 210 ? (id % 3 == 0 ? 3 : 12) : 0);
+        ShieldStackState holes = whole.withCellsAndBuffer(health, 0, List.of(), -1);
+        ShieldStackState gathering = ShieldCellDefense.gather(holes.damageCell(struck, 12, 0, 0), struck, 3, 248);
+        require(gathering.gathering(252), "A gathering state is needed to cover moving cells");
+        List<ShieldResponse.Threat> noThreat = List.of();
+        List<ShieldResponse.Threat> oneThreat = List.of(new ShieldResponse.Threat(new Vec3(.85, .15, .5).normalize(), 1.5));
+        List<ShieldResponse.Threat> everyThreat = java.util.Arrays.stream(ShieldTopology.INSTANCE.cells())
+                .map(cell -> new ShieldResponse.Threat(new Vec3(-cell.center()[0], cell.center()[1], cell.center()[2]), 0)).toList();
+        record Scene(ShieldStackState state, List<ShieldImpact> impacts, List<ShieldResponse.Threat> threats, double time) { }
+        List<Scene> scenes = List.of(
+                new Scene(whole, none, noThreat, 100),
+                new Scene(whole, none, oneThreat, 100.5),
+                new Scene(whole, one, noThreat, 255.4),
+                new Scene(whole, two, everyThreat, 270.25),
+                new Scene(hit, broken, noThreat, 252.75),
+                new Scene(holes, twelve, oneThreat, 258),
+                new Scene(gathering, one, noThreat, 252),
+                new Scene(holes, none, noThreat, 300));
+        long vertices = 0;
+        ShieldShellVisual.setPixelAngle(.0011);
+        ShieldShellVisualReference.setPixelAngle(.0011);
+        for (Scene scene : scenes) for (Vec3 eye : new Vec3[]{OUTSIDE, ABOVE, Vec3.ZERO}) for (boolean perspective : new boolean[]{false, true}) {
+            for (boolean low : new boolean[]{false, true}) for (RelicRole role : new RelicRole[]{RelicRole.RF_SHIELD, RelicRole.MANA_SHIELD, RelicRole.TWINS_SHIELD}) {
+                double x = perspective ? 1.5 : 0, y = perspective ? .9 : 0, z = perspective ? -3.2 : 0;
+                double fx = .6, fz = .8, radius = perspective ? 2.4 : 2.0, presence = .7;
+                Matrix4f matrix = new Matrix4f();
+                var fillBefore = new Recorder();
+                var glowBefore = new Recorder();
+                var fillAfter = new Recorder();
+                var glowAfter = new Recorder();
+                boolean rippling = role != RelicRole.RF_SHIELD;
+                if (rippling) ShieldRipple.begin(scene.impacts(), scene.time(), ShieldRipple.roleScale(role), 1.0);
+                try {
+                    ShieldShellVisualReference.render(role, fillBefore, glowBefore,
+                            new ShieldShellVisualReference.Frame(matrix, x, y, z, radius, fx, fz, eye, perspective),
+                            scene.state(), scene.impacts(), scene.threats(), scene.time(), presence, low);
+                    ShieldShellVisual.render(role, fillAfter, glowAfter,
+                            new ShieldShellVisual.Frame(matrix, x, y, z, radius, fx, fz, eye, perspective),
+                            scene.state(), scene.impacts(), scene.threats(), scene.time(), presence, low);
+                } finally {
+                    ShieldRipple.end();
+                }
+                String what = role + (low ? " low" : " high") + " t=" + scene.time() + " waves=" + scene.impacts().size()
+                        + " threats=" + scene.threats().size() + " eye=" + eye + (perspective ? " world" : " gallery");
+                fillBefore.requireSame(fillAfter, "shell fill " + what);
+                glowBefore.requireSame(glowAfter, "shell glow " + what);
+                require(fillBefore.count() > 0 && glowBefore.count() > 0, "Both layers drawn: " + what);
+                vertices += fillBefore.count() + glowBefore.count();
+            }
+        }
+        return vertices;
+    }
+
+    private static void measureShells(List<ShieldImpact> twelve) {
+        List<ShieldResponse.Threat> threat = List.of(new ShieldResponse.Threat(new Vec3(.85, .15, .5).normalize(), 1.5));
+        var fill = new Recorder();
+        var glow = new Recorder();
+        Matrix4f matrix = new Matrix4f();
+        for (RelicRole role : new RelicRole[]{RelicRole.MANA_SHIELD, RelicRole.TWINS_SHIELD, RelicRole.RF_SHIELD}) {
+            boolean rippling = role != RelicRole.RF_SHIELD;
+            long[] before = measure(() -> {
+                if (rippling) ShieldRipple.begin(twelve, 258, ShieldRipple.roleScale(role), 1.0);
+                ShieldShellVisualReference.render(role, fill, glow, new ShieldShellVisualReference.Frame(matrix, 1.5, .9, -3.2, 2.4, .6, .8, OUTSIDE, true),
+                        ShieldStackState.DEFAULT, twelve, threat, 258, .8, false);
+                ShieldRipple.end();
+            });
+            long[] after = measure(() -> {
+                if (rippling) ShieldRipple.begin(twelve, 258, ShieldRipple.roleScale(role), 1.0);
+                ShieldShellVisual.render(role, fill, glow, new ShieldShellVisual.Frame(matrix, 1.5, .9, -3.2, 2.4, .6, .8, OUTSIDE, true),
+                        ShieldStackState.DEFAULT, twelve, threat, 258, .8, false);
+                ShieldRipple.end();
+            });
+            System.out.printf(Locale.ROOT, "%s shell, 12 waves, high detail: wave profiles/frame %,d -> %,d; allocated bytes/frame %,d -> %,d%n",
+                    role, before[0], after[0], before[1], after[1]);
+            if (rippling) require(after[0] * 3 < before[0] * 2, "Dome wave evaluations must drop by a third at least for " + role);
+            require(after[1] * 4 < before[1], "Shell allocations must drop by three quarters at least for " + role);
+        }
     }
 
     // --- halo ---------------------------------------------------------------------------------------
