@@ -42,7 +42,7 @@ public final class ManaArmageddonVisual {
     /** Blasts this client was told of, oldest first. */
     static final List<Blast> BLASTS = new ArrayList<>();
     /** How long after the burst a blast is kept: through the white and the silence, until the world is itself again. */
-    static final int BLAST_LIFE = ManaArmageddon.QUIET + 60;
+    static final int BLAST_LIFE = ManaArmageddon.QUIET + 80;
     private static final int SPARKS = 150, SPRAY = 170, SHARDS = 150, GROUND_SHARDS = 70, STONES = 460;
     /** The crescent moon over the white sky: its radius, and how high over the blast it hangs. */
     static final double MOON_RADIUS = 26, MOON_HEIGHT = 130;
@@ -55,6 +55,8 @@ public final class ManaArmageddonVisual {
         /** The world it bursts in: a blast never follows its viewer into another. */
         final ClientLevel level;
         boolean sphereHeard, blastHeard, shockHeard;
+        /** How many ticks after the burst this client began to hear it: the column keeps step with the sound, not the burst. */
+        double late;
         /** The stones the vortex tears up, noted before the land goes. */
         List<Stone> stones;
 
@@ -114,7 +116,11 @@ public final class ManaArmageddonVisual {
             }
             central(s, age, charge, alpha, camera, glow, runes, m);
         }
-        for (int side : SIDES) heart(s, side, age, charge, formed, camera, glow, m);
+        for (int side : SIDES) {
+            heart(s, side, age, charge, formed, camera, glow, m);
+            // Each heart lights the ground under the flowers as it grows, until the flowers close.
+            if (age < ManaArmageddon.IGNITE) EffectLights.glow(ManaArmageddon.heart(s, side), (5 + 10 * charge) * formed, 4);
+        }
         // A worn Mana shield hands its charge up to both hearts while they charge, in a ribbon of beads.
         if (s.shieldLinked() && chest != null && age > ManaArmageddon.ASSEMBLED && age < ManaArmageddon.FIRE) {
             double link = Math.min(1, (age - ManaArmageddon.ASSEMBLED) / 10) * Math.min(1, (ManaArmageddon.FIRE - age) / 8);
@@ -342,6 +348,8 @@ public final class ManaArmageddonVisual {
                 axes[k] = ManaArmageddon.streamAxes(s, side, u);
             }
             double pour = Math.min(1, (age - ManaArmageddon.FIRE) / 3);
+            // The streams light what they pass over: a light every few blocks along them (merged where they crowd).
+            for (int k = 0; k <= samples; k += Math.max(1, samples / 6)) EffectLights.glow(points[k].add(camera), 12 * pour, 4);
             if (side < 0) serpent(points, axes, length * (head - tail), age, pour, glow, m);
             else beam(points, axes, age, pour, glow, m);
             if (head < 1) {
@@ -422,7 +430,10 @@ public final class ManaArmageddonVisual {
             }
             if (!blast.blastHeard && t >= 0) {
                 blast.blastHeard = true;
-                if (t < 20) hear(RelicSounds.MANA_ARMAGEDDON_BLAST.get(), volume, blast.impactAt);
+                if (t < 20) {
+                    hear(RelicSounds.MANA_ARMAGEDDON_BLAST.get(), volume, blast.impactAt);
+                    blast.late = t;
+                }
                 EffectLights.flash(blast.centre, 15, 110, ManaArmageddon.BLAST + 30);
             }
             if (!blast.shockHeard && distance <= ManaArmageddon.RADIUS * 1.2 && t >= ManaArmageddon.domeReaches(Math.min(distance, ManaArmageddon.RADIUS))) {
@@ -666,8 +677,24 @@ public final class ManaArmageddonVisual {
             double t = time - blast.impactAt;
             if (t < ManaArmageddon.ARRIVE - ManaArmageddon.IMPACT || t > BLAST_LIFE) continue;
             ArmageddonVolume.ManaStage stage = stage(blast, t, camera);
+            glows(blast, stage);
             if (ShieldRefraction.shaderPackActive()) plain(blast, stage, camera, glow, runes, m);
             else ArmageddonVolume.queueMana(blast.centre.subtract(camera), stage);
+        }
+    }
+
+    /** The light the sphere and its sun, the seal's rings and the column's wall throw on the world, reported for this frame. */
+    private static void glows(Blast blast, ArmageddonVolume.ManaStage stage) {
+        if (stage.sphere() > .05) EffectLights.glow(blast.centre.add(0, stage.sphere() * .45, 0), Math.min(15, 8 + 6 * stage.sunGlow()), 4);
+        if (stage.seal() > .05 && stage.sealGlow() > .02) for (int k = 0; k < 8; k++) {
+            double angle = k * Math.PI / 4 + stage.sealTurn();
+            EffectLights.glow(blast.centre.add(Math.cos(angle) * stage.seal() * .6, .5, Math.sin(angle) * stage.seal() * .6), Math.min(12, 10 * stage.sealGlow()), 4);
+        }
+        if (stage.column() > .1 && stage.columnGlow() > .01) for (int k = 0; k < 8; k++) {
+            double angle = k * Math.PI / 4;
+            for (double h = 1; h < 40; h += 12) {
+                EffectLights.glow(blast.centre.add(Math.cos(angle) * stage.column(), h, Math.sin(angle) * stage.column()), 13 * stage.columnGlow(), 4);
+            }
         }
     }
 
@@ -690,17 +717,20 @@ public final class ManaArmageddonVisual {
         double sun = rising ? .7 + (ManaArmageddon.SPHERE * .42 - .7) * grown : t >= 0 && t < 10 ? ManaArmageddon.SPHERE * .42 * (1 + t * .9) : 0;
         double sunGlow = rising ? smooth((t - ignite) / 2) * (1 + .5 * pressure) : t >= 0 && t < 10 ? 2 * Math.exp(-t / 3) : 0;
         double flash = t < 0 ? 0 : t < ManaArmageddon.FLASH ? 1 : Math.exp(-(t - ManaArmageddon.FLASH) / 4);
-        double sealGlow = t < ignite ? 0 : (1.8 * Math.exp(-(t - ignite) / 6) + .75 * smooth((t - ignite) / 10)) * (1 - smooth((t - ManaArmageddon.BLAST) / 30))
+        // The column grows while the blast is heard and dissolves as it ends: it runs on the sound's own clock, which starts
+        // late by as much as this client came in late for it.
+        double heard = t - blast.late;
+        double sealGlow = t < ignite ? 0 : (1.8 * Math.exp(-(t - ignite) / 6) + .75 * smooth((t - ignite) / 10)) * (1 - smooth((heard - ManaArmageddon.BLAST) / 30))
                 * (1 + .8 * flash);
-        double column = ManaArmageddon.column(t);
-        double columnGlow = t < ManaArmageddon.COLUMN ? 0 : smooth((t - ManaArmageddon.COLUMN) / 12)
-                * (t < ManaArmageddon.BLAST ? 1 : 1 - smooth((t - ManaArmageddon.BLAST) / (ManaArmageddon.WHITE - ManaArmageddon.BLAST)));
+        double column = ManaArmageddon.column(heard);
+        double columnGlow = heard < ManaArmageddon.COLUMN ? 0 : smooth((heard - ManaArmageddon.COLUMN) / 12)
+                * (heard < ManaArmageddon.BLAST ? 1 : 1 - smooth((heard - ManaArmageddon.BLAST) / (ManaArmageddon.WHITE - ManaArmageddon.BLAST)));
         double shock = t < 0 ? 0 : smooth(t / 2) * (1 - smooth(t / (ManaArmageddon.SHOCK + 20)));
         double darkCore = t < 2 ? 0 : smooth((t - 2) / 4) * (1 - smooth((t - 30) / 20));
         double wave = t < ManaArmageddon.DOME ? 0 : smooth((t - ManaArmageddon.DOME) / 3)
                 * (1 - smooth((t - ManaArmageddon.DOME_HOLD) / (ManaArmageddon.DOME_GONE - ManaArmageddon.DOME_HOLD)));
-        double white = t < ManaArmageddon.BLAST ? 0 : t < ManaArmageddon.WHITE ? smooth((t - ManaArmageddon.BLAST) / (ManaArmageddon.WHITE - ManaArmageddon.BLAST))
-                : (1 - .6 * smooth((t - ManaArmageddon.WHITE) / 30)) * (1 - smooth((t - ManaArmageddon.QUIET) / 50));
+        double white = heard < ManaArmageddon.BLAST ? 0 : heard < ManaArmageddon.WHITE ? smooth((heard - ManaArmageddon.BLAST) / (ManaArmageddon.WHITE - ManaArmageddon.BLAST))
+                : (1 - .6 * smooth((heard - ManaArmageddon.WHITE) / 30)) * (1 - smooth((heard - ManaArmageddon.QUIET) / 50));
         double vortex = smooth((t - tear) / 15) * (1 - smooth((t - ignite) / 20));
         double moon = smooth((t - (ManaArmageddon.WHITE - 10)) / 30) * (1 - smooth((t - ManaArmageddon.QUIET) / 50));
         Vec3 moonAt = blast.centre.add(0, MOON_HEIGHT, 0).add(back.scale(20)).subtract(camera);
@@ -709,7 +739,7 @@ public final class ManaArmageddonVisual {
         Vec3 moonLight = right.scale(.45).add(0, .9, 0).normalize();
         double near = ArmageddonVisual.near(blast.centre.distanceTo(camera));
         return new ArmageddonVolume.ManaStage(t, back, sphere, written, pressure, sphereGlow, t * .012, sun, sunGlow,
-                t >= ignite && t < ManaArmageddon.WHITE ? ManaArmageddon.SEAL : 0, sealGlow, ((t - ignite) * 1.4) % (ManaArmageddon.SEAL * 1.4), (t - ignite) * .004,
+                t >= ignite && heard < ManaArmageddon.WHITE ? ManaArmageddon.SEAL : 0, sealGlow, ((t - ignite) * 1.4) % (ManaArmageddon.SEAL * 1.4), (t - ignite) * .004,
                 column, columnGlow, t * .06, columnGlow, sphereGlow * (.7 + .6 * pressure), sealGlow * .5,
                 flash, ManaArmageddon.shock(t), shock, darkCore, ManaArmageddon.dome(t), wave, wave * .7, white, vortex, moon, moonAt, moonLight,
                 lightOnWorld(t, near, pressure, column));
