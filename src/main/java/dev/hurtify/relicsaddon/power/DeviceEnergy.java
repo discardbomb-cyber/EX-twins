@@ -1,10 +1,6 @@
 package dev.hurtify.relicsaddon.power;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
-import io.netty.buffer.ByteBuf;
 import java.util.Locale;
-import net.minecraft.network.codec.StreamCodec;
 
 /**
  * Charge of a device's built-in batteries. {@code rf} is stored in FE, {@code mana} in battery
@@ -19,36 +15,13 @@ public record DeviceEnergy(int rf, int mana, boolean rfOn, boolean manaOn, ManaS
             return name().toLowerCase(Locale.ROOT);
         }
 
-        static ManaSource byId(String id) {
+        public static ManaSource byId(String id) {
             for (ManaSource value : values()) if (value.id().equals(id)) return value;
             return AUTO;
         }
     }
 
     public static final DeviceEnergy EMPTY = new DeviceEnergy(0, 0, true, true, ManaSource.AUTO);
-
-    public static final Codec<DeviceEnergy> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Codec.INT.fieldOf("rf").forGetter(DeviceEnergy::rf),
-            Codec.INT.fieldOf("mana").forGetter(DeviceEnergy::mana),
-            Codec.BOOL.optionalFieldOf("rf_on", true).forGetter(DeviceEnergy::rfOn),
-            Codec.BOOL.optionalFieldOf("mana_on", true).forGetter(DeviceEnergy::manaOn),
-            Codec.STRING.optionalFieldOf("source", "auto").xmap(ManaSource::byId, ManaSource::id).forGetter(DeviceEnergy::source)
-    ).apply(instance, DeviceEnergy::new));
-
-    public static final StreamCodec<ByteBuf, DeviceEnergy> STREAM_CODEC = new StreamCodec<>() {
-        @Override public DeviceEnergy decode(ByteBuf buffer) {
-            int rf = net.minecraft.network.VarInt.read(buffer), mana = net.minecraft.network.VarInt.read(buffer);
-            byte flags = buffer.readByte();
-            return new DeviceEnergy(rf, mana, (flags & 1) != 0, (flags & 2) != 0,
-                    ManaSource.values()[Math.clamp(flags >> 2, 0, ManaSource.values().length - 1)]);
-        }
-
-        @Override public void encode(ByteBuf buffer, DeviceEnergy value) {
-            net.minecraft.network.VarInt.write(buffer, value.rf);
-            net.minecraft.network.VarInt.write(buffer, value.mana);
-            buffer.writeByte((value.rfOn ? 1 : 0) | (value.manaOn ? 2 : 0) | value.source.ordinal() << 2);
-        }
-    };
 
     public DeviceEnergy {
         rf = Math.max(0, rf);

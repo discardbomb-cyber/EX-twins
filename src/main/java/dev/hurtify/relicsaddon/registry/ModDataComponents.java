@@ -2,6 +2,7 @@ package dev.hurtify.relicsaddon.registry;
 
 import com.mojang.serialization.Codec;
 import dev.hurtify.relicsaddon.RelicsAddon;
+import dev.hurtify.relicsaddon.adapter.out.persistence.DeviceCodecs;
 import dev.hurtify.relicsaddon.adapter.out.persistence.HiveCodecs;
 import dev.hurtify.relicsaddon.adapter.out.persistence.LegacyDroneStackState;
 import dev.hurtify.relicsaddon.adapter.out.persistence.ShieldCodecs;
@@ -47,13 +48,13 @@ public final class ModDataComponents {
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.relic.DeviceProgression>> DEVICE_PROGRESSION =
             DATA_COMPONENTS.registerComponentType("device_progression", builder -> builder
-                    .persistent(dev.hurtify.relicsaddon.relic.DeviceProgression.CODEC)
-                    .networkSynchronized(dev.hurtify.relicsaddon.relic.DeviceProgression.STREAM_CODEC));
+                    .persistent(DeviceCodecs.PROGRESSION)
+                    .networkSynchronized(DeviceCodecs.PROGRESSION_STREAM));
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.power.DeviceEnergy>> DEVICE_ENERGY =
             DATA_COMPONENTS.registerComponentType("device_energy", builder -> builder
-                    .persistent(dev.hurtify.relicsaddon.power.DeviceEnergy.CODEC)
-                    .networkSynchronized(dev.hurtify.relicsaddon.power.DeviceEnergy.STREAM_CODEC));
+                    .persistent(DeviceCodecs.ENERGY)
+                    .networkSynchronized(DeviceCodecs.ENERGY_STREAM));
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ShieldStackState>> SHIELD_STACK_STATE =
             DATA_COMPONENTS.registerComponentType("shield_stack_state", builder -> builder

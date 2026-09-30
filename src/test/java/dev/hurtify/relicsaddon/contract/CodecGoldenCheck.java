@@ -1,6 +1,7 @@
 package dev.hurtify.relicsaddon.contract;
 
 import com.mojang.serialization.Codec;
+import dev.hurtify.relicsaddon.adapter.out.persistence.DeviceCodecs;
 import dev.hurtify.relicsaddon.adapter.out.persistence.HiveCodecs;
 import dev.hurtify.relicsaddon.adapter.out.persistence.LegacyDroneStackState;
 import dev.hurtify.relicsaddon.adapter.out.persistence.ShieldCodecs;
@@ -210,34 +211,34 @@ public final class CodecGoldenCheck {
     }
 
     private void device() {
-        Wire<DeviceEnergy> energy = wire(DeviceEnergy.STREAM_CODEC);
-        value("device_energy/EMPTY", DeviceEnergy.CODEC, energy, DeviceEnergy.EMPTY);
+        Wire<DeviceEnergy> energy = wire(DeviceCodecs.ENERGY_STREAM);
+        value("device_energy/EMPTY", DeviceCodecs.ENERGY, energy, DeviceEnergy.EMPTY);
         for (DeviceEnergy.ManaSource source : DeviceEnergy.ManaSource.values()) {
-            value("device_energy/1000000 100000 false true " + source, DeviceEnergy.CODEC, energy,
+            value("device_energy/1000000 100000 false true " + source, DeviceCodecs.ENERGY, energy,
                     new DeviceEnergy(1_000_000, 100_000, false, true, source));
         }
         CompoundTag bare = new CompoundTag();
         bare.putInt("rf", 500);
         bare.putInt("mana", 20);
-        nbtInput("device_energy/nbt without optional fields", DeviceEnergy.CODEC, energy, bare);
+        nbtInput("device_energy/nbt without optional fields", DeviceCodecs.ENERGY, energy, bare);
         CompoundTag bogus = new CompoundTag();
         bogus.putInt("rf", 1);
         bogus.putInt("mana", 2);
         bogus.putBoolean("rf_on", false);
         bogus.putBoolean("mana_on", true);
         bogus.putString("source", "bogus");
-        nbtInput("device_energy/nbt source bogus", DeviceEnergy.CODEC, energy, bogus);
+        nbtInput("device_energy/nbt source bogus", DeviceCodecs.ENERGY, energy, bogus);
 
-        Wire<DeviceProgression> progression = registryWire(DeviceProgression.STREAM_CODEC);
-        value("device_progression/DEFAULT", DeviceProgression.CODEC, progression, DeviceProgression.DEFAULT);
-        value("device_progression/100 3 2 0b10_01_11", DeviceProgression.CODEC, progression, new DeviceProgression(100, 3, 2, 0b10_01_11));
-        streamInput("device_progression/stream level 99", DeviceProgression.CODEC, progression, new byte[] {0, 99, 0, 0});
+        Wire<DeviceProgression> progression = registryWire(DeviceCodecs.PROGRESSION_STREAM);
+        value("device_progression/DEFAULT", DeviceCodecs.PROGRESSION, progression, DeviceProgression.DEFAULT);
+        value("device_progression/100 3 2 0b10_01_11", DeviceCodecs.PROGRESSION, progression, new DeviceProgression(100, 3, 2, 0b10_01_11));
+        streamInput("device_progression/stream level 99", DeviceCodecs.PROGRESSION, progression, new byte[] {0, 99, 0, 0});
         CompoundTag tooHigh = new CompoundTag();
         tooHigh.putInt("experience", 0);
         tooHigh.putInt("level", 11);
         tooHigh.putInt("points", 0);
         tooHigh.putInt("upgrades", 0);
-        nbtInput("device_progression/nbt level 11", DeviceProgression.CODEC, progression, tooHigh);
+        nbtInput("device_progression/nbt level 11", DeviceCodecs.PROGRESSION, progression, tooHigh);
 
         value("instance_id/0f8fad5b-d9cb-469f-a165-70867728950e", Codec.STRING, wire(ByteBufCodecs.STRING_UTF8),
                 "0f8fad5b-d9cb-469f-a165-70867728950e");

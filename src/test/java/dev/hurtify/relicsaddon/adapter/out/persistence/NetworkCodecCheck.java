@@ -103,7 +103,7 @@ public final class NetworkCodecCheck {
         }
 
         for (DeviceEnergy.ManaSource source : DeviceEnergy.ManaSource.values()) {
-            roundTrip(DeviceEnergy.STREAM_CODEC, new DeviceEnergy(1_000_000, 100_000, false, true, source), "battery " + source);
+            roundTrip(DeviceCodecs.ENERGY_STREAM, new DeviceEnergy(1_000_000, 100_000, false, true, source), "battery " + source);
         }
 
         // Axis-aligned normals survive the constructor's re-normalisation bit for bit.

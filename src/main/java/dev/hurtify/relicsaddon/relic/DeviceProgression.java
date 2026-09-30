@@ -1,30 +1,11 @@
 package dev.hurtify.relicsaddon.relic;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.hurtify.relicsaddon.domain.device.DeviceUpgrade;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
 
 /** Persistent, per-stack progression owned entirely by this mod: experience, level, points and upgrade ranks. */
 public record DeviceProgression(int experience, int level, int points, int upgrades) {
     public static final int MAX_LEVEL = 10;
     public static final DeviceProgression DEFAULT = new DeviceProgression(0, 0, 0, 0);
-    public static final Codec<DeviceProgression> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Codec.INT.fieldOf("experience").forGetter(DeviceProgression::experience),
-            Codec.intRange(0, MAX_LEVEL).fieldOf("level").forGetter(DeviceProgression::level),
-            Codec.INT.fieldOf("points").forGetter(DeviceProgression::points),
-            Codec.INT.fieldOf("upgrades").forGetter(DeviceProgression::upgrades)
-    ).apply(instance, DeviceProgression::new));
-    public static final StreamCodec<RegistryFriendlyByteBuf, DeviceProgression> STREAM_CODEC = new StreamCodec<>() {
-        @Override public DeviceProgression decode(RegistryFriendlyByteBuf buffer) {
-            return new DeviceProgression(buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt()).normalized();
-        }
-        @Override public void encode(RegistryFriendlyByteBuf buffer, DeviceProgression value) {
-            DeviceProgression state = value.normalized();
-            buffer.writeVarInt(state.experience).writeVarInt(state.level).writeVarInt(state.points).writeVarInt(state.upgrades);
-        }
-    };
 
     public DeviceProgression normalized() {
         return new DeviceProgression(Math.max(0, experience), Math.clamp(level, 0, MAX_LEVEL), Math.max(0, points), upgrades);
