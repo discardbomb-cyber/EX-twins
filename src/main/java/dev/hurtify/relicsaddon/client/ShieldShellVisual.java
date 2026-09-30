@@ -51,6 +51,10 @@ final class ShieldShellVisual {
     private static final int MAX_CORNERS = 8;
     private static final double[] CORNER_DIR = new double[3 * MAX_CORNERS], CORNER = new double[3 * MAX_CORNERS];
     private static final double[] CORNER_SHEEN = new double[MAX_CORNERS];
+    /** Shell distance at each shared honeycomb corner, valid for the {@link #cornerShell} it was found for. */
+    private static final double[] CORNER_REACH = new double[ShieldHoneycomb.CORNER_COUNT];
+    private static final int[] CORNER_SHELL = new int[ShieldHoneycomb.CORNER_COUNT];
+    private static int cornerShell;
     /** The unit vector towards the viewer last asked of {@link #view}. */
     private static final double[] VIEW = new double[3];
 
@@ -160,6 +164,12 @@ final class ShieldShellVisual {
         double seam = f.radius() * (low ? .010 : .0068);
         // Twins panes sit a hair above their glass dome.
         double lift = twins ? .004 : 0;
+        // Three cells meet at every corner: the rippling shell is reached once there, for this shell only.
+        int shell = ++cornerShell;
+        if (shell == Integer.MAX_VALUE) {
+            java.util.Arrays.fill(CORNER_SHELL, 0);
+            shell = cornerShell = 1;
+        }
         Matrix4f m = f.matrix();
         for (ShieldHoneycomb.Cell cell : ShieldHoneycomb.CELLS) {
             // Drawn cells are even hexagons; health, holes and motion come from the gameplay cell beneath.
@@ -186,12 +196,23 @@ final class ShieldShellVisual {
             int tint = mix(p.fill(), healthy, .35);
 
             int corners = perimeter.length / 3;
+            int[] shared = cell.corners();
             for (int k = 0; k < corners; k++) {
                 double dx = f.worldX(perimeter[k * 3], perimeter[k * 3 + 2]), dy = perimeter[k * 3 + 1], dz = f.worldZ(perimeter[k * 3], perimeter[k * 3 + 2]);
                 CORNER_DIR[k * 3] = dx;
                 CORNER_DIR[k * 3 + 1] = dy;
                 CORNER_DIR[k * 3 + 2] = dz;
-                double r = f.reach(dx, dy, dz, lift);
+                double r;
+                if (moving) {
+                    r = f.reach(dx, dy, dz, lift);
+                } else {
+                    int index = shared[k];
+                    if (CORNER_SHELL[index] != shell) {
+                        CORNER_REACH[index] = f.reach(dx, dy, dz, lift);
+                        CORNER_SHELL[index] = shell;
+                    }
+                    r = CORNER_REACH[index];
+                }
                 CORNER[k * 3] = f.x() + dx * r;
                 CORNER[k * 3 + 1] = f.y() + dy * r;
                 CORNER[k * 3 + 2] = f.z() + dz * r;
