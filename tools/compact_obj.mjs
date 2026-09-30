@@ -26,8 +26,10 @@ const INDEXED = { f: ["v", "vt", "vn"], l: ["v", "vt"], p: ["v"] };
 const UNSUPPORTED = new Set(["curv", "curv2", "surf", "vp", "trim", "hole", "scrv", "sp"]);
 
 function keyword(line) {
-  const end = line.search(/\s|$/);
-  return line.slice(0, end);
+  // Statements may be indented: the keyword is the first word after any leading whitespace.
+  const text = line.trimStart();
+  const end = text.search(/\s|$/);
+  return text.slice(0, end);
 }
 
 /** Splits a face-like statement into its references, each a list of index strings per slash-separated slot. */
