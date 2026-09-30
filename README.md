@@ -100,11 +100,11 @@ RF hives have four silver mechanical bay doors, Mana has six ivory/gold shells, 
 
 | Type | Drones: level 0 -> 10 | Flying at once | HP per drone | Repair delay -> upgraded | Blow damage -> upgraded |
 | --- | --- | --- | --- | --- | --- |
-| RF | 12 -> 750 | up to 250 | 3 | 4 -> 2 seconds | 2 -> 3 |
-| Mana | 12 -> 750 | up to 250 | 3 | 2.5 -> 1 second | 2 -> 3 |
-| Ex-Twins | 12 -> 750 | up to 250 | 3 | 6 -> 3 seconds | 3 -> 4 |
+| RF | 100 -> 2000 | up to 250 | 3 | 4 -> 2 seconds | 2 -> 3 |
+| Mana | 100 -> 2000 | up to 250 | 3 | 2.5 -> 1 second | 2 -> 3 |
+| Ex-Twins | 100 -> 2000 | up to 250 | 3 | 6 -> 3 seconds | 3 -> 4 |
 
-Ten levels grow the swarm to 750 drones. At most 250 fly at once; the rest wait in the hive as replacements. Only one hive can be equipped (Curios rejects a second one), and only one operates.
+Ten levels grow the swarm from 100 to 2000 drones. At most 250 fly at once; the rest wait in the hive as replacements. Only one hive can be equipped (Curios rejects a second one), and only one operates.
 
 - The flying drones are split into 2 to 16 strike groups. Pick one of three attack modes in the console's Swarm tab:
   - **Droplet.** Each group forms one big figure in a fan behind and above its owner: a Mana drop, an RF tesseract turning through the fourth dimension, or Ex-Twins hexagons with lightning arcing between them. In turn, each figure flies at the target like a projectile, strikes it whole and knocks it back, then flies home to re-form. Ex-Twins figures bend space as they fly.
@@ -115,11 +115,11 @@ Ten levels grow the swarm to 750 drones. At most 250 fly at once; the rest wait 
     - Ex-Twins spins hexagonal rift spheres that lift the target about 4 blocks into the air around a black hole with a violet accretion disk.
     - Players and bosses cannot be held.
 - Swarm blows land as the swarm's own damage type, which may knock the target back. Containment zaps never knock it about.
-- The hive fights within 128 blocks of its owner by default. Once acquired, a target stays locked until it dies, leaves that range, becomes allied or changes dimension, or the hive is switched off.
+- The hive fights within 128 blocks of its owner by default. It takes on every creature that attacks its owner at once: whoever the owner fights, whoever strikes the owner or their shield, and every mob that has the owner as its target, up to one per strike group. The strike groups are shared out evenly among them. A target stays engaged until it dies, leaves that range, becomes allied or changes dimension, or the hive is switched off. When one falls, its drones fly straight on to the others from where they are instead of going home first.
 - Each drone has 3 HP. Targets in reach swing at nearby drones, and explosions damage them too. A hit drone flies home for repair, and the next drone in its lane launches at once to take its place. A repaired drone waits in reserve.
 - Drones pour out of the hive along their own curved paths and stream back when a task ends. Healers ring their owner's chest.
 - Open the console with `H`, select a hive and use the Swarm tab to set the attack mode and to move drones between fighters and healers (±1 / ±10). Assignments persist on the item. Healers restore only their owner and never attack. Healing is capped at 4 HP/second by default, which the server can configure.
-- Each hive has three upgrades: combat damage, healing strength, and repair/reconstruction. They never raise the 750-drone cap or the healing limit.
+- Each hive has three upgrades: combat damage, healing strength, and repair/reconstruction. They never raise the 2000-drone cap or the healing limit.
 - Drones do not absorb damage for their owner; protection is the shield's job. Hives only attack and heal.
 - Drone hits use their own damage type: the owner gets the kill credit, but hundreds of hits never knock the target around.
 - Drones cannot target or damage their wearer, teammates or allied pets. They have no attackable projectile entities of their own, so swarms never damage each other. Creative/spectator players and disallowed PvP targets are excluded.

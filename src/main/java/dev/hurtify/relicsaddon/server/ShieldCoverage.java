@@ -25,6 +25,7 @@ public final class ShieldCoverage {
     public static void provoked(Player owner, Entity attacker) {
         if (attacker instanceof LivingEntity living && living != owner && living.isAlive() && !friendly(owner, living)) {
             owner.setLastHurtByMob(living);
+            HiveCombatController.noteAttacker(owner, living);
         }
     }
 

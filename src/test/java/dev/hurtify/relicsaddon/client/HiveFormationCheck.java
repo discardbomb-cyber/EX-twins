@@ -5,6 +5,7 @@ import dev.hurtify.relicsaddon.drone.HiveFormation;
 import dev.hurtify.relicsaddon.drone.HiveSettings;
 import dev.hurtify.relicsaddon.drone.HiveSlots;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
+import dev.hurtify.relicsaddon.drone.HiveTarget;
 import dev.hurtify.relicsaddon.drone.HiveType;
 import java.util.ArrayList;
 import java.util.List;
@@ -56,6 +57,59 @@ public final class HiveFormationCheck {
             for (int slot = 0; slot < slots; slot++) {
                 Vec3 at = HiveFormation.station(AttackMode.CONTAINMENT, type, slot, slots, owner, target, .6, height, 777.5, 100, 60);
                 require(at.y >= target.y + .1, type + " containment dips into the ground: " + (at.y - target.y) + " (height " + height + ")");
+            }
+        }
+
+        // Several targets: groups are shared out evenly, every place keeps to its own target, and each
+        // target's places are laid out exactly once.
+        List<HiveTarget> foes = List.of(new HiveTarget(1, target, 1.1, 1.9), new HiveTarget(2, target.add(9, 0, 3), .6, 1.8),
+                new HiveTarget(3, target.add(-6, 1, -8), .9, 2.6));
+        for (AttackMode mode : AttackMode.values()) for (HiveType type : HiveType.values()) for (int slots : new int[]{2, 12, 100, 250}) {
+            int groups = HiveSlots.groups(slots, mode), engaged = HiveFormation.engaged(foes.size(), groups);
+            for (int slot = 0; slot < slots; slot++) {
+                Vec3 at = HiveFormation.station(mode, type, slot, slots, owner, foes, 555.5, 100, 60);
+                requireFinite(at, "multi-target station");
+                HiveTarget mine = foes.get(HiveSlots.group(slot, groups) % engaged);
+                Vec3 middle = HiveFormation.core(mine.feet(), mine.height());
+                double limit = mode == AttackMode.DROPLET ? owner.distanceTo(middle) + 14 : mode == AttackMode.CONTAINMENT ? 5 * HiveFormation.CONTAINMENT_SCALE : 9;
+                require(at.distanceTo(middle) < limit, mode + " " + type + " place " + slot + "/" + slots + " strays from its own target: " + at.distanceTo(middle));
+            }
+            int total = 0;
+            for (int index = 0; index < engaged; index++) {
+                int localGroups = HiveSlots.localGroups(index, engaged, groups), localSlots = HiveSlots.localSlots(index, engaged, slots, groups);
+                java.util.Set<Integer> places = new java.util.HashSet<>();
+                for (int local = 0; local < localSlots; local++) {
+                    int slot = HiveSlots.globalSlot(index, engaged, local, localGroups, groups);
+                    require(slot < slots && HiveSlots.group(slot, groups) % engaged == index && places.add(slot),
+                            "local place " + local + " of target " + index + " maps onto one of its own places");
+                }
+                total += localSlots;
+            }
+            require(total == slots, "every place belongs to exactly one target");
+            require(engaged == Math.min(foes.size(), groups), "one target per strike group at most");
+            // A single target in a list is laid out exactly as before.
+            for (int slot = 0; slot < slots; slot += Math.max(1, slots / 20)) {
+                Vec3 alone = HiveFormation.station(mode, type, slot, slots, owner, List.of(foes.getFirst()), 321.25, 100, 60);
+                require(alone.distanceTo(HiveFormation.station(mode, type, slot, slots, owner, target, 1.1, 1.9, 321.25, 100, 60)) < 1e-9,
+                        mode + " one target in a list must match the single-target layout");
+            }
+        }
+
+        // A change of targets: every drone flies from where it was straight to its new place, smoothly.
+        List<HiveTarget> before = foes.subList(0, 2), after = List.of(foes.get(1), foes.get(2));
+        for (AttackMode mode : AttackMode.values()) for (HiveType type : HiveType.values()) for (int slot = 0; slot < 100; slot += 7) {
+            Vec3 start = HiveFormation.engagedStation(mode, type, slot, 100, owner, after, before, 1000, 1000, 100, 60);
+            Vec3 old = HiveFormation.station(mode, type, slot, 100, owner, before, 1000, 100, 60);
+            Vec3 fresh = HiveFormation.station(mode, type, slot, 100, owner, after, 1000, 100, 60);
+            require(start.distanceTo(old) < 1e-9 || start.distanceTo(fresh) < 1e-9, mode + " a retargeted drone starts where it was");
+            Vec3 end = HiveFormation.engagedStation(mode, type, slot, 100, owner, after, before, 1000, 1000 + HiveFormation.RETARGET_TICKS, 100, 60);
+            require(end.distanceTo(HiveFormation.station(mode, type, slot, 100, owner, after, 1000 + HiveFormation.RETARGET_TICKS, 100, 60)) < 1e-9,
+                    mode + " a retargeted drone ends on its new place");
+            Vec3 previous = null;
+            for (double t = 1000; t <= 1000 + HiveFormation.RETARGET_TICKS + 2; t += .25) {
+                Vec3 at = HiveFormation.engagedStation(mode, type, slot, 100, owner, after, before, 1000, t, 100, 60);
+                if (previous != null) require(previous.distanceTo(at) < 2.5, mode + " " + type + " a retargeted drone must fly, not jump (" + previous.distanceTo(at) + ")");
+                previous = at;
             }
         }
 

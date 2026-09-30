@@ -151,6 +151,54 @@ public final class HiveModeGameTests {
         });
     }
 
+    @GameTest(template = ARENA, timeoutTicks = 300)
+    public static void theSwarmTakesOnEveryAttacker(GameTestHelper helper) {
+        Fight fight = fight(helper, RelicRole.RF_HIVE, AttackMode.BARRAGE);
+        Husk second = attacker(helper, fight.player, new Vec3(8.5, 1, 2.5));
+        helper.onEachTick(() -> {
+            HiveCombatController.tick(fight.player);
+            var combat = fight.hive.getOrDefault(ModDataComponents.HIVE_COMBAT_STATE.get(), dev.hurtify.relicsaddon.drone.HiveCombatState.DEFAULT);
+            if (combat.targets().size() == 2 && fight.husk.getHealth() < fight.husk.getMaxHealth() && second.getHealth() < second.getMaxHealth()) {
+                helper.succeed();
+            }
+        });
+    }
+
+    @GameTest(template = ARENA, timeoutTicks = 200)
+    public static void theSwarmMovesStraightOnWhenATargetFalls(GameTestHelper helper) {
+        Fight fight = fight(helper, RelicRole.RF_HIVE, AttackMode.DROPLET);
+        Husk second = attacker(helper, fight.player, new Vec3(8.5, 1, 2.5));
+        helper.onEachTick(() -> HiveCombatController.tick(fight.player));
+        long[] started = {-1};
+        helper.runAfterDelay(10, () -> {
+            var combat = fight.hive.getOrDefault(ModDataComponents.HIVE_COMBAT_STATE.get(), dev.hurtify.relicsaddon.drone.HiveCombatState.DEFAULT);
+            helper.assertTrue(combat.active() && combat.targets().size() == 2, "Both creatures are engaged (" + combat.targets().size() + ")");
+            started[0] = combat.changedAt();
+            fight.husk.discard();
+        });
+        helper.runAfterDelay(12, () -> {
+            var combat = fight.hive.getOrDefault(ModDataComponents.HIVE_COMBAT_STATE.get(), dev.hurtify.relicsaddon.drone.HiveCombatState.DEFAULT);
+            helper.assertTrue(combat.active(), "The swarm stays out");
+            helper.assertTrue(combat.changedAt() == started[0], "It does not go home and set out again");
+            helper.assertTrue(combat.targets().size() == 1 && combat.targets().getFirst().id() == second.getId(), "It moves on to the other attacker");
+            helper.assertTrue(combat.retargetedAt() > started[0] && !combat.previous().isEmpty(), "Its drones fly over from where they were");
+            helper.succeed();
+        });
+    }
+
+    /** A second husk that has the owner as its target, as an attacking mob does. */
+    private static Husk attacker(GameTestHelper helper, ServerPlayer owner, Vec3 relative) {
+        Husk husk = EntityType.HUSK.create(helper.getLevel());
+        helper.assertTrue(husk != null, "Husk fixture");
+        Vec3 at = helper.absoluteVec(relative);
+        husk.moveTo(at.x, at.y, at.z);
+        husk.setNoAi(true);
+        tough(husk);
+        helper.assertTrue(helper.getLevel().addFreshEntity(husk), "The attacker enters the level");
+        husk.setTarget(owner);
+        return husk;
+    }
+
     @GameTest(template = ARENA)
     public static void aFullHiveKeepsTwoHundredFiftyOut(GameTestHelper helper) {
         ServerPlayer player = DeviceTestSupport.player(helper);
@@ -158,7 +206,7 @@ public final class HiveModeGameTests {
         hive.set(ModDataComponents.DEVICE_PROGRESSION.get(), new DeviceProgression(0, DeviceProgression.MAX_LEVEL, 0, 0));
         HiveController.prepare(player, hive, false);
         HiveStackState swarm = hive.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), HiveStackState.DEFAULT);
-        helper.assertTrue(swarm.units().size() == HiveType.MAX_DRONES, "A level 10 hive holds 750 drones, got " + swarm.units().size());
+        helper.assertTrue(swarm.units().size() == HiveType.MAX_DRONES, "A level 10 hive holds " + HiveType.MAX_DRONES + " drones, got " + swarm.units().size());
         helper.assertTrue(HiveSlots.fighterSlots(swarm.units().size(), HiveSettings.DEFAULT) == HiveType.MAX_DEPLOYED, "At most 250 fly at once");
         helper.assertTrue(swarm.units().stream().allMatch(unit -> unit.hp() == HiveType.DRONE_HP), "Every drone has three hit points");
         helper.succeed();
@@ -168,6 +216,12 @@ public final class HiveModeGameTests {
     private static double floorUnder(GameTestHelper helper, Husk husk) {
         return helper.getLevel().clip(new ClipContext(husk.position(), husk.position().subtract(0, 8, 0), ClipContext.Block.COLLIDER,
                 ClipContext.Fluid.NONE, husk)).getLocation().y;
+    }
+
+    /** A hundred-drone swarm kills an ordinary husk in a blow or two; test targets must outlive the checks. */
+    private static void tough(Husk husk) {
+        husk.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(500);
+        husk.setHealth(500);
     }
 
     private record Fight(ServerPlayer player, ItemStack hive, Husk husk) { }
@@ -183,6 +237,7 @@ public final class HiveModeGameTests {
         Vec3 at = helper.absoluteVec(new Vec3(8.5, 1, 6.5));
         husk.moveTo(at.x, at.y, at.z);
         husk.setNoAi(true);
+        tough(husk);
         helper.assertTrue(helper.getLevel().addFreshEntity(husk), "The target enters the level");
         player.setLastHurtMob(husk);
         return new Fight(player, hive, husk);

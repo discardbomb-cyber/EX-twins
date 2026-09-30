@@ -8,6 +8,7 @@ import dev.hurtify.relicsaddon.drone.HiveSettings;
 import dev.hurtify.relicsaddon.drone.HiveSlots;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
 import dev.hurtify.relicsaddon.drone.HiveSupportState;
+import dev.hurtify.relicsaddon.drone.HiveTarget;
 import dev.hurtify.relicsaddon.drone.HiveType;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.server.HiveCombatController;
@@ -110,33 +111,40 @@ public final class HiveVisualRenderer {
         Vec3[] seen = SEEN.computeIfAbsent(player, ignored -> new EnumMap<>(HiveType.class)).compute(type,
                 (ignored, old) -> old == null || old.length != count ? new Vec3[count] : old);
 
-        Entity targetEntity = combat.active() ? minecraft.level.getEntity(combat.targetId()) : null;
-        Vec3 feet = targetEntity != null ? targetEntity.getPosition(partial) : new Vec3(combat.targetX(), combat.targetY(), combat.targetZ());
-        double width = targetEntity != null ? targetEntity.getBbWidth() : .6, height = targetEntity != null ? targetEntity.getBbHeight() : 1.8;
-        boolean near = owner.distanceTo(camera) < RANGE || feet.distanceTo(camera) < RANGE;
+        // Every engaged creature where it is this frame (or where it was last recorded, if it is not loaded here).
+        List<HiveTarget> targets = new ArrayList<>(combat.targets().size());
+        boolean near = owner.distanceTo(camera) < RANGE;
+        for (HiveTarget recorded : combat.targets()) {
+            Entity entity = minecraft.level.getEntity(recorded.id());
+            HiveTarget live = entity != null ? new HiveTarget(recorded.id(), entity.getPosition(partial), entity.getBbWidth(), entity.getBbHeight()) : recorded;
+            targets.add(live);
+            near |= live.feet().distanceTo(camera) < RANGE;
+        }
         if (!near) return;
         long cycleStart = combat.changedAt() + combat.travel();
         int interval = HiveCombatController.strikeInterval(player, stack);
 
-        if (combat.active() && slots > 0) {
-            int groups = HiveSlots.groups(slots, combat.mode());
+        if (combat.active() && slots > 0 && !targets.isEmpty()) {
+            int groups = HiveSlots.groups(slots, combat.mode()), engaged = HiveFormation.engaged(targets.size(), groups);
             int[] members = new int[groups];
             Vec3[] drones = new Vec3[slots];
-            Vec3 core = HiveFormation.core(feet, height);
             for (int slot = 0; slot < slots; slot++) {
                 int unit = HiveSlots.occupant(units, slot, slots, fighters, now);
                 if (unit < 0) continue;
                 long since = HiveSlots.since(units, slot, slots, fighters, unit, now);
                 double launched = Math.max(since, combat.changedAt());
-                Vec3 station = HiveFormation.station(combat.mode(), type, slot, slots, owner, feet, width, height, time, cycleStart, interval);
+                int group = HiveSlots.group(slot, groups);
+                Vec3 station = HiveFormation.engagedStation(combat.mode(), type, slot, slots, owner, targets, combat.previous(), combat.retargetedAt(),
+                        time, cycleStart, interval);
                 Vec3 at = HiveFormation.deployed(owner, yaw, station, unit, count, type, time, launched, combat.travel());
-                members[HiveSlots.group(slot, groups)]++;
+                HiveTarget target = targets.get(group % engaged);
+                members[group]++;
                 drones[slot] = at;
                 seen[unit] = at;
-                drawDrone(minecraft, event, player, type, at, core, appear, count, camera, poses, glow, budget);
+                drawDrone(minecraft, event, player, type, at, HiveFormation.core(target.feet(), target.height()), appear, count, camera, poses, glow, budget);
             }
-            scenes.add(new HiveModeVisual.Scene(combat.mode(), type, slots, groups, members, drones, owner, feet, width, height, time, cycleStart, interval,
-                    time >= combat.changedAt() + combat.travel() * .5));
+            scenes.add(new HiveModeVisual.Scene(combat.mode(), type, slots, groups, members, drones, owner, List.copyOf(targets), time, cycleStart,
+                    interval, time >= combat.changedAt() + combat.travel() * .5, null, groups));
         }
         // Hit drones fly home from where they were struck; after a recall the whole swarm does.
         for (int unit = 0; unit < fighters; unit++) {

@@ -74,6 +74,28 @@ public final class HiveSlots {
         return group >= slots ? 0 : (slots - 1 - group) / groups + 1;
     }
 
+    // --- several targets ---------------------------------------------------------------------------
+    // Strike group g attacks target g % n. Around each target its groups are renumbered 0, 1, 2... and
+    // their places laid out the same way as a whole swarm's: local place member * localGroups + localGroup.
+
+    /** How many strike groups attack target {@code target} of {@code engaged}. */
+    public static int localGroups(int target, int engaged, int groups) {
+        return target >= groups ? 0 : (groups - 1 - target) / engaged + 1;
+    }
+
+    /** How many places belong to target {@code target} of {@code engaged}. */
+    public static int localSlots(int target, int engaged, int slots, int groups) {
+        int sum = 0;
+        for (int group = target; group < groups; group += engaged) sum += groupSize(group, slots, groups);
+        return sum;
+    }
+
+    /** The swarm-wide place of local place {@code local} around target {@code target}. */
+    public static int globalSlot(int target, int engaged, int local, int localGroups, int groups) {
+        int member = local / localGroups, localGroup = local % localGroups;
+        return member * groups + target + localGroup * engaged;
+    }
+
     private HiveSlots() {
     }
 }

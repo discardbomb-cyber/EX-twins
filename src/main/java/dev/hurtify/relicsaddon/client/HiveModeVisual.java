@@ -4,7 +4,10 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.hurtify.relicsaddon.drone.AttackMode;
 import dev.hurtify.relicsaddon.drone.HiveFormation;
 import dev.hurtify.relicsaddon.drone.HiveShapes;
+import dev.hurtify.relicsaddon.drone.HiveSlots;
+import dev.hurtify.relicsaddon.drone.HiveTarget;
 import dev.hurtify.relicsaddon.drone.HiveType;
+import java.util.List;
 import java.util.Random;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
@@ -24,24 +27,65 @@ import org.joml.Matrix4f;
  * Positions are world space; {@code camera} is subtracted here.
  */
 public final class HiveModeVisual {
-    /** What one swarm looks like this frame. {@code drones[slot]} is null for an empty place. */
-    public record Scene(AttackMode mode, HiveType type, int slots, int groups, int[] members, Vec3[] drones, Vec3 owner, Vec3 target,
-                 double width, double height, double time, double cycleStart, int interval, boolean formed) { }
+    /**
+     * What one swarm looks like this frame. {@code drones[slot]} is null for an empty place. Strike group
+     * g attacks {@code targets[g % n]}. {@code timing} maps a group to the swarm-wide group whose clock it
+     * keeps (null: itself) and {@code timingGroups} is the swarm's group count, so a part of the scene
+     * cut out round one target still charges and strikes in step with the server.
+     */
+    public record Scene(AttackMode mode, HiveType type, int slots, int groups, int[] members, Vec3[] drones, Vec3 owner, List<HiveTarget> targets,
+                 double time, double cycleStart, int interval, boolean formed, int[] timing, int timingGroups) {
+        /** The first (or, in a part, the only) target's feet, width and height. */
+        public Vec3 target() { return targets.getFirst().feet(); }
+        public double width() { return targets.getFirst().width(); }
+        public double height() { return targets.getFirst().height(); }
+        public int engaged() { return HiveFormation.engaged(targets.size(), groups); }
+        public HiveTarget targetOf(int group) { return targets.get(group % engaged()); }
+        public int timingGroup(int group) { return timing == null ? group : timing[group]; }
+    }
 
     public static void render(Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m) {
         int color = color(s.type());
         switch (s.mode()) {
             case DROPLET -> droplets(s, camera, glow, fill, m, color);
-            case BARRAGE -> clusters(s, camera, glow, fill, m, color);
+            case BARRAGE -> {
+                for (int index = 0; index < s.engaged(); index++) clusters(part(s, index), camera, glow, fill, m, color);
+            }
             case CONTAINMENT -> {
                 if (!s.formed()) return;
-                switch (s.type()) {
-                    case RF -> torus(s, camera, glow, m, color);
-                    case MANA -> ward(s, camera, glow, fill, m, color);
-                    case TWINS -> rifts(s, camera, glow, fill, m, color);
+                for (int index = 0; index < s.engaged(); index++) {
+                    Scene part = part(s, index);
+                    switch (s.type()) {
+                        case RF -> torus(part, camera, glow, m, color);
+                        case MANA -> ward(part, camera, glow, fill, m, color);
+                        case TWINS -> rifts(part, camera, glow, fill, m, color);
+                    }
                 }
             }
         }
+    }
+
+    /**
+     * The part of a scene round target {@code index}: its strike groups and places renumbered the way
+     * {@link HiveFormation} lays them out round that target, each group keeping its swarm-wide clock.
+     */
+    static Scene part(Scene s, int index) {
+        int engaged = s.engaged();
+        if (engaged <= 1) return s;
+        int groups = HiveSlots.localGroups(index, engaged, s.groups()), slots = HiveSlots.localSlots(index, engaged, s.slots(), s.groups());
+        int[] members = new int[groups], timing = new int[groups];
+        for (int local = 0; local < groups; local++) {
+            int group = index + local * engaged;
+            members[local] = s.members()[group];
+            timing[local] = s.timingGroup(group);
+        }
+        Vec3[] drones = new Vec3[slots];
+        for (int local = 0; local < slots; local++) {
+            int slot = HiveSlots.globalSlot(index, engaged, local, groups, s.groups());
+            drones[local] = slot < s.drones().length ? s.drones()[slot] : null;
+        }
+        return new Scene(s.mode(), s.type(), slots, groups, members, drones, s.owner(), List.of(s.targets().get(index)), s.time(),
+                s.cycleStart(), s.interval(), s.formed(), timing, s.timingGroups());
     }
 
     /**
@@ -54,27 +98,32 @@ public final class HiveModeVisual {
             case DROPLET -> {
                 for (int group = 0; group < s.groups(); group++) {
                     if (s.members()[group] == 0) continue;
-                    Vec3 centre = HiveFormation.dropletCentre(s.owner(), s.target(), s.height(), group, s.groups(), s.time(), s.cycleStart(), s.interval());
-                    EffectLights.glow(centre, 7 + 6 * heat(s, group), HiveFormation.shapeSize(s.members()[group]));
+                    EffectLights.glow(dropletCentre(s, group, s.time()), 7 + 6 * heat(s, group), HiveFormation.shapeSize(s.members()[group]));
                 }
             }
             case BARRAGE -> {
-                for (int group = 0; group < s.groups(); group++) {
-                    if (s.members()[group] == 0) continue;
-                    // Every clump glows a little; its charge brightens it as it builds.
-                    double charge = charge(s, group);
-                    Vec3 centre = HiveFormation.clusterCentre(s.type(), s.target(), s.width(), s.height(), group, s.groups(), s.time());
-                    EffectLights.glow(centre, 4 + 10 * charge, HiveFormation.clumpRadius(s.members()[group]));
+                for (int index = 0; index < s.engaged(); index++) {
+                    Scene part = part(s, index);
+                    for (int group = 0; group < part.groups(); group++) {
+                        if (part.members()[group] == 0) continue;
+                        // Every clump glows a little; its charge brightens it as it builds.
+                        double charge = charge(part, group);
+                        Vec3 centre = HiveFormation.clusterCentre(part.type(), part.target(), part.width(), part.height(), group, part.groups(), part.time());
+                        EffectLights.glow(centre, 4 + 10 * charge, HiveFormation.clumpRadius(part.members()[group]));
+                    }
                 }
             }
             case CONTAINMENT -> {
                 if (!s.formed()) return;
-                Vec3 core = HiveFormation.core(s.target(), s.height());
-                switch (s.type()) {
-                    case RF -> EffectLights.glow(centre(s), 9, Math.max(.8, s.width()) * HiveFormation.CONTAINMENT_SCALE);
-                    case MANA -> EffectLights.glow(centre(s), 9, 1.45 * HiveFormation.wardScale(s.height()));
-                    // The accretion disk reaches about four horizons out.
-                    case TWINS -> EffectLights.glow(core, 11, horizon(s) * 4);
+                for (int index = 0; index < s.engaged(); index++) {
+                    Scene part = part(s, index);
+                    Vec3 core = HiveFormation.core(part.target(), part.height());
+                    switch (part.type()) {
+                        case RF -> EffectLights.glow(centre(part), 9, Math.max(.8, part.width()) * HiveFormation.CONTAINMENT_SCALE);
+                        case MANA -> EffectLights.glow(centre(part), 9, 1.45 * HiveFormation.wardScale(part.height()));
+                        // The accretion disk reaches about four horizons out.
+                        case TWINS -> EffectLights.glow(core, 11, horizon(part) * 4);
+                    }
                 }
             }
         }
@@ -91,12 +140,13 @@ public final class HiveModeVisual {
     // --- droplet ---------------------------------------------------------------------------------
 
     private static void droplets(Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
-        Vec3 core = HiveFormation.core(s.target(), s.height());
         for (int group = 0; group < s.groups(); group++) {
             if (s.members()[group] == 0) continue;
+            HiveTarget target = s.targetOf(group);
+            Vec3 core = HiveFormation.core(target.feet(), target.height());
             Vec3 home = HiveFormation.muster(s.owner(), s.target(), group, s.groups(), s.time());
-            Vec3 centre = HiveFormation.dropletCentre(s.owner(), s.target(), s.height(), group, s.groups(), s.time(), s.cycleStart(), s.interval());
-            double sortie = HiveFormation.sortie(s.owner(), s.target(), s.height(), group, s.groups(), s.time(), s.cycleStart(), s.interval());
+            Vec3 centre = dropletCentre(s, group, s.time());
+            double sortie = sortie(s, group);
             boolean flying = sortie > 0 && sortie < 1;
             double heat = heat(s, group);
             Vec3 facing = core.subtract(home);
@@ -107,8 +157,7 @@ public final class HiveModeVisual {
             GlowBrush.circle(glow, m, home.subtract(camera), axes[1], axes[2], size * 1.9, 40, .012, color, sortie <= 0 ? 60 : 22);
             // A streak behind a figure on the move.
             if (sortie > 0 && sortie != 1) {
-                Vec3 before = HiveFormation.dropletCentre(s.owner(), s.target(), s.height(), group, s.groups(), s.time() - 1.5,
-                        s.cycleStart(), s.interval()).subtract(camera);
+                Vec3 before = dropletCentre(s, group, s.time() - 1.5).subtract(camera);
                 if (before.distanceToSqr(c) > .04) {
                     Vec3 tail = c.add(before.subtract(c).scale(2.2));
                     GlowBrush.line(glow, m, c, tail, size * .45, .01, color, color, 110 * heat, 0);
@@ -155,8 +204,19 @@ public final class HiveModeVisual {
 
     /** How hot a droplet figure burns: .3 while it waits in the fan, from .45 up to 1 as it flies in, cooling on the way home. */
     private static double heat(Scene s, int group) {
-        double sortie = HiveFormation.sortie(s.owner(), s.target(), s.height(), group, s.groups(), s.time(), s.cycleStart(), s.interval());
+        double sortie = sortie(s, group);
         return sortie <= 0 ? .3 : sortie <= 1 ? .45 + .55 * sortie : Math.max(.3, 1 - (sortie - 1) * 1.4);
+    }
+
+    /** A droplet figure's centre: it forms up in the fan facing the first target and strikes its own. */
+    private static Vec3 dropletCentre(Scene s, int group, double time) {
+        HiveTarget target = s.targetOf(group);
+        return HiveFormation.dropletCentre(s.owner(), s.target(), target.feet(), target.height(), group, s.groups(), time, s.cycleStart(), s.interval());
+    }
+
+    private static double sortie(Scene s, int group) {
+        HiveTarget target = s.targetOf(group);
+        return HiveFormation.sortie(s.owner(), s.target(), target.feet(), target.height(), group, s.groups(), s.time(), s.cycleStart(), s.interval());
     }
 
     /** A glass drop around a Mana group: a lit rim and a faint body, tip towards the target. */
@@ -232,7 +292,7 @@ public final class HiveModeVisual {
 
     /** A barrage clump's charge, 0 to 1: it builds until the clump fires, then collapses within a few ticks. */
     private static double charge(Scene s, int group) {
-        double phase = HiveFormation.groupPhase(s.time(), s.cycleStart(), s.interval(), group, s.groups());
+        double phase = HiveFormation.groupPhase(s.time(), s.cycleStart(), s.interval(), s.timingGroup(group), s.timingGroups());
         return phase < 0 ? 0 : phase < HiveFormation.FIRE ? phase / HiveFormation.FIRE
                 : Math.max(0, 1 - (phase - HiveFormation.FIRE) / .06);
     }
