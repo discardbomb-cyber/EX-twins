@@ -30,6 +30,15 @@ public final class ModItems {
     public static final List<DeferredItem<Item>> COMPONENTS = List.of(RESONANT_CIRCUIT, ENERGY_CELL, MANA_CELL,
             RF_SHIELD_CORE, MANA_SHIELD_CORE, TWINS_SHIELD_CORE, RF_DRONE_FRAME, MANA_DRONE_SHELL, TWINS_DRONE_PLATE);
 
+    /** Emitter drones for ship shields, one per family; they live in drone docks (registry/ShipBlocks). */
+    public static final java.util.Map<dev.hurtify.relicsaddon.shipshield.ShipFamily, DeferredItem<Item>> EMITTER_DRONES = new java.util.EnumMap<>(dev.hurtify.relicsaddon.shipshield.ShipFamily.class);
+
+    static {
+        for (var family : dev.hurtify.relicsaddon.shipshield.ShipFamily.values()) {
+            EMITTER_DRONES.put(family, component(family.droneId(), family == dev.hurtify.relicsaddon.shipshield.ShipFamily.TWINS ? Rarity.UNCOMMON : Rarity.COMMON));
+        }
+    }
+
     private static DeferredItem<Item> component(String id, Rarity rarity) {
         return ITEMS.register(id, () -> new dev.hurtify.relicsaddon.relic.ComponentItem(new Item.Properties().rarity(rarity)));
     }

@@ -58,6 +58,12 @@ public final class ModDataComponents {
                     .persistent(dev.hurtify.relicsaddon.power.DeviceEnergy.CODEC)
                     .networkSynchronized(dev.hurtify.relicsaddon.power.DeviceEnergy.STREAM_CODEC));
 
+    /** Switch and console readings of a ship generator or dock block, carried by its block item. */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.shipshield.ShipDeviceState>> SHIP_DEVICE_STATE =
+            DATA_COMPONENTS.registerComponentType("ship_device_state", builder -> builder
+                    .persistent(dev.hurtify.relicsaddon.shipshield.ShipDeviceState.CODEC)
+                    .networkSynchronized(dev.hurtify.relicsaddon.shipshield.ShipDeviceState.STREAM_CODEC));
+
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ShieldStackState>> SHIELD_STACK_STATE =
             DATA_COMPONENTS.registerComponentType("shield_stack_state", builder -> builder
                     .persistent(ShieldStackState.CODEC)

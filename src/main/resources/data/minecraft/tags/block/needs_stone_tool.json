@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "relics_addon:rf_ship_shield_generator",
+    "relics_addon:rf_drone_dock",
+    "relics_addon:mana_ship_shield_generator",
+    "relics_addon:mana_drone_dock",
+    "relics_addon:twins_ship_shield_generator",
+    "relics_addon:twins_drone_dock"
+  ]
+}

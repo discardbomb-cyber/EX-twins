@@ -19,9 +19,9 @@ import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
 /** A self-contained device item. Relics owns none of its state or activation. */
-public abstract class AutonomousRelicItem extends Item {
+public abstract class AutonomousRelicItem extends Item implements DeviceItem {
     protected AutonomousRelicItem(Properties properties) { super(properties); }
-    public abstract RelicRole role();
+    @Override public abstract RelicRole role();
 
     @Override public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
@@ -87,9 +87,9 @@ public abstract class AutonomousRelicItem extends Item {
     }
     private int integrity(ItemStack stack) { return stack.getOrDefault(ModDataComponents.SHIELD_STACK_STATE.get(), ShieldStackState.DEFAULT).totalIntegrity(); }
     private ChatFormatting style() { return switch (role()) {
-        case RF_SHIELD, RF_DRONE, RF_HIVE -> ChatFormatting.AQUA;
-        case MANA_SHIELD, MANA_DRONE, MANA_HIVE -> ChatFormatting.GREEN;
-        case TWINS_SHIELD, TWINS_DRONE, TWINS_HIVE -> ChatFormatting.LIGHT_PURPLE;
+        case RF_SHIELD, RF_DRONE, RF_HIVE, RF_SHIP_GENERATOR, RF_DRONE_DOCK -> ChatFormatting.AQUA;
+        case MANA_SHIELD, MANA_DRONE, MANA_HIVE, MANA_SHIP_GENERATOR, MANA_DRONE_DOCK -> ChatFormatting.GREEN;
+        case TWINS_SHIELD, TWINS_DRONE, TWINS_HIVE, TWINS_SHIP_GENERATOR, TWINS_DRONE_DOCK -> ChatFormatting.LIGHT_PURPLE;
     }; }
     public static final class RfShield extends AutonomousRelicItem { public RfShield(Properties p) { super(p); } @Override public RelicRole role() { return RelicRole.RF_SHIELD; } }
     public static final class ManaShield extends AutonomousRelicItem { public ManaShield(Properties p) { super(p); } @Override public RelicRole role() { return RelicRole.MANA_SHIELD; } }

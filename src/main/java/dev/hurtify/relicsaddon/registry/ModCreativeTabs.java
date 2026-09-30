@@ -25,6 +25,11 @@ public final class ModCreativeTabs {
                         output.accept(ModItems.MANA_HIVE.get());
                         output.accept(ModItems.TWINS_HIVE.get());
                         ModItems.COMPONENTS.forEach(item -> output.accept(item.get()));
+                        for (var family : dev.hurtify.relicsaddon.shipshield.ShipFamily.values()) {
+                            output.accept(ShipBlocks.item(family.generator));
+                            output.accept(ShipBlocks.item(family.dock));
+                            output.accept(ModItems.EMITTER_DRONES.get(family).get());
+                        }
                     })
                     .build());
 

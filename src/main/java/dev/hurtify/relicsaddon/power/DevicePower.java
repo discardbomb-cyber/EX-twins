@@ -3,7 +3,7 @@ package dev.hurtify.relicsaddon.power;
 import dev.hurtify.relicsaddon.AddonConfig;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
-import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
+import dev.hurtify.relicsaddon.relic.DeviceItem;
 import dev.hurtify.relicsaddon.relic.DeviceProgression;
 import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
@@ -31,15 +31,21 @@ public final class DevicePower {
     private static final int MANA_CHARGE_PER_PULSE = 250;
 
     public static boolean hasRf(RelicRole role) {
-        return role == RelicRole.RF_SHIELD || role == RelicRole.RF_HIVE || role == RelicRole.TWINS_SHIELD || role == RelicRole.TWINS_HIVE;
+        return switch (role) {
+            case RF_SHIELD, RF_HIVE, TWINS_SHIELD, TWINS_HIVE, RF_SHIP_GENERATOR, TWINS_SHIP_GENERATOR, RF_DRONE_DOCK, TWINS_DRONE_DOCK -> true;
+            default -> false;
+        };
     }
 
     public static boolean hasMana(RelicRole role) {
-        return role == RelicRole.MANA_SHIELD || role == RelicRole.MANA_HIVE || role == RelicRole.TWINS_SHIELD || role == RelicRole.TWINS_HIVE;
+        return switch (role) {
+            case MANA_SHIELD, MANA_HIVE, TWINS_SHIELD, TWINS_HIVE, MANA_SHIP_GENERATOR, TWINS_SHIP_GENERATOR, MANA_DRONE_DOCK, TWINS_DRONE_DOCK -> true;
+            default -> false;
+        };
     }
 
     public static RelicRole role(ItemStack stack) {
-        return stack.getItem() instanceof AutonomousRelicItem item ? item.role() : null;
+        return stack.getItem() instanceof DeviceItem item ? item.role() : null;
     }
 
     public static DeviceEnergy energy(ItemStack stack) {
@@ -169,7 +175,8 @@ public final class DevicePower {
         });
     }
 
-    private static void chargeMana(ServerPlayer player, ItemStack stack) {
+    /** Refills a device's mana battery from {@code player} (magic mods, then experience); ship blocks call this for their owner. */
+    public static void chargeMana(ServerPlayer player, ItemStack stack) {
         RelicRole role = role(stack);
         if (role == null || !hasMana(role) || !RelicRuntime.enabled(stack)) return;
         // A hive whose Armageddon is under way takes no refill: the shot holds its battery at what the shot left, so

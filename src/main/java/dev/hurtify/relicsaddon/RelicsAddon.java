@@ -23,8 +23,11 @@ public final class RelicsAddon {
         modEventBus.addListener(net.neoforged.fml.event.config.ModConfigEvent.Reloading.class, AddonConfig::onConfigLoad);
         dev.hurtify.relicsaddon.sound.RelicSounds.register(modEventBus);
         ModDataComponents.DATA_COMPONENTS.register(modEventBus);
+        dev.hurtify.relicsaddon.registry.ShipBlocks.BLOCKS.register(modEventBus);
+        dev.hurtify.relicsaddon.registry.ShipBlocks.BLOCK_ENTITIES.register(modEventBus);
         ModItems.ITEMS.register(modEventBus);
         ModCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
+        modEventBus.addListener(dev.hurtify.relicsaddon.registry.ShipBlocks::registerCapabilities);
         dev.hurtify.relicsaddon.registry.ModMenus.MENUS.register(modEventBus);
         modEventBus.addListener(dev.hurtify.relicsaddon.network.OpenDevicePayload::register);
         modEventBus.addListener(dev.hurtify.relicsaddon.network.ArmageddonPayloads::register);

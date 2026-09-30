@@ -9,6 +9,9 @@ import net.minecraft.world.item.ItemStack;
 public final class RelicRuntime {
     public static DeviceProgression progression(ItemStack stack) { return stack.getOrDefault(ModDataComponents.DEVICE_PROGRESSION.get(), DeviceProgression.DEFAULT); }
     public static boolean enabled(ItemStack stack) {
+        if (stack.getItem() instanceof dev.hurtify.relicsaddon.shipshield.ShipDeviceItem) {
+            return stack.getOrDefault(ModDataComponents.SHIP_DEVICE_STATE.get(), dev.hurtify.relicsaddon.shipshield.ShipDeviceState.DEFAULT).enabled();
+        }
         if (!(stack.getItem() instanceof AutonomousRelicItem item) || !item.role().available()) return false;
         return item.role().isHive() ? stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), dev.hurtify.relicsaddon.drone.HiveStackState.DEFAULT).enabled()
                 : stack.getOrDefault(ModDataComponents.SHIELD_STACK_STATE.get(), ShieldStackState.DEFAULT).enabled();
@@ -16,7 +19,13 @@ public final class RelicRuntime {
     public static boolean canOperate(Player player, ItemStack stack) {
         return enabled(stack) && player != null && !player.isSpectator() && dev.hurtify.relicsaddon.power.DevicePower.powered(player, stack);
     }
+    /** Flips the switch on the stack. Ship blocks go through {@code ShipDeviceBlockEntity.setEnabled}, which checks the structure first. */
     public static void setEnabled(Player player, ItemStack stack, boolean enabled) {
+        if (stack.getItem() instanceof dev.hurtify.relicsaddon.shipshield.ShipDeviceItem) {
+            var state = stack.getOrDefault(ModDataComponents.SHIP_DEVICE_STATE.get(), dev.hurtify.relicsaddon.shipshield.ShipDeviceState.DEFAULT);
+            stack.set(ModDataComponents.SHIP_DEVICE_STATE.get(), state.withEnabled(enabled));
+            return;
+        }
         if (!(stack.getItem() instanceof AutonomousRelicItem item)) return;
         AutonomousRelicItem.ensureState(stack);
         if (item.role().isHive()) {
@@ -55,11 +64,10 @@ public final class RelicRuntime {
         };
     }
     public static boolean purchaseUpgrade(ItemStack stack, String id) {
-        if (!(stack.getItem() instanceof AutonomousRelicItem item)) return false;
+        if (!(stack.getItem() instanceof DeviceItem item)) return false;
         DeviceUpgrade upgrade;
         try { upgrade = DeviceUpgrade.byId(id); } catch (IllegalArgumentException ignored) { return false; }
-        if (item.role().isShield() != (upgrade.bit() <= DeviceUpgrade.STABILIZATION.bit())) return false;
-        if (id.equals(ShieldUpgrades.GATHER) && item.role() == RelicRole.TWINS_SHIELD) return false;
+        if (!upgrade.availableFor(item.role())) return false;
         DeviceProgression state = progression(stack);
         int rank = state.rank(id);
         if (state.level() < upgrade.requiredLevel() || state.points() < 1 || rank >= 3) return false;
@@ -70,7 +78,7 @@ public final class RelicRuntime {
     public static int experienceToNext(int level) { return 60 + 40 * level + 20 * level * level; }
     public static void awardAbsorption(Player player, ItemStack stack, float value) { awardCombatExperience(player, stack, value); }
     public static void awardCombatExperience(Player player, ItemStack stack, float value) {
-        if (!(value > 0) || !Float.isFinite(value) || player.isCreative() || !(stack.getItem() instanceof AutonomousRelicItem)) return;
+        if (!(value > 0) || !Float.isFinite(value) || player.isCreative() || !(stack.getItem() instanceof DeviceItem)) return;
         int gain = ExperienceLimiter.allow(stack, player.level().getGameTime(), Math.clamp(Math.round(value * .25F), 1, 3));
         if (gain <= 0) return;
         DeviceProgression before = progression(stack);

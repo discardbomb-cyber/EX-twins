@@ -6,7 +6,11 @@ import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.registry.ModMenus;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
+import dev.hurtify.relicsaddon.relic.DeviceItem;
 import dev.hurtify.relicsaddon.relic.DeviceUpgrade;
+import dev.hurtify.relicsaddon.shipshield.ShipDeviceBlockEntity;
+import net.minecraft.core.BlockPos;
+import org.jetbrains.annotations.Nullable;
 import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.server.EquippedRelicSetResolver;
@@ -44,19 +48,29 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
     public static final int CHARGE_SLOT = 0, INVENTORY_START = CHARGE_SLOT + 1;
     public static final int INVENTORY_X = 36, INVENTORY_Y = 146;
 
+    /** How far a player may stand from a ship device block while its console is open. */
+    private static final double BLOCK_REACH_SQUARED = 8 * 8;
+
     private final Player player;
     private final boolean charm;
     private final int deviceSlot;
+    /** Set when the console addresses a ship device block instead of an item. */
+    private final @Nullable BlockPos block;
     private final String identity;
     /** Client-only presentation flag: the charge slot only shows on the batteries tab. */
     private boolean chargeVisible;
     private final SimpleContainer charge = new SimpleContainer(1);
 
     public DeviceControlMenu(int containerId, Inventory inventory, boolean charm, int deviceSlot) {
+        this(containerId, inventory, charm, deviceSlot, null);
+    }
+
+    public DeviceControlMenu(int containerId, Inventory inventory, boolean charm, int deviceSlot, @Nullable BlockPos block) {
         super(ModMenus.DEVICE_CONTROL.get(), containerId);
         this.player = inventory.player;
         this.charm = charm;
         this.deviceSlot = deviceSlot;
+        this.block = block;
         this.identity = device().getOrDefault(ModDataComponents.INSTANCE_ID.get(), "");
         addSlot(new ChargeSlot(charge, CHARGE_X, CHARGE_Y));
         for (int row = 0; row < 3; row++) {
@@ -74,13 +88,31 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
         if (!(device.getItem() instanceof AutonomousRelicItem item) || !item.role().available()) return false;
         AutonomousRelicItem.ensureState(device);
         player.openMenu(new SimpleMenuProvider((id, inventory, ignored) -> new DeviceControlMenu(id, inventory, charm, slot),
-                Component.translatable("screen.relics_addon.device_control")), buffer -> buffer.writeBoolean(charm).writeVarInt(slot));
+                Component.translatable("screen.relics_addon.device_control")), buffer -> buffer.writeBoolean(charm).writeVarInt(slot).writeBoolean(false));
         return true;
     }
 
-    public ItemStack device() { return HiveTaskController.locate(player, charm, deviceSlot); }
+    /** Server entry point for a ship device block (right-click). */
+    public static boolean openBlock(ServerPlayer player, BlockPos pos) {
+        if (!player.isAlive() || player.isSpectator() || !EquippedRelicSetResolver.isRealPlayer(player)) return false;
+        if (!(player.level().getBlockEntity(pos) instanceof ShipDeviceBlockEntity device)) return false;
+        device.deviceChanged();
+        player.openMenu(new SimpleMenuProvider((id, inventory, ignored) -> new DeviceControlMenu(id, inventory, false, -1, pos),
+                Component.translatable("screen.relics_addon.device_control")), buffer -> buffer.writeBoolean(false).writeVarInt(-1).writeBoolean(true).writeBlockPos(pos));
+        return true;
+    }
+
+    public ItemStack device() {
+        if (block != null) return blockEntity() instanceof ShipDeviceBlockEntity device ? device.device() : ItemStack.EMPTY;
+        return HiveTaskController.locate(player, charm, deviceSlot);
+    }
     public boolean charm() { return charm; }
     public int deviceSlot() { return deviceSlot; }
+    /** The ship device block this console addresses, or null for an item. */
+    public @Nullable BlockPos block() { return block; }
+    private @Nullable ShipDeviceBlockEntity blockEntity() {
+        return block != null && player.level().getBlockEntity(block) instanceof ShipDeviceBlockEntity device ? device : null;
+    }
     /** Client-side tab state: whether the charge slot can be seen and clicked. */
     public void setChargeVisible(boolean visible) {
         chargeVisible = visible;
@@ -88,17 +120,27 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
 
     private boolean deviceValid() {
         ItemStack stack = device();
-        return stack.getItem() instanceof AutonomousRelicItem && !identity.isEmpty()
+        return stack.getItem() instanceof DeviceItem && !identity.isEmpty()
                 && identity.equals(stack.getOrDefault(ModDataComponents.INSTANCE_ID.get(), ""));
     }
 
-    @Override public boolean stillValid(Player player) { return player.isAlive() && !player.isSpectator() && deviceValid(); }
+    @Override public boolean stillValid(Player player) {
+        if (!player.isAlive() || player.isSpectator() || !deviceValid()) return false;
+        return block == null || player.distanceToSqr(block.getCenter()) <= BLOCK_REACH_SQUARED;
+    }
 
     @Override public boolean clickMenuButton(Player player, int id) {
         if (!stillValid(player) || !EquippedRelicSetResolver.isRealPlayer(player)) return false;
+        boolean changed = press(player, id);
+        if (changed && blockEntity() instanceof ShipDeviceBlockEntity device) device.deviceChanged();
+        return changed;
+    }
+
+    private boolean press(Player player, int id) {
         ItemStack stack = device();
-        AutonomousRelicItem item = (AutonomousRelicItem) stack.getItem();
+        DeviceItem item = (DeviceItem) stack.getItem();
         if (id == BUTTON_TOGGLE) {
+            if (blockEntity() instanceof ShipDeviceBlockEntity device) return device.toggle(player);
             RelicRuntime.setEnabled(player, stack, !RelicRuntime.enabled(stack));
             RelicSounds.ui(player, RelicSounds.Ui.TOGGLE);
             return true;
@@ -166,7 +208,10 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
             if (from != null && from.canExtract()) {
                 int wanted = DevicePower.receiveFe(device, DevicePower.FE_TRANSFER_PER_TICK, true);
                 int moved = wanted > 0 ? from.extractEnergy(wanted, false) : 0;
-                if (moved > 0) DevicePower.receiveFe(device, moved, false);
+                if (moved > 0) {
+                    DevicePower.receiveFe(device, moved, false);
+                    if (blockEntity() instanceof ShipDeviceBlockEntity ship) ship.deviceChanged();
+                }
             }
         }
         super.broadcastChanges();
@@ -181,7 +226,7 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
         ChargeSlot(Container container, int x, int y) { super(container, 0, x, y); }
         static boolean accepts(ItemStack stack) {
             IEnergyStorage energy = stack.getCapability(Capabilities.EnergyStorage.ITEM);
-            return energy != null && energy.canExtract() && !(stack.getItem() instanceof AutonomousRelicItem);
+            return energy != null && energy.canExtract() && !(stack.getItem() instanceof DeviceItem);
         }
         @Override public boolean mayPlace(ItemStack stack) { return accepts(stack); }
         @Override public int getMaxStackSize() { return 1; }

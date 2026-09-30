@@ -9,7 +9,14 @@ public enum RelicRole {
     TWINS_DRONE("twins_drone", "twins_drone", "charm", Kind.DRONE, 0xBA75EF),
     RF_HIVE("rf_hive", "rf_hive", "charm", Kind.HIVE, 0x26C6DA),
     MANA_HIVE("mana_hive", "mana_hive", "charm", Kind.HIVE, 0x42DBC3),
-    TWINS_HIVE("twins_hive", "twins_hive", "charm", Kind.HIVE, 0xA359E6);
+    TWINS_HIVE("twins_hive", "twins_hive", "charm", Kind.HIVE, 0xA359E6),
+    // Ship devices are blocks: a shield generator and a drone dock per family (see shipshield/).
+    RF_SHIP_GENERATOR("rf_ship_shield_generator", "rf_ship_shield_generator", "", Kind.SHIP_GENERATOR, 0x26C6DA),
+    MANA_SHIP_GENERATOR("mana_ship_shield_generator", "mana_ship_shield_generator", "", Kind.SHIP_GENERATOR, 0x42DBC3),
+    TWINS_SHIP_GENERATOR("twins_ship_shield_generator", "twins_ship_shield_generator", "", Kind.SHIP_GENERATOR, 0xA359E6),
+    RF_DRONE_DOCK("rf_drone_dock", "rf_drone_dock", "", Kind.SHIP_DOCK, 0x26C6DA),
+    MANA_DRONE_DOCK("mana_drone_dock", "mana_drone_dock", "", Kind.SHIP_DOCK, 0x42DBC3),
+    TWINS_DRONE_DOCK("twins_drone_dock", "twins_drone_dock", "", Kind.SHIP_DOCK, 0xA359E6);
 
     public static final String EQUIPMENT_SLOT = "charm";
 
@@ -51,6 +58,19 @@ public enum RelicRole {
         return kind == Kind.HIVE;
     }
 
+    public boolean isShipGenerator() {
+        return kind == Kind.SHIP_GENERATOR;
+    }
+
+    public boolean isDroneDock() {
+        return kind == Kind.SHIP_DOCK;
+    }
+
+    /** Block-backed ship devices: shield generators and drone docks. */
+    public boolean isShipDevice() {
+        return kind == Kind.SHIP_GENERATOR || kind == Kind.SHIP_DOCK;
+    }
+
     /** Drone roles identify deployed hive swarm models; only shields and hives are item-backed. */
     public boolean available() {
         return isShield() || isHive();
@@ -83,6 +103,8 @@ public enum RelicRole {
     private enum Kind {
         SHIELD,
         DRONE,
-        HIVE
+        HIVE,
+        SHIP_GENERATOR,
+        SHIP_DOCK
     }
 }

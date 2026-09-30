@@ -12,7 +12,11 @@ public final class ModMenus {
     public static final DeferredRegister<MenuType<?>> MENUS = DeferredRegister.create(Registries.MENU, RelicsAddon.MOD_ID);
 
     public static final DeferredHolder<MenuType<?>, MenuType<DeviceControlMenu>> DEVICE_CONTROL = MENUS.register("device_control",
-            () -> IMenuTypeExtension.create((id, inventory, buffer) -> new DeviceControlMenu(id, inventory, buffer.readBoolean(), buffer.readVarInt())));
+            () -> IMenuTypeExtension.create((id, inventory, buffer) -> {
+                boolean charm = buffer.readBoolean();
+                int slot = buffer.readVarInt();
+                return new DeviceControlMenu(id, inventory, charm, slot, buffer.readBoolean() ? buffer.readBlockPos() : null);
+            }));
 
     private ModMenus() {
     }

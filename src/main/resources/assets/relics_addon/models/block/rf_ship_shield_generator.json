@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "relics_addon:block/ship/rf_ship_shield_generator_top",
+    "side": "relics_addon:block/ship/rf_ship_shield_generator_side",
+    "bottom": "relics_addon:block/ship/rf_ship_shield_generator_bottom"
+  }
+}

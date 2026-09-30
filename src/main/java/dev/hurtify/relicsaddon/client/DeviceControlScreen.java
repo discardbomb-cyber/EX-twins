@@ -16,6 +16,7 @@ import dev.hurtify.relicsaddon.server.HiveController;
 import dev.hurtify.relicsaddon.server.HiveTaskController;
 import dev.hurtify.relicsaddon.shield.ShieldParameters;
 import dev.hurtify.relicsaddon.shield.ShieldStackState;
+import dev.hurtify.relicsaddon.shipshield.ShipDeviceState;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -73,7 +74,8 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
     }
 
     private ItemStack device() { return menu.device(); }
-    private RelicRole role() { return device().getItem() instanceof AutonomousRelicItem item ? item.role() : RelicRole.RF_SHIELD; }
+    private RelicRole role() { return device().getItem() instanceof dev.hurtify.relicsaddon.relic.DeviceItem item ? item.role() : RelicRole.RF_SHIELD; }
+    private ShipDeviceState shipState() { return device().getOrDefault(ModDataComponents.SHIP_DEVICE_STATE.get(), ShipDeviceState.DEFAULT); }
     private int accent() { return role().color(); }
 
     private List<Tab> tabs() {
@@ -269,7 +271,16 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
 
         // Integrity (shield) or ready drones (hive), then battery charge.
         int barY = y + 100;
-        if (role().isHive()) {
+        if (role().isDroneDock()) {
+            ShipDeviceState ship = shipState();
+            labelledBar(g, x + CX, barY, 110, ship.drones() / (double) Math.max(1, ship.droneCapacity()), 0xFFE0B04A,
+                    Component.translatable("screen.relics_addon.overview_drones", ship.drones(), ship.droneCapacity()));
+        } else if (role().isShipGenerator()) {
+            ShipDeviceState ship = shipState();
+            int wanted = dronesWanted(ship);
+            labelledBar(g, x + CX, barY, 110, wanted == 0 ? 0 : Math.min(1, ship.drones() / (double) wanted), 0xFFE0B04A,
+                    Component.translatable("screen.relics_addon.overview_structure", ship.structureBlocks()));
+        } else if (role().isHive()) {
             HiveStackState hive = stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), HiveStackState.DEFAULT);
             long alive = hive.units().stream().filter(unit -> unit.hp() > 0).count();
             labelledBar(g, x + CX, barY, 110, alive / (double) Math.max(1, hiveCapacity()), 0xFFE0B04A,
@@ -303,6 +314,20 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
         ItemStack stack = device();
         if (minecraft == null || minecraft.player == null) return List.of();
         var player = minecraft.player;
+        if (role().isShipDevice()) {
+            ShipDeviceState ship = shipState();
+            List<Component> lines = new ArrayList<>();
+            lines.add(Component.translatable("screen.relics_addon.stat.structure", ship.structureBlocks()));
+            if (role().isShipGenerator()) {
+                lines.add(Component.translatable("screen.relics_addon.stat.drones_wanted", dronesWanted(ship)));
+                lines.add(Component.translatable("screen.relics_addon.stat.docks", ship.docks()));
+            } else {
+                lines.add(Component.translatable("screen.relics_addon.stat.dock_drones", ship.drones(), ship.droneCapacity()));
+            }
+            lines.add(Component.translatable("screen.relics_addon.stat.stores", ship.stores()));
+            if (!ship.notice().isEmpty()) lines.add(Component.translatable(ship.notice(), ship.detail()).withStyle(ChatFormatting.GOLD));
+            return lines;
+        }
         if (role().isHive()) {
             return List.of(
                     Component.translatable("screen.relics_addon.stat.drones", hiveCapacity()),
@@ -315,6 +340,11 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
                 Component.translatable("screen.relics_addon.stat.buffer", ShieldParameters.capacity(player, stack)),
                 Component.translatable("screen.relics_addon.stat.strike", decimal(ShieldParameters.strikeDamage(stack))),
                 Component.translatable("screen.relics_addon.stat.repair", decimal(role().repairInterval() / 20.0)));
+    }
+
+    /** Drones the structure needs, from the same rule the server uses; the config is server-side, so the default applies here. */
+    private static int dronesWanted(ShipDeviceState ship) {
+        return (ship.structureBlocks() + 63) / 64 * 8;
     }
 
     private static String decimal(double value) {
