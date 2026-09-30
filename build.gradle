@@ -260,6 +260,34 @@ tasks.named('check') {
     dependsOn 'verifyEffectLights'
     dependsOn 'verifyEffectLightSources'
     dependsOn 'verifyReleaseContents'
+    dependsOn 'verifyArchitecture'
+    dependsOn 'verifyEntrypoints'
+    dependsOn 'verifyTwinsShieldLayers'
+}
+
+// Safety net of the hexagonal migration (docs/architecture/hexagonal-migration.md, sections 3 and 11).
+// Architecture limits per stage come from section 11; the task prepends the main classes and the source root.
+def architectureArgs = ['--max-legacy', '56', '--min-domain', '0', '--min-application', '0', '--min-adapter', '0']
+
+tasks.register('verifyArchitecture', JavaExec) {
+    dependsOn tasks.named('classes'), tasks.named('testClasses')
+    classpath = sourceSets.test.output.classesDirs
+    mainClass = 'dev.hurtify.relicsaddon.contract.ArchitectureCheck'
+    args([layout.buildDirectory.dir('classes/java/main').get().asFile.absolutePath,
+          '--sources', file('src/main/java/dev/hurtify/relicsaddon').absolutePath] + architectureArgs)
+}
+
+// Classes named only in strings (the reflective client hook, the LambDynamicLights entrypoint) must resolve.
+tasks.register('verifyEntrypoints', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.contract.EntrypointCheck'
+}
+
+tasks.register('verifyTwinsShieldLayers', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.hurtify.relicsaddon.client.TwinsShieldLayerAnimationCheck'
 }
 
 tasks.register('verifyEffectLights', JavaExec) {
