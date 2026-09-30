@@ -87,9 +87,17 @@ public record HiveFlightPlan(HiveType type, int units, HiveSettings settings, in
             return occupied >= minimum();
         }
 
-        /** Its layout: a wing whose layout changes sets out afresh. */
+        /**
+         * Its layout, which drones fly which places: its first drone, its drones and its places, packed without
+         * overlap (0 for a wing on the ground). A wing whose layout changes sets out afresh.
+         */
         public int layout() {
-            return flies() ? 31 * (31 * (31 * base + pool) + slots) + first + 1 : 0;
+            return flies() ? base << 19 | pool << 8 | slots : 0;
+        }
+
+        /** The places a wing laid out as {@code layout} has. */
+        public static int slotsOf(int layout) {
+            return layout & 0xFF;
         }
     }
 
@@ -118,26 +126,35 @@ public record HiveFlightPlan(HiveType type, int units, HiveSettings settings, in
     /**
      * Places in the air for modes with {@code pools} drones and figures of {@code minimums} corners, when
      * {@code available} places are left after the healers. If every drone fits, each mode flies all of its
-     * own. Otherwise the places are shared in proportion to the drones: a mode whose share comes to fewer
-     * places than its figure has corners stays home, and the modes left share all the places again, by
-     * largest remainder so the shares add up to {@code available}. Their shares only grow, so none of them
-     * falls short in turn, and a place more never grounds a mode.
+     * own. Otherwise the places are shared in proportion to the drones, by largest remainder so the shares
+     * add up to {@code available}. A mode whose share comes to fewer places than its figure has corners stays
+     * home, and the modes left share the places again.
      */
     public static int[] seats(int[] pools, int[] minimums, int available) {
         int count = pools.length;
         available = Math.max(0, available);
+        boolean[] flies = new boolean[count];
+        for (int index = 0; index < count; index++) flies[index] = pools[index] > 0 && pools[index] >= minimums[index];
+        while (true) {
+            int[] seats = share(pools, flies, available);
+            boolean dropped = false;
+            for (int index = 0; index < count; index++) {
+                if (flies[index] && seats[index] < minimums[index]) {
+                    flies[index] = false;
+                    dropped = true;
+                }
+            }
+            if (!dropped) return seats;
+        }
+    }
+
+    /** {@code available} places shared between the modes that fly in proportion to their drones, by largest remainder; all their drones if they fit. */
+    private static int[] share(int[] pools, boolean[] flies, int available) {
+        int count = pools.length;
         int[] seats = new int[count];
         long total = 0;
-        for (int index = 0; index < count; index++) if (pools[index] >= minimums[index] && pools[index] > 0) total += pools[index];
-        boolean[] flies = new boolean[count];
-        long flying = 0;
-        for (int index = 0; index < count; index++) {
-            if (pools[index] <= 0 || pools[index] < minimums[index]) continue;
-            // Compared exactly, not rounded: rounding never decides who flies.
-            flies[index] = total <= available || (long) pools[index] * available >= (long) minimums[index] * total;
-            if (flies[index]) flying += pools[index];
-        }
-        if (flying <= available) {
+        for (int index = 0; index < count; index++) if (flies[index]) total += pools[index];
+        if (total <= available) {
             for (int index = 0; index < count; index++) if (flies[index]) seats[index] = pools[index];
             return seats;
         }
@@ -145,9 +162,9 @@ public record HiveFlightPlan(HiveType type, int units, HiveSettings settings, in
         long[] remainder = new long[count];
         for (int index = 0; index < count; index++) {
             if (!flies[index]) continue;
-            long share = (long) pools[index] * available;
-            seats[index] = (int) (share / flying);
-            remainder[index] = share % flying;
+            long exact = (long) pools[index] * available;
+            seats[index] = (int) (exact / total);
+            remainder[index] = exact % total;
             given += seats[index];
         }
         for (long left = available - given; left > 0; left--) {
@@ -168,11 +185,13 @@ public record HiveFlightPlan(HiveType type, int units, HiveSettings settings, in
         return slots;
     }
 
-    /** The unit flying each swarm-wide place, all wings together, or -1. */
-    public int[] occupants(List<HiveStackState.Unit> units, long now) {
-        int[] result = new int[slots()];
-        for (Wing wing : wings) System.arraycopy(wing.occupants(units, now), 0, result, wing.first(), wing.slots());
-        return result;
+    /**
+     * Every fighter as one wing, whatever its mode or none, with as many places as fit in the air after the
+     * healers: the Armageddon takes the whole swarm, as it did before the modes were shared out.
+     */
+    public Wing whole() {
+        int fighters = fighters();
+        return new Wing(AttackMode.BARRAGE, type, 0, fighters, Math.max(0, Math.min(fighters, HiveType.MAX_DEPLOYED - healerSlots)), 0);
     }
 
     /** Drones that do not heal. */

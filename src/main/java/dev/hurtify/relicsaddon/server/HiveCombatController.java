@@ -135,7 +135,7 @@ public final class HiveCombatController {
             state = HiveCombatState.engage(frames, now, wings(plan, ready, null, now), HiveFormation.travelTicks(owner.distanceTo(foes.getFirst())));
             if (sound()) RelicSounds.summon(level, owner.position(), type, true);
         } else {
-            int heldBefore = held(plan, before, before.targets().size());
+            int heldBefore = held(type, before, before.targets().size());
             if (!before.sameTargets(frames)) {
                 // Creatures that dropped out are let go; the drones fly straight on to the new set, not home first.
                 for (HiveTarget old : before.targets()) {
@@ -150,7 +150,7 @@ public final class HiveCombatController {
             List<HiveCombatState.Wing> wings = wings(plan, ready, before, now);
             if (!wings.equals(before.wings())) state = state.withWings(wings);
             // The containment wing took on more or fewer creatures: the other wings share the rest out anew, flying straight over.
-            if (before.sameTargets(frames) && held(plan, state, frames.size()) != heldBefore) state = state.retarget(frames, now, heldBefore);
+            if (before.sameTargets(frames) && held(type, state, frames.size()) != heldBefore) state = state.retarget(frames, now, heldBefore);
             // A containment wing that went home, or re-formed, lets go of what it held.
             HiveCombatState.Wing held = before.wing(AttackMode.CONTAINMENT), holding = state.wing(AttackMode.CONTAINMENT);
             if (held.out() && (!holding.out() || holding.layout() != held.layout())) HiveContainment.releaseAll(owner.getUUID(), type);
@@ -160,7 +160,7 @@ public final class HiveCombatController {
         tickFlights(owner, level, type, stack, shots, now);
         int interval = strikeInterval(owner, stack);
         float perDrone = attackDamage(owner, stack, type);
-        int held = held(plan, state, frames.size());
+        int held = held(type, state, frames.size());
         List<WingFight> fights = new ArrayList<>();
         for (HiveFlightPlan.Wing wing : plan.wings()) {
             HiveCombatState.Wing flying = state.wing(wing.mode());
@@ -238,10 +238,16 @@ public final class HiveCombatController {
         return Math.min(HiveCombatState.MAX_TARGETS, hold + strike);
     }
 
-    /** How many of {@code targets} creatures the containment wing holds: one per construct, the first ones. */
-    public static int held(HiveFlightPlan plan, HiveCombatState state, int targets) {
-        HiveFlightPlan.Wing hold = plan.wing(AttackMode.CONTAINMENT);
-        return state.wing(AttackMode.CONTAINMENT).out() && hold.flies() ? HiveFormation.engaged(targets, hold.figures()) : 0;
+    /**
+     * How many of {@code targets} creatures the containment wing of {@code state} holds: one per construct, the
+     * first ones. It is read from the layout the wing was set out with, so a state from before a change of
+     * orders still tells how many it held then.
+     */
+    public static int held(HiveType type, HiveCombatState state, int targets) {
+        HiveCombatState.Wing hold = state.wing(AttackMode.CONTAINMENT);
+        int slots = HiveFlightPlan.Wing.slotsOf(hold.layout());
+        if (!hold.out() || slots == 0) return 0;
+        return HiveFormation.engaged(targets, HiveSlots.figures(HiveSlots.groups(slots, AttackMode.CONTAINMENT, type), AttackMode.CONTAINMENT, type));
     }
 
     /** When a wing's cycle starts: once it has flown out, from the fight's start or from when it last set out. */
@@ -463,7 +469,7 @@ public final class HiveCombatController {
                     targets.add(entity != null ? new HiveTarget(recorded.id(), entity.position(), entity.getBbWidth(), entity.getBbHeight()) : recorded);
                 }
                 if (targets.isEmpty()) continue;
-                int interval = strikeInterval(owner, stack), held = held(plan, combat, targets.size());
+                int interval = strikeInterval(owner, stack), held = held(hive.type(), combat, targets.size());
                 List<HiveStackState.Unit> next = swarm.units();
                 for (HiveFlightPlan.Wing wing : plan.wings()) {
                     HiveCombatState.Wing flying = combat.wing(wing.mode());

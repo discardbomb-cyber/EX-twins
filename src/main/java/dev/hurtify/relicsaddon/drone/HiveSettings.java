@@ -146,7 +146,8 @@ public record HiveSettings(int healers, int droplet, int barrage, int containmen
         Notice cut = null;
         for (AttackMode mode : AttackMode.values()) {
             int count = Math.min(allocated(mode), left);
-            if (!HiveFigures.allowed(type, mode, count)) {
+            // A mode that had drones and is left short of its figure, even with none, is switched off with a notice.
+            if (allocated(mode) > 0 && count < HiveFigures.minimum(type, mode)) {
                 if (cut == null) cut = new Notice(Notice.Kind.CUT, mode, count, HiveFigures.minimum(type, mode));
                 count = 0;
             }
