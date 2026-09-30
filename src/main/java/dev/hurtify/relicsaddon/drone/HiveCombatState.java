@@ -2,10 +2,7 @@ package dev.hurtify.relicsaddon.drone;
 
 import dev.hurtify.relicsaddon.domain.hive.AttackMode;
 import dev.hurtify.relicsaddon.domain.hive.HiveType;
-import io.netty.buffer.ByteBuf;
 import java.util.List;
-import net.minecraft.network.VarInt;
-import net.minecraft.network.codec.StreamCodec;
 
 /**
  * Sparse, item-local combat replication for a virtual swarm: the locked target, when the swarm set
@@ -20,28 +17,6 @@ public record HiveCombatState(boolean active, int targetId, long changedAt,
     /** Event kinds. Kinds 0 to 3 were the single-drone shots of older versions. */
     public static final int DROPLET = 4, BALL = 5, ZAP = 6, VOID = 7, WARD = 8, INTERCEPT = 9, DRONE_HIT = 10;
     public static final HiveCombatState DEFAULT = new HiveCombatState(false, -1, 0, 0, 0, 0, AttackMode.BARRAGE, 20, List.of());
-    public static final StreamCodec<ByteBuf, HiveCombatState> STREAM_CODEC = new StreamCodec<>() {
-        @Override public void encode(ByteBuf buffer, HiveCombatState state) {
-            buffer.writeBoolean(state.active).writeInt(state.targetId).writeLong(state.changedAt)
-                    .writeDouble(state.targetX).writeDouble(state.targetY).writeDouble(state.targetZ)
-                    .writeByte(state.mode.ordinal()).writeShort(state.travel).writeByte(state.shots.size());
-            for (Shot shot : state.shots) VarInt.write(buffer, shot.unit).writeLong(shot.firedAt).writeByte(shot.kind)
-                    .writeDouble(shot.startX).writeDouble(shot.startY).writeDouble(shot.startZ)
-                    .writeDouble(shot.endX).writeDouble(shot.endY).writeDouble(shot.endZ).writeLong(shot.impactAt);
-        }
-        @Override public HiveCombatState decode(ByteBuf buffer) {
-            boolean active = buffer.readBoolean(); int target = buffer.readInt(); long changed = buffer.readLong();
-            double x = buffer.readDouble(), y = buffer.readDouble(), z = buffer.readDouble();
-            AttackMode mode = AttackMode.byOrdinal(buffer.readUnsignedByte());
-            int travel = buffer.readUnsignedShort();
-            int size = buffer.readUnsignedByte();
-            if (size > MAX_SHOTS) throw new IllegalArgumentException("Oversized hive shot packet");
-            var shots = new java.util.ArrayList<Shot>(size);
-            for (int index = 0; index < size; index++) shots.add(new Shot(VarInt.read(buffer), buffer.readLong(), buffer.readUnsignedByte(),
-                    buffer.readDouble(), buffer.readDouble(), buffer.readDouble(), buffer.readDouble(), buffer.readDouble(), buffer.readDouble(), buffer.readLong()));
-            return new HiveCombatState(active, target, changed, x, y, z, mode, travel, shots);
-        }
-    };
 
     public HiveCombatState {
         changedAt = Math.max(0, changedAt);

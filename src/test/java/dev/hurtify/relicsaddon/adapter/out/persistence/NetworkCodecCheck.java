@@ -34,8 +34,8 @@ public final class NetworkCodecCheck {
                     : HiveStackState.Unit.fresh());
         }
         HiveStackState swarm = new HiveStackState(true, units);
-        int swarmBytes = roundTrip(HiveStackState.STREAM_CODEC, swarm, "full swarm");
-        int restingBytes = roundTrip(HiveStackState.STREAM_CODEC, new HiveStackState(true,
+        int swarmBytes = roundTrip(HiveCodecs.STACK_STATE_STREAM, swarm, "full swarm");
+        int restingBytes = roundTrip(HiveCodecs.STACK_STATE_STREAM, new HiveStackState(true,
                 java.util.Collections.nCopies(HiveType.MAX_DRONES, HiveStackState.Unit.fresh())), "resting swarm");
         require(restingBytes < 800, "a resting 750-drone swarm must fit in about a byte per drone, took " + restingBytes);
 
@@ -49,11 +49,11 @@ public final class NetworkCodecCheck {
         HiveStackState afterFight = new HiveStackState(true, fought);
         HiveStackState repaired = afterFight.prepare(HiveType.MAX_DRONES, 6_000, true);
         HiveStackState settled = repaired.settle(6_000, slots, fighters, 120);
-        require(roundTrip(HiveStackState.STREAM_CODEC, repaired, "fought swarm") > 1000, "a fought swarm carries its timings");
+        require(roundTrip(HiveCodecs.STACK_STATE_STREAM, repaired, "fought swarm") > 1000, "a fought swarm carries its timings");
         require(settled.units().get(0).equals(HiveStackState.Unit.fresh()) && settled.units().get(slots).equals(HiveStackState.Unit.fresh()),
                 "a quiet lane starts afresh");
         require(!settled.units().get(3).equals(HiveStackState.Unit.fresh()), "a lane with a drone hit moments ago keeps its timings");
-        require(roundTrip(HiveStackState.STREAM_CODEC, settled, "settled swarm") < 800 + 30, "a settled swarm is back to about a byte per drone");
+        require(roundTrip(HiveCodecs.STACK_STATE_STREAM, settled, "settled swarm") < 800 + 30, "a settled swarm is back to about a byte per drone");
         for (int lane = 0; lane < slots; lane++) {
             if (lane == 3) continue;
             require(HiveSlots.occupant(settled.units(), lane, slots, fighters, 6_000) == lane, "a settled lane is flown by its first drone");
@@ -65,7 +65,7 @@ public final class NetworkCodecCheck {
                 "timings from another world's later clock are pulled back, so the drone is repaired here rather than grounded for days");
 
         // Saves keep health and repair time; older saves (one compound per drone) still load.
-        HiveStackState saved = decode(HiveStackState.CODEC, encode(HiveStackState.CODEC, swarm));
+        HiveStackState saved = decode(HiveCodecs.STACK_STATE, encode(HiveCodecs.STACK_STATE, swarm));
         for (int index = 0; index < units.size(); index++) {
             require(saved.units().get(index).hp() == units.get(index).hp() && saved.units().get(index).readyAt() == units.get(index).readyAt(),
                     "drone " + index + " lost its health or repair time in a save");
@@ -82,24 +82,24 @@ public final class NetworkCodecCheck {
             legacyUnits.add(unit);
         }
         legacy.put("units", legacyUnits);
-        HiveStackState old = decode(HiveStackState.CODEC, legacy);
+        HiveStackState old = decode(HiveCodecs.STACK_STATE, legacy);
         require(old.units().size() == 5 && old.units().get(0).hp() == HiveType.DRONE_HP && old.units().get(2).hp() == 0
                 && old.units().get(2).readyAt() == 900, "an old save must load with whole drones and the destroyed one rebuilding");
 
         // Settings: the attack mode travels and saves; old saves held only a healer count.
         for (AttackMode mode : AttackMode.values()) {
             HiveSettings settings = new HiveSettings(37, mode);
-            roundTrip(HiveSettings.STREAM_CODEC, settings, "settings " + mode);
-            require(decode(HiveSettings.CODEC, encode(HiveSettings.CODEC, settings)).equals(settings), "settings " + mode + " did not survive a save");
+            roundTrip(HiveCodecs.SETTINGS_STREAM, settings, "settings " + mode);
+            require(decode(HiveCodecs.SETTINGS, encode(HiveCodecs.SETTINGS, settings)).equals(settings), "settings " + mode + " did not survive a save");
         }
-        require(decode(HiveSettings.CODEC, IntTag.valueOf(12)).equals(new HiveSettings(12, AttackMode.BARRAGE)), "an old healer count must still load");
+        require(decode(HiveCodecs.SETTINGS, IntTag.valueOf(12)).equals(new HiveSettings(12, AttackMode.BARRAGE)), "an old healer count must still load");
 
         List<HiveCombatState.Shot> shots = new ArrayList<>();
         for (int index = 0; index < HiveCombatState.MAX_SHOTS; index++) {
             shots.add(new HiveCombatState.Shot(HiveType.MAX_DRONES - 1 - index, 5_000L + index, 4 + index % 7, 1, 2, 3, 4, 5, 6, 5_010L + index));
         }
         for (AttackMode mode : AttackMode.values()) {
-            roundTrip(HiveCombatState.STREAM_CODEC, new HiveCombatState(true, 42, 77L, 1.5, 2.5, 3.5, mode, 44, shots), "combat " + mode);
+            roundTrip(HiveCodecs.COMBAT_STATE_STREAM, new HiveCombatState(true, 42, 77L, 1.5, 2.5, 3.5, mode, 44, shots), "combat " + mode);
         }
 
         for (DeviceEnergy.ManaSource source : DeviceEnergy.ManaSource.values()) {

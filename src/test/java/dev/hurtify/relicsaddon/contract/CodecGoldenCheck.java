@@ -1,6 +1,7 @@
 package dev.hurtify.relicsaddon.contract;
 
 import com.mojang.serialization.Codec;
+import dev.hurtify.relicsaddon.adapter.out.persistence.HiveCodecs;
 import dev.hurtify.relicsaddon.adapter.out.persistence.LegacyDroneStackState;
 import dev.hurtify.relicsaddon.domain.hive.AttackMode;
 import dev.hurtify.relicsaddon.domain.hive.HiveType;
@@ -89,16 +90,16 @@ public final class CodecGoldenCheck {
     }
 
     private void hive() {
-        Wire<HiveSettings> settings = wire(HiveSettings.STREAM_CODEC);
-        value("hive_settings/DEFAULT", HiveSettings.CODEC, settings, HiveSettings.DEFAULT);
-        for (AttackMode mode : AttackMode.values()) value("hive_settings/37 " + mode, HiveSettings.CODEC, settings, new HiveSettings(37, mode));
-        value("hive_settings/750 CONTAINMENT", HiveSettings.CODEC, settings, new HiveSettings(750, AttackMode.CONTAINMENT));
-        nbtInput("hive_settings/nbt IntTag 12", HiveSettings.CODEC, settings, IntTag.valueOf(12));
-        streamInput("hive_settings/stream healers 751", HiveSettings.CODEC, settings, new byte[] {0x02, (byte) 0xEF, 0x01});
+        Wire<HiveSettings> settings = wire(HiveCodecs.SETTINGS_STREAM);
+        value("hive_settings/DEFAULT", HiveCodecs.SETTINGS, settings, HiveSettings.DEFAULT);
+        for (AttackMode mode : AttackMode.values()) value("hive_settings/37 " + mode, HiveCodecs.SETTINGS, settings, new HiveSettings(37, mode));
+        value("hive_settings/750 CONTAINMENT", HiveCodecs.SETTINGS, settings, new HiveSettings(750, AttackMode.CONTAINMENT));
+        nbtInput("hive_settings/nbt IntTag 12", HiveCodecs.SETTINGS, settings, IntTag.valueOf(12));
+        streamInput("hive_settings/stream healers 751", HiveCodecs.SETTINGS, settings, new byte[] {0x02, (byte) 0xEF, 0x01});
 
-        Wire<HiveStackState> swarm = wire(HiveStackState.STREAM_CODEC);
-        value("hive_stack_state/DEFAULT", HiveStackState.CODEC, swarm, HiveStackState.DEFAULT);
-        value("hive_stack_state/12 fresh units", HiveStackState.CODEC, swarm,
+        Wire<HiveStackState> swarm = wire(HiveCodecs.STACK_STATE_STREAM);
+        value("hive_stack_state/DEFAULT", HiveCodecs.STACK_STATE, swarm, HiveStackState.DEFAULT);
+        value("hive_stack_state/12 fresh units", HiveCodecs.STACK_STATE, swarm,
                 new HiveStackState(true, Collections.nCopies(12, HiveStackState.Unit.fresh())));
         // The 750-drone mix of NetworkCodecCheck: every ninth drone hit, rebuilding and pacing a mend.
         List<HiveStackState.Unit> units = new ArrayList<>();
@@ -106,7 +107,7 @@ public final class CodecGoldenCheck {
             units.add(index % 9 == 0 ? new HiveStackState.Unit(index % 4, 1_000_000L + index, 2_000_000L + index, 3_000_000L + index)
                     : HiveStackState.Unit.fresh());
         }
-        value("hive_stack_state/750 mix", HiveStackState.CODEC, swarm, new HiveStackState(true, units));
+        value("hive_stack_state/750 mix", HiveCodecs.STACK_STATE, swarm, new HiveStackState(true, units));
         CompoundTag legacy = new CompoundTag();
         legacy.putBoolean("enabled", true);
         ListTag legacyUnits = new ListTag();
@@ -121,11 +122,11 @@ public final class CodecGoldenCheck {
             legacyUnits.add(unit);
         }
         legacy.put("units", legacyUnits);
-        nbtInput("hive_stack_state/nbt legacy units", HiveStackState.CODEC, swarm, legacy);
-        streamInput("hive_stack_state/stream count 751", HiveStackState.CODEC, swarm, new byte[] {0x01, (byte) 0xEF, 0x05});
+        nbtInput("hive_stack_state/nbt legacy units", HiveCodecs.STACK_STATE, swarm, legacy);
+        streamInput("hive_stack_state/stream count 751", HiveCodecs.STACK_STATE, swarm, new byte[] {0x01, (byte) 0xEF, 0x05});
 
         // The combat state is synced only (S3 dropped its unused NBT codec), so it has no NBT column.
-        Wire<HiveCombatState> combat = wire(HiveCombatState.STREAM_CODEC);
+        Wire<HiveCombatState> combat = wire(HiveCodecs.COMBAT_STATE_STREAM);
         value("hive_combat_state/DEFAULT", null, combat, HiveCombatState.DEFAULT);
         List<HiveCombatState.Shot> shots = new ArrayList<>();
         for (int index = 0; index < HiveCombatState.MAX_SHOTS; index++) {
@@ -142,7 +143,7 @@ public final class CodecGoldenCheck {
         oversized[none.length - 1] = (byte) (HiveCombatState.MAX_SHOTS + 1);
         streamInput("hive_combat_state/stream 101 shots", null, combat, oversized);
 
-        Wire<HiveSupportState> support = wire(HiveSupportState.STREAM_CODEC);
+        Wire<HiveSupportState> support = wire(HiveCodecs.SUPPORT_STATE_STREAM);
         value("hive_support_state/DEFAULT", null, support, HiveSupportState.DEFAULT);
         value("hive_support_state/true 123456789", null, support, new HiveSupportState(true, 123456789L));
     }
