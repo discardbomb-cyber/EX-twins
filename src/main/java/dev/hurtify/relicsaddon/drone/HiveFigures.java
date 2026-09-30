@@ -17,9 +17,9 @@ public final class HiveFigures {
             };
             case BARRAGE -> HiveFormation.patternCorners(type);
             case CONTAINMENT -> switch (type) {
-                case RF -> HiveShapes.RING_RADII.length * HiveShapes.ringCorners(false);
-                case MANA -> HiveShapes.WARD_CORNERS;
-                case TWINS -> HiveShapes.RING_RADII.length * HiveShapes.ringCorners(true);
+                case RF -> HiveConstructs.CAGE_CORNERS;
+                case MANA -> HiveConstructs.LOTUS_CORNERS;
+                case TWINS -> HiveConstructs.RIFT_CORNERS;
             };
         };
     }

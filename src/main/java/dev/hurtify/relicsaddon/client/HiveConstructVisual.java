@@ -1,0 +1,182 @@
+package dev.hurtify.relicsaddon.client;
+
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import dev.hurtify.relicsaddon.drone.HiveConstructs;
+import dev.hurtify.relicsaddon.drone.HiveFormation;
+import dev.hurtify.relicsaddon.drone.HiveShapes;
+import java.util.List;
+import net.minecraft.world.phys.Vec3;
+import org.joml.Matrix4f;
+
+/**
+ * The light of the containment constructs, drawn from drone to drone: every line joins two drones and goes
+ * out when either is away, so the drones are the constructs' corners. A scene here is the part of a swarm
+ * round one creature ({@link HiveModeVisual#part}), its drones numbered as {@link HiveConstructs} lays them out.
+ * <ul>
+ *   <li>RF, the Faraday cage: nearly clear panels, conductors along the edges with blue and orange currents
+ *   running down them, and sparks at the joints.</li>
+ *   <li>Mana, the lotus: glass petals, teal at the heart and gold at the rim, with golden motes running up
+ *   their edges to the drones as the drones charge the ward.</li>
+ *   <li>Twins, the rift: hexagonal shards of space with the void and its stars showing through them, cracks
+ *   running out from the creature to them, and the world round it bent and darkened.</li>
+ * </ul>
+ */
+final class HiveConstructVisual {
+    private static final int ORANGE = 0xFFB347, GOLD = 0xFFD27A, VOID = 0x05010A;
+
+    static void render(HiveModeVisual.Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
+        switch (s.type()) {
+            case RF -> cage(s, camera, glow, fill, m, color);
+            case MANA -> lotus(s, camera, glow, fill, m, color);
+            case TWINS -> rift(s, camera, glow, fill, m, color);
+        }
+    }
+
+    /** A drone's place relative to the camera, or null if its place is empty. */
+    private static Vec3 at(HiveModeVisual.Scene s, int slot, Vec3 camera) {
+        Vec3[] drones = s.drones();
+        return slot >= 0 && slot < drones.length && drones[slot] != null ? drones[slot].subtract(camera) : null;
+    }
+
+    private static double closing(HiveModeVisual.Scene s) {
+        return Math.clamp(HiveFormation.constructAge(s.time(), s.cycleStart()) / HiveConstructs.CLOSING, 0, 1);
+    }
+
+    // --- RF --------------------------------------------------------------------------------------------
+
+    private static void cage(HiveModeVisual.Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
+        int count = s.slots();
+        double time = s.time(), shut = closing(s);
+        // Panels: all but clear, a little brighter at their rims where they catch the eye edge-on.
+        for (int[] face : HiveConstructs.cageFaces(count)) {
+            Vec3 a = at(s, face[0], camera), b = at(s, face[1], camera), c = at(s, face[2], camera);
+            if (a == null || b == null || c == null) continue;
+            Vec3 middle = a.add(b).add(c).scale(1 / 3.0), normal = b.subtract(a).cross(c.subtract(a));
+            double edgeOn = normal.lengthSqr() < 1e-12 ? 0 : 1 - Math.abs(normal.normalize().dot(GlowBrush.view(middle)));
+            double alpha = (8 + 26 * edgeOn * edgeOn) * shut;
+            int tint = GlowBrush.mix(0x06222B, color, .25 + .5 * edgeOn);
+            GlowBrush.quad(fill, m, a, b, c, c, tint, tint, tint, tint, alpha, alpha, alpha, alpha);
+        }
+        List<int[]> edges = HiveConstructs.cageEdges(count);
+        for (int index = 0; index < edges.size(); index++) {
+            int[] edge = edges.get(index);
+            Vec3 a = at(s, edge[0], camera), b = at(s, edge[1], camera);
+            if (a == null || b == null) continue;
+            GlowBrush.beam(glow, m, a, b, .016, color, 95 + 40 * shut);
+            // Currents run down every third conductor, blue one way and orange the other.
+            if (index % 3 == 0) {
+                double run = (time * (.045 + .03 * hash(index, 1)) + hash(index, 2)) % 1;
+                boolean back = index % 2 == 0;
+                GlowBrush.dot(glow, m, back ? b.lerp(a, run) : a.lerp(b, run), .07, back ? ORANGE : 0xBFF6FF, 190 * Math.sin(Math.PI * run));
+            }
+        }
+        // Sparks at the joints, a few at a time.
+        long beat = (long) Math.floor(time / 5);
+        for (int slot = 0; slot < count; slot++) {
+            Vec3 node = at(s, slot, camera);
+            if (node == null) continue;
+            GlowBrush.dot(glow, m, node, .05, 0xD8FCFF, 140);
+            if (hash(slot, (int) beat) < .06) {
+                double flash = 1 - (time / 5 - beat);
+                GlowBrush.dot(glow, m, node, .22, GlowBrush.mix(color, 0xFFFFFF, .6), 230 * flash);
+            }
+        }
+    }
+
+    // --- Mana ------------------------------------------------------------------------------------------
+
+    private static void lotus(HiveModeVisual.Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
+        int count = s.slots(), tiers = HiveConstructs.lotusTiers(count);
+        double time = s.time(), shut = closing(s);
+        Vec3 base = at(s, 0, camera);
+        if (base == null) return;
+        int rim = GlowBrush.mix(color, GOLD, .55);
+        for (int tier = 0; tier < tiers; tier++) for (int p = 0; p < HiveConstructs.PETALS; p++) {
+            int first = 1 + (tier * HiveConstructs.PETALS + p) * HiveConstructs.PETAL_CORNERS;
+            Vec3 left = at(s, first, camera), right = at(s, first + 1, camera), tip = at(s, first + 2, camera);
+            if (left == null || right == null || tip == null) continue;
+            // Glass: a faint body, teal at the heart and gold towards the tip, brighter edge-on.
+            Vec3 normal = left.subtract(base).cross(right.subtract(base));
+            double edgeOn = normal.lengthSqr() < 1e-12 ? 0 : 1 - Math.abs(normal.normalize().dot(GlowBrush.view(tip)));
+            double body = (14 + 40 * edgeOn) * (.5 + .5 * shut);
+            int heart = GlowBrush.mix(0x0B5E62, color, .4), edge = GlowBrush.mix(color, GOLD, .7);
+            GlowBrush.quad(fill, m, base, left, tip, right, heart, GlowBrush.mix(heart, edge, .5), edge, GlowBrush.mix(heart, edge, .5),
+                    body * .6, body, body * 1.3, body);
+            double shine = 120 + 30 * Math.sin(time * .08 + p + tier);
+            GlowBrush.beam(glow, m, base, left, .016, color, shine * .7);
+            GlowBrush.beam(glow, m, base, right, .016, color, shine * .7);
+            GlowBrush.beam(glow, m, left, tip, .02, rim, shine);
+            GlowBrush.beam(glow, m, right, tip, .02, rim, shine);
+            // Golden motes run up the petal's edges to its drones: the drones charging the ward.
+            double run = (time * .03 + hash(tier * 7 + p, 3)) % 1;
+            GlowBrush.dot(glow, m, base.lerp(left, run).lerp(tip, run * run), .06, GOLD, 200 * Math.sin(Math.PI * run));
+            GlowBrush.dot(glow, m, tip, .09, GlowBrush.mix(GOLD, 0xFFFFFF, .4), 170);
+        }
+        for (int[] edge : HiveConstructs.lotusEdges(count)) {
+            if (edge[0] < 1 + tiers * HiveConstructs.PETALS * HiveConstructs.PETAL_CORNERS) continue;
+            Vec3 a = at(s, edge[0], camera), b = at(s, edge[1], camera);
+            if (a != null && b != null) GlowBrush.line(glow, m, a, b, .012, rim, 80);
+        }
+        GlowBrush.dot(glow, m, base, .2, GOLD, 180);
+    }
+
+    // --- Twins -----------------------------------------------------------------------------------------
+
+    private static void rift(HiveModeVisual.Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
+        int count = s.slots(), shards = HiveConstructs.shards(count);
+        double time = s.time(), open = closing(s);
+        Vec3 core = HiveFormation.core(s.target(), s.height()).subtract(camera);
+        int edge = GlowBrush.mix(color, 0xE7C6FF, .35);
+        for (int shard = 0; shard < shards; shard++) {
+            Vec3[] corners = new Vec3[HiveConstructs.SHARD_CORNERS];
+            boolean whole = true;
+            for (int corner = 0; corner < corners.length; corner++) {
+                corners[corner] = at(s, shard + corner * shards, camera);
+                whole &= corners[corner] != null;
+            }
+            if (!whole) continue;
+            Vec3 middle = Vec3.ZERO;
+            for (Vec3 corner : corners) middle = middle.add(corner);
+            middle = middle.scale(1.0 / corners.length);
+            // The void behind the shard, and its stars.
+            for (int corner = 0; corner < corners.length; corner++) {
+                Vec3 a = corners[corner], b = corners[(corner + 1) % corners.length];
+                GlowBrush.quad(fill, m, middle, a, b, b, VOID, 0x12031F, 0x12031F, 0x12031F, 230 * open, 200 * open, 200 * open, 200 * open);
+            }
+            for (int star = 0; star < 9; star++) {
+                double u = hash(shard * 31 + star, 5) * 2 - 1, v = hash(shard * 31 + star, 6) * 2 - 1;
+                Vec3 point = middle.add(corners[0].subtract(middle).scale(u * .7)).add(corners[2].subtract(middle).scale(v * .45));
+                double twinkle = .6 + .4 * Math.sin(time * .3 + star * 2.1 + shard);
+                GlowBrush.dot(glow, m, point, .03, star % 3 == 0 ? 0xE7C6FF : 0xFFFFFF, 170 * twinkle * open);
+            }
+            for (int corner = 0; corner < corners.length; corner++) {
+                GlowBrush.beam(glow, m, corners[corner], corners[(corner + 1) % corners.length], .02, edge, 150);
+            }
+            // A crack from the creature out to the shard, re-forking now and then.
+            long flicker = (long) Math.floor(time / 3);
+            GlowBrush.lightning(glow, m, core, middle, flicker * 97 + shard * 13L, 6, .12, .01, 0xE7C6FF, 120 * open);
+        }
+        GlowBrush.dot(glow, m, core, .4 * open, color, 90);
+    }
+
+    /** Queues the rift's pull on the world round it: bent and darkened, the nearer the darker. */
+    static void lens(HiveModeVisual.Scene s, Vec3 camera) {
+        double room = HiveFormation.enclosure(s.width(), s.height()), open = closing(s);
+        if (open <= 0) return;
+        Vec3 core = HiveFormation.core(s.target(), s.height()).subtract(camera);
+        double horizon = room * .55 * open;
+        BlackHoleLens.queue(core, horizon, room * (HiveConstructs.RIFT_DISTANCE + HiveConstructs.SHARD_SIZE) * 2.6);
+    }
+
+    private static double hash(int index, int salt) {
+        long h = index * 0x9E3779B97F4A7C15L ^ salt * 0x165667B19E3779F9L;
+        h ^= h >>> 33;
+        h *= 0xFF51AFD7ED558CCDL;
+        h ^= h >>> 33;
+        h *= 0xC4CEB9FE1A85EC53L;
+        h ^= h >>> 33;
+        return (h >>> 11) * 0x1.0p-53;
+    }
+
+    private HiveConstructVisual() { }
+}

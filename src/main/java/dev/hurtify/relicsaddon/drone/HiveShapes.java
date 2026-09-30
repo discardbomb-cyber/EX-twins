@@ -1,5 +1,7 @@
 package dev.hurtify.relicsaddon.drone;
 
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -21,13 +23,45 @@ public final class HiveShapes {
     public static final int TESSERACT_CORNERS = 1 << 4;
 
     public static Vec3 tesseract(int m, int count, double time, double size) {
-        double[] p = tesseractPoint(m, count);
-        return project(p, time, size);
+        return tesseract(m, count, time, size, 0);
+    }
+
+    /**
+     * As above, {@code collapse} of the way (0 to 1) to a plain cube: its turn through the fourth dimension
+     * unwinds and the inner cube swells out onto the outer one, each corner of it doubled.
+     */
+    public static Vec3 tesseract(int m, int count, double time, double size, double collapse) {
+        return project(tesseractPoint(m, count), time, size, collapse);
     }
 
     /** One of the sixteen corners, projected; for drawing the edges between drones. */
     public static Vec3 tesseractCorner(int corner, double time, double size) {
-        return project(corner(corner), time, size);
+        return tesseractCorner(corner, time, size, 0);
+    }
+
+    public static Vec3 tesseractCorner(int corner, double time, double size, double collapse) {
+        return project(corner(corner), time, size, collapse);
+    }
+
+    /**
+     * The places past the corners, in order: the middles of the 24 square faces, of the 8 cubic cells, then of
+     * the 32 edges; after them, points further along the edges. Drones fill the finer points of the figure,
+     * not beads along its lines.
+     */
+    private static final double[][] TESSERACT_FINE = fine();
+
+    private static double[][] fine() {
+        List<double[]> points = new ArrayList<>();
+        for (int zeros : new int[]{2, 3, 1}) for (int index = 0; index < 81; index++) {
+            double[] p = new double[4];
+            int code = index, count = 0;
+            for (int axis = 0; axis < 4; axis++, code /= 3) {
+                p[axis] = code % 3 - 1;
+                if (p[axis] == 0) count++;
+            }
+            if (count == zeros) points.add(p);
+        }
+        return points.toArray(double[][]::new);
     }
 
     /** The 32 edges as pairs of corner indices (corners differing in exactly one coordinate). */
@@ -35,7 +69,9 @@ public final class HiveShapes {
 
     private static double[] tesseractPoint(int m, int count) {
         if (m < TESSERACT_CORNERS) return corner(m);
-        int extra = m - TESSERACT_CORNERS, layers = Math.max(1, (count - TESSERACT_CORNERS + 31) / 32);
+        if (m < TESSERACT_CORNERS + TESSERACT_FINE.length) return TESSERACT_FINE[m - TESSERACT_CORNERS];
+        int start = TESSERACT_CORNERS + TESSERACT_FINE.length;
+        int extra = m - start, layers = Math.max(1, (count - start + 31) / 32);
         int[] edge = TESSERACT_EDGES[extra % 32];
         double along = (extra / 32 + 1) / (double) (layers + 1);
         double[] a = corner(edge[0]), b = corner(edge[1]);
@@ -56,10 +92,12 @@ public final class HiveShapes {
         return result;
     }
 
-    /** Rotates through the XW and YZ planes, then projects from four dimensions with perspective. */
-    private static Vec3 project(double[] p, double time, double size) {
+    /** Rotates through the XW and YZ planes, then projects from four dimensions with perspective; a collapse unwinds the XW turn and flattens the fourth dimension away. */
+    private static Vec3 project(double[] p, double time, double size, double collapse) {
+        collapse = Math.clamp(collapse, 0, 1);
         double a = time * .045, b = time * .021;
-        double x = p[0] * Math.cos(a) - p[3] * Math.sin(a), w = p[0] * Math.sin(a) + p[3] * Math.cos(a);
+        a -= Math.IEEEremainder(a, Math.PI / 2) * collapse;
+        double x = p[0] * Math.cos(a) - p[3] * Math.sin(a), w = (p[0] * Math.sin(a) + p[3] * Math.cos(a)) * (1 - collapse);
         double y = p[1] * Math.cos(b) - p[2] * Math.sin(b), z = p[1] * Math.sin(b) + p[2] * Math.cos(b);
         double perspective = 2.6 / (3.6 - w);
         return new Vec3(x * perspective * size, y * perspective * size, z * perspective * size);

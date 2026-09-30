@@ -395,7 +395,7 @@ public final class HiveModeGameTests {
         helper.assertTrue(shrunk.droplet() == 90 && shrunk.barrage() == 4 && shrunk.containment() == 0, "six drones cannot hold anything: " + shrunk);
         HiveSettings.Notice notice = shrunk.notice();
         helper.assertTrue(notice != null && notice.kind() == HiveSettings.Notice.Kind.CUT && notice.mode() == AttackMode.CONTAINMENT
-                && notice.had() == 6 && notice.need() == 18, "the notice says which mode and why: " + notice);
+                && notice.had() == 6 && notice.need() == HiveFigures.minimum(HiveType.RF, AttackMode.CONTAINMENT), "the notice says which mode and why: " + notice);
         helper.assertTrue(shrunk.free(100) == 6, "its drones are freed");
         // The owner's next change is theirs: the notice goes.
         DeviceControlMenu menu = new DeviceControlMenu(0, player.getInventory(), true, 0);

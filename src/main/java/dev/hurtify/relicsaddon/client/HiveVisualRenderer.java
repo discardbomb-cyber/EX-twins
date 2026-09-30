@@ -3,6 +3,7 @@ package dev.hurtify.relicsaddon.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import dev.hurtify.relicsaddon.drone.Armageddon;
+import dev.hurtify.relicsaddon.drone.AttackMode;
 import dev.hurtify.relicsaddon.drone.ArmageddonState;
 import dev.hurtify.relicsaddon.drone.HiveCombatState;
 import dev.hurtify.relicsaddon.drone.HiveFormation;
@@ -213,8 +214,11 @@ public final class HiveVisualRenderer {
                     Vec3 at = HiveFormation.deployed(owner, yaw, station, unit, count, type, time, launched, combat.travel());
                     HiveTarget target = wingTargets.get(group % engaged);
                     members[group]++;
-                    drones[slot] = at;
                     seen[unit] = at;
+                    // A Twins figure between the rifts of its jump is nowhere to be seen.
+                    if (wing.mode() == AttackMode.DROPLET && type == HiveType.TWINS && HiveFormation.dropletHidden(type, HiveFormation.sortie(owner,
+                            wingTargets.getFirst().feet(), target.feet(), target.height(), group, groups, time, cycleStart, interval))) continue;
+                    drones[slot] = at;
                     drawDrone(minecraft, event, player, type, at, HiveFormation.core(target.feet(), target.height()), appear, count, camera, poses, glow, budget);
                 }
                 scenes.add(new HiveModeVisual.Scene(wing.mode(), type, wing.slots(), groups, members, drones, owner, List.copyOf(wingTargets), time,
