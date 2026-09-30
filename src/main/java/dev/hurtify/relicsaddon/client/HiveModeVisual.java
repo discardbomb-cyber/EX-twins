@@ -40,7 +40,7 @@ public final class HiveModeVisual {
         public Vec3 target() { return targets.getFirst().feet(); }
         public double width() { return targets.getFirst().width(); }
         public double height() { return targets.getFirst().height(); }
-        public int engaged() { return HiveFormation.engaged(targets.size(), groups); }
+        public int engaged() { return HiveFormation.engaged(targets.size(), HiveSlots.figures(groups, mode, type)); }
         public HiveTarget targetOf(int group) { return targets.get(group % engaged()); }
         public int timingGroup(int group) { return timing == null ? group : timing[group]; }
     }

@@ -284,16 +284,30 @@ public final class HiveFormation {
      */
     public static Vec3 station(AttackMode mode, HiveType type, int slot, int slots, Vec3 owner, Vec3 target, double targetWidth,
             double targetHeight, double time, double cycleStart, int interval) {
-        return stationIn(mode, type, slot, slots, HiveSlots.groups(Math.max(1, slots), mode), owner, target, targetWidth, targetHeight,
+        return stationIn(mode, type, slot, slots, HiveSlots.groups(Math.max(1, slots), mode, type), owner, target, targetWidth, targetHeight,
                 time, cycleStart, interval);
     }
 
     /** Ticks drones take to fly from their old places to their new ones when the swarm changes targets. */
     public static final int RETARGET_TICKS = 20;
 
-    /** How many of {@code targets} creatures the swarm engages: one strike group each at least. */
-    public static int engaged(int targets, int groups) {
-        return Math.max(1, Math.min(targets, Math.max(1, groups)));
+    /**
+     * The creatures a wing of {@code mode} takes on, in its own order, when the containment wing holds the
+     * first {@code held}: containment those, one per construct; Droplet and Barrage the ones not held first,
+     * then the held ones, so creatures beyond the constructs fall to them.
+     */
+    public static <T> List<T> wingTargets(AttackMode mode, List<T> targets, int held) {
+        held = Math.clamp(held, 0, targets.size());
+        if (mode == AttackMode.CONTAINMENT) return held == 0 ? targets : targets.subList(0, held);
+        if (held == 0 || held == targets.size()) return targets;
+        List<T> order = new ArrayList<>(targets.subList(held, targets.size()));
+        order.addAll(targets.subList(0, held));
+        return order;
+    }
+
+    /** How many of {@code targets} creatures a wing that makes {@code figures} figures ({@link HiveSlots#figures}) engages: one figure each at least. */
+    public static int engaged(int targets, int figures) {
+        return Math.max(1, Math.min(targets, Math.max(1, figures)));
     }
 
     /**
@@ -307,7 +321,7 @@ public final class HiveFormation {
         if (targets.isEmpty()) return owner;
         slots = Math.max(1, slots);
         slot = Math.clamp(slot, 0, slots - 1);
-        int groups = HiveSlots.groups(slots, mode), engaged = engaged(targets.size(), groups);
+        int groups = HiveSlots.groups(slots, mode, type), engaged = engaged(targets.size(), HiveSlots.figures(groups, mode, type));
         int group = HiveSlots.group(slot, groups), member = HiveSlots.member(slot, groups), index = group % engaged;
         HiveTarget target = targets.get(index);
         if (mode == AttackMode.DROPLET) {
@@ -331,8 +345,8 @@ public final class HiveFormation {
         double progress = (time - retargetedAt) / RETARGET_TICKS;
         if (previous.isEmpty() || targets.isEmpty() || !(progress >= 0 && progress < 1)) return now;
         slots = Math.max(1, slots);
-        int groups = HiveSlots.groups(slots, mode), group = HiveSlots.group(Math.clamp(slot, 0, slots - 1), groups);
-        int engaged = engaged(targets.size(), groups), before = engaged(previous.size(), groups);
+        int groups = HiveSlots.groups(slots, mode, type), group = HiveSlots.group(Math.clamp(slot, 0, slots - 1), groups);
+        int figures = HiveSlots.figures(groups, mode, type), engaged = engaged(targets.size(), figures), before = engaged(previous.size(), figures);
         boolean unchanged = engaged == before && targets.get(group % engaged).id() == previous.get(group % before).id()
                 && (mode != AttackMode.DROPLET || targets.getFirst().id() == previous.getFirst().id());
         if (unchanged) return now;

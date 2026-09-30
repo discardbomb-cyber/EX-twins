@@ -150,7 +150,7 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
                     AttackMode mode = modes[index];
                     controls.add(new Control(CX + index * (modeWidth + 2), 50, modeWidth, 14,
                             () -> Component.translatable("screen.relics_addon.mode." + mode.id()),
-                            () -> true, () -> HiveTaskController.settings(device()).mode() == mode,
+                            () -> true, () -> HiveTaskController.settings(device()).allocated(mode) > 0,
                             () -> press(DeviceControlMenu.BUTTON_MODE_BASE + mode.ordinal()),
                             () -> List.of(Component.translatable("screen.relics_addon.mode." + mode.id()).withStyle(ChatFormatting.AQUA),
                                     Component.translatable("screen.relics_addon.mode." + mode.id() + ".hint." + role().itemId()).withStyle(ChatFormatting.GRAY))));
