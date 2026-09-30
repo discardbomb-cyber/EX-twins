@@ -32,7 +32,7 @@ public final class HiveJuice {
     private record Impact(Vec3 at, Vec3 normal, HiveType type, int style, double start, double strength, long key, double ground) { }
 
     /** The kinds of blow, which set how it bursts. */
-    public static final int STRIKE = 0, CHARGE = 1, ZAP = 2, SPARK = 3, GROUNDED = 4, REFLECTED = 5;
+    public static final int STRIKE = 0, CHARGE = 1, ZAP = 2, SPARK = 3, GROUNDED = 4, REFLECTED = 5, PUFF = 6;
     private static final List<Impact> IMPACTS = new ArrayList<>();
     private static final int MAX_IMPACTS = 48;
     /** Ticks a blow lasts in all, its core flash, and its shock ring. */
@@ -79,14 +79,27 @@ public final class HiveJuice {
                 continue;
             }
             if (age < 0) continue;
-            burst(impact, age, life, camera, glow, fill, m, detail);
+            burst(impact, age, life, camera, glow, fill, m, detail, impact.at.distanceToSqr(camera) < FAR * FAR);
         }
     }
 
-    private static void burst(Impact hit, double age, double life, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, Detail detail) {
+    /** Beyond this many blocks a blow keeps its flash and rings but not its sparks or what lingers after it. */
+    private static final double FAR = 40;
+
+    private static void burst(Impact hit, double age, double life, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, Detail detail, boolean near) {
         int color = HiveModeVisual.color(hit.type), hot = GlowBrush.mix(color, 0xFFFFFF, .6);
         Vec3 at = hit.at.subtract(camera);
         double s = hit.strength;
+        if (hit.style == PUFF) {
+            // A puff of dark violet smoke rolling up and thinning.
+            double fade = Math.sin(Math.PI * Math.min(1, age / life));
+            for (int puff = 0; puff < 4; puff++) {
+                double swirl = age * .07 + puff * 1.6, rise = age * (.035 + .02 * hash(hit.key, puff));
+                Vec3 centre = at.add(Math.cos(swirl) * .3 * s, rise + puff * .12, Math.sin(swirl) * .3 * s);
+                GlowBrush.sphere(fill, m, centre, (.18 + .02 * age) * s, 0x0A0612, 0x3A0F66, 80 * fade, 25 * fade, 6);
+            }
+            return;
+        }
         // The core: white for a frame or two, then the family's colour, gone within a few ticks.
         if (age < FLASH) GlowBrush.dot(glow, m, at, .45 * s, 0xFFFFFF, 255 * (1 - age / FLASH));
         if (age < 6) GlowBrush.dot(glow, m, at, (.3 + .25 * age / 6) * s, age < FLASH ? hot : color, 200 * (1 - age / 6));
@@ -101,10 +114,10 @@ public final class HiveJuice {
         if (grounded && hit.style != SPARK && hit.style != GROUNDED && hit.style != REFLECTED) {
             Vec3 floor = new Vec3(hit.at.x, hit.ground, hit.at.z).subtract(camera);
             double t = Math.min(1, age / (RING * 1.4)), radius = s * (.5 + 3.4 * (1 - (1 - t) * (1 - t)));
-            GlowBrush.circle(glow, m, floor, new Vec3(1, 0, 0), new Vec3(0, 0, 1), radius, 56, .04 * (1 - t) + .01, color, 170 * (1 - t));
-            linger(hit, age, life, floor, glow, fill, m, color);
+            GlowBrush.circle(glow, m, floor, new Vec3(1, 0, 0), new Vec3(0, 0, 1), radius, 40, .04 * (1 - t) + .01, color, 170 * (1 - t));
+            if (near) linger(hit, age, life, floor, glow, fill, m, color);
         }
-        sparks(hit, age, at, glow, m, detail, color, hot);
+        if (near) sparks(hit, age, at, glow, m, detail, color, hot);
         if (hit.style == CHARGE) shot(hit, age, at, glow, fill, m, hot);
         if (hit.style == GROUNDED && age < 7 && grounded) {
             // A shot the cage caught runs off it into the ground as branching lightning.
@@ -172,10 +185,10 @@ public final class HiveJuice {
             }
             case MANA -> {
                 // Ripples as on water: rings running out one after another, each fainter.
-                for (int ring = 0; ring < 4; ring++) {
-                    double t = (age - ring * 3) / 18;
+                for (int ring = 0; ring < 3; ring++) {
+                    double t = (age - ring * 4) / 18;
                     if (t <= 0 || t >= 1) continue;
-                    GlowBrush.circle(glow, m, floor, x, z, s * (.4 + 3.2 * t), 64, .012, GlowBrush.mix(color, 0xFFFFFF, .3), 150 * (1 - t) * fade);
+                    GlowBrush.circle(glow, m, floor, x, z, s * (.4 + 3.2 * t), 36, .012, GlowBrush.mix(color, 0xFFFFFF, .3), 150 * (1 - t) * fade);
                 }
             }
             case TWINS -> {
@@ -184,8 +197,8 @@ public final class HiveJuice {
                     Vec3 end = floor.add(Math.cos(angle) * s * (1 + hash(hit.key, crack + 9)), 0, Math.sin(angle) * s * (1 + hash(hit.key, crack + 9)));
                     GlowBrush.lightning(glow, m, floor, end, hit.key * 13 + crack, 4, .15, .012, color, 160 * fade);
                 }
-                // A dark smoke curling up out of the blow.
-                for (int puff = 0; puff < 5; puff++) {
+                // A dark smoke curling up out of a strike group's blow (a barrage clump sheds its own now and then).
+                for (int puff = 0; puff < (hit.style == STRIKE ? 3 : 0); puff++) {
                     double rise = age * (.05 + .03 * hash(hit.key, puff + 20)), swirl = age * .08 + puff * 1.3;
                     Vec3 centre = floor.add(Math.cos(swirl) * .4 * s, .3 + rise, Math.sin(swirl) * .4 * s);
                     GlowBrush.sphere(fill, m, centre, (.25 + .02 * age) * s, 0x0A0612, 0x2A0A45, 70 * fade, 20 * fade, 6);
@@ -247,9 +260,19 @@ public final class HiveJuice {
         }
     }
 
+    /** The ground under each aimed-at block, found once a tick rather than every frame. */
+    private static final java.util.Map<Long, double[]> GROUND = new java.util.HashMap<>();
+
     private static double groundUnder(Vec3 feet) {
+        var level = Minecraft.getInstance().level;
+        long tick = level == null ? 0 : level.getGameTime(), key = net.minecraft.core.BlockPos.containing(feet).asLong();
+        double[] cached = GROUND.get(key);
+        if (cached != null && cached[1] == tick) return cached[0];
+        if (GROUND.size() > 256) GROUND.clear();
         double ground = groundBelow(feet.add(0, .5, 0));
-        return Double.isNaN(ground) ? feet.y + .03 : ground;
+        ground = Double.isNaN(ground) ? feet.y + .03 : ground;
+        GROUND.put(key, new double[]{ground, tick});
+        return ground;
     }
 
     /** How hard near blows nudge the camera at {@code camera}: within 16 blocks, harder for harder blows, fading at once. */
@@ -259,7 +282,7 @@ public final class HiveJuice {
         double shake = 0;
         for (Impact hit : IMPACTS) {
             double age = time - hit.start, distance = camera.distanceTo(hit.at);
-            if (age < 0 || age > 8 || distance > 16 || hit.style == SPARK) continue;
+            if (age < 0 || age > 8 || distance > 16 || hit.style == SPARK || hit.style == PUFF) continue;
             shake = Math.max(shake, .45 * hit.strength * (1 - distance / 16) * Math.exp(-age / 2.5));
         }
         return shake * scale;

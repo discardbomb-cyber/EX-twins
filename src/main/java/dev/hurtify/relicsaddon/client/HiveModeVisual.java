@@ -163,6 +163,7 @@ public final class HiveModeVisual {
     private static final double AIM_TICKS = 10;
 
     private static void droplets(Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
+        long owner = GlowBrush.flat() ? 0 : ownerKey(s);
         for (int group = 0; group < s.groups(); group++) {
             if (s.members()[group] == 0) continue;
             HiveTarget target = s.targetOf(group);
@@ -185,17 +186,21 @@ public final class HiveModeVisual {
             };
             if (s.type() == HiveType.TWINS) rifts(s, group, home, core, sortie, camera, glow, fill, m, color);
             if (HiveFormation.dropletHidden(s.type(), sortie)) continue;
-            if (sortie > 0 && sortie < 2 && !GlowBrush.flat()) HiveLoopSounds.flying(ownerKey(s) << 8 | (long) s.type().ordinal() << 5 | group, s.type(), centre, s.time());
+            if (sortie > 0 && sortie < 2 && !GlowBrush.flat()) HiveLoopSounds.flying(owner << 8 | (long) s.type().ordinal() << 5 | group, s.type(), centre, s.time());
             Vec3[] axes = HiveShapes.axes(facing);
             double size = HiveFormation.shapeSize(s.members()[group]);
             Vec3 c = centre.subtract(camera);
             // The figure's place in the fan: a faint ring it forms up in, brighter while it waits there.
             GlowBrush.circle(glow, m, home.subtract(camera), axes[1], axes[2], size * 1.9, 40, .012, color, sortie <= 0 ? 60 : 22);
             // A streak behind a figure on the move.
-            if (sortie > 0 && sortie != 1) {
+            // (None where it came out of a rift a moment ago, and never longer than a few blocks.)
+            double earlier = HiveFormation.sortie(s.owner(), s.target(), target.feet(), target.height(), group, s.groups(), s.time() - 1.5, s.cycleStart(), s.interval());
+            if (sortie > 0 && sortie != 1 && !HiveFormation.dropletHidden(s.type(), earlier)) {
                 Vec3 before = dropletCentre(s, group, s.time() - 1.5).subtract(camera);
                 if (before.distanceToSqr(c) > .04) {
-                    Vec3 tail = c.add(before.subtract(c).scale(2.2));
+                    Vec3 back = before.subtract(c).scale(2.2);
+                    if (back.length() > 2.5) back = back.normalize().scale(2.5);
+                    Vec3 tail = c.add(back);
                     GlowBrush.line(glow, m, c, tail, size * .45, .01, color, color, 110 * heat, 0);
                 }
             }
@@ -443,7 +448,7 @@ public final class HiveModeVisual {
                 GlowBrush.lightning(glow, m, a, b, flicker * 131 + group * 17L + corner, 3, .25, .01, 0xE7C6FF, 210 * charge);
             }
             // Thin discharges from the corners into the charge.
-            if (charge > .2 && hashOf((int) flicker * 7 + group, corner + 40) < .35) {
+            if (charge > .2 && a.lengthSqr() < 32 * 32 && hashOf((int) flicker * 7 + group, corner + 40) < .35) {
                 GlowBrush.lightning(glow, m, a, centre, flicker * 17 + group * 5L + corner, 3, .2, .005, GlowBrush.mix(color, 0xFFFFFF, .5), 150 * charge);
             }
         }
