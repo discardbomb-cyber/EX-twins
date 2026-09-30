@@ -124,7 +124,7 @@ public final class CodecGoldenCheck {
         nbtInput("hive_stack_state/nbt legacy units", HiveStackState.CODEC, swarm, legacy);
         streamInput("hive_stack_state/stream count 751", HiveStackState.CODEC, swarm, new byte[] {0x01, (byte) 0xEF, 0x05});
 
-        // The combat state is synced only: its NBT codec is unused (and goes in S3), so it has no NBT column.
+        // The combat state is synced only (S3 dropped its unused NBT codec), so it has no NBT column.
         Wire<HiveCombatState> combat = wire(HiveCombatState.STREAM_CODEC);
         value("hive_combat_state/DEFAULT", null, combat, HiveCombatState.DEFAULT);
         List<HiveCombatState.Shot> shots = new ArrayList<>();
