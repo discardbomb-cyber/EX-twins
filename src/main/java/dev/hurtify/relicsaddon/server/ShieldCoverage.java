@@ -1,6 +1,7 @@
 package dev.hurtify.relicsaddon.server;
 
-import dev.hurtify.relicsaddon.domain.shield.ShieldField;
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
+import dev.hurtify.relicsaddon.domain.shield.CoverageRule;
 import dev.hurtify.relicsaddon.shield.ShieldParameters;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -24,7 +25,7 @@ public final class ShieldCoverage {
         String mode = ShieldParameters.settings(shield).coverage();
         if ("owner".equals(mode) || ("allies".equals(mode) && !friendly(owner, victim))) return false;
         double radius = ShieldParameters.radius(owner, shield);
-        return victim.getBoundingBox().getCenter().distanceToSqr(owner.position().add(0, ShieldField.CENTER_Y, 0)) <= radius * radius;
+        return CoverageRule.withinRadius(McVectors.toDomain(victim.getBoundingBox().getCenter()), McVectors.toDomain(owner.position()), radius);
     }
     private ShieldCoverage() { }
 }

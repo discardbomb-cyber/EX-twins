@@ -8,6 +8,7 @@ import dev.hurtify.relicsaddon.domain.hive.HiveSlots;
 import dev.hurtify.relicsaddon.domain.hive.HiveStackState;
 import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import dev.hurtify.relicsaddon.domain.math.Vec3d;
+import dev.hurtify.relicsaddon.domain.shield.CellSelection;
 import dev.hurtify.relicsaddon.domain.shield.ShieldCellDefense;
 import dev.hurtify.relicsaddon.domain.shield.ShieldCellMove;
 import dev.hurtify.relicsaddon.domain.shield.ShieldField;
@@ -516,15 +517,13 @@ public final class GeometryGoldenCheck {
             d.i(TOPOLOGY.nearest(0, 0, 0));
             d.i(TOPOLOGY.nearest(Double.NaN, 1, 0));
         });
-        // ShieldController.selectCell, written out: the incoming direction turned into the wearer's frame.
+        // The cell a hit lands on: the incoming direction turned into the wearer's frame. Recorded in S0 from
+        // ShieldController.selectCell written out; since S6 that method calls the domain CellSelection checked here.
         List<Vec3d> incoming = sphere(16, 32);
         incoming.add(new Vec3d(0, 0, 0));
         function("CellSelection.select", d -> {
             for (float yaw : sweep(YAWS, -360, 360, 15)) {
-                Vec3d forward = Vec3d.directionFromRotation(0, yaw);
-                for (Vec3d in : incoming) {
-                    d.i(TOPOLOGY.nearest(-in.x * forward.z + in.z * forward.x, in.y, in.x * forward.x + in.z * forward.z));
-                }
+                for (Vec3d in : incoming) d.i(CellSelection.select(yaw, in));
             }
         });
     }

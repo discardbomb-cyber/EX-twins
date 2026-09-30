@@ -7,6 +7,7 @@ import dev.hurtify.relicsaddon.domain.shield.ShieldField;
 import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
 import dev.hurtify.relicsaddon.domain.shield.ShieldImpactHistory;
 import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
+import dev.hurtify.relicsaddon.domain.shield.StrikeRules;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
@@ -44,9 +45,9 @@ public final class ShieldStrike {
     private static final Map<Mob, Long> READY_AT = new WeakHashMap<>();
 
     public static ResourceKey<DamageType> damageType(RelicRole role) {
-        return switch (role) {
-            case MANA_SHIELD -> MANA_BURST;
-            case TWINS_SHIELD -> TWIN_SURGE;
+        return switch (StrikeRules.damageKind(role)) {
+            case SHIELD_MANA_BURST -> MANA_BURST;
+            case SHIELD_TWIN_SURGE -> TWIN_SURGE;
             default -> DISCHARGE;
         };
     }

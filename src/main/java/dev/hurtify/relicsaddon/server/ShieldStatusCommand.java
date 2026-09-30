@@ -4,6 +4,7 @@ import com.mojang.brigadier.arguments.DoubleArgumentType;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.domain.shield.ShieldSettings;
 import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
+import dev.hurtify.relicsaddon.domain.shield.ShieldStatus;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
@@ -40,9 +41,8 @@ public final class ShieldStatusCommand {
                 ItemStack stack = handler.get().getStacks().getStackInSlot(slot);
                 if (!shield(stack)) continue;
                 ShieldStackState state = stack.getOrDefault(ModDataComponents.SHIELD_STACK_STATE.get(), ShieldStackState.DEFAULT);
-                String reason = !inventory.isSlotActive(RelicRole.EQUIPMENT_SLOT, slot) ? "inactive_slot" : !state.enabled() ? "disabled"
-                        : active != stack ? "priority"
-                        : state.totalIntegrity() == 0 ? "broken" : "active";
+                String reason = ShieldStatus.of(inventory.isSlotActive(RelicRole.EQUIPMENT_SLOT, slot), state.enabled(), active == stack,
+                        state.totalIntegrity()).id();
                 int index = slot;
                 context.getSource().sendSuccess(() -> Component.translatable("message.relics_addon.shield_status",
                         stack.getHoverName(), index + 1, Component.translatable("message.relics_addon.status." + reason),

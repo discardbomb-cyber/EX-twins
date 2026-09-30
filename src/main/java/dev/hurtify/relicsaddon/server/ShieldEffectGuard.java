@@ -2,6 +2,7 @@ package dev.hurtify.relicsaddon.server;
 
 import dev.hurtify.relicsaddon.AddonConfig;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.shield.EffectTrim;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -27,8 +28,6 @@ import net.neoforged.neoforge.event.entity.living.MobEffectEvent;
  * pay lets the effect through.
  */
 public final class ShieldEffectGuard {
-    /** Battery points per second of effect per level of its strength. */
-    private static final int COST_PER_SECOND = 2;
     private static final Map<LivingEntity, Hit> LAST_HIT = new WeakHashMap<>();
     private static boolean reapplying;
 
@@ -71,9 +70,9 @@ public final class ShieldEffectGuard {
         boolean struck = hit != null && hit.tick() == victim.level().getGameTime() && hit.attacker() == attacker.getId();
         // A blow that got through untouched brings its effect with it; one the field partly stopped, the matching share.
         if (struck && hit.absorbed() <= 0) return;
-        int kept = struck && hit.passed() > 0 ? (int) Math.floor(effect.getDuration() * hit.passed() / Math.max(1e-3F, hit.absorbed() + hit.passed())) : 0;
-        int removed = effect.isInfiniteDuration() ? 20 * 60 : effect.getDuration() - kept;
-        int cost = Math.max(1, (int) Math.ceil(removed / 20.0 * (effect.getAmplifier() + 1) * COST_PER_SECOND));
+        int kept = EffectTrim.kept(struck, struck ? hit.absorbed() : 0, struck ? hit.passed() : 0, effect.getDuration());
+        int removed = EffectTrim.removed(effect.isInfiniteDuration(), effect.getDuration(), kept);
+        int cost = EffectTrim.cost(removed, effect.getAmplifier());
         // Draining more than the batteries hold would empty them and still fail; a field that cannot pay lets the effect be.
         if (!DevicePower.canAfford(cover.owner(), cover.shield(), cost) || !DevicePower.drain(cover.owner(), cover.shield(), cost)) return;
         event.setResult(MobEffectEvent.Applicable.Result.DO_NOT_APPLY);
