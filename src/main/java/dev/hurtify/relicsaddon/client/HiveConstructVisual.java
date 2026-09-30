@@ -24,7 +24,38 @@ import org.joml.Matrix4f;
 final class HiveConstructVisual {
     private static final int ORANGE = 0xFFB347, GOLD = 0xFFD27A, VOID = 0x05010A;
 
+    /** Constructs seen lately, by the creature they hold: where, whose, how big and when last drawn. */
+    private record Held(Vec3 core, dev.hurtify.relicsaddon.drone.HiveType type, double room, double seen) { }
+    private static final java.util.Map<Integer, Held> HELD = new java.util.HashMap<>();
+
+    /**
+     * Constructs that were drawn a moment ago and are not now came apart: each bursts into its drones with a
+     * spray of sparks. Called once a frame, after the scenes.
+     */
+    static void sweep(double time) {
+        for (var iterator = HELD.entrySet().iterator(); iterator.hasNext(); ) {
+            Held held = iterator.next().getValue();
+            if (time - held.seen < 1.5 && time >= held.seen) continue;
+            if (time - held.seen < 20 && time >= held.seen) {
+                HiveJuice.impact(held.core, new Vec3(0, 1, 0), held.type, HiveJuice.CHARGE, held.seen, Math.max(.8, held.room), held.core.hashCode());
+            }
+            iterator.remove();
+        }
+    }
+
     static void render(HiveModeVisual.Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
+        double room = HiveFormation.enclosure(s.width(), s.height()), age = HiveFormation.constructAge(s.time(), s.cycleStart());
+        Vec3 middle = HiveFormation.core(s.target(), s.height());
+        HELD.put(s.targets().getFirst().id(), new Held(middle, s.type(), room, s.time()));
+        // It locks shut with a flash.
+        double lock = age - HiveConstructs.CLOSING;
+        if (lock >= 0 && lock < 6) {
+            Vec3 core = middle.subtract(camera);
+            double fade = 1 - lock / 6;
+            GlowBrush.dot(glow, m, core, room * (.8 + .6 * lock / 6), GlowBrush.mix(color, 0xFFFFFF, .5), 160 * fade);
+            GlowBrush.circle(glow, m, core, new Vec3(1, 0, 0), new Vec3(0, 0, 1), room * (1.1 + .9 * lock / 6), 48, .04, 0xFFFFFF, 200 * fade);
+            if (lock < 1) EffectLights.flash(middle, 12, room, 5);
+        }
         switch (s.type()) {
             case RF -> cage(s, camera, glow, fill, m, color);
             case MANA -> lotus(s, camera, glow, fill, m, color);
@@ -100,13 +131,23 @@ final class HiveConstructVisual {
             double edgeOn = normal.lengthSqr() < 1e-12 ? 0 : 1 - Math.abs(normal.normalize().dot(GlowBrush.view(tip)));
             double body = (14 + 40 * edgeOn) * (.5 + .5 * shut);
             int heart = GlowBrush.mix(0x0B5E62, color, .4), edge = GlowBrush.mix(color, GOLD, .7);
-            GlowBrush.quad(fill, m, base, left, tip, right, heart, GlowBrush.mix(heart, edge, .5), edge, GlowBrush.mix(heart, edge, .5),
-                    body * .6, body, body * 1.3, body);
             double shine = 120 + 30 * Math.sin(time * .08 + p + tier);
             GlowBrush.beam(glow, m, base, left, .016, color, shine * .7);
             GlowBrush.beam(glow, m, base, right, .016, color, shine * .7);
-            GlowBrush.beam(glow, m, left, tip, .02, rim, shine);
-            GlowBrush.beam(glow, m, right, tip, .02, rim, shine);
+            // Each side from its corner up to the tip bows outwards, so the petal is round, not a triangle.
+            for (Vec3 side : new Vec3[]{left, right}) {
+                Vec3 middle = side.lerp(tip, .5), axis = new Vec3(base.x, middle.y, base.z), out = middle.subtract(axis);
+                Vec3 bow = middle.add(out.lengthSqr() < 1e-8 ? Vec3.ZERO : out.normalize().scale(side.distanceTo(tip) * .22));
+                Vec3 previous = side;
+                for (int step = 1; step <= 6; step++) {
+                    double t = step / 6.0, u = 1 - t;
+                    Vec3 point = side.scale(u * u).add(bow.scale(2 * u * t)).add(tip.scale(t * t));
+                    GlowBrush.quad(fill, m, base, previous, point, point, heart, GlowBrush.mix(heart, edge, .5 + .4 * t), edge, edge,
+                            body * .6, body, body * 1.3, body * 1.3);
+                    GlowBrush.beam(glow, m, previous, point, .02, rim, shine);
+                    previous = point;
+                }
+            }
             // Golden motes run up the petal's edges to its drones: the drones charging the ward.
             double run = (time * .03 + hash(tier * 7 + p, 3)) % 1;
             GlowBrush.dot(glow, m, base.lerp(left, run).lerp(tip, run * run), .06, GOLD, 200 * Math.sin(Math.PI * run));
@@ -151,6 +192,20 @@ final class HiveConstructVisual {
             }
             for (int corner = 0; corner < corners.length; corner++) {
                 GlowBrush.beam(glow, m, corners[corner], corners[(corner + 1) % corners.length], .02, edge, 150);
+            }
+            // Circuit traces run in from the shard's edges, bending at right angles to a pad, a pulse racing along each.
+            for (int trace = 0; trace < 3; trace++) {
+                int corner = (trace * 2 + shard) % corners.length;
+                Vec3 from = corners[corner].lerp(corners[(corner + 1) % corners.length], .5);
+                Vec3 in = middle.subtract(from).scale(.3 + .15 * hash(shard * 5 + trace, 7));
+                Vec3 along = corners[(corner + 1) % corners.length].subtract(corners[corner]).scale(.22 * (hash(shard * 5 + trace, 8) < .5 ? 1 : -1));
+                Vec3 bend = from.add(in), pad = bend.add(along);
+                GlowBrush.line(glow, m, from, bend, .008, 0xFF7BE5, 140 * open);
+                GlowBrush.line(glow, m, bend, pad, .008, 0xFF7BE5, 140 * open);
+                GlowBrush.dot(glow, m, pad, .035, 0xFFC6F5, 180 * open);
+                double run = (time * .06 + trace * .33 + shard * .17) % 1;
+                Vec3 pulse = run < .6 ? from.lerp(bend, run / .6) : bend.lerp(pad, (run - .6) / .4);
+                GlowBrush.dot(glow, m, pulse, .04, 0xFFFFFF, 200 * open);
             }
             // A crack from the creature out to the shard, re-forking now and then.
             long flicker = (long) Math.floor(time / 3);
