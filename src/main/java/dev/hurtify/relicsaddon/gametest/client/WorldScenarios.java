@@ -116,6 +116,9 @@ public final class WorldScenarios {
             // on its seal, the blast, the dome and the column growing until it dissolves into the white sky.
             new Scene("mana-armageddon-blast", RelicRole.MANA_HIVE, 10, AttackMode.DROPLET, RelicRole.MANA_SHIELD,
                     List.of(new Vec3(-8, 0, -58), new Vec3(6, 0, -66)), false, new Vec3(120, 14, 70), new Vec3(0, 26, -60), 200, 1400, -1),
+            // Over the owner's shoulder: the streams leaving the flowers, meeting at the target and tearing up the land.
+            new Scene("mana-armageddon-streams", RelicRole.MANA_HIVE, 10, AttackMode.DROPLET, RelicRole.MANA_SHIELD,
+                    List.of(new Vec3(-8, 0, -58)), false, new Vec3(1.5, 3.4, 4.5), new Vec3(0, 3, -60), 60, 200, -1),
             // The sphere of runes and the seal under it from above and to the side, from the sun igniting through the blast.
             new Scene("mana-armageddon-seal", RelicRole.MANA_HIVE, 10, AttackMode.DROPLET, RelicRole.MANA_SHIELD,
                     List.of(new Vec3(-8, 0, -58)), false, new Vec3(46, 38, -22), new Vec3(0, 4, -60), 200, 420, -1),
@@ -137,7 +140,7 @@ public final class WorldScenarios {
             "armageddon-devour", new Shot(new Vec3(0, 0, -60), 1150, 1, 5), "armageddon-blast", new Shot(new Vec3(0, 0, -60), 1265, 1, 5),
             "mana-armageddon", new Shot(new Vec3(0, 0, -150), 0, 1, 20), "mana-armageddon-flowers", new Shot(new Vec3(0, 0, -60), 300, 2, 20),
             "mana-armageddon-blast", new Shot(new Vec3(0, 0, -60), 1160, 1, 20), "mana-armageddon-seal", new Shot(new Vec3(0, 0, -60), 1300, 1, 20),
-            "mana-armageddon-sky", new Shot(new Vec3(0, 0, -60), 1423, 3, 20));
+            "mana-armageddon-sky", new Shot(new Vec3(0, 0, -60), 1423, 3, 20), "mana-armageddon-streams", new Shot(new Vec3(0, 0, -60), 1190, 1, 20));
     /** How many frames may be on their way to disk at once. */
     private static final int GRABS_IN_FLIGHT = 6;
     /** When the current take started, in game time: an Armageddon take ends when its blast has burnt out. */
