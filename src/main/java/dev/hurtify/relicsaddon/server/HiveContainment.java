@@ -1,7 +1,9 @@
 package dev.hurtify.relicsaddon.server;
 
 import dev.hurtify.relicsaddon.RelicsAddon;
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
 import dev.hurtify.relicsaddon.domain.hive.HiveType;
+import dev.hurtify.relicsaddon.domain.hive.HoldPolicy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -38,8 +40,7 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
  * swarm joins in rather than taking it over.
  */
 public final class HiveContainment {
-    public static final int LIFT = 4;
-    private static final int LIFT_TICKS = 30;
+    public static final int LIFT = HoldPolicy.LIFT;
     /** Marks a held creature whose gravity we switched off, so a crash or reload can never leave it floating. */
     private static final String GRAVITY = RelicsAddon.MOD_ID + ":held_gravity";
     private static final Map<LivingEntity, Hold> HELD = new WeakHashMap<>();
@@ -67,7 +68,7 @@ public final class HiveContainment {
             this.seen = since;
             if (type == HiveType.TWINS) {
                 anchor = groundBelow(target);
-                lift = headroom(target, anchor, LIFT);
+                lift = headroom(target, anchor, HoldPolicy.LIFT);
                 startLift = Math.clamp(target.getY() - anchor.y, 0, lift);
             } else {
                 anchor = target.position();
@@ -87,14 +88,14 @@ public final class HiveContainment {
         Hold hold = HELD.get(target);
         boolean mine = hold != null && hold.owner.equals(owner.getUUID()) && hold.type == type;
         // Another swarm holds it and is still at it: join in rather than tear its hold down every tick.
-        if (hold != null && !mine && now - hold.seen <= 1 && now >= hold.seen) return hold;
+        if (hold != null && HoldPolicy.joinsOther(mine, hold.seen, now)) return hold;
         if (!mine) {
             release(target);
             hold = new Hold(owner.getUUID(), type, target, now);
             HELD.put(target, hold);
         }
         hold.seen = now;
-        hold.wardMax = Math.max(1, drones);
+        hold.wardMax = HoldPolicy.wardMax(drones);
         if (!immune(target)) pin(target, hold, now);
         return hold;
     }
@@ -111,7 +112,7 @@ public final class HiveContainment {
     /** Charges Mana's ward by {@code amount}, up to its capacity; returns how much was added. */
     static double refill(Hold hold, double amount) {
         double before = hold.ward;
-        hold.ward = Math.min(hold.wardMax, hold.ward + Math.max(0, amount));
+        hold.ward = HoldPolicy.refill(hold.ward, hold.wardMax, amount);
         return hold.ward - before;
     }
 
@@ -149,7 +150,7 @@ public final class HiveContainment {
     private static Vec3 groundBelow(LivingEntity target) {
         Vec3 at = target.position();
         if (target.onGround()) return at;
-        BlockHitResult ground = target.level().clip(new ClipContext(at, at.subtract(0, LIFT + 2, 0), ClipContext.Block.COLLIDER,
+        BlockHitResult ground = target.level().clip(new ClipContext(at, at.subtract(0, HoldPolicy.GROUND_PROBE, 0), ClipContext.Block.COLLIDER,
                 ClipContext.Fluid.NONE, target));
         return ground.getType() == HitResult.Type.MISS ? at : ground.getLocation();
     }
@@ -170,10 +171,8 @@ public final class HiveContainment {
     }
 
     private static void pin(LivingEntity target, Hold hold, long now) {
-        Vec3 at = hold.anchor;
+        Vec3 at = McVectors.toMc(HoldPolicy.pinPoint(McVectors.toDomain(hold.anchor), hold.type == HiveType.TWINS, hold.startLift, hold.lift, hold.since, now));
         if (hold.type == HiveType.TWINS) {
-            double t = Math.min(1, (now - hold.since) / (double) LIFT_TICKS);
-            at = at.add(0, hold.startLift + (hold.lift - hold.startLift) * t * t * (3 - 2 * t), 0);
             CompoundTag data = target.getPersistentData();
             if (!data.contains(GRAVITY)) data.putBoolean(GRAVITY, target.isNoGravity());
             target.setNoGravity(true);
@@ -209,7 +208,7 @@ public final class HiveContainment {
         for (LivingEntity target : List.copyOf(HELD.keySet())) {
             Hold hold = HELD.get(target);
             if (hold == null || target.level() != level) continue;
-            if (!target.isAlive() || now - hold.seen > 2 || now < hold.seen) release(target);
+            if (HoldPolicy.stale(target.isAlive(), hold.seen, now)) release(target);
         }
     }
 

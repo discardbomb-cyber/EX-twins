@@ -2,6 +2,7 @@ package dev.hurtify.relicsaddon.server;
 
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.AddonConfig;
+import dev.hurtify.relicsaddon.domain.hive.HealingPolicy;
 import dev.hurtify.relicsaddon.domain.hive.HiveSettings;
 import dev.hurtify.relicsaddon.domain.hive.HiveStackState;
 import dev.hurtify.relicsaddon.domain.hive.HiveSupportState;
@@ -57,7 +58,7 @@ public final class HiveTaskController {
                     && settings.healerCount(state.units().size()) > 0 && AddonConfig.HIVE_HEAL_PER_SECOND.get() > 0;
             HiveSupportState before = stack.getOrDefault(ModDataComponents.HIVE_SUPPORT_STATE.get(), HiveSupportState.DEFAULT);
             if (before.active() != active) stack.set(ModDataComponents.HIVE_SUPPORT_STATE.get(), new HiveSupportState(active, now));
-            if (!active || now % 20 != 0 || budget <= 0) continue;
+            if (!active || now % HealingPolicy.PERIOD != 0 || budget <= 0) continue;
             var units = new ArrayList<>(state.units());
             boolean changed = false;
             int first = settings.fighters(units.size()), deployed = dev.hurtify.relicsaddon.domain.hive.HiveSlots.healerSlots(units.size(), settings);
@@ -65,20 +66,19 @@ public final class HiveTaskController {
                 var unit = units.get(index);
                 if (!unit.attackReady(now)) continue;
                 if (unit.attackReadyAt() == 0) {
-                    units.set(index, unit.withAttackReadyAt(now + 20L * (1 + index % 5)));
+                    units.set(index, unit.withAttackReadyAt(HealingPolicy.firstMendAt(now, index)));
                     changed = true;
                     continue;
                 }
                 if (!dev.hurtify.relicsaddon.power.DevicePower.canAfford(owner, stack, dev.hurtify.relicsaddon.power.DevicePower.HEAL_PER_HP)) break;
-                float requested = Math.min((float) (.5 * HiveUpgrades.healingMultiplier(owner, stack)),
-                        Math.min(budget, owner.getMaxHealth() - owner.getHealth()));
+                float requested = HealingPolicy.request(HiveUpgrades.healingMultiplier(owner, stack), budget, owner.getMaxHealth() - owner.getHealth());
                 if (requested <= 0) break;
                 float oldHealth = owner.getHealth();
                 owner.heal(requested);
                 float restored = Math.max(0, owner.getHealth() - oldHealth);
-                dev.hurtify.relicsaddon.power.DevicePower.drain(owner, stack, (int) Math.ceil(restored * dev.hurtify.relicsaddon.power.DevicePower.HEAL_PER_HP));
+                dev.hurtify.relicsaddon.power.DevicePower.drain(owner, stack, HealingPolicy.cost(restored));
                 budget -= restored;
-                units.set(index, unit.withAttackReadyAt(now + 100));
+                units.set(index, unit.withAttackReadyAt(now + HealingPolicy.NEXT_MEND));
                 changed = true;
             }
             if (changed) stack.set(ModDataComponents.HIVE_STACK_STATE.get(), new HiveStackState(state.enabled(), units));
