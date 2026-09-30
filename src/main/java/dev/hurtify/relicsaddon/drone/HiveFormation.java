@@ -413,7 +413,8 @@ public final class HiveFormation {
     public static double ringsRadius(double targetWidth) { return torusMajor(targetWidth) * 1.1; }
     /** How far an RF hold lifts its target so the rings round it clear the ground: the outer ring and its hexagons. */
     public static double ringLift(double targetWidth, double targetHeight) {
-        return Math.max(0, ringsRadius(targetWidth) * 1.12 + .15 - saneSize(targetHeight, 1.8) * .55);
+        // The outer torus reaches its radius plus its tube (with the drones riding just above it).
+        return Math.max(0, ringsRadius(targetWidth) * 1.18 + .15 - saneSize(targetHeight, 1.8) * .55);
     }
     public static double wardScale(double targetHeight) { return Math.max(1, saneSize(targetHeight, 1.8) / 1.8) * CONTAINMENT_SCALE; }
     public static double riftDistance(double targetWidth) { return Math.max(1.5, saneSize(targetWidth, .6) * .7 + 1.1) * CONTAINMENT_SCALE; }

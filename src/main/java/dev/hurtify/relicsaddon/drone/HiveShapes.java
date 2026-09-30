@@ -153,26 +153,42 @@ public final class HiveShapes {
     // --- containment mode ----------------------------------------------------------------------
 
     /**
-     * RF: three rings round the target like a Dyson swarm, each a band of hexagons, of growing radius,
-     * each tilted its own way and turning in its own plane; the further out a ring, the faster it turns
-     * and the faster its tilt sweeps round.
+     * RF: three tori round the target like the rings of a Dyson swarm, each covered in hexagons, of
+     * growing radius, each tilted its own way and turning about its own axis; the further out a torus,
+     * the faster it turns and the faster its tilt sweeps round. Drones ride just above its hexagons.
      */
     public static final double[] RING_RADII = {.5, .75, 1};
     private static final double[] RING_SPIN = {.012, .022, .036}, RING_PRECESSION = {.004, .007, .011};
     /** Each ring's tilt: an axis in the level plane and an angle from level. */
     private static final double[][] RING_TILT = {{1, 0, 0, .44}, {0, 0, 1, 1.13}, {.7071, 0, .7071, 1.92}};
+    /** Rows of hexagons round each torus's tube. */
+    public static final int TUBE_ROWS = 6;
 
-    /** Place {@code s} of {@code count}: a corner of one of the hexagons of its ring. */
+    /** Radius of the tube of torus {@code ring} in a construct of {@code radius}. */
+    public static double ringTube(int ring, double radius) {
+        return radius * RING_RADII[ring] * .13 + .1;
+    }
+
+    /** Columns of hexagons along torus {@code ring}, so its hexagons come out about as wide as they are tall. */
+    public static int ringColumns(int ring, double radius) {
+        double tall = Math.PI * 2 * ringTube(ring, radius) / (1.5 * TUBE_ROWS);
+        return Math.max(8, (int) Math.round(Math.PI * 2 * radius * RING_RADII[ring] / (Math.sqrt(3) * tall)));
+    }
+
+    /** Place {@code s} of {@code count}: just above one of the hexagons of its torus, spread evenly over them. */
     public static Vec3 dysonRing(int s, int count, double time, double radius) {
         count = Math.max(1, count);
         s = Math.clamp(s, 0, count - 1);
         int ring = 0;
         while (ring < 2 && s >= ringStart(ring + 1, count)) ring++;
-        int local = s - ringStart(ring, count), hexagons = ringHexagons(ring, count);
-        return ringCorner(ring, local / 6 % hexagons, local % 6, hexagons, time, radius);
+        int local = s - ringStart(ring, count), places = Math.max(1, ringStart(ring + 1, count) - ringStart(ring, count));
+        int columns = ringColumns(ring, radius), hexagons = columns * TUBE_ROWS;
+        int hex = (int) ((long) local * hexagons / places);
+        int column = hex / TUBE_ROWS, row = hex % TUBE_ROWS;
+        return ringPoint(ring, (column + (row % 2) * .5) / columns * Math.PI * 2, row / (double) TUBE_ROWS * Math.PI * 2, 1.12, time, radius);
     }
 
-    /** The first place of ring {@code ring}: the rings share the places as their circumferences do. */
+    /** The first place of torus {@code ring}: the tori share the places as their circumferences do. */
     public static int ringStart(int ring, int count) {
         double before = 0, total = 0;
         for (int index = 0; index < RING_RADII.length; index++) {
@@ -182,26 +198,29 @@ public final class HiveShapes {
         return (int) Math.round(count * before / total);
     }
 
-    /** Hexagons in ring {@code ring}: one for every six of its places. */
-    public static int ringHexagons(int ring, int count) {
-        return Math.max(3, (ringStart(ring + 1, count) - ringStart(ring, count) + 5) / 6);
+    /**
+     * Corner {@code corner} (0..5) of the hexagon in {@code column} and {@code row} of torus {@code ring},
+     * drawn a little inside its cell so neighbours keep a seam.
+     */
+    public static Vec3 ringHexCorner(int ring, int column, int row, int corner, double time, double radius) {
+        int columns = ringColumns(ring, radius);
+        double u = (column + (row % 2) * .5) / columns * Math.PI * 2, v = row / (double) TUBE_ROWS * Math.PI * 2;
+        double angle = Math.PI / 6 + corner * Math.PI / 3;
+        double du = Math.PI * 2 / columns * Math.cos(angle) / Math.sqrt(3) * .9;
+        double dv = Math.PI * 2 / TUBE_ROWS * Math.sin(angle) / 1.5 * .9;
+        return ringPoint(ring, u + du, v + dv, 1, time, radius);
     }
 
     /**
-     * Corner {@code corner} (0..5) of hexagon {@code hex} of {@code hexagons} round ring {@code ring} of a
-     * construct of {@code radius}. The hexagons stand across the ring's band and are drawn a little inside
-     * their cells, so neighbours keep a seam.
+     * A point on torus {@code ring}: {@code u} along the ring, {@code v} round its tube, {@code out} times
+     * the tube's radius from its core line. The torus turns about its axis and its tube pattern rolls.
      */
-    public static Vec3 ringCorner(int ring, int hex, int corner, int hexagons, double time, double radius) {
+    public static Vec3 ringPoint(int ring, double u, double v, double out, double time, double radius) {
         Vec3[] frame = ringFrame(ring, time);
-        double r = radius * RING_RADII[ring];
-        double phi = Math.PI * 2 * hex / hexagons + time * RING_SPIN[ring];
-        Vec3 out = frame[0].scale(Math.cos(phi)).add(frame[1].scale(Math.sin(phi)));
-        Vec3 along = frame[0].scale(-Math.sin(phi)).add(frame[1].scale(Math.cos(phi)));
-        // Hexagons nearly touch when the ring is full, and never grow past a tenth of the construct when it is not.
-        double size = Math.min(Math.PI * 2 * r / hexagons / Math.sqrt(3) * .92, radius * .1);
-        double a = Math.PI / 6 + corner * Math.PI / 3;
-        return out.scale(r).add(along.scale(Math.cos(a) * size)).add(frame[2].scale(Math.sin(a) * size));
+        double major = radius * RING_RADII[ring], tube = ringTube(ring, radius) * out;
+        double along = u + time * RING_SPIN[ring], round = v + time * .015;
+        double reach = major + tube * Math.cos(round);
+        return frame[0].scale(Math.cos(along) * reach).add(frame[1].scale(Math.sin(along) * reach)).add(frame[2].scale(tube * Math.sin(round)));
     }
 
     /** A ring's plane: two axes in it and its normal, tilted its own way and sweeping round the vertical. */
