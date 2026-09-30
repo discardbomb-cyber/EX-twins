@@ -271,6 +271,16 @@ tasks.named('check') {
     dependsOn 'verifyEffectLights'
     dependsOn 'verifyEffectLightSources'
     dependsOn 'verifyReleaseContents'
+    dependsOn 'verifyObjCompact'
+}
+
+// The OBJ models ship deduplicated (tools/compact_obj.mjs): no repeated v/vt/vn records, every face index in range.
+tasks.register('verifyObjCompact', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.hurtify.relicsaddon.client.ObjCompactionCheck'
+    workingDir = projectDir
+    args file('src/main/resources/assets/relics_addon/models').absolutePath
 }
 
 tasks.register('verifyEffectLights', JavaExec) {
