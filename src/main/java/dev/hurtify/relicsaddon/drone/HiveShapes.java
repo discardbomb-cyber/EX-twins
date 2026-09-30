@@ -193,14 +193,17 @@ public final class HiveShapes {
         return new Vec3(Math.cos(angle) * h, y, Math.sin(angle) * h);
     }
 
-    /** Twins: four hexagon-shelled spheres around the target, now and then spinning up like rifts opening. */
-    public static Vec3 riftSpheres(int s, int count, double time, double distance) {
+    /** Radius of one Twins rift sphere at base size. */
+    public static final double RIFT_RADIUS = .5;
+
+    /** Twins: four hexagon-shelled spheres of {@code radius} around the target, now and then spinning up like rifts opening. */
+    public static Vec3 riftSpheres(int s, int count, double time, double distance, double radius) {
         int spheres = 4, sphere = s % spheres, j = s / spheres, population = (count - 1 - sphere) / spheres + 1;
         Vec3 centre = riftCentre(sphere, time, distance);
         double spin = riftSpin(sphere, time);
         double y = 1 - 2 * (j + .5) / Math.max(1, population);
         double ring = Math.sqrt(Math.max(0, 1 - y * y)), around = j * GOLDEN_ANGLE + spin;
-        return centre.add(Math.cos(around) * ring * .5, y * .5, Math.sin(around) * ring * .5);
+        return centre.add(Math.cos(around) * ring * radius, y * radius, Math.sin(around) * ring * radius);
     }
 
     public static Vec3 riftCentre(int sphere, double time, double distance) {

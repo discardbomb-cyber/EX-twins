@@ -31,6 +31,8 @@ public final class HiveFormation {
     public static final double FIRE = .8;
     /** Ticks a hit drone takes to fly home. */
     public static final int RETURN_TICKS = 24;
+    /** Containment constructs (the RF torus, the Mana ward, the Twins rift spheres) are this many times their base size. */
+    public static final double CONTAINMENT_SCALE = 3;
     /** Droplet fan: half its opening angle (a half circle from shoulder to shoulder), how far apart its figures sit, and how far it leans back from the target. */
     private static final double FAN = Math.PI / 2, FAN_SPACING = 2.7, FAN_LEAN = .44;
 
@@ -255,7 +257,7 @@ public final class HiveFormation {
         time = safeTime(time);
         targetWidth = saneSize(targetWidth, .6);
         targetHeight = saneSize(targetHeight, 1.8);
-        int groups = HiveSlots.groups(slots), group = HiveSlots.group(slot, groups), member = HiveSlots.member(slot, groups);
+        int groups = HiveSlots.groups(slots, mode), group = HiveSlots.group(slot, groups), member = HiveSlots.member(slot, groups);
         int members = HiveSlots.groupSize(group, slots, groups);
         Vec3 core = core(target, targetHeight);
         return switch (mode) {
@@ -289,9 +291,11 @@ public final class HiveFormation {
                 yield at;
             }
             case CONTAINMENT -> core.add(switch (type) {
-                case RF -> HiveShapes.torus(slot, slots, time, Math.max(1.25, targetWidth * .7 + .8), .42 + .02 * Math.cbrt(slots));
-                case MANA -> HiveShapes.ward(slot, slots, time, Math.max(1, targetHeight / 1.8));
-                case TWINS -> HiveShapes.riftSpheres(slot, slots, time, Math.max(1.5, targetWidth * .7 + 1.1));
+                case RF -> HiveShapes.torus(slot, slots, time, Math.max(1.25, targetWidth * .7 + .8) * CONTAINMENT_SCALE,
+                        (.42 + .02 * Math.cbrt(slots)) * CONTAINMENT_SCALE);
+                case MANA -> HiveShapes.ward(slot, slots, time, Math.max(1, targetHeight / 1.8) * CONTAINMENT_SCALE);
+                case TWINS -> HiveShapes.riftSpheres(slot, slots, time, Math.max(1.5, targetWidth * .7 + 1.1) * CONTAINMENT_SCALE,
+                        HiveShapes.RIFT_RADIUS * CONTAINMENT_SCALE);
             });
         };
     }

@@ -118,7 +118,7 @@ public final class HiveCombatController {
         Vec3 home = owner.position();
         long cycleStart = state.changedAt() + state.travel();
         int interval = strikeInterval(owner, stack);
-        int groups = HiveSlots.groups(slots);
+        int groups = HiveSlots.groups(slots, state.mode());
         float perDrone = attackDamage(owner, stack, type);
         double width = target.getBbWidth(), height = target.getBbHeight();
 

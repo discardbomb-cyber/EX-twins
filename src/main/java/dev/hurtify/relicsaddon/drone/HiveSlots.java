@@ -57,6 +57,15 @@ public final class HiveSlots {
         return slots < 2 ? 1 : Math.clamp(Math.round(slots / 16F), 2, 16);
     }
 
+    /**
+     * Strike groups in {@code mode}. Barrage clumps draw a pattern around the target, so there are at
+     * least three of them, a triangle, as soon as there are three drones to make them.
+     */
+    public static int groups(int slots, AttackMode mode) {
+        int groups = groups(slots);
+        return mode == AttackMode.BARRAGE ? Math.min(Math.max(groups, 3), Math.max(1, slots)) : groups;
+    }
+
     public static int group(int slot, int groups) { return slot % groups; }
 
     public static int member(int slot, int groups) { return slot / groups; }

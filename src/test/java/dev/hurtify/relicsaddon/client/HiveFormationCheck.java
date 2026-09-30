@@ -37,7 +37,7 @@ public final class HiveFormationCheck {
                     at[slot] = HiveFormation.station(mode, type, slot, slots, owner, target, 1.1, 1.9, time, 100, 60);
                     requireFinite(at[slot], mode + " station");
                     double limit = switch (mode) {
-                        case CONTAINMENT -> 4;
+                        case CONTAINMENT -> 4 * HiveFormation.CONTAINMENT_SCALE;
                         case BARRAGE -> 9;
                         case DROPLET -> owner.distanceTo(core) + 14;
                     };
@@ -138,6 +138,17 @@ public final class HiveFormationCheck {
         units.set(7 + slots, units.get(7 + slots).hit(3, 1400, 1600));
         require(HiveSlots.occupant(units, 7, slots, fighters, 1400) == 7 + 2 * slots, "the lane keeps rotating");
         require(HiveSlots.groups(250) == 16 && HiveSlots.groups(12) == 2 && HiveSlots.groups(1) == 1, "two to sixteen strike groups");
+        require(HiveSlots.groups(12, AttackMode.BARRAGE) == 3 && HiveSlots.groups(3, AttackMode.BARRAGE) == 3
+                && HiveSlots.groups(2, AttackMode.BARRAGE) == 2 && HiveSlots.groups(250, AttackMode.BARRAGE) == 16
+                && HiveSlots.groups(12, AttackMode.DROPLET) == 2, "barrage clumps make at least a triangle");
+        for (int few = 3; few < 40; few++) {
+            int barrage = HiveSlots.groups(few, AttackMode.BARRAGE), total = 0;
+            for (int group = 0; group < barrage; group++) {
+                require(HiveSlots.groupSize(group, few, barrage) > 0, "every barrage clump has a drone (" + few + " drones)");
+                total += HiveSlots.groupSize(group, few, barrage);
+            }
+            require(total == few, "every drone belongs to one clump");
+        }
         int total = 0;
         for (int group = 0; group < 16; group++) total += HiveSlots.groupSize(group, 250, 16);
         require(total == 250, "every place belongs to exactly one group");
