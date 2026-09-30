@@ -393,14 +393,29 @@ tasks.register('inspectShieldSave', JavaExec) {
     }
 }
 
-// NeoForge can exit zero after a loading error, before running any tests.
+// NeoForge can exit zero after a loading error, before running any tests. The count is pinned, so a
+// GameTest that silently stops being discovered fails the run too.
+def expectedGameTests = 36
+
 tasks.named('runGameTestServer').configure {
     doFirst { ext.testStartedMillis = System.currentTimeMillis() }
     doLast {
         def log = file('run-gametest/logs/latest.log')
+        def summary = log.exists() && log.lastModified() >= ext.testStartedMillis ? (log.getText('UTF-8') =~ /All (\d+) required tests passed/) : null
+        if (summary == null || !summary.find() || summary.group(1).toInteger() != expectedGameTests) {
+            throw new GradleException("GameTest server did not confirm a fresh run of all ${expectedGameTests} required tests; inspect run-gametest/logs/latest.log")
+        }
+    }
+}
+
+// The development client must reach the ordinary title screen (NativeModelSmoke logs it, then stops the client).
+tasks.named('runStartupCheckClient').configure {
+    doFirst { ext.testStartedMillis = System.currentTimeMillis() }
+    doLast {
+        def log = file('run-verification/logs/latest.log')
         if (!log.exists() || log.lastModified() < ext.testStartedMillis ||
-                !(log.getText('UTF-8') =~ /All \d+ required tests passed/).find()) {
-            throw new GradleException('GameTest server did not confirm a fresh successful test run; inspect run-gametest/logs/latest.log')
+                !log.getText('UTF-8').contains('Normal startup: TitleScreen, no preview')) {
+            throw new GradleException('Development client did not reach the ordinary title screen; inspect run-verification/logs/latest.log')
         }
     }
 }
