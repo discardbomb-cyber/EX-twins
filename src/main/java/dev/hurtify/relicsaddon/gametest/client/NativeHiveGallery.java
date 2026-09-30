@@ -79,9 +79,11 @@ final class NativeHiveGallery extends Screen {
         float turn = droplet ? .65F : 0F;
         double scale = Math.min((cw - 16) / (reach * 2), (height - 60) / (reach * 1.9));
         Vec3 target = droplet ? new Vec3(7.5, 0, 0) : Vec3.ZERO;
-        if (contain && type == HiveType.TWINS) {
+        if (contain && type != HiveType.MANA) {
+            // Twins lift their target into the rifts, RF into the middle of their rings.
             double lift = Math.clamp((time - combatStart - TRAVEL * .5) / 30, 0, 1);
-            target = target.add(0, HiveContainment.LIFT * lift * lift * (3 - 2 * lift), 0);
+            double height = type == HiveType.TWINS ? HiveContainment.LIFT : dev.hurtify.relicsaddon.drone.HiveFormation.ringLift(.6, 1.8);
+            target = target.add(0, height * lift * lift * (3 - 2 * lift), 0);
         }
         Vec3 owner = droplet ? new Vec3(-1.5, 0, 0) : new Vec3(contain ? -4.5 : -8, 0, 1.5);
         double cycleStart = combatStart + TRAVEL;

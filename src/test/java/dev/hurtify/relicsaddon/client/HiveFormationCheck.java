@@ -55,7 +55,9 @@ public final class HiveFormationCheck {
         // Containment constructs rest on the ground: no drone of an unlifted target's construct is below its feet.
         for (HiveType type : HiveType.values()) for (int slots : new int[]{1, 12, 100, 250}) for (double height : new double[]{.5, 1.8, 2.9}) {
             for (int slot = 0; slot < slots; slot++) {
-                Vec3 at = HiveFormation.station(AttackMode.CONTAINMENT, type, slot, slots, owner, target, .6, height, 777.5, 100, 60);
+                // RF rings stay round the target, whose hold lifts it clear of the ground.
+                Vec3 held = type == HiveType.RF ? target.add(0, HiveFormation.ringLift(.6, height), 0) : target;
+                Vec3 at = HiveFormation.station(AttackMode.CONTAINMENT, type, slot, slots, owner, held, .6, height, 777.5, 100, 60);
                 require(at.y >= target.y + .1, type + " containment dips into the ground: " + (at.y - target.y) + " (height " + height + ")");
             }
         }
