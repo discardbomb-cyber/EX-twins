@@ -51,12 +51,14 @@ public final class HiveCombatVisual {
                 if (time - shot.firedAt() > 20) continue;
                 state = new long[]{now, 0};
                 STARTED.put(key, state);
-                begin(level, shot, type, start, end);
+                begin(level, shot, type, start, end, time);
             }
             if (state[1] == 0 && time >= shot.impactAt() && shot.kind() == HiveCombatState.BALL) {
                 state[1] = 1;
                 ExFx.swarmBlast(level, end, type, 1.2f);
                 EffectLights.flash(end, 15, 1.2, 8);
+                // Mana's barrage stays as it was.
+                if (type != HiveType.MANA) HiveJuice.impact(end, end.subtract(start), type, HiveJuice.CHARGE, time, .8, group(type, shot));
                 if (type == HiveType.TWINS) ExFx.swarmSmoke(level, end);
             }
             // Blasts ring out through space for a moment after they land.
@@ -78,11 +80,18 @@ public final class HiveCombatVisual {
         }
     }
 
-    private static void begin(net.minecraft.client.multiplayer.ClientLevel level, HiveCombatState.Shot shot, HiveType type, Vec3 start, Vec3 end) {
+    /** Names a blow's strike group, so its next blow cuts this one's tail short. */
+    private static long group(HiveType type, HiveCombatState.Shot shot) {
+        return (type.ordinal() + 1) * 1_000_003L + shot.unit() * 31L + shot.kind();
+    }
+
+    private static void begin(net.minecraft.client.multiplayer.ClientLevel level, HiveCombatState.Shot shot, HiveType type, Vec3 start, Vec3 end, double time) {
         switch (shot.kind()) {
             case HiveCombatState.DROPLET -> {
                 ExFx.swarmBlast(level, end, type, 1.5f);
                 EffectLights.flash(end, 15, 1, 8);
+                // A Mana drop falls on its target from above.
+                HiveJuice.impact(end, type == HiveType.MANA ? new Vec3(0, -1, 0) : end.subtract(start), type, HiveJuice.STRIKE, time, 1, group(type, shot));
                 if (type == HiveType.TWINS) ExFx.voidPulse(level, end);
             }
             case HiveCombatState.BALL -> {
@@ -92,18 +101,22 @@ public final class HiveCombatVisual {
             case HiveCombatState.ZAP -> {
                 ExFx.swarmZap(level, start, end, type);
                 EffectLights.flash(end, 10, .5, 4);
+                HiveJuice.impact(end, end.subtract(start), type, HiveJuice.ZAP, time, .35, group(type, shot));
             }
             case HiveCombatState.VOID -> {
                 ExFx.voidPulse(level, end);
                 EffectLights.flash(end, 9, 1, 6);
+                HiveJuice.impact(end, new Vec3(0, 1, 0), type, HiveJuice.ZAP, time, .45, group(type, shot));
             }
             case HiveCombatState.WARD -> {
                 ExFx.wardFlash(level, end);
                 EffectLights.flash(end, 10, 1, 5);
+                HiveJuice.impact(end, new Vec3(0, 1, 0), type, HiveJuice.ZAP, time, .45, group(type, shot) + (long) (end.x * 7 + end.z * 13));
             }
             case HiveCombatState.INTERCEPT, HiveCombatState.DRONE_HIT -> {
                 ExFx.swarmSpark(level, end, type);
                 EffectLights.flash(end, 7, .3, 4);
+                HiveJuice.impact(end, new Vec3(0, 1, 0), type, HiveJuice.SPARK, time, .3, group(type, shot) + (long) (end.x * 7 + end.z * 13));
             }
             default -> { }
         }
