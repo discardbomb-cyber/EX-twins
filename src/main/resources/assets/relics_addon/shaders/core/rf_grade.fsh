@@ -38,8 +38,10 @@ void main() {
     float depth = texture(Sampler1, uv).r;
     bool solid = depth < 1.0;
 
+    // Drained to a pale grey, as a bleached photograph: its darks lifted, a faint cold cast over it.
     float luma = dot(scene, vec3(0.299, 0.587, 0.114));
-    vec3 colour = mix(scene, vec3(luma) * vec3(0.94, 0.97, 1.03), Grey) * (1.0 - Dim);
+    float bleached = 0.12 + 0.88 * pow(luma, 0.85);
+    vec3 colour = mix(scene, vec3(bleached) * vec3(0.95, 0.97, 1.02), Grey) * (1.0 - Dim);
 
     // Where this point of the land lies from the blast, and how near the shock front is to it.
     float front = 0.0, within = 0.0, ray = 0.0;

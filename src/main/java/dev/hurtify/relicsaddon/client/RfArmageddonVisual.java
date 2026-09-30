@@ -98,7 +98,9 @@ public final class RfArmageddonVisual {
     public static void blast(Vec3 centre, Vec3 from, long impactAt) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null || BLASTS.size() >= 8) return;
-        for (Blast known : BLASTS) if (known.impactAt == impactAt && known.centre().distanceToSqr(centre) < 1e-4) return;
+        for (Blast known : BLASTS) {
+            if (known.impactAt == impactAt && known.centre().distanceToSqr(centre) < 1e-4 && known.shot.origin().distanceToSqr(from) < 1e-4) return;
+        }
         BLASTS.add(new Blast(centre, from, impactAt, minecraft.level));
     }
 
@@ -420,7 +422,8 @@ public final class RfArmageddonVisual {
             if (shown < .01) continue;
             Vec3[] axes = orbitAxes(orbit, time);
             double along = radius * ORBIT_LONG[orbit] * contract, across = radius * ORBIT_SHORT[orbit] * contract;
-            orbit(c, radius, axes, along, across, Math.max(.02, radius * .016), RfPalette.HOLO_PALE, 115 * shown, glow, m);
+            orbit(c, radius, axes, along, across, Math.max(.03, radius * .022), RfPalette.HOLO_PALE, 150 * shown, glow, m);
+            orbit(c, radius, axes, along, across, Math.max(.12, radius * .07), RfPalette.ELECTRIC, 45 * shown, glow, m);
             // The electron, and the light it trails.
             double at = hash(orbit, 5) * Math.PI * 2 + time * spin * (1 + .15 * orbit) * (orbit % 2 == 0 ? 1 : -1);
             double direction = orbit % 2 == 0 ? 1 : -1;
@@ -460,12 +463,18 @@ public final class RfArmageddonVisual {
         }
     }
 
-    /** Whether a camera-relative point outside a ball round {@code c} is hidden behind it. */
+    /**
+     * Whether a camera-relative point is hidden by the dark ball round {@code c}: the way from the eye to it enters the
+     * ball first (so a point inside it is hidden too). Seen from inside the ball, whose core is then not drawn, nothing is.
+     */
     private static boolean behind(Vec3 c, double radius, Vec3 point) {
-        double length = point.lengthSqr();
-        if (length < 1e-9) return false;
-        double s = Math.clamp(c.dot(point) / length, 0, 1);
-        return s < 1 && c.subtract(point.scale(s)).lengthSqr() < radius * radius && point.subtract(c).lengthSqr() > radius * radius * .98;
+        double length = point.length();
+        if (length < 1e-9 || radius <= 0) return false;
+        Vec3 way = point.scale(1 / length);
+        double b = c.dot(way), h = b * b - (c.lengthSqr() - radius * radius);
+        if (h < 0) return false;
+        double entry = b - Math.sqrt(h);
+        return entry > 0 && entry < length;
     }
 
     /** Short discharges leaping from the nose's needles to the growing ball, a pair every few ticks. */
@@ -620,11 +629,13 @@ public final class RfArmageddonVisual {
         Vec3 centre = blast.centre();
         if (fade < .01 || centre.distanceTo(camera) > RfArmageddon.RADIUS * 1.5) return;
         ClientLevel level = blast.level;
-        Vec3 heart = new Vec3(centre.x, ground(level, centre.x, centre.z, centre.y), centre.z).subtract(camera).add(0, .6, 0);
+        Vec3 floor = new Vec3(centre.x, ground(level, centre.x, centre.z, centre.y), centre.z).subtract(camera).add(0, .08, 0);
         double pulse = .5 + .5 * Math.sin(time * .15);
-        GlowBrush.dot(glow, m, heart, 3.5 + pulse, RfPalette.SPARK, 170 * fade);
-        GlowBrush.dot(glow, m, heart, 11 + 2 * pulse, RfPalette.ELECTRIC, 80 * fade);
-        GlowBrush.dot(glow, m, heart, 26, RfPalette.HOLO_DEEP, 40 * fade);
+        // A glow lying on the crater's floor, and a small light hovering over it, clear of the floor.
+        pool(glow, m, floor, 12 + 2 * pulse, RfPalette.ELECTRIC, 130 * fade);
+        pool(glow, m, floor, 26, RfPalette.HOLO_DEEP, 50 * fade);
+        GlowBrush.dot(glow, m, floor.add(0, 2.2, 0), 1.6 + .4 * pulse, RfPalette.SPARK, 200 * fade);
+        GlowBrush.dot(glow, m, floor.add(0, 2.2, 0), 4.5, RfPalette.ELECTRIC, 90 * fade);
         long bucket = (long) Math.floor(time / 3);
         double flicker = new double[]{1, .5, .8}[(int) Math.floor(time) % 3];
         for (int k = 0; k < 6; k++) {
@@ -634,6 +645,17 @@ public final class RfArmageddonVisual {
             double x2 = x + Math.cos(turn) * reach, z2 = z + Math.sin(turn) * reach;
             Vec3 from = new Vec3(x, ground(level, x, z, centre.y) + .15, z).subtract(camera), to = new Vec3(x2, ground(level, x2, z2, centre.y) + .15, z2).subtract(camera);
             GlowBrush.lightning(glow, m, from, to, bucket * 83 + k, 5, .22, .05, RfPalette.SPARK, 200 * fade * flicker);
+        }
+    }
+
+    /** A pool of light lying flat on the ground, brightest in its middle. */
+    private static void pool(VertexConsumer glow, Matrix4f m, Vec3 centre, double radius, int colour, double alpha) {
+        if (alpha < 1) return;
+        for (int k = 0; k < 24; k++) {
+            double a = Math.PI * 2 * k / 24, b = Math.PI * 2 * (k + 1) / 24;
+            GlowBrush.vertex(glow, m, centre, colour, alpha);
+            GlowBrush.vertex(glow, m, centre.add(Math.cos(a) * radius, 0, Math.sin(a) * radius), colour, 0);
+            GlowBrush.vertex(glow, m, centre.add(Math.cos(b) * radius, 0, Math.sin(b) * radius), colour, 0);
         }
     }
 
@@ -654,7 +676,8 @@ public final class RfArmageddonVisual {
         float volume = (float) Math.clamp(1.25 - distance / (RfArmageddon.RADIUS * 4), .35, 1);
         if (!blast.flightHeard && age >= RfArmageddon.FIRE) {
             blast.flightHeard = true;
-            if (age < RfArmageddon.FIRE + 20) {
+            // Only if in time for it: started late, every bolt's crack would come after its flash.
+            if (age < RfArmageddon.FIRE + 4) {
                 blast.flight = new BallSound(blast);
                 Minecraft.getInstance().getSoundManager().play(blast.flight);
             }
@@ -842,11 +865,11 @@ public final class RfArmageddonVisual {
         for (int x = cx - reach; x <= cx + reach; x += step) for (int z = cz - reach; z <= cz + reach; z += step) {
             double dx = x + .5 - centre.x, dz = z + .5 - centre.z, d = Math.sqrt(dx * dx + dz * dz), rise = RfArmageddon.rimHeight(d);
             if (rise < .3) continue;
-            int y = minecraft.level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
-            if (Math.abs(y + .5 - centre.y) > RfArmageddon.RIM_REACH) continue;
-            BlockPos at = new BlockPos(x, y, z);
+            // The ground as the server would raise it: the first plain ground block down from the surface (past plants and leaves).
+            BlockPos at = new BlockPos(x, minecraft.level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z) - 1, z);
+            for (int k = 0; k < 12 && !minecraft.level.getBlockState(at).is(ArmageddonController.RIM) && at.getY() > minecraft.level.getMinBuildHeight(); k++) at = at.below();
             BlockState top = minecraft.level.getBlockState(at), under = minecraft.level.getBlockState(at.below());
-            if (top.isAir() || top.getRenderShape() != RenderShape.MODEL) continue;
+            if (!top.is(ArmageddonController.RIM) || Math.abs(at.getY() + .5 - centre.y) > RfArmageddon.RIM_REACH || top.getRenderShape() != RenderShape.MODEL) continue;
             rim.add(new RimBlock(at, top, under.getRenderShape() == RenderShape.MODEL ? under : top, rise, dx / d, dz / d, step));
         }
         return rim;
@@ -896,7 +919,7 @@ public final class RfArmageddonVisual {
         double dome = t >= 0 && t < RfArmageddon.FLASH + 4 ? RfArmageddon.dome(Math.min(t, RfArmageddon.FLASH)) : 0;
         double heat = smooth((t - 8) / (RfArmageddon.FLASH - 8)), glass = smooth(t / 3) * (1 - smooth((t - RfArmageddon.FLASH) / 4));
         double edge = smooth(t / 4) * (1 + heat) * (1 - smooth((t - RfArmageddon.FLASH) / 6));
-        return new ArmageddonVolume.RfStage(grey * near, .28 * grey * near, silhouette * near, flood * near, RfArmageddon.reach(t), shock * near,
+        return new ArmageddonVolume.RfStage(grey * near, .08 * grey * near, silhouette * near, flood * near, RfArmageddon.reach(t), shock * near,
                 ball, flying ? RfArmageddon.ballRadius(age) : 0, .95, 1.5 + .6 * hover, age, dome, glass, heat, .5 + 1.6 * heat, edge);
     }
 

@@ -77,7 +77,7 @@ public final class ArmageddonController {
     /** The most places carving or boring looks at in one tick, taken or not (air and bedrock too); it goes on from there the next. */
     private static final int LOOKS = 48000;
     /** The plain ground an RF crater's rim may be raised from: earth, stone, sand and the like, never anything with contents. */
-    static final TagKey<Block> RIM = TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(RelicsAddon.MOD_ID, "crater_rim"));
+    public static final TagKey<Block> RIM = TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(RelicsAddon.MOD_ID, "crater_rim"));
     /** Shots in progress, by owner. */
     private static final Map<UUID, Shot> SHOTS = new HashMap<>();
     /** Shots already fired whose owner has gone: they fly on, feed and burst where they were fired. */
@@ -233,8 +233,11 @@ public final class ArmageddonController {
     public static boolean tick(ServerPlayer owner, ItemStack hive, long now) {
         Shot shot = SHOTS.get(owner.getUUID());
         if (shot == null) {
-            // A shot this server does not know (the world was reloaded mid-shot): let it go.
-            if (hive.has(ModDataComponents.HIVE_ARMAGEDDON.get())) hive.remove(ModDataComponents.HIVE_ARMAGEDDON.get());
+            // A shot this server does not know (the world was reloaded mid-shot): let it go, and the swarm with it.
+            if (hive.has(ModDataComponents.HIVE_ARMAGEDDON.get())) {
+                hive.remove(ModDataComponents.HIVE_ARMAGEDDON.get());
+                release(hive);
+            }
             return false;
         }
         if (!shot.hive.equals(hive.get(ModDataComponents.INSTANCE_ID.get()))) {
@@ -325,9 +328,18 @@ public final class ArmageddonController {
         return Math.max(0, held - (int) Math.round(points(shield) * SHIELD_KEEPS));
     }
 
+    /**
+     * The swarm comes out of the Armageddon disengaged: whatever it was fighting before the shot is forgotten, so it
+     * sets out afresh from the hive rather than finding itself back in the old fight.
+     */
+    private static void release(ItemStack hive) {
+        hive.set(ModDataComponents.HIVE_COMBAT_STATE.get(), dev.hurtify.relicsaddon.drone.HiveCombatState.DEFAULT);
+    }
+
     private static void finish(ServerPlayer owner, ItemStack hive, Shot shot) {
         SHOTS.remove(owner.getUUID());
         hive.remove(ModDataComponents.HIVE_ARMAGEDDON.get());
+        release(hive);
         if (!DevicePower.required() || owner.getAbilities().instabuild) return;
         // The shot took the hive's whole charge; what the shield gave is all it has left.
         int kept = shot.shieldGiven;
