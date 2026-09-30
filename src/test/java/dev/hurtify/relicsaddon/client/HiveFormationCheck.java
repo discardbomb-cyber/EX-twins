@@ -234,6 +234,15 @@ public final class HiveFormationCheck {
         int total = 0;
         for (int group = 0; group < 16; group++) total += HiveSlots.groupSize(group, 250, 16);
         require(total == 250, "every place belongs to exactly one group");
+        // The Twins shot: a glass icosahedron, its twelve corners on its sphere, turning without coming apart.
+        for (double spin : new double[]{0, 1.3, 1e4}) {
+            for (int corner = 0; corner < 12; corner++) {
+                Vec3 at = HiveProjectiles.icosahedronCorner(corner, HiveProjectiles.RADIUS, spin);
+                requireFinite(at, "icosahedron corner");
+                require(Math.abs(at.length() - HiveProjectiles.RADIUS) < 1e-9, "an icosahedron's corners lie on its sphere");
+            }
+            require(HiveProjectiles.icosahedronFaces().length == 20, "an icosahedron has twenty faces");
+        }
         armageddon();
         manaArmageddon();
         rfArmageddon();

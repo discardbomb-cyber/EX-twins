@@ -63,17 +63,22 @@ final class HiveProjectiles {
             return;
         }
         double grown = Math.min(1, (charge - .3) / .4), radius = RADIUS * grown;
+        // A soft halo, so a ring a quarter of a block across still reads from across a fight.
+        GlowBrush.dot(glow, m, at, radius * 3.2, blue, 70 + 60 * grown);
         GlowBrush.circle(glow, m, at, axes[1], axes[2], radius, 28, .018, hot, 240);
         GlowBrush.circle(glow, m, at, axes[1], axes[2], radius * 1.08, 28, .05, blue, 120);
-        if (charge < .7) return;
+        // Its bolts only near by, and fewer but at high detail.
+        if (charge < .7 || at.lengthSqr() > 32 * 32) return;
+        boolean high = HiveJuice.detail() == HiveJuice.Detail.HIGH;
         double reach = .6 + .9 * (charge - .7) / .3;
         long flicker = (long) Math.floor(time / 1.5);
-        for (int bolt = 0; bolt < 5; bolt++) {
+        for (int bolt = 0; bolt < (high ? 5 : 3); bolt++) {
             double angle = hash(seed + flicker, bolt) * Math.PI * 2;
             Vec3 out = axes[1].scale(Math.cos(angle)).add(axes[2].scale(Math.sin(angle)));
             Vec3 start = at.add(out.scale(radius)), end = start.add(out.scale(reach * (.5 + .5 * hash(seed + flicker, bolt + 9))))
                     .add(axes[0].scale((hash(seed + flicker, bolt + 17) - .5) * .6));
             GlowBrush.lightning(glow, m, start, end, seed * 31 + flicker * 7 + bolt, 5, .3, .007, hot, 190);
+            if (!high) continue;
             // A branch off each bolt.
             Vec3 fork = start.lerp(end, .5);
             GlowBrush.lightning(glow, m, fork, fork.add(jitter(seed + flicker, bolt, reach * .45)), seed * 37 + flicker + bolt, 3, .35, .005, blue, 150);

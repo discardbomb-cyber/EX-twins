@@ -72,12 +72,32 @@ public final class WorldScenarios {
         /** The console of a {@code hive} of {@code level} with {@code orders}, the mouse over {@code hover}'s slider (none if null). */
         static Scene console(String name, RelicRole hive, int level, HiveSettings orders, AttackMode hover) {
             return new Scene(name, hive, level, null, null, List.of(), false, new Vec3(0, 3, 4), new Vec3(0, 2, -4), 20, 2, -1, "minecraft:husk",
-                    new Console(orders, hover));
+                    new Console(orders, hover, true));
+        }
+
+        /**
+         * One attack filmed up close, a frame every tick: a level 10 {@code hive} with just {@code orders}, one
+         * figure's worth, so its wind-up, flight, blow and what lingers each show clearly.
+         */
+        static Scene juice(RelicRole hive, AttackMode mode, HiveSettings orders) {
+            String family = hive == RelicRole.RF_HIVE ? "rf" : hive == RelicRole.MANA_HIVE ? "mana" : "twins";
+            boolean droplet = mode == AttackMode.DROPLET, lifted = hive == RelicRole.TWINS_HIVE && mode == AttackMode.CONTAINMENT;
+            // Filmed from its first moments, so the figure setting out (or the construct closing) shows; a held creature is
+            // killed near the end, so the construct comes apart on film.
+            return new Scene("juice-" + family + "-" + mode.id(), hive, 10, mode, null, List.of(new Vec3(0, 0, droplet ? -9 : -7)), false,
+                    droplet ? new Vec3(10, 5.5, -2) : lifted ? new Vec3(7.5, 5.5, -2) : new Vec3(5.5, 3.6, -3.5),
+                    droplet ? new Vec3(0, 2.8, -3.5) : lifted ? new Vec3(0, 5.6, -7) : new Vec3(0, 2.2, -7), 5, 140,
+                    mode == AttackMode.CONTAINMENT ? 115 : -1, "minecraft:husk", new Console(orders, null, false));
         }
     }
 
     /** What a console scene shows: the hive's orders, and which mode's slider the mouse rests on (none if {@code hover} is null). */
-    private record Console(HiveSettings orders, AttackMode hover) { }
+    private record Console(HiveSettings orders, AttackMode hover, boolean screen) { }
+
+    /** Whether a scene films the console rather than the world. */
+    private static boolean screen(Scene scene) {
+        return scene.console() != null && scene.console().screen();
+    }
 
     private static final List<Scene> SCENES = List.of(
             new Scene("droplet-multi", RelicRole.RF_HIVE, 10, AttackMode.DROPLET, null,
@@ -159,6 +179,16 @@ public final class WorldScenarios {
                     List.of(new Vec3(0, 0, -26)), false, new Vec3(2.5, 3.6, -2.2), new Vec3(0, 3.8, 3), 60, 50, -1),
             // The console's Swarm tab: drones shared between all three modes and the healers, a slider hovered;
             // Containment with no free drones for its tori, dimmed, with its reason; a Droplet squeezed out of the air by Barrage.
+            // The nine attacks up close, one figure each (see Scene.juice).
+            Scene.juice(RelicRole.RF_HIVE, AttackMode.DROPLET, new HiveSettings(0, 16, 0, 0)),
+            Scene.juice(RelicRole.MANA_HIVE, AttackMode.DROPLET, new HiveSettings(0, 14, 0, 0)),
+            Scene.juice(RelicRole.TWINS_HIVE, AttackMode.DROPLET, new HiveSettings(0, 18, 0, 0)),
+            Scene.juice(RelicRole.RF_HIVE, AttackMode.BARRAGE, new HiveSettings(0, 0, 64, 0)),
+            Scene.juice(RelicRole.MANA_HIVE, AttackMode.BARRAGE, new HiveSettings(0, 0, 96, 0)),
+            Scene.juice(RelicRole.TWINS_HIVE, AttackMode.BARRAGE, new HiveSettings(0, 0, 128, 0)),
+            Scene.juice(RelicRole.RF_HIVE, AttackMode.CONTAINMENT, new HiveSettings(0, 0, 0, 42)),
+            Scene.juice(RelicRole.MANA_HIVE, AttackMode.CONTAINMENT, new HiveSettings(0, 0, 0, 37)),
+            Scene.juice(RelicRole.TWINS_HIVE, AttackMode.CONTAINMENT, new HiveSettings(0, 0, 0, 48)),
             Scene.console("console-shared", RelicRole.RF_HIVE, 10, new HiveSettings(40, 608, 900, 432), AttackMode.DROPLET),
             Scene.console("console-refused", RelicRole.RF_HIVE, 0, new HiveSettings(10, 16, 64, 0), AttackMode.CONTAINMENT),
             Scene.console("console-no-room", RelicRole.MANA_HIVE, 10, new HiveSettings(0, 14, 1986, 0), null));
@@ -188,6 +218,8 @@ public final class WorldScenarios {
     private static Phase phase = Phase.WAIT_WORLD;
     private static int ticks, scene = -1, frame, pendingGrabs;
     private static boolean due;
+    private static long warmFps;
+    private static int warmFrames;
     private static List<Scene> plan;
     private static final AtomicInteger CAMERA = new AtomicInteger(-1);
     private static final List<Integer> FOES = new ArrayList<>();
@@ -222,13 +254,22 @@ public final class WorldScenarios {
             case SETUP -> { }
             case WARM -> {
                 attachCamera(minecraft);
+                // The frame rate over the second half of the warm-up, before any frame is saved.
+                if (ticks * 2 >= plan.get(scene).warmTicks()) {
+                    warmFps += minecraft.getFps();
+                    warmFrames++;
+                }
                 if (++ticks >= plan.get(scene).warmTicks()) {
                     phase = Phase.CAPTURE;
                     ticks = 0;
                     frame = 0;
                     captureStart = minecraft.level.getGameTime();
                     Shot shot = ARMAGEDDON.get(plan.get(scene).name());
-                    if (plan.get(scene).console() != null) onServer(minecraft, level -> DeviceControlMenu.open(owner(level), true, 0));
+                    if (screen(plan.get(scene))) onServer(minecraft, level -> DeviceControlMenu.open(owner(level), true, 0));
+                    RelicsAddon.LOGGER.info("World scenario {}: {} fps warming up", plan.get(scene).name(), String.format(Locale.ROOT, "%.1f",
+                            warmFrames == 0 ? 0 : warmFps / (double) warmFrames));
+                    warmFps = 0;
+                    warmFrames = 0;
                     if (shot != null) onServer(minecraft, level -> {
                         // Slowed down, every tick gets its frame: the film plays back smoothly at full speed.
                         level.getServer().tickRateManager().setTickRate(shot.tickRate());
@@ -242,7 +283,7 @@ public final class WorldScenarios {
             }
             case CAPTURE -> {
                 Console console = plan.get(scene).console();
-                if (console != null) {
+                if (console != null && console.screen()) {
                     // The console opens a few ticks after it is asked for; then its Swarm tab, the mouse where the scene wants it.
                     if (minecraft.screen instanceof DeviceControlScreen screen) {
                         if (ticks == 0) screen.showSwarmTab();
@@ -254,7 +295,7 @@ public final class WorldScenarios {
                 // A key pressed into the game window must not open a screen over the shot.
                 if (minecraft.screen != null) minecraft.setScreen(null);
                 Shot shot = ARMAGEDDON.get(plan.get(scene).name());
-                if (++ticks % (shot == null ? 2 : shot.cadence()) == 0) due = true;
+                if (++ticks % (shot == null ? plan.get(scene).name().startsWith("juice-") ? 1 : 2 : shot.cadence()) == 0) due = true;
             }
             case TEARDOWN -> {
                 if (++ticks >= 10) next(minecraft);
@@ -266,7 +307,7 @@ public final class WorldScenarios {
     /** Rests the mouse on a console scene's button (or out of the way) before the frame is drawn, so its tooltip shows. */
     @SubscribeEvent
     public static void beforeFrame(RenderFrameEvent.Pre event) {
-        if (!enabled() || phase != Phase.CAPTURE || plan.get(scene).console() == null) return;
+        if (!enabled() || phase != Phase.CAPTURE || !screen(plan.get(scene))) return;
         Minecraft minecraft = Minecraft.getInstance();
         if (!(minecraft.screen instanceof DeviceControlScreen screen)) return;
         Console console = plan.get(scene).console();
@@ -316,7 +357,7 @@ public final class WorldScenarios {
         if (frame >= current.frames() || burntOut) {
             RelicsAddon.LOGGER.info("World scenario {}: {} frames", current.name(), frame);
             onServer(minecraft, WorldScenarios::teardown);
-            if (current.console() != null && minecraft.player != null) minecraft.player.closeContainer();
+            if (screen(current) && minecraft.player != null) minecraft.player.closeContainer();
             minecraft.setCameraEntity(minecraft.player);
             phase = Phase.TEARDOWN;
             ticks = 0;
@@ -416,6 +457,8 @@ public final class WorldScenarios {
                 husk.setHealth(husk.getMaxHealth());
             }
             husk.setNoAi(!scene.foesFight());
+            // A close-up's target never swings at the drones, so its one figure is never cut short.
+            if (scene.name().startsWith("juice-") && husk.getAttribute(Attributes.ATTACK_DAMAGE) != null) husk.getAttribute(Attributes.ATTACK_DAMAGE).setBaseValue(0);
             if (scene.foesFight()) husk.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, MobEffectInstance.INFINITE_DURATION, 6, false, false));
             level.addFreshEntity(husk);
             husk.setTarget(player);

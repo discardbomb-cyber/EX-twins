@@ -267,6 +267,7 @@ tasks.named('check') {
     dependsOn 'verifyRegistryFilter'
     dependsOn 'verifyHiveFormation'
     dependsOn 'verifyHiveAllocation'
+    dependsOn 'verifyHiveConstructs'
     dependsOn 'verifyArmageddonSounds'
     dependsOn 'verifyHiveLayers'
     dependsOn 'verifyEffectLights'
@@ -334,6 +335,13 @@ tasks.register('verifyHiveAllocation', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
     mainClass = 'dev.hurtify.relicsaddon.drone.HiveAllocationCheck'
+}
+
+// The new figures: geodesic cages, lotus and rift bounded at every stage, the tesseract's cube, the droplet paths.
+tasks.register('verifyHiveConstructs', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.drone.HiveConstructsCheck'
 }
 
 tasks.register('verifyNetworkCodecs', JavaExec) {

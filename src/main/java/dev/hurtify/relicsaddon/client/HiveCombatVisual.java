@@ -55,11 +55,12 @@ public final class HiveCombatVisual {
             }
             if (state[1] == 0 && time >= shot.impactAt() && shot.kind() == HiveCombatState.BALL) {
                 state[1] = 1;
-                ExFx.swarmBlast(level, end, type, 1.2f);
+                // The old flat burst only where the new ones are not drawn: Mana's barrage and low detail.
+                if (type == HiveType.MANA || HiveJuice.detail() == HiveJuice.Detail.LOW) ExFx.swarmBlast(level, end, type, 1.2f);
                 EffectLights.flash(end, 15, 1.2, 8);
                 // Mana's barrage stays as it was.
                 if (type != HiveType.MANA) HiveJuice.impact(end, end.subtract(start), type, HiveJuice.CHARGE, time, .8, group(type, shot));
-                if (type == HiveType.TWINS) ExFx.swarmSmoke(level, end);
+                if (type == HiveType.TWINS && HiveJuice.detail() == HiveJuice.Detail.LOW) ExFx.swarmSmoke(level, end);
             }
             // Blasts ring out through space for a moment after they land.
             double age = time - shot.impactAt();
@@ -102,15 +103,21 @@ public final class HiveCombatVisual {
     private static void begin(net.minecraft.client.multiplayer.ClientLevel level, HiveCombatState.Shot shot, HiveType type, Vec3 start, Vec3 end, double time) {
         switch (shot.kind()) {
             case HiveCombatState.DROPLET -> {
-                ExFx.swarmBlast(level, end, type, 1.5f);
+                if (HiveJuice.detail() == HiveJuice.Detail.LOW) ExFx.swarmBlast(level, end, type, 1.5f);
                 EffectLights.flash(end, 15, 1, 8);
                 // A Mana drop falls on its target from above.
                 HiveJuice.impact(end, type == HiveType.MANA ? new Vec3(0, -1, 0) : end.subtract(start), type, HiveJuice.STRIKE, time, 1, group(type, shot));
                 if (type == HiveType.TWINS) ExFx.voidPulse(level, end);
             }
             case HiveCombatState.BALL -> {
-                ExFx.chargeBall(level, start, end, (int) Math.max(1, shot.impactAt() - shot.firedAt()), type);
-                if (type == HiveType.TWINS) ExFx.swarmSmoke(level, start);
+                if (type == HiveType.MANA || HiveJuice.detail() == HiveJuice.Detail.LOW) {
+                    ExFx.chargeBall(level, start, end, (int) Math.max(1, shot.impactAt() - shot.firedAt()), type);
+                }
+                // Now and then a Twins clump sheds a puff of violet smoke as it fires, in the world, not a picture of one.
+                if (type == HiveType.TWINS && HiveJuice.detail() == HiveJuice.Detail.LOW) ExFx.swarmSmoke(level, start);
+                else if (type == HiveType.TWINS && Math.floorMod(shot.firedAt() + shot.unit(), 3) == 0) {
+                    HiveJuice.impact(start, new Vec3(0, 1, 0), type, HiveJuice.PUFF, time, .8, group(type, shot) + 7);
+                }
             }
             case HiveCombatState.ZAP -> {
                 ExFx.swarmZap(level, start, end, type);
