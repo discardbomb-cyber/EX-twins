@@ -99,6 +99,9 @@ export JAVA_HOME="/c/Program Files/Eclipse Adoptium/jdk-21.0.12.8-hotspot"
 
 - `tools/build_combat_sounds.mjs` - synthesized Ogg sounds (`npm install` in `tools/` first; `--validate`).
 - `tools/build_mana_shield_mesh.mjs` - Mana shield OBJ (groups body/core/fx/shell_0..3).
+- `tools/compact_obj.mjs` - lossless OBJ dedup (repeated v/vt/vn records, faces renumbered). The Node
+  generators write through it; after a Python generator (`build_rf_meshes.py` family) run it over the
+  models, or `verifyObjCompact` (in `check`) fails. `--check a.obj b.obj` proves two files bake alike.
 - `tools/draw_component_icons.mjs --preview` - 16x16 part icons + preview sheet in `work/`.
 - `tools/video_frames.ps1` (PowerShell) - contact sheet of frames from the user's gameplay videos;
   read the PNG to see what happened, then zoom with `-Times`.
