@@ -163,8 +163,9 @@ public final class ArmageddonController {
         if (!DevicePower.required() || owner.getAbilities().instabuild) return true;
         DeviceEnergy energy = DevicePower.energy(hive);
         RelicRole role = DevicePower.role(hive);
-        return (!DevicePower.hasRf(role) || energy.rf() >= DevicePower.feCapacity(hive) * FULL)
-                && (!DevicePower.hasMana(role) || energy.mana() >= DevicePower.capacity(hive) * FULL);
+        // A battery switched off counts as empty: the hive could not spend it and would call the shot off once it started.
+        return (!DevicePower.hasRf(role) || energy.rfOn() && energy.rf() >= DevicePower.feCapacity(hive) * FULL)
+                && (!DevicePower.hasMana(role) || energy.manaOn() && energy.mana() >= DevicePower.capacity(hive) * FULL);
     }
 
     /** How many points {@code device}'s batteries hold between them when full: two batteries for Twins, one for the others. */
@@ -347,7 +348,8 @@ public final class ArmageddonController {
     private static int spare(Player owner, ItemStack shield) {
         if (!RelicRuntime.enabled(shield)) return 0;
         DeviceEnergy energy = DevicePower.energy(shield);
-        int held = energy.rf() / DevicePower.FE_PER_POINT + energy.mana();
+        // Only a battery switched on can be drawn from, so only it counts.
+        int held = (energy.rfOn() ? energy.rf() / DevicePower.FE_PER_POINT : 0) + (energy.manaOn() ? energy.mana() : 0);
         return Math.max(0, held - (int) Math.round(points(shield) * SHIELD_KEEPS));
     }
 
@@ -570,8 +572,9 @@ public final class ArmageddonController {
         RelicsAddon.LOGGER.info("Armageddon of {} {} at {} ticks in", owner.getName().getString(), why, owner.level().getGameTime() - shot.state.startedAt());
         ItemStack hive = hive(owner);
         if (!hive.isEmpty() && shot.hive.equals(hive.get(ModDataComponents.INSTANCE_ID.get()))) hive.remove(ModDataComponents.HIVE_ARMAGEDDON.get());
-        // A shot already fired flies on, feeds and bursts on time, where it was fired.
+        // A shot already fired flies on, feeds and bursts on time, where it was fired; one still charging falls silent.
         if (shot.fired) LOOSE.add(shot);
+        else RelicSounds.hushCharge(shot.level, shot.state.origin(), shot.state.type());
     }
 
     /** The shot bursts: its front starts to sweep out. */
