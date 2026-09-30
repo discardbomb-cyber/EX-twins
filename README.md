@@ -129,7 +129,7 @@ Ten levels grow the swarm from 100 to 2000 drones. At most 250 fly at once; the 
 
 ### Armageddon
 
-Armageddon is the ultimate of a level 10 Ex-Twins hive. When both of the hive's batteries are full (98% or more), press `G` (rebindable) to open the confirmation window. It aims at the point you look at, up to 256 blocks away. The window shows the distance, the blast radius, the charge time and what a worn Ex-Twins shield will add.
+Armageddon is the ultimate of a level 10 Ex-Twins hive (a level 10 Mana hive has its own, [Mana Armageddon](#mana-armageddon)). When both of the hive's batteries are full (98% or more), press `G` (rebindable) to open the confirmation window. It aims at the point you look at, up to 256 blocks away. The window shows the distance, the blast radius, the charge time and what a worn Ex-Twins shield will add.
 
 - **Charge.** The whole swarm flies up into a cannon over its owner's head:
   - a core;
@@ -152,6 +152,34 @@ Armageddon is the ultimate of a level 10 Ex-Twins hive. When both of the hive's 
 - **Targets.** It strikes mobs, and players who are not allied with the owner if the server allows PvP. It never strikes the owner, their teammates or their pets. The owner gets the kill credit.
 - **Aftermath.** The escort drones come home once the smoke settles. The hive keeps only the charge the shield gave it.
 - **Safe mode.** Servers can turn on `armageddon.safeMode` in the server config. The black hole and the blast still strike creatures, but no blocks are broken.
+
+### Mana Armageddon
+
+Mana Armageddon is the ultimate of a level 10 Mana hive. When its battery is full (98% or more), press `G` to open the confirmation window. It aims at the point you look at, up to 256 blocks away. The window shows the distance, what the vortex and the blast will reach, the charge time, how long the blast lasts and what a worn Mana shield will add.
+
+- **Charge.** The swarm spirals into two flowers over its owner's shoulders, about 3 blocks to either side of the view with an empty gap between them. The turquoise flower is on the left and the gold one on the right, and both face the target.
+  - Each flower has four rounded petals in an X. They fill from the heart out with drones and twinkling sparks, round a heart that swells with the charge.
+  - Behind each flower is a seal: a double ring round a belt of runes, a seven-pointed star, and a ring at the core.
+  - Round each flower, a gyroscope of three rune rings leans its own way.
+  - Between the flowers, over the owner's head, hangs the central seal. Its left half is turquoise and its right half gold, with a rhombus in the middle, small rhombi down the seam, a sun and a crescent moon.
+
+  The runes are written one by one, clockwise, with a spark at the pen, one ring after another. The last ring fills as the charge does, and each ring starts to turn once it is full. The charge takes a minute and drains the hive's battery. A worn Mana shield feeds it too (a Twins shield does not), but never gives up the charge its own field needs. The runes are our own script, drawn by `tools/draw_rune_atlas.mjs`.
+- **Streams.** Each flower looses a stream, escorted by a ribbon of drones spiralling round it. The turquoise stream is dense and writhing, with scales at its edge; the gold one is a dazzling beam glinting in every colour. They arc out to either side and meet head-on at the target. Sparks and flakes fly, the ground shakes, and the land within 90 blocks is torn up into a vortex of swirling stones.
+- **Sphere.** The flowers close. A small sun ignites where the streams met, inside a translucent sphere of runes that stands on a seal of blue rings on the ground.
+  - The sphere's runes are written in a running wave. A wide band of runes turns round its equator against a thin band at an angle, and a glowing seam runs down its middle.
+  - The fog inside it glows turquoise and gold round the sun.
+  - The sun grows and presses from inside. The runes whiten, light cracks through them, and the sphere shatters into rune shards.
+- **Blast.** The blast unfolds in stages:
+  - a thin flash cuts across the land;
+  - a ring of stones and burning runes runs out along the ground round a dark core;
+  - a dome of light sweeps out over the land to 256 blocks;
+  - a column of light rises from the seal and grows for as long as the blast is heard, about 40 seconds, with runes rising up its wall and haze swirling up inside it;
+  - at its widest (96 blocks across) the column dissolves into white light. A pale crescent moon hangs in the white sky, and turquoise and gold sparks fall in the silence. Then the drones come home.
+
+  The dome of light strikes each creature as it sweeps over it, as the Twins blast does: 2000 at the heart, falling to 20 at the edge. The column is light only. All of it is drawn in the world, not laid over the screen. With a shader pack (Iris or Oculus) in use, simpler stand-ins are drawn instead.
+
+  The blast's length is one number, `ManaArmageddon.BLAST_SECONDS`. The sound generator reads it, the column grows by it, and `verifyArmageddonSounds` checks that each Mana sound lasts exactly as long as the stage it scores.
+- **Targets, aftermath and safe mode** work as for the Twins Armageddon. The blast never strikes the owner, their teammates or their pets, and the owner gets the kill credit. The hive keeps only the charge the shield gave it. With `armageddon.safeMode`, the vortex tears up no blocks.
 
 ## Verification
 
