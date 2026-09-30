@@ -121,8 +121,9 @@ final class NativeHiveGallery extends Screen {
             // The target: a zombie-sized outline; for droplet the owner too, in the hive's colour.
             outline(glow, matrix, target, 0xC8CED6);
             if (droplet) outline(glow, matrix, owner, HiveModeVisual.color(type));
-            HiveModeVisual.render(new HiveModeVisual.Scene(mode, type, SLOTS, groups, members, drones, owner, target, .6, 1.8, time, cycleStart,
-                    INTERVAL, time >= combatStart + TRAVEL * .5), Vec3.ZERO, glow, fill, matrix);
+            HiveModeVisual.render(new HiveModeVisual.Scene(mode, type, SLOTS, groups, members, drones, owner,
+                    java.util.List.of(new dev.hurtify.relicsaddon.drone.HiveTarget(-1, target, .6, 1.8)), time, cycleStart,
+                    INTERVAL, time >= combatStart + TRAVEL * .5, null, groups), Vec3.ZERO, glow, fill, matrix);
             graphics.bufferSource().endBatch(ShieldVisualRenderer.renderType());
             ShieldGlow.flush();
         } finally {

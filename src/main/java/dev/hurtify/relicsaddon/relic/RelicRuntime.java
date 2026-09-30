@@ -36,7 +36,8 @@ public final class RelicRuntime {
         double value = switch (id) {
             case "buffer_capacity" -> 504 + (5000 - 504) * level / 10.0;
             case "radius" -> 2 + level;
-            case "drone_count" -> 12 + (dev.hurtify.relicsaddon.drone.HiveType.MAX_DRONES - 12) * level / 10.0;
+            case "drone_count" -> dev.hurtify.relicsaddon.drone.HiveType.INITIAL_DRONES
+                    + (dev.hurtify.relicsaddon.drone.HiveType.MAX_DRONES - dev.hurtify.relicsaddon.drone.HiveType.INITIAL_DRONES) * level / 10.0;
             case "drone_health" -> dev.hurtify.relicsaddon.drone.HiveType.DRONE_HP;
             case "attack_damage" -> hiveValue(stack, level, 2);
             case "attack_interval_max" -> 100 - 60 * level / 10.0;

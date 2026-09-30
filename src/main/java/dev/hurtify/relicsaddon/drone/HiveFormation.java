@@ -136,10 +136,16 @@ public final class HiveFormation {
      */
     public static double sortie(Vec3 owner, Vec3 target, double targetHeight, int group, int groups,
             double time, double cycleStart, int interval) {
+        return sortie(owner, target, target, targetHeight, group, groups, time, cycleStart, interval);
+    }
+
+    /** As above for a figure whose fan faces {@code fanTarget} while it strikes {@code strike}. */
+    public static double sortie(Vec3 owner, Vec3 fanTarget, Vec3 strike, double strikeHeight, int group, int groups,
+            double time, double cycleStart, int interval) {
         interval = Math.max(1, interval);
         double phase = groupPhase(time, cycleStart, interval, group, groups);
         if (phase < 0) return -1;
-        Vec3 home = muster(owner, target, group, groups, time), core = core(target, targetHeight);
+        Vec3 home = muster(owner, fanTarget, group, groups, time), core = core(strike, strikeHeight);
         double flight = flightTicks(home.distanceTo(core), interval) / interval;
         double launch = IMPACT - flight;
         if (phase < launch) return -1;
@@ -157,8 +163,14 @@ public final class HiveFormation {
     /** Droplet: centre of a group's figure at {@code time}: in the fan, flying at the target, or flying home. */
     public static Vec3 dropletCentre(Vec3 owner, Vec3 target, double targetHeight, int group, int groups,
             double time, double cycleStart, int interval) {
-        Vec3 home = muster(owner, target, group, groups, time), core = core(target, targetHeight);
-        double sortie = sortie(owner, target, targetHeight, group, groups, time, cycleStart, interval);
+        return dropletCentre(owner, target, target, targetHeight, group, groups, time, cycleStart, interval);
+    }
+
+    /** As above for a figure whose fan faces {@code fanTarget} while it strikes {@code strike}. */
+    public static Vec3 dropletCentre(Vec3 owner, Vec3 fanTarget, Vec3 strike, double strikeHeight, int group, int groups,
+            double time, double cycleStart, int interval) {
+        Vec3 home = muster(owner, fanTarget, group, groups, time), core = core(strike, strikeHeight);
+        double sortie = sortie(owner, fanTarget, strike, strikeHeight, group, groups, time, cycleStart, interval);
         if (sortie <= 0) return home;
         double distance = home.distanceTo(core);
         if (sortie <= 1) {
@@ -252,12 +264,85 @@ public final class HiveFormation {
      */
     public static Vec3 station(AttackMode mode, HiveType type, int slot, int slots, Vec3 owner, Vec3 target, double targetWidth,
             double targetHeight, double time, double cycleStart, int interval) {
+        return stationIn(mode, type, slot, slots, HiveSlots.groups(Math.max(1, slots), mode), owner, target, targetWidth, targetHeight,
+                time, cycleStart, interval);
+    }
+
+    /** Ticks drones take to fly from their old places to their new ones when the swarm changes targets. */
+    public static final int RETARGET_TICKS = 20;
+
+    /** How many of {@code targets} creatures the swarm engages: one strike group each at least. */
+    public static int engaged(int targets, int groups) {
+        return Math.max(1, Math.min(targets, Math.max(1, groups)));
+    }
+
+    /**
+     * Where fighter place {@code slot} flies when the swarm is engaged with several creatures. Strike
+     * group g attacks {@code targets[g % n]}, so the groups are shared out evenly. Droplet figures all form
+     * up in one fan facing the first target and each flies at its own; barrage clumps and containment
+     * constructs are laid out round each target from its own groups.
+     */
+    public static Vec3 station(AttackMode mode, HiveType type, int slot, int slots, Vec3 owner, List<HiveTarget> targets,
+            double time, double cycleStart, int interval) {
+        if (targets.isEmpty()) return owner;
         slots = Math.max(1, slots);
         slot = Math.clamp(slot, 0, slots - 1);
+        int groups = HiveSlots.groups(slots, mode), engaged = engaged(targets.size(), groups);
+        int group = HiveSlots.group(slot, groups), member = HiveSlots.member(slot, groups), index = group % engaged;
+        HiveTarget target = targets.get(index);
+        if (mode == AttackMode.DROPLET) {
+            HiveTarget first = targets.getFirst();
+            return dropletStation(type, group, groups, member, HiveSlots.groupSize(group, slots, groups), owner, first.feet(),
+                    target.feet(), target.height(), safeTime(time), cycleStart, interval);
+        }
+        int localGroups = HiveSlots.localGroups(index, engaged, groups), localSlots = HiveSlots.localSlots(index, engaged, slots, groups);
+        return stationIn(mode, type, member * localGroups + group / engaged, localSlots, localGroups, owner, target.feet(),
+                target.width(), target.height(), time, cycleStart, interval);
+    }
+
+    /**
+     * {@link #station(AttackMode, HiveType, int, int, Vec3, List, double, double, int)} while the swarm
+     * changes targets: for {@link #RETARGET_TICKS} after {@code retargetedAt}, a place whose target or
+     * layout changed flies from where it was (reckoned from the {@code previous} targets) to its new place.
+     */
+    public static Vec3 engagedStation(AttackMode mode, HiveType type, int slot, int slots, Vec3 owner, List<HiveTarget> targets,
+            List<HiveTarget> previous, double retargetedAt, double time, double cycleStart, int interval) {
+        Vec3 now = station(mode, type, slot, slots, owner, targets, time, cycleStart, interval);
+        double progress = (time - retargetedAt) / RETARGET_TICKS;
+        if (previous.isEmpty() || targets.isEmpty() || !(progress >= 0 && progress < 1)) return now;
+        slots = Math.max(1, slots);
+        int groups = HiveSlots.groups(slots, mode), group = HiveSlots.group(Math.clamp(slot, 0, slots - 1), groups);
+        int engaged = engaged(targets.size(), groups), before = engaged(previous.size(), groups);
+        boolean unchanged = engaged == before && targets.get(group % engaged).id() == previous.get(group % before).id()
+                && (mode != AttackMode.DROPLET || targets.getFirst().id() == previous.getFirst().id());
+        if (unchanged) return now;
+        Vec3 then = station(mode, type, slot, slots, owner, previous, time, cycleStart, interval);
+        return path(then, now, progress, slot, type);
+    }
+
+    private static Vec3 dropletStation(HiveType type, int group, int groups, int member, int members, Vec3 owner, Vec3 fanTarget,
+            Vec3 strike, double strikeHeight, double time, double cycleStart, int interval) {
+        strikeHeight = saneSize(strikeHeight, 1.8);
+        Vec3 centre = dropletCentre(owner, fanTarget, strike, strikeHeight, group, groups, time, cycleStart, interval);
+        Vec3 facing = core(strike, strikeHeight).subtract(muster(owner, fanTarget, group, groups, time));
+        double size = shapeSize(members);
+        return centre.add(switch (type) {
+            case RF -> HiveShapes.tesseract(member, members, time + group * 17, size);
+            case MANA -> HiveShapes.droplet(member, members, time, facing, size);
+            case TWINS -> HiveShapes.hexagons(member, members, time + group * 11, facing, size);
+        });
+    }
+
+    /** A place laid out round one target by {@code groups} strike groups. */
+    private static Vec3 stationIn(AttackMode mode, HiveType type, int slot, int slots, int groups, Vec3 owner, Vec3 target, double targetWidth,
+            double targetHeight, double time, double cycleStart, int interval) {
+        slots = Math.max(1, slots);
+        slot = Math.clamp(slot, 0, slots - 1);
+        groups = Math.clamp(groups, 1, slots);
         time = safeTime(time);
         targetWidth = saneSize(targetWidth, .6);
         targetHeight = saneSize(targetHeight, 1.8);
-        int groups = HiveSlots.groups(slots, mode), group = HiveSlots.group(slot, groups), member = HiveSlots.member(slot, groups);
+        int group = HiveSlots.group(slot, groups), member = HiveSlots.member(slot, groups);
         int members = HiveSlots.groupSize(group, slots, groups);
         Vec3 core = core(target, targetHeight);
         return switch (mode) {

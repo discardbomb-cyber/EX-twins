@@ -31,7 +31,7 @@ public final class NetworkCodecCheck {
         int swarmBytes = roundTrip(HiveStackState.STREAM_CODEC, swarm, "full swarm");
         int restingBytes = roundTrip(HiveStackState.STREAM_CODEC, new HiveStackState(true,
                 java.util.Collections.nCopies(HiveType.MAX_DRONES, HiveStackState.Unit.fresh())), "resting swarm");
-        require(restingBytes < 800, "a resting 750-drone swarm must fit in about a byte per drone, took " + restingBytes);
+        require(restingBytes < HiveType.MAX_DRONES + 30, "a resting full swarm must fit in about a byte per drone, took " + restingBytes);
 
         // After a fight, quiet lanes drop their timings and the swarm is back to a byte per drone.
         int slots = HiveType.MAX_DEPLOYED, fighters = HiveType.MAX_DRONES;
@@ -47,7 +47,7 @@ public final class NetworkCodecCheck {
         require(settled.units().get(0).equals(HiveStackState.Unit.fresh()) && settled.units().get(slots).equals(HiveStackState.Unit.fresh()),
                 "a quiet lane starts afresh");
         require(!settled.units().get(3).equals(HiveStackState.Unit.fresh()), "a lane with a drone hit moments ago keeps its timings");
-        require(roundTrip(HiveStackState.STREAM_CODEC, settled, "settled swarm") < 800 + 30, "a settled swarm is back to about a byte per drone");
+        require(roundTrip(HiveStackState.STREAM_CODEC, settled, "settled swarm") < HiveType.MAX_DRONES + 60, "a settled swarm is back to about a byte per drone");
         for (int lane = 0; lane < slots; lane++) {
             if (lane == 3) continue;
             require(HiveSlots.occupant(settled.units(), lane, slots, fighters, 6_000) == lane, "a settled lane is flown by its first drone");
@@ -94,6 +94,16 @@ public final class NetworkCodecCheck {
         }
         for (AttackMode mode : AttackMode.values()) {
             roundTrip(HiveCombatState.STREAM_CODEC, new HiveCombatState(true, 42, 77L, 1.5, 2.5, 3.5, mode, 44, shots), "combat " + mode);
+            List<HiveTarget> targets = new ArrayList<>(), previous = new ArrayList<>();
+            for (int index = 0; index < HiveCombatState.MAX_TARGETS; index++) {
+                targets.add(new HiveTarget(100 + index, index * 1.5, 64, -index, .6 + index * .1, 1.8));
+                if (index % 2 == 0) previous.add(new HiveTarget(200 + index, -index, 70, index * 2.5, 1.2F, 2.9F));
+            }
+            HiveCombatState engaged = HiveCombatState.engage(targets, 77L, mode, 44).withShots(shots).retarget(targets, 90L);
+            roundTrip(HiveCombatState.STREAM_CODEC, new HiveCombatState(true, 100, 77L, 0, 64, 0, mode, 44, shots, targets, previous, 90L),
+                    "combat with targets " + mode);
+            require(engaged.previous().equals(engaged.targets()) && engaged.retargetedAt() == 90L && engaged.changedAt() == 77L,
+                    "a retarget keeps the fight's start and remembers the old targets");
         }
 
         for (DeviceEnergy.ManaSource source : DeviceEnergy.ManaSource.values()) {

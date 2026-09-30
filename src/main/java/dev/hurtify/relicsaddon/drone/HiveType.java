@@ -7,11 +7,13 @@ import dev.hurtify.relicsaddon.relic.RelicRole;
  * which at most {@link #MAX_DEPLOYED} fly at once while the rest wait in the hive as replacements.
  */
 public enum HiveType {
-    RF(RelicRole.RF_HIVE, RelicRole.RF_DRONE, 12, 80, 40, 2, 3),
-    MANA(RelicRole.MANA_HIVE, RelicRole.MANA_DRONE, 12, 50, 20, 2, 3),
-    TWINS(RelicRole.TWINS_HIVE, RelicRole.TWINS_DRONE, 12, 120, 60, 3, 4);
+    RF(RelicRole.RF_HIVE, RelicRole.RF_DRONE, Counts.INITIAL, 80, 40, 2, 3),
+    MANA(RelicRole.MANA_HIVE, RelicRole.MANA_DRONE, Counts.INITIAL, 50, 20, 2, 3),
+    TWINS(RelicRole.TWINS_HIVE, RelicRole.TWINS_DRONE, Counts.INITIAL, 120, 60, 3, 4);
 
-    public static final int MAX_DRONES = 750;
+    public static final int MAX_DRONES = 2000;
+    /** Drones in a level 0 hive. */
+    public static final int INITIAL_DRONES = Counts.INITIAL;
     public static final int MAX_DEPLOYED = 250;
     /** Every drone can take three hits' worth of damage; any damage sends it home for repair. */
     public static final int DRONE_HP = 3;
@@ -29,6 +31,11 @@ public enum HiveType {
         this.minCooldown = minCooldown;
         this.initialAttackDamage = initialAttackDamage;
         this.maxAttackDamage = maxAttackDamage;
+    }
+
+    /** Holds the starting count for the enum constants, which are initialised before the enum's own fields. */
+    private static final class Counts {
+        static final int INITIAL = 100;
     }
 
     public static HiveType of(RelicRole role) {

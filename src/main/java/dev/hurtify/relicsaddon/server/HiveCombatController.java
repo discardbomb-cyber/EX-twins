@@ -8,6 +8,7 @@ import dev.hurtify.relicsaddon.drone.HiveFormation;
 import dev.hurtify.relicsaddon.drone.HiveSettings;
 import dev.hurtify.relicsaddon.drone.HiveSlots;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
+import dev.hurtify.relicsaddon.drone.HiveTarget;
 import dev.hurtify.relicsaddon.drone.HiveType;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
@@ -15,8 +16,10 @@ import dev.hurtify.relicsaddon.relic.HiveUpgrades;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.sound.RelicSounds;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -37,6 +40,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.level.ExplosionEvent;
 
@@ -66,6 +70,10 @@ public final class HiveCombatController {
     /** Ticks a hit drone needs per point of damage before it is whole again (a destroyed one is rebuilt instead). */
     private static final int REPAIR_TICKS_PER_HP = 40;
     private static final Map<UUID, EnumMap<HiveType, List<Flight>>> FLIGHTS = new HashMap<>();
+    /** Creatures that attacked each owner (or the owner's field) lately: entity id to the tick of the attack. */
+    private static final Map<UUID, Map<Integer, Long>> ATTACKERS = new HashMap<>();
+    /** How long an attack keeps its attacker a target, and how far round the owner creatures targeting them are sought. */
+    private static final int ATTACK_MEMORY = 100, ATTACKER_SCAN = 32;
 
     /** Called once per server player tick by {@link HiveController}. */
     public static void tick(Player player) {
@@ -94,23 +102,34 @@ public final class HiveCombatController {
         HiveCombatState before = stack.getOrDefault(ModDataComponents.HIVE_COMBAT_STATE.get(), HiveCombatState.DEFAULT);
         HiveSettings settings = HiveTaskController.settings(stack);
         int units = swarm.units().size(), slots = HiveSlots.fighterSlots(units, settings), fighters = settings.fighters(units);
-        LivingEntity target = slots == 0 ? null : selectTarget(owner, level, before.targetId());
-        if (target == null) {
+        int groups = HiveSlots.groups(Math.max(1, slots), settings.mode());
+        List<LivingEntity> foes = slots == 0 ? List.of()
+                : selectTargets(owner, level, before, Math.min(groups, HiveCombatState.MAX_TARGETS), now);
+        if (foes.isEmpty()) {
             finish(owner, level, type, stack, before, now);
             FLIGHTS.getOrDefault(owner.getUUID(), new EnumMap<>(HiveType.class)).remove(type);
             HiveContainment.releaseAll(owner.getUUID(), type);
             return;
         }
 
-        Vec3 feet = target.position();
+        // Where every engaged creature is this tick; the first one leads (its direction turns the droplet fan).
+        List<HiveTarget> frames = new ArrayList<>(foes.size());
+        for (LivingEntity foe : foes) frames.add(new HiveTarget(foe.getId(), foe.position(), foe.getBbWidth(), foe.getBbHeight()));
         HiveCombatState state = before;
-        if (!before.active() || before.targetId() != target.getId() || before.mode() != settings.mode()) {
+        if (!before.active() || before.mode() != settings.mode()) {
             HiveContainment.releaseAll(owner.getUUID(), type);
-            state = HiveCombatState.target(target.getId(), feet.x, feet.y, feet.z, now, settings.mode(),
-                    HiveFormation.travelTicks(owner.distanceTo(target)));
+            state = HiveCombatState.engage(frames, now, settings.mode(), HiveFormation.travelTicks(owner.distanceTo(foes.getFirst())));
             RelicSounds.summon(level, owner.position(), type, true);
-        } else if (now % 5 == 0 && (before.targetX() != feet.x || before.targetY() != feet.y || before.targetZ() != feet.z)) {
-            state = state.withTargetPosition(feet.x, feet.y, feet.z);
+        } else if (!before.sameTargets(frames)) {
+            // Creatures that dropped out are let go; the drones fly straight on to the new set, not home first.
+            for (HiveTarget old : before.targets()) {
+                if (frames.stream().noneMatch(frame -> frame.id() == old.id()) && level.getEntity(old.id()) instanceof LivingEntity gone) {
+                    HiveContainment.release(gone);
+                }
+            }
+            state = before.retarget(frames, now);
+        } else if (now % 5 == 0 && moved(before.targets(), frames)) {
+            state = before.withTargets(frames);
         }
 
         List<HiveCombatState.Shot> shots = new ArrayList<>(recentShots(state.shots(), now));
@@ -118,27 +137,25 @@ public final class HiveCombatController {
         Vec3 home = owner.position();
         long cycleStart = state.changedAt() + state.travel();
         int interval = strikeInterval(owner, stack);
-        int groups = HiveSlots.groups(slots, state.mode());
+        int engaged = HiveFormation.engaged(frames.size(), groups);
         float perDrone = attackDamage(owner, stack, type);
-        double width = target.getBbWidth(), height = target.getBbHeight();
 
         int[] occupant = new int[slots];
         int[] members = new int[groups];
-        int flying = 0;
         for (int slot = 0; slot < slots; slot++) {
             occupant[slot] = HiveSlots.occupant(swarm.units(), slot, slots, fighters, now);
-            if (occupant[slot] >= 0) {
-                members[HiveSlots.group(slot, groups)]++;
-                flying++;
-            }
+            if (occupant[slot] >= 0) members[HiveSlots.group(slot, groups)]++;
         }
 
         switch (state.mode()) {
             case DROPLET -> {
-                Vec3 core = HiveFormation.core(feet, height);
+                Vec3 fan = frames.getFirst().feet();
                 for (int group = 0; group < groups; group++) {
                     if (members[group] == 0) continue;
-                    Vec3 muster = HiveFormation.muster(home, feet, group, groups, now);
+                    LivingEntity target = foes.get(group % engaged);
+                    HiveTarget frame = frames.get(group % engaged);
+                    Vec3 core = HiveFormation.core(frame.feet(), frame.height());
+                    Vec3 muster = HiveFormation.muster(home, fan, group, groups, now);
                     // The figure leaves the owner's fan so that it arrives exactly when its blow is due.
                     long flight = Math.round(HiveFormation.flightTicks(muster.distanceTo(core), interval));
                     if (HiveFormation.passes(now + flight, cycleStart, interval, group, groups, HiveFormation.IMPACT)) {
@@ -161,83 +178,52 @@ public final class HiveCombatController {
                     if (members[group] == 0 || !HiveFormation.passes(now, cycleStart, interval, group, groups, HiveFormation.FIRE)) continue;
                     int cost = members[group] * STRIKE_COST_PER_DRONE;
                     if (!DevicePower.canAfford(owner, stack, cost)) break;
-                    Vec3 from = HiveFormation.clusterCentre(type, feet, width, height, group, groups, now);
-                    Flight flight = Flight.ball(owner, type, group, members[group], cost, members[group] * perDrone * efficiency(), from, target, now);
+                    int index = group % engaged;
+                    HiveTarget frame = frames.get(index);
+                    Vec3 from = HiveFormation.clusterCentre(type, frame.feet(), frame.width(), frame.height(), group / engaged,
+                            HiveSlots.localGroups(index, engaged, groups), now);
+                    Flight flight = Flight.ball(owner, type, group, members[group], cost, members[group] * perDrone * efficiency(), from, foes.get(index), now);
                     flights(owner.getUUID(), type).add(flight);
                     shots.add(flight.shot());
                     RelicSounds.chargeFire(level, from, type);
                 }
             }
             case CONTAINMENT -> {
-                if (now >= state.changedAt() + state.travel() / 2 && flying > 0) {
-                    HiveContainment.Hold hold = HiveContainment.hold(owner, target, type, flying, now);
-                    if (now % 20 == 0) {
-                        if (!DevicePower.drain(owner, stack, Math.max(1, flying / 5))) {
-                            HiveContainment.release(target);
-                        } else {
-                            Vec3 core = HiveFormation.core(target.position(), height);
-                            float damage = flying * perDrone * efficiency() * .12F;
-                            switch (type) {
-                                case RF -> {
-                                    Vec3 from = HiveFormation.station(AttackMode.CONTAINMENT, type, (int) (now / 20 % slots), slots, home,
-                                            target.position(), width, height, now, cycleStart, interval);
-                                    if (swarmHit(owner, target, damage, Vec3.ZERO, 0, DRONE_SHOT)) RelicRuntime.awardCombatExperience(owner, stack, damage);
-                                    shots.add(new HiveCombatState.Shot(0, now, HiveCombatState.ZAP, from.x, from.y, from.z, core.x, core.y, core.z, now));
-                                    RelicSounds.containment(level, core, type);
-                                }
-                                case TWINS -> {
-                                    if (swarmHit(owner, target, damage, Vec3.ZERO, 0, SWARM_VOID)) RelicRuntime.awardCombatExperience(owner, stack, damage);
-                                    shots.add(new HiveCombatState.Shot(0, now, HiveCombatState.VOID, core.x, core.y, core.z, core.x, core.y, core.z, now));
-                                    RelicSounds.containment(level, core, type);
-                                }
-                                case MANA -> {
-                                    if (HiveContainment.immune(target)) {
-                                        // A boss or player cannot be held, so it never strikes into the ward: the drones strike through it instead.
-                                        Vec3 centre = target.getBoundingBox().getCenter();
-                                        if (swarmHit(owner, target, damage, Vec3.ZERO, 0, DRONE_SHOT)) RelicRuntime.awardCombatExperience(owner, stack, damage);
-                                        shots.add(new HiveCombatState.Shot(0, now, HiveCombatState.WARD, centre.x, centre.y, centre.z, centre.x, centre.y, centre.z, now));
-                                        RelicSounds.reflect(level, centre);
-                                    } else {
-                                        // The drones keep the ward topped up; turned-back blows are its only damage.
-                                        HiveContainment.refill(hold, flying * .5);
-                                        if (now % 60 == 0) RelicSounds.containment(level, core, type);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    for (Vec3 point : HiveContainment.drainIntercepted(hold)) {
-                        shots.add(new HiveCombatState.Shot(0, now, HiveCombatState.INTERCEPT, point.x, point.y, point.z, point.x, point.y, point.z, now));
-                    }
-                    for (Vec3 point : HiveContainment.drainReflected(hold)) {
-                        shots.add(new HiveCombatState.Shot(0, now, HiveCombatState.WARD, point.x, point.y, point.z, point.x, point.y, point.z, now));
-                        RelicSounds.reflect(level, point);
+                if (now >= state.changedAt() + state.travel() / 2) {
+                    for (int index = 0; index < engaged; index++) {
+                        contain(owner, level, stack, type, state, foes.get(index), frames, index, engaged, members, slots, groups,
+                                perDrone, cycleStart, interval, shots, now);
                     }
                 }
             }
         }
 
-        // The target swings at drones that come within its reach; a hit drone heads home and its lane sends the next.
+        // Each engaged creature swings at drones that come within its reach; a hit drone heads home and its lane sends the next.
         List<HiveStackState.Unit> next = swarm.units();
-        if (now % 20 == 7 && target instanceof Mob mob && !HiveContainment.pinned(mob) && mob.getAttributes().hasAttribute(Attributes.ATTACK_DAMAGE)) {
-            double attack = mob.getAttributeValue(Attributes.ATTACK_DAMAGE);
-            AABB reach = mob.getBoundingBox().inflate(1.5);
-            int closest = -1;
-            double best = Double.MAX_VALUE;
-            Vec3 struck = null;
-            for (int slot = 0; slot < slots; slot++) {
-                if (occupant[slot] < 0) continue;
-                Vec3 at = dronePosition(owner, state, type, swarm.units(), slot, slots, fighters, occupant[slot], feet, width, height, now, cycleStart, interval);
-                double distance = at.distanceToSqr(mob.getBoundingBox().getCenter());
-                if (reach.contains(at) && distance < best) {
-                    best = distance;
-                    closest = occupant[slot];
-                    struck = at;
+        if (now % 20 == 7) {
+            Vec3[] at = new Vec3[slots];
+            for (int index = 0; index < engaged; index++) {
+                if (!(foes.get(index) instanceof Mob mob) || HiveContainment.pinned(mob) || !mob.getAttributes().hasAttribute(Attributes.ATTACK_DAMAGE)) continue;
+                double attack = mob.getAttributeValue(Attributes.ATTACK_DAMAGE);
+                AABB reach = mob.getBoundingBox().inflate(1.5);
+                int closest = -1;
+                double best = Double.MAX_VALUE;
+                Vec3 struck = null;
+                for (int slot = 0; slot < slots; slot++) {
+                    if (occupant[slot] < 0) continue;
+                    if (at[slot] == null) at[slot] = dronePosition(owner, state, type, swarm.units(), slot, slots, fighters, occupant[slot],
+                            frames, now, cycleStart, interval);
+                    double distance = at[slot].distanceToSqr(mob.getBoundingBox().getCenter());
+                    if (reach.contains(at[slot]) && distance < best) {
+                        best = distance;
+                        closest = occupant[slot];
+                        struck = at[slot];
+                    }
                 }
-            }
-            if (attack > 0 && closest >= 0) {
-                next = hitDrone(owner, stack, type, next, closest, attack >= 6 ? 2 : 1, now);
-                shots.add(new HiveCombatState.Shot(closest, now, HiveCombatState.DRONE_HIT, struck.x, struck.y, struck.z, struck.x, struck.y, struck.z, now));
+                if (attack > 0 && closest >= 0) {
+                    next = hitDrone(owner, stack, type, next, closest, attack >= 6 ? 2 : 1, now);
+                    shots.add(new HiveCombatState.Shot(closest, now, HiveCombatState.DRONE_HIT, struck.x, struck.y, struck.z, struck.x, struck.y, struck.z, now));
+                }
             }
         }
         if (next != swarm.units()) stack.set(ModDataComponents.HIVE_STACK_STATE.get(), new HiveStackState(swarm.enabled(), next));
@@ -245,14 +231,82 @@ public final class HiveCombatController {
         if (!updated.equals(before)) stack.set(ModDataComponents.HIVE_COMBAT_STATE.get(), updated);
     }
 
+    /** Containment of one engaged creature by the strike groups assigned to it. */
+    private static void contain(ServerPlayer owner, ServerLevel level, ItemStack stack, HiveType type, HiveCombatState state, LivingEntity target,
+            List<HiveTarget> frames, int index, int engaged, int[] members, int slots, int groups, float perDrone, long cycleStart, int interval,
+            List<HiveCombatState.Shot> shots, long now) {
+        int flying = 0;
+        for (int group = index; group < groups; group += engaged) flying += members[group];
+        if (flying == 0) return;
+        HiveTarget frame = frames.get(index);
+        HiveContainment.Hold hold = HiveContainment.hold(owner, target, type, flying, now);
+        if (now % 20 == 0) {
+            if (!DevicePower.drain(owner, stack, Math.max(1, flying / 5))) {
+                HiveContainment.release(target);
+            } else {
+                Vec3 core = HiveFormation.core(target.position(), frame.height());
+                float damage = flying * perDrone * efficiency() * .12F;
+                switch (type) {
+                    case RF -> {
+                        // The bolt comes from a place of this creature's own torus.
+                        int localGroups = HiveSlots.localGroups(index, engaged, groups);
+                        int localSlots = HiveSlots.localSlots(index, engaged, slots, groups);
+                        int slot = HiveSlots.globalSlot(index, engaged, (int) (now / 20 % Math.max(1, localSlots)), localGroups, groups);
+                        Vec3 from = HiveFormation.station(AttackMode.CONTAINMENT, type, Math.min(slot, slots - 1), slots, owner.position(), frames,
+                                now, cycleStart, interval);
+                        if (swarmHit(owner, target, damage, Vec3.ZERO, 0, DRONE_SHOT)) RelicRuntime.awardCombatExperience(owner, stack, damage);
+                        shots.add(new HiveCombatState.Shot(0, now, HiveCombatState.ZAP, from.x, from.y, from.z, core.x, core.y, core.z, now));
+                        RelicSounds.containment(level, core, type);
+                    }
+                    case TWINS -> {
+                        if (swarmHit(owner, target, damage, Vec3.ZERO, 0, SWARM_VOID)) RelicRuntime.awardCombatExperience(owner, stack, damage);
+                        shots.add(new HiveCombatState.Shot(0, now, HiveCombatState.VOID, core.x, core.y, core.z, core.x, core.y, core.z, now));
+                        RelicSounds.containment(level, core, type);
+                    }
+                    case MANA -> {
+                        if (HiveContainment.immune(target)) {
+                            // A boss or player cannot be held, so it never strikes into the ward: the drones strike through it instead.
+                            Vec3 centre = target.getBoundingBox().getCenter();
+                            if (swarmHit(owner, target, damage, Vec3.ZERO, 0, DRONE_SHOT)) RelicRuntime.awardCombatExperience(owner, stack, damage);
+                            shots.add(new HiveCombatState.Shot(0, now, HiveCombatState.WARD, centre.x, centre.y, centre.z, centre.x, centre.y, centre.z, now));
+                            RelicSounds.reflect(level, centre);
+                        } else {
+                            // The drones keep the ward topped up; turned-back blows are its only damage.
+                            HiveContainment.refill(hold, flying * .5);
+                            if (now % 60 == 0) RelicSounds.containment(level, core, type);
+                        }
+                    }
+                }
+            }
+        }
+        for (Vec3 point : HiveContainment.drainIntercepted(hold)) {
+            shots.add(new HiveCombatState.Shot(0, now, HiveCombatState.INTERCEPT, point.x, point.y, point.z, point.x, point.y, point.z, now));
+        }
+        for (Vec3 point : HiveContainment.drainReflected(hold)) {
+            shots.add(new HiveCombatState.Shot(0, now, HiveCombatState.WARD, point.x, point.y, point.z, point.x, point.y, point.z, now));
+            RelicSounds.reflect(level, point);
+        }
+    }
+
+    /** Whether any engaged creature has moved since its position was last recorded. */
+    private static boolean moved(List<HiveTarget> recorded, List<HiveTarget> now) {
+        for (int index = 0; index < now.size(); index++) {
+            HiveTarget a = recorded.get(index), b = now.get(index);
+            if (a.x() != b.x() || a.y() != b.y() || a.z() != b.z() || a.width() != b.width() || a.height() != b.height()) return true;
+        }
+        return false;
+    }
+
     /**
      * Where the drone flying place {@code slot} is right now, exactly as the renderer draws it: still on
-     * its way out from the hive (after the combat began or it replaced a hit drone), or on its station.
+     * its way out from the hive (after the combat began or it replaced a hit drone), crossing over to a
+     * new target, or on its station.
      */
     private static Vec3 dronePosition(Player owner, HiveCombatState state, HiveType type, List<HiveStackState.Unit> units, int slot, int slots,
-            int fighters, int unit, Vec3 feet, double width, double height, long now, long cycleStart, int interval) {
+            int fighters, int unit, List<HiveTarget> targets, long now, long cycleStart, int interval) {
         Vec3 home = owner.position();
-        Vec3 station = HiveFormation.station(state.mode(), type, slot, slots, home, feet, width, height, now, cycleStart, interval);
+        Vec3 station = HiveFormation.engagedStation(state.mode(), type, slot, slots, home, targets, state.previous(), state.retargetedAt(),
+                now, cycleStart, interval);
         double launched = Math.max(HiveSlots.since(units, slot, slots, fighters, unit, now), state.changedAt());
         return HiveFormation.deployed(home, owner.getYRot(), station, unit, units.size(), type, now, launched, state.travel());
     }
@@ -294,16 +348,19 @@ public final class HiveCombatController {
                 HiveStackState swarm = stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), HiveStackState.DEFAULT);
                 HiveSettings settings = HiveTaskController.settings(stack);
                 int units = swarm.units().size(), slots = HiveSlots.fighterSlots(units, settings), fighters = settings.fighters(units);
-                Entity targetEntity = level.getEntity(combat.targetId());
-                Vec3 feet = targetEntity != null ? targetEntity.position() : new Vec3(combat.targetX(), combat.targetY(), combat.targetZ());
-                double width = targetEntity != null ? targetEntity.getBbWidth() : .6, height = targetEntity != null ? targetEntity.getBbHeight() : 1.8;
+                List<HiveTarget> targets = new ArrayList<>(combat.targets().size());
+                for (HiveTarget recorded : combat.targets()) {
+                    Entity entity = level.getEntity(recorded.id());
+                    targets.add(entity != null ? new HiveTarget(recorded.id(), entity.position(), entity.getBbWidth(), entity.getBbHeight()) : recorded);
+                }
+                if (targets.isEmpty()) continue;
                 long cycleStart = combat.changedAt() + combat.travel();
                 int interval = strikeInterval(owner, stack);
                 List<HiveStackState.Unit> next = swarm.units();
                 for (int slot = 0; slot < slots; slot++) {
                     int unit = HiveSlots.occupant(next, slot, slots, fighters, now);
                     if (unit < 0) continue;
-                    Vec3 at = dronePosition(owner, combat, hive.type(), next, slot, slots, fighters, unit, feet, width, height, now, cycleStart, interval);
+                    Vec3 at = dronePosition(owner, combat, hive.type(), next, slot, slots, fighters, unit, targets, now, cycleStart, interval);
                     double distance = at.distanceTo(centre);
                     if (distance > reach) continue;
                     next = hitDrone(owner, stack, hive.type(), next, unit, (int) Math.ceil(3 * (1 - distance / reach)), now);
@@ -347,15 +404,67 @@ public final class HiveCombatController {
         }
     }
 
-    /** Keep a live hostile target until defeated; visibility is only needed to acquire a new one. */
-    public static LivingEntity selectTarget(ServerPlayer owner, ServerLevel level, int previousTargetId) {
-        Entity previous = previousTargetId < 0 ? null : level.getEntity(previousTargetId);
-        if (previous instanceof LivingEntity living && validTarget(owner, living, true)) return living;
+    /**
+     * The creatures the swarm engages, at most {@code limit}: those it already fights, while they stay
+     * valid, then whoever the owner is fighting, then whoever attacks the owner (a blow on them or on
+     * their field, or a creature that has them as its target), nearest first. Visibility is only needed
+     * to take on a new one.
+     */
+    public static List<LivingEntity> selectTargets(ServerPlayer owner, ServerLevel level, HiveCombatState before, int limit, long now) {
+        List<LivingEntity> chosen = new ArrayList<>();
+        if (before.active()) for (HiveTarget kept : before.targets()) {
+            if (chosen.size() >= limit) return chosen;
+            if (level.getEntity(kept.id()) instanceof LivingEntity living && !chosen.contains(living) && validTarget(owner, living, true)) {
+                chosen.add(living);
+            }
+        }
         LivingEntity attacked = owner.getLastHurtMob();
-        if (owner.tickCount - owner.getLastHurtMobTimestamp() < 100 && validTarget(owner, attacked, false)) return attacked;
+        boolean fighting = owner.tickCount - owner.getLastHurtMobTimestamp() < ATTACK_MEMORY && validTarget(owner, attacked, false);
+        List<LivingEntity> attackers = new ArrayList<>();
         LivingEntity aggressor = owner.getLastHurtByMob();
-        if (owner.tickCount - owner.getLastHurtByMobTimestamp() < 100 && validTarget(owner, aggressor, false)) return aggressor;
-        return null;
+        if (owner.tickCount - owner.getLastHurtByMobTimestamp() < ATTACK_MEMORY && validTarget(owner, aggressor, false)) attackers.add(aggressor);
+        for (LivingEntity attacker : recentAttackers(owner, level, now)) if (validTarget(owner, attacker, false)) attackers.add(attacker);
+        if (now % 5 == 0 || chosen.isEmpty()) {
+            double reach = Math.min(AddonConfig.HIVE_TARGET_RANGE.get(), ATTACKER_SCAN);
+            for (Mob mob : level.getEntitiesOfClass(Mob.class, owner.getBoundingBox().inflate(reach), mob -> mob.getTarget() == owner)) {
+                if (validTarget(owner, mob, false)) attackers.add(mob);
+            }
+        }
+        attackers.sort(Comparator.comparingDouble(owner::distanceToSqr));
+        if (fighting && !chosen.contains(attacked) && chosen.size() < limit) chosen.add(attacked);
+        for (LivingEntity attacker : attackers) {
+            if (chosen.size() >= limit) break;
+            if (!chosen.contains(attacker)) chosen.add(attacker);
+        }
+        return chosen;
+    }
+
+    /** Remembers that {@code attacker} went for {@code owner} or their field, so the swarm takes it on. */
+    public static void noteAttacker(Player owner, LivingEntity attacker) {
+        if (owner.level().isClientSide() || attacker == null || attacker == owner) return;
+        Map<Integer, Long> seen = ATTACKERS.computeIfAbsent(owner.getUUID(), ignored -> new LinkedHashMap<>());
+        seen.put(attacker.getId(), owner.level().getGameTime());
+        if (seen.size() > 64) seen.remove(seen.keySet().iterator().next());
+    }
+
+    /** A creature that hurts a player is remembered as that player's attacker. */
+    public static void onOwnerDamaged(LivingDamageEvent.Post event) {
+        if (event.getEntity() instanceof ServerPlayer owner && event.getSource().getEntity() instanceof LivingEntity attacker) {
+            noteAttacker(owner, attacker);
+        }
+    }
+
+    private static List<LivingEntity> recentAttackers(ServerPlayer owner, ServerLevel level, long now) {
+        Map<Integer, Long> seen = ATTACKERS.get(owner.getUUID());
+        if (seen == null) return List.of();
+        seen.values().removeIf(at -> now - at > ATTACK_MEMORY || at > now);
+        if (seen.isEmpty()) {
+            ATTACKERS.remove(owner.getUUID());
+            return List.of();
+        }
+        List<LivingEntity> result = new ArrayList<>(seen.size());
+        for (int id : seen.keySet()) if (level.getEntity(id) instanceof LivingEntity living) result.add(living);
+        return result;
     }
 
     /** Public for tests and for later team/claim integrations. */
@@ -472,6 +581,7 @@ public final class HiveCombatController {
     public static void clear(Player player) {
         if (player == null) return;
         FLIGHTS.remove(player.getUUID());
+        ATTACKERS.remove(player.getUUID());
         HiveContainment.releaseAll(player.getUUID(), null);
     }
 
