@@ -1,6 +1,6 @@
 package dev.hurtify.relicsaddon.domain.shield;
 
-import net.minecraft.world.phys.Vec3;
+import dev.hurtify.relicsaddon.domain.math.Vec3d;
 
 /** Shared world-space boundary for server interception and client anticipation. */
 public final class ShieldField {
@@ -8,14 +8,14 @@ public final class ShieldField {
     public static final double CENTER_Y = .92D;
     public static final double PREVIEW_TICKS = 4.0D;
 
-    public record Crossing(double time, Vec3 normal) {
+    public record Crossing(double time, Vec3d normal) {
     }
 
-    public static Crossing incoming(Vec3 relativeStart, Vec3 velocity, double maxTicks) {
+    public static Crossing incoming(Vec3d relativeStart, Vec3d velocity, double maxTicks) {
         return incoming(relativeStart, velocity, maxTicks, RADIUS);
     }
 
-    public static Crossing incoming(Vec3 relativeStart, Vec3 velocity, double maxTicks, double radius) {
+    public static Crossing incoming(Vec3d relativeStart, Vec3d velocity, double maxTicks, double radius) {
         double a = velocity.lengthSqr();
         double b = relativeStart.dot(velocity);
         double c = relativeStart.lengthSqr() - radius * radius;
@@ -29,11 +29,11 @@ public final class ShieldField {
         return new Crossing(time, relativeStart.add(velocity.scale(time)).normalize());
     }
 
-    public static Crossing intercept(Vec3 relativeStart, Vec3 velocity, double maxTicks, double radius) {
+    public static Crossing intercept(Vec3d relativeStart, Vec3d velocity, double maxTicks, double radius) {
         if (!Double.isFinite(relativeStart.lengthSqr() + velocity.lengthSqr() + radius + maxTicks)
                 || radius <= 0 || maxTicks < 0 || velocity.lengthSqr() < 1e-10) return null;
         if (relativeStart.lengthSqr() < radius * radius - 1e-6) {
-            Vec3 normal = relativeStart.lengthSqr() > 1e-8 ? relativeStart.normalize() : velocity.normalize().scale(-1);
+            Vec3d normal = relativeStart.lengthSqr() > 1e-8 ? relativeStart.normalize() : velocity.normalize().scale(-1);
             return new Crossing(0, normal);
         }
         return incoming(relativeStart, velocity, maxTicks, radius);

@@ -8,6 +8,7 @@ import dev.hurtify.relicsaddon.domain.hive.HiveSettings;
 import dev.hurtify.relicsaddon.domain.hive.HiveSlots;
 import dev.hurtify.relicsaddon.domain.hive.HiveStackState;
 import dev.hurtify.relicsaddon.domain.hive.HiveType;
+import dev.hurtify.relicsaddon.domain.math.Vec3d;
 import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -19,7 +20,6 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.world.phys.Vec3;
 
 /**
  * Every synced component must read back exactly what it wrote, or item sync packets desynchronise;
@@ -107,10 +107,10 @@ public final class NetworkCodecCheck {
         }
 
         // Axis-aligned normals survive the constructor's re-normalisation bit for bit.
-        roundTrip(ShieldCodecs.IMPACT_STREAM, new ShieldImpact(new Vec3(1, 0, 0), 99L, 1, 6, true, List.of(3), 1.5, 0), "absorbed hit");
-        ShieldImpact strike = ShieldImpact.strike(new Vec3(0, 0, 1), 1_234L, 2, 4.5F, .3F);
+        roundTrip(ShieldCodecs.IMPACT_STREAM, new ShieldImpact(new Vec3d(1, 0, 0), 99L, 1, 6, true, List.of(3), 1.5, 0), "absorbed hit");
+        ShieldImpact strike = ShieldImpact.strike(new Vec3d(0, 0, 1), 1_234L, 2, 4.5F, .3F);
         roundTrip(ShieldCodecs.IMPACT_STREAM, strike, "shield strike");
-        require(strike.isStrike() && !new ShieldImpact(new Vec3(0, 1, 0), 5L, 0, 2, false).isStrike(), "Only strikes are marked as strikes");
+        require(strike.isStrike() && !new ShieldImpact(new Vec3d(0, 1, 0), 5L, 0, 2, false).isStrike(), "Only strikes are marked as strikes");
         System.out.println("Network codecs: 750-drone swarm (" + swarmBytes + " bytes, " + restingBytes + " at rest), old saves, settings, "
                 + "combat, batteries and shield impacts round-trip exactly");
     }

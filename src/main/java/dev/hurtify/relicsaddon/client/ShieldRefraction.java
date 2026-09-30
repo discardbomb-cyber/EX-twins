@@ -11,6 +11,7 @@ import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import dev.hurtify.relicsaddon.RelicsAddon;
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
 import java.io.IOException;
@@ -141,7 +142,7 @@ public final class ShieldRefraction {
         double from = Math.max(0, front - BAND), to = Math.min(Math.PI, front + BAND);
         if (to - from < .02) return;
         double strength = ShieldRipple.strength(impact.absorbed()) * ShieldRipple.fade(age);
-        Vec3 n = impact.normal();
+        Vec3 n = McVectors.toMc(impact.normal());
         Vec3 t1 = n.cross(Math.abs(n.y) > .9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize();
         Vec3 t2 = n.cross(t1).normalize();
         Vec3[][] points = new Vec3[RINGS + 1][SEGMENTS + 1];

@@ -1,9 +1,11 @@
 package dev.hurtify.relicsaddon.gametest.client;
 
 import dev.hurtify.relicsaddon.RelicsAddon;
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
 import dev.hurtify.relicsaddon.client.ShieldResponse;
 import dev.hurtify.relicsaddon.client.ShieldVisualRenderer;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.math.Vec3d;
 import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
 import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
 import dev.hurtify.relicsaddon.domain.shield.ShieldCellDefense;
@@ -30,7 +32,7 @@ final class NativeShieldGallery extends Screen {
     private static final boolean GIF = Boolean.getBoolean("relics_addon.featureGif");
     private int gifFrame;
     private boolean gifPending;
-    private static final Vec3 NORMAL = new Vec3(.35, .1, .93).normalize();
+    private static final Vec3d NORMAL = new Vec3d(.35, .1, .93).normalize();
     private static final boolean CELLS = Boolean.getBoolean("relics_addon.cellSmoke");
     private static final List<String> STAGES = CELLS ? List.of("approach", "absorption", "break", "idle", "hp-full", "hp-half", "hp-critical", "gather-start", "gather-end", "wave", "overlapping-waves")
             : List.of("approach", "absorption", "break", "idle");
@@ -55,7 +57,7 @@ final class NativeShieldGallery extends Screen {
         int cellWidth = width / 3;
         float scale = Math.min((cellWidth - 24) / 4.7F, (height - 70) / 4.7F);
         RelicRole[] roles = {RelicRole.RF_SHIELD, RelicRole.MANA_SHIELD, RelicRole.TWINS_SHIELD};
-        List<ShieldResponse.Threat> threats = tick < 25 ? List.of(new ShieldResponse.Threat(NORMAL, (25 - tick) * 4 / 25)) : List.of();
+        List<ShieldResponse.Threat> threats = tick < 25 ? List.of(new ShieldResponse.Threat(McVectors.toMc(NORMAL), (25 - tick) * 4 / 25)) : List.of();
         int struck = ShieldTopology.INSTANCE.nearest(-NORMAL.x, NORMAL.y, NORMAL.z);
         ShieldImpact impact = tick >= 25 && tick < 45 ? new ShieldImpact(NORMAL, 25, 0, 6, false)
                 : tick >= 45 && tick < 70 ? new ShieldImpact(NORMAL, 45, 0, 6, true, List.of(struck))
@@ -95,7 +97,7 @@ final class NativeShieldGallery extends Screen {
             ShieldStackState shown = tick >= 180 && tick < 225 && roles[index] != RelicRole.TWINS_SHIELD
                     ? ShieldCellDefense.gather(state, ShieldTopology.INSTANCE.nearest(-NORMAL.x, NORMAL.y, NORMAL.z), 3, 180) : state;
             List<ShieldImpact> waves = tick >= 265 ? List.of(new ShieldImpact(NORMAL, 252, 0, 6, false),
-                    new ShieldImpact(new Vec3(-.8, .45, .5).normalize(), 265, 0, 6, false))
+                    new ShieldImpact(new Vec3d(-.8, .45, .5).normalize(), 265, 0, 6, false))
                     : tick >= 250 ? List.of(new ShieldImpact(NORMAL, 252, 0, 6, false))
                     : impact == null ? List.of() : List.of(impact);
             List<ShieldResponse.Threat> shownThreats = roles[index] == RelicRole.MANA_SHIELD && threats.size() > 8

@@ -2,8 +2,6 @@ package dev.hurtify.relicsaddon.client;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.hurtify.relicsaddon.domain.hive.AttackMode;
-import dev.hurtify.relicsaddon.domain.hive.HiveFormation;
-import dev.hurtify.relicsaddon.domain.hive.HiveShapes;
 import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import java.util.Random;
 import net.minecraft.world.phys.Vec3;
@@ -54,8 +52,8 @@ public final class HiveModeVisual {
             case DROPLET -> {
                 for (int group = 0; group < s.groups(); group++) {
                     if (s.members()[group] == 0) continue;
-                    Vec3 centre = HiveFormation.dropletCentre(s.owner(), s.target(), s.height(), group, s.groups(), s.time(), s.cycleStart(), s.interval());
-                    EffectLights.glow(centre, 7 + 6 * heat(s, group), HiveFormation.shapeSize(s.members()[group]));
+                    Vec3 centre = SwarmMath.dropletCentre(s.owner(), s.target(), s.height(), group, s.groups(), s.time(), s.cycleStart(), s.interval());
+                    EffectLights.glow(centre, 7 + 6 * heat(s, group), SwarmMath.shapeSize(s.members()[group]));
                 }
             }
             case BARRAGE -> {
@@ -63,13 +61,13 @@ public final class HiveModeVisual {
                     if (s.members()[group] == 0) continue;
                     // Every clump glows a little; its charge brightens it as it builds.
                     double charge = charge(s, group);
-                    Vec3 centre = HiveFormation.clusterCentre(s.type(), s.target(), s.width(), s.height(), group, s.groups(), s.time());
-                    EffectLights.glow(centre, 4 + 10 * charge, HiveFormation.clumpRadius(s.members()[group]));
+                    Vec3 centre = SwarmMath.clusterCentre(s.type(), s.target(), s.width(), s.height(), group, s.groups(), s.time());
+                    EffectLights.glow(centre, 4 + 10 * charge, SwarmMath.clumpRadius(s.members()[group]));
                 }
             }
             case CONTAINMENT -> {
                 if (!s.formed()) return;
-                Vec3 core = HiveFormation.core(s.target(), s.height());
+                Vec3 core = SwarmMath.core(s.target(), s.height());
                 switch (s.type()) {
                     case RF -> EffectLights.glow(core, 9, Math.max(.8, s.width()));
                     case MANA -> EffectLights.glow(core, 9, 1.45 * Math.max(1, s.height() / 1.8));
@@ -91,23 +89,23 @@ public final class HiveModeVisual {
     // --- droplet ---------------------------------------------------------------------------------
 
     private static void droplets(Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
-        Vec3 core = HiveFormation.core(s.target(), s.height());
+        Vec3 core = SwarmMath.core(s.target(), s.height());
         for (int group = 0; group < s.groups(); group++) {
             if (s.members()[group] == 0) continue;
-            Vec3 home = HiveFormation.muster(s.owner(), s.target(), group, s.groups(), s.time());
-            Vec3 centre = HiveFormation.dropletCentre(s.owner(), s.target(), s.height(), group, s.groups(), s.time(), s.cycleStart(), s.interval());
-            double sortie = HiveFormation.sortie(s.owner(), s.target(), s.height(), group, s.groups(), s.time(), s.cycleStart(), s.interval());
+            Vec3 home = SwarmMath.muster(s.owner(), s.target(), group, s.groups(), s.time());
+            Vec3 centre = SwarmMath.dropletCentre(s.owner(), s.target(), s.height(), group, s.groups(), s.time(), s.cycleStart(), s.interval());
+            double sortie = SwarmMath.sortie(s.owner(), s.target(), s.height(), group, s.groups(), s.time(), s.cycleStart(), s.interval());
             boolean flying = sortie > 0 && sortie < 1;
             double heat = heat(s, group);
             Vec3 facing = core.subtract(home);
-            Vec3[] axes = HiveShapes.axes(facing);
-            double size = HiveFormation.shapeSize(s.members()[group]);
+            Vec3[] axes = SwarmMath.axes(facing);
+            double size = SwarmMath.shapeSize(s.members()[group]);
             Vec3 c = centre.subtract(camera);
             // The figure's place in the fan: a faint ring it forms up in, brighter while it waits there.
             GlowBrush.circle(glow, m, home.subtract(camera), axes[1], axes[2], size * 1.9, 40, .012, color, sortie <= 0 ? 60 : 22);
             // A streak behind a figure on the move.
             if (sortie > 0 && sortie != 1) {
-                Vec3 before = HiveFormation.dropletCentre(s.owner(), s.target(), s.height(), group, s.groups(), s.time() - 1.5,
+                Vec3 before = SwarmMath.dropletCentre(s.owner(), s.target(), s.height(), group, s.groups(), s.time() - 1.5,
                         s.cycleStart(), s.interval()).subtract(camera);
                 if (before.distanceToSqr(c) > .04) {
                     Vec3 tail = c.add(before.subtract(c).scale(2.2));
@@ -118,22 +116,22 @@ public final class HiveModeVisual {
                 case RF -> {
                     double spin = s.time() + group * 17;
                     Vec3[] corners = new Vec3[16];
-                    for (int corner = 0; corner < 16; corner++) corners[corner] = c.add(HiveShapes.tesseractCorner(corner, spin, size));
-                    for (int[] edge : HiveShapes.TESSERACT_EDGES) GlowBrush.beam(glow, m, corners[edge[0]], corners[edge[1]], .022, color, 80 + 140 * heat);
+                    for (int corner = 0; corner < 16; corner++) corners[corner] = c.add(SwarmMath.tesseractCorner(corner, spin, size));
+                    for (int[] edge : SwarmMath.TESSERACT_EDGES) GlowBrush.beam(glow, m, corners[edge[0]], corners[edge[1]], .022, color, 80 + 140 * heat);
                     for (Vec3 corner : corners) GlowBrush.dot(glow, m, corner, .08, 0xD8FCFF, 120 + 100 * heat);
                     GlowBrush.dot(glow, m, c, size * 1.5, color, 25 + 45 * heat);
                 }
                 case MANA -> dropletShell(fill, glow, m, c, facing, size, s.time(), color, heat);
                 case TWINS -> {
-                    int rings = HiveShapes.hexagonCount(s.members()[group]);
+                    int rings = SwarmMath.hexagonCount(s.members()[group]);
                     Vec3[] centres = new Vec3[rings];
                     double spinTime = s.time() + group * 11;
                     for (int ring = 0; ring < rings; ring++) {
-                        centres[ring] = c.add(HiveShapes.hexagonCentre(ring, rings, spinTime, facing, size));
+                        centres[ring] = c.add(SwarmMath.hexagonCentre(ring, rings, spinTime, facing, size));
                         double spin = spinTime * (ring % 2 == 0 ? .05 : -.05);
                         for (int side = 0; side < 6; side++) {
-                            Vec3 a = centres[ring].add(HiveShapes.hexagonPoint(side, spin, facing, size * .45));
-                            Vec3 b = centres[ring].add(HiveShapes.hexagonPoint(side + 1, spin, facing, size * .45));
+                            Vec3 a = centres[ring].add(SwarmMath.hexagonPoint(side, spin, facing, size * .45));
+                            Vec3 b = centres[ring].add(SwarmMath.hexagonPoint(side + 1, spin, facing, size * .45));
                             GlowBrush.beam(glow, m, a, b, .018, color, 90 + 120 * heat);
                         }
                     }
@@ -155,13 +153,13 @@ public final class HiveModeVisual {
 
     /** How hot a droplet figure burns: .3 while it waits in the fan, from .45 up to 1 as it flies in, cooling on the way home. */
     private static double heat(Scene s, int group) {
-        double sortie = HiveFormation.sortie(s.owner(), s.target(), s.height(), group, s.groups(), s.time(), s.cycleStart(), s.interval());
+        double sortie = SwarmMath.sortie(s.owner(), s.target(), s.height(), group, s.groups(), s.time(), s.cycleStart(), s.interval());
         return sortie <= 0 ? .3 : sortie <= 1 ? .45 + .55 * sortie : Math.max(.3, 1 - (sortie - 1) * 1.4);
     }
 
     /** A glass drop around a Mana group: a lit rim and a faint body, tip towards the target. */
     private static void dropletShell(VertexConsumer fill, VertexConsumer glow, Matrix4f m, Vec3 c, Vec3 facing, double size, double time, int color, double heat) {
-        Vec3[] axes = HiveShapes.axes(facing);
+        Vec3[] axes = SwarmMath.axes(facing);
         int rows = 10, columns = 16;
         Vec3[][] points = new Vec3[rows + 1][columns + 1];
         for (int row = 0; row <= rows; row++) {
@@ -190,16 +188,16 @@ public final class HiveModeVisual {
 
     private static void clusters(Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
         int groups = s.groups();
-        Vec3 core = HiveFormation.core(s.target(), s.height()).subtract(camera);
+        Vec3 core = SwarmMath.core(s.target(), s.height()).subtract(camera);
         Vec3[] centres = new Vec3[groups];
         double[] charges = new double[groups];
         for (int group = 0; group < groups; group++) {
-            centres[group] = HiveFormation.clusterCentre(s.type(), s.target(), s.width(), s.height(), group, groups, s.time()).subtract(camera);
+            centres[group] = SwarmMath.clusterCentre(s.type(), s.target(), s.width(), s.height(), group, groups, s.time()).subtract(camera);
             charges[group] = charge(s, group);
         }
         // The pattern the clumps make, with pulses of light running along its lines.
         int light = GlowBrush.mix(color, 0xFFFFFF, .45);
-        for (int[] link : HiveFormation.clusterLinks(s.type(), groups)) {
+        for (int[] link : SwarmMath.clusterLinks(s.type(), groups)) {
             int a = link[0], b = link[1];
             if (s.members()[a] == 0 || s.members()[b] == 0) continue;
             double charge = (charges[a] + charges[b]) / 2;
@@ -210,7 +208,7 @@ public final class HiveModeVisual {
         for (int group = 0; group < groups; group++) {
             if (s.members()[group] == 0) continue;
             Vec3 centre = centres[group];
-            double charge = charges[group], radius = HiveFormation.clumpRadius(s.members()[group]);
+            double charge = charges[group], radius = SwarmMath.clumpRadius(s.members()[group]);
             // A soft halo so a clump reads from far off, then its charge glowing through the drones.
             GlowBrush.dot(glow, m, centre, radius * 2.8, color, 28 + 52 * charge);
             chargeOrb(glow, m, centre, Math.max(.1, charge), radius * .8, group, s.time(), color);
@@ -222,8 +220,8 @@ public final class HiveModeVisual {
                 for (int side = 0; side < 8; side++) {
                     long seed = flicker * 131 + group * 17L + side;
                     if (new Random(seed).nextDouble() > .5 * charge + .1) continue;
-                    Vec3 a = centre.add(HiveShapes.hexagonPoint(0, spin + side * Math.PI / 4, facing, rim));
-                    Vec3 b = centre.add(HiveShapes.hexagonPoint(0, spin + (side + 1) * Math.PI / 4, facing, rim));
+                    Vec3 a = centre.add(SwarmMath.hexagonPoint(0, spin + side * Math.PI / 4, facing, rim));
+                    Vec3 b = centre.add(SwarmMath.hexagonPoint(0, spin + (side + 1) * Math.PI / 4, facing, rim));
                     GlowBrush.lightning(glow, m, a, b, seed, 3, .25, .012, 0xE7C6FF, 210 * charge);
                 }
             }
@@ -232,9 +230,9 @@ public final class HiveModeVisual {
 
     /** A barrage clump's charge, 0 to 1: it builds until the clump fires, then collapses within a few ticks. */
     private static double charge(Scene s, int group) {
-        double phase = HiveFormation.groupPhase(s.time(), s.cycleStart(), s.interval(), group, s.groups());
-        return phase < 0 ? 0 : phase < HiveFormation.FIRE ? phase / HiveFormation.FIRE
-                : Math.max(0, 1 - (phase - HiveFormation.FIRE) / .06);
+        double phase = SwarmMath.groupPhase(s.time(), s.cycleStart(), s.interval(), group, s.groups());
+        return phase < 0 ? 0 : phase < SwarmMath.FIRE ? phase / SwarmMath.FIRE
+                : Math.max(0, 1 - (phase - SwarmMath.FIRE) / .06);
     }
 
     /**
@@ -283,19 +281,19 @@ public final class HiveModeVisual {
                 }
             }
         }
-        Vec3 core = HiveFormation.core(s.target(), s.height()).subtract(camera);
+        Vec3 core = SwarmMath.core(s.target(), s.height()).subtract(camera);
         GlowBrush.dot(glow, m, core, Math.max(.6, s.width()), color, 45);
     }
 
     /** Mana: the ward's three rhombi and two circles in light over a glass bubble. */
     private static void ward(Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
-        Vec3 core = HiveFormation.core(s.target(), s.height()).subtract(camera);
+        Vec3 core = SwarmMath.core(s.target(), s.height()).subtract(camera);
         double scale = Math.max(1, s.height() / 1.8), turn = s.time() * .008;
         double pulse = .75 + .25 * Math.sin(s.time() * .12);
         for (int rhombus = 0; rhombus < 3; rhombus++) {
             Vec3 previous = null;
             for (int step = 0; step <= 32; step++) {
-                Vec3 point = core.add(HiveShapes.rhombusPoint(step / 32.0, turn + rhombus * Math.PI * 2 / 3).scale(scale));
+                Vec3 point = core.add(SwarmMath.rhombusPoint(step / 32.0, turn + rhombus * Math.PI * 2 / 3).scale(scale));
                 if (previous != null) GlowBrush.beam(glow, m, previous, point, .014, color, 130 * pulse);
                 previous = point;
             }
@@ -308,11 +306,11 @@ public final class HiveModeVisual {
 
     /** Twins: hexagon-shelled rift spheres around a black hole with a violet accretion disk. */
     private static void rifts(Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
-        Vec3 core = HiveFormation.core(s.target(), s.height()).subtract(camera);
+        Vec3 core = SwarmMath.core(s.target(), s.height()).subtract(camera);
         double distance = Math.max(1.5, s.width() * .7 + 1.1);
         for (int sphere = 0; sphere < 4; sphere++) {
-            Vec3 centre = core.add(HiveShapes.riftCentre(sphere, s.time(), distance));
-            double spin = HiveShapes.riftSpin(sphere, s.time());
+            Vec3 centre = core.add(SwarmMath.riftCentre(sphere, s.time(), distance));
+            double spin = SwarmMath.riftSpin(sphere, s.time());
             double cos = Math.cos(spin), sin = Math.sin(spin);
             for (ShieldHoneycomb.Cell cell : ShieldHoneycomb.SMALL) {
                 float[] p = cell.perimeter();

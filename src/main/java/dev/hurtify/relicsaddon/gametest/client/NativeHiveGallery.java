@@ -7,8 +7,8 @@ import dev.hurtify.relicsaddon.client.HiveModeVisual;
 import dev.hurtify.relicsaddon.client.HiveVisualRenderer;
 import dev.hurtify.relicsaddon.client.ShieldGlow;
 import dev.hurtify.relicsaddon.client.ShieldVisualRenderer;
+import dev.hurtify.relicsaddon.client.SwarmMath;
 import dev.hurtify.relicsaddon.domain.hive.AttackMode;
-import dev.hurtify.relicsaddon.domain.hive.HiveFormation;
 import dev.hurtify.relicsaddon.domain.hive.HiveSlots;
 import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import dev.hurtify.relicsaddon.registry.ModItems;
@@ -88,7 +88,7 @@ final class NativeHiveGallery extends Screen {
         int groups = HiveSlots.groups(SLOTS);
         int[] members = new int[groups];
         Vec3[] drones = new Vec3[SLOTS];
-        Vec3 core = HiveFormation.core(target, 1.8);
+        Vec3 core = SwarmMath.core(target, 1.8);
 
         graphics.flush();
         var pose = graphics.pose();
@@ -101,8 +101,8 @@ final class NativeHiveGallery extends Screen {
         GlowBrush.setFlatView(new Vec3(-Math.cos(.30) * Math.sin(turn), Math.sin(.30), Math.cos(.30) * Math.cos(turn)));
         try {
             for (int slot = 0; slot < SLOTS; slot++) {
-                Vec3 station = HiveFormation.station(mode, type, slot, SLOTS, owner, target, .6, 1.8, time, cycleStart, INTERVAL);
-                Vec3 at = HiveFormation.deployed(owner, -90, station, slot, UNITS, type, time, combatStart, TRAVEL);
+                Vec3 station = SwarmMath.station(mode, type, slot, SLOTS, owner, target, .6, 1.8, time, cycleStart, INTERVAL);
+                Vec3 at = SwarmMath.deployed(owner, -90, station, slot, UNITS, type, time, combatStart, TRAVEL);
                 drones[slot] = at;
                 members[HiveSlots.group(slot, groups)]++;
                 pose.pushPose();

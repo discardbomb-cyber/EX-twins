@@ -118,14 +118,14 @@ public final class HiveVisualRenderer {
             int groups = HiveSlots.groups(slots);
             int[] members = new int[groups];
             Vec3[] drones = new Vec3[slots];
-            Vec3 core = HiveFormation.core(feet, height);
+            Vec3 core = SwarmMath.core(feet, height);
             for (int slot = 0; slot < slots; slot++) {
                 int unit = HiveSlots.occupant(units, slot, slots, fighters, now);
                 if (unit < 0) continue;
                 long since = HiveSlots.since(units, slot, slots, fighters, unit, now);
                 double launched = Math.max(since, combat.changedAt());
-                Vec3 station = HiveFormation.station(combat.mode(), type, slot, slots, owner, feet, width, height, time, cycleStart, interval);
-                Vec3 at = HiveFormation.deployed(owner, yaw, station, unit, count, type, time, launched, combat.travel());
+                Vec3 station = SwarmMath.station(combat.mode(), type, slot, slots, owner, feet, width, height, time, cycleStart, interval);
+                Vec3 at = SwarmMath.deployed(owner, yaw, station, unit, count, type, time, launched, combat.travel());
                 members[HiveSlots.group(slot, groups)]++;
                 drones[slot] = at;
                 seen[unit] = at;
@@ -138,23 +138,23 @@ public final class HiveVisualRenderer {
         for (int unit = 0; unit < fighters; unit++) {
             HiveStackState.Unit state = units.get(unit);
             double homeFrom = !combat.active() && combat.changedAt() > 0 ? combat.changedAt() : state.lastHit();
-            boolean recalled = !combat.active() && time - combat.changedAt() < HiveFormation.RETURN_TICKS && seen[unit] != null;
-            boolean struck = state.lastHit() >= 0 && time - state.lastHit() < HiveFormation.RETURN_TICKS && !state.ready(now);
+            boolean recalled = !combat.active() && time - combat.changedAt() < SwarmMath.RETURN_TICKS && seen[unit] != null;
+            boolean struck = state.lastHit() >= 0 && time - state.lastHit() < SwarmMath.RETURN_TICKS && !state.ready(now);
             if (!recalled && !struck) continue;
             double from = struck ? state.lastHit() : homeFrom;
-            Vec3 start = seen[unit] != null ? seen[unit] : HiveFormation.belt(owner, yaw, type);
-            Vec3 at = HiveFormation.returning(owner, yaw, start, unit, count, type, time, from);
+            Vec3 start = seen[unit] != null ? seen[unit] : SwarmMath.belt(owner, yaw, type);
+            Vec3 at = SwarmMath.returning(owner, yaw, start, unit, count, type, time, from);
             drawDrone(minecraft, event, player, type, at, null, appear * (struck ? .8 : 1), count, camera, poses, glow, budget, false);
             if (struck && ((long) time + unit) % 3 == 0) GlowBrush.dot(glow, poses.last().pose(), at.subtract(camera), .12, 0xFFB36B, 160);
         }
-        if (!combat.active() && time - combat.changedAt() >= HiveFormation.RETURN_TICKS) java.util.Arrays.fill(seen, null);
+        if (!combat.active() && time - combat.changedAt() >= SwarmMath.RETURN_TICKS) java.util.Arrays.fill(seen, null);
 
         var support = stack.getOrDefault(ModDataComponents.HIVE_SUPPORT_STATE.get(), HiveSupportState.DEFAULT);
         double supportAge = time - (enabled ? support.changedAt() : visibility.changedAt());
         double supportProgress = support.active() && enabled ? Mth.clamp(supportAge / 12, 0, 1)
                 : support.changedAt() > 0 ? Mth.clamp(1 - supportAge / 12, 0, 1) : 0;
         if (supportProgress > 0) for (int index = 0; index < healerSlots; index++) {
-            Vec3 at = HiveFormation.healing(owner, yaw, index, healerSlots, type, time, supportProgress);
+            Vec3 at = SwarmMath.healing(owner, yaw, index, healerSlots, type, time, supportProgress);
             drawDrone(minecraft, event, player, type, at, null, appear * Math.min(1, supportProgress * 4), count, camera, poses, glow, budget, false);
         }
         HiveCombatVisual.renderShots(combat.shots(), type, camera, poses.last().pose(), time);

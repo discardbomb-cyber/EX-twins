@@ -1,6 +1,7 @@
 package dev.hurtify.relicsaddon.server;
 
 import dev.hurtify.relicsaddon.AddonConfig;
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
 
@@ -142,13 +143,13 @@ public final class ShieldController {
         settle(event, event.getEntity(), absorbed);
         ShieldStackState next = damage.apply(state, cell, absorbed, player.level().getGameTime());
         shield.set(ModDataComponents.SHIELD_STACK_STATE.get(), next);
-        ShieldImpact impact = ShieldImpact.of(direction, player.level().getGameTime(), cell, absorbed, state, next);
+        ShieldImpact impact = ShieldImpact.of(McVectors.toDomain(direction), player.level().getGameTime(), cell, absorbed, state, next);
         if (sourcePosition != null && direction.length() < ShieldParameters.radius(player, shield)) impact = impact.atDistance(direction.length());
         shield.set(ModDataComponents.SHIELD_IMPACT.get(), impact);
         shield.set(ModDataComponents.SHIELD_IMPACTS.get(), shield.getOrDefault(ModDataComponents.SHIELD_IMPACTS.get(),
                 dev.hurtify.relicsaddon.domain.shield.ShieldImpactHistory.EMPTY).append(impact));
         RelicSounds.shield((net.minecraft.server.level.ServerLevel) player.level(), player.position().add(0, ShieldField.CENTER_Y, 0)
-                .add(impact.normal().scale(impact.distance() >= 0 ? impact.distance() : ShieldParameters.radius(player, shield))),
+                .add(McVectors.toMc(impact.normal()).scale(impact.distance() >= 0 ? impact.distance() : ShieldParameters.radius(player, shield))),
                 ((AutonomousRelicItem) shield.getItem()).role(), impact.broken(), next.totalIntegrity() == 0);
         RelicRuntime.awardAbsorption(player, shield, absorbed);
         DevicePower.drain(player, shield, Mth.ceil(absorbed * DevicePower.ABSORB_PER_HP));

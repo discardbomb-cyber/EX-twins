@@ -2,6 +2,7 @@ package dev.hurtify.relicsaddon.server;
 
 import dev.hurtify.relicsaddon.AddonConfig;
 import dev.hurtify.relicsaddon.RelicsAddon;
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
 import dev.hurtify.relicsaddon.domain.hive.AttackMode;
 import dev.hurtify.relicsaddon.domain.hive.HiveCombatState;
 import dev.hurtify.relicsaddon.domain.hive.HiveFormation;
@@ -9,6 +10,7 @@ import dev.hurtify.relicsaddon.domain.hive.HiveSettings;
 import dev.hurtify.relicsaddon.domain.hive.HiveSlots;
 import dev.hurtify.relicsaddon.domain.hive.HiveStackState;
 import dev.hurtify.relicsaddon.domain.hive.HiveType;
+import dev.hurtify.relicsaddon.domain.math.Vec3d;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.HiveUpgrades;
@@ -135,10 +137,10 @@ public final class HiveCombatController {
 
         switch (state.mode()) {
             case DROPLET -> {
-                Vec3 core = HiveFormation.core(feet, height);
+                Vec3 core = McVectors.toMc(HiveFormation.core(McVectors.toDomain(feet), height));
                 for (int group = 0; group < groups; group++) {
                     if (members[group] == 0) continue;
-                    Vec3 muster = HiveFormation.muster(home, feet, group, groups, now);
+                    Vec3 muster = McVectors.toMc(HiveFormation.muster(McVectors.toDomain(home), McVectors.toDomain(feet), group, groups, now));
                     // The figure leaves the owner's fan so that it arrives exactly when its blow is due.
                     long flight = Math.round(HiveFormation.flightTicks(muster.distanceTo(core), interval));
                     if (HiveFormation.passes(now + flight, cycleStart, interval, group, groups, HiveFormation.IMPACT)) {
@@ -161,7 +163,7 @@ public final class HiveCombatController {
                     if (members[group] == 0 || !HiveFormation.passes(now, cycleStart, interval, group, groups, HiveFormation.FIRE)) continue;
                     int cost = members[group] * STRIKE_COST_PER_DRONE;
                     if (!DevicePower.canAfford(owner, stack, cost)) break;
-                    Vec3 from = HiveFormation.clusterCentre(type, feet, width, height, group, groups, now);
+                    Vec3 from = McVectors.toMc(HiveFormation.clusterCentre(type, McVectors.toDomain(feet), width, height, group, groups, now));
                     Flight flight = Flight.ball(owner, type, group, members[group], cost, members[group] * perDrone * efficiency(), from, target, now);
                     flights(owner.getUUID(), type).add(flight);
                     shots.add(flight.shot());
@@ -175,12 +177,12 @@ public final class HiveCombatController {
                         if (!DevicePower.drain(owner, stack, Math.max(1, flying / 5))) {
                             HiveContainment.release(target);
                         } else {
-                            Vec3 core = HiveFormation.core(target.position(), height);
+                            Vec3 core = McVectors.toMc(HiveFormation.core(McVectors.toDomain(target.position()), height));
                             float damage = flying * perDrone * efficiency() * .12F;
                             switch (type) {
                                 case RF -> {
-                                    Vec3 from = HiveFormation.station(AttackMode.CONTAINMENT, type, (int) (now / 20 % slots), slots, home,
-                                            target.position(), width, height, now, cycleStart, interval);
+                                    Vec3 from = McVectors.toMc(HiveFormation.station(AttackMode.CONTAINMENT, type, (int) (now / 20 % slots), slots,
+                                            McVectors.toDomain(home), McVectors.toDomain(target.position()), width, height, now, cycleStart, interval));
                                     if (swarmHit(owner, target, damage, Vec3.ZERO, 0, DRONE_SHOT)) RelicRuntime.awardCombatExperience(owner, stack, damage);
                                     shots.add(new HiveCombatState.Shot(0, now, HiveCombatState.ZAP, from.x, from.y, from.z, core.x, core.y, core.z, now));
                                     RelicSounds.containment(level, core, type);
@@ -251,10 +253,10 @@ public final class HiveCombatController {
      */
     private static Vec3 dronePosition(Player owner, HiveCombatState state, HiveType type, List<HiveStackState.Unit> units, int slot, int slots,
             int fighters, int unit, Vec3 feet, double width, double height, long now, long cycleStart, int interval) {
-        Vec3 home = owner.position();
-        Vec3 station = HiveFormation.station(state.mode(), type, slot, slots, home, feet, width, height, now, cycleStart, interval);
+        Vec3d home = McVectors.toDomain(owner.position());
+        Vec3d station = HiveFormation.station(state.mode(), type, slot, slots, home, McVectors.toDomain(feet), width, height, now, cycleStart, interval);
         double launched = Math.max(HiveSlots.since(units, slot, slots, fighters, unit, now), state.changedAt());
-        return HiveFormation.deployed(home, owner.getYRot(), station, unit, units.size(), type, now, launched, state.travel());
+        return McVectors.toMc(HiveFormation.deployed(home, owner.getYRot(), station, unit, units.size(), type, now, launched, state.travel()));
     }
 
     /**

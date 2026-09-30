@@ -13,6 +13,7 @@ import dev.hurtify.relicsaddon.domain.hive.HiveSettings;
 import dev.hurtify.relicsaddon.domain.hive.HiveStackState;
 import dev.hurtify.relicsaddon.domain.hive.HiveSupportState;
 import dev.hurtify.relicsaddon.domain.hive.HiveType;
+import dev.hurtify.relicsaddon.domain.math.Vec3d;
 import dev.hurtify.relicsaddon.domain.shield.ShieldCellMove;
 import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
 import dev.hurtify.relicsaddon.domain.shield.ShieldImpactHistory;
@@ -41,7 +42,6 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.world.phys.Vec3;
 
 /**
  * Byte and NBT golden master of every saved or synced form ({@code golden/codecs.txt}): one line per
@@ -192,18 +192,18 @@ public final class CodecGoldenCheck {
         streamInput("shield_stack_state/stream 4 moves", ShieldCodecs.STACK_STATE, state, four);
 
         Wire<ShieldImpact> impact = wire(ShieldCodecs.IMPACT_STREAM);
-        value("shield_impact/absorbed", ShieldCodecs.IMPACT, impact, new ShieldImpact(new Vec3(1, 0, 0), 99L, 1, 6, true, List.of(3), 1.5, 0));
-        value("shield_impact/strike", ShieldCodecs.IMPACT, impact, ShieldImpact.strike(new Vec3(0, 0, 1), 1_234L, 2, 4.5F, .3F));
-        value("shield_impact/normal .3 .4 .5", ShieldCodecs.IMPACT, impact, new ShieldImpact(new Vec3(.3, .4, .5), 7L, 0, 2F, false));
-        value("shield_impact/zero normal", ShieldCodecs.IMPACT, impact, new ShieldImpact(new Vec3(0, 0, 0), 8L, 3, 1F, false));
+        value("shield_impact/absorbed", ShieldCodecs.IMPACT, impact, new ShieldImpact(new Vec3d(1, 0, 0), 99L, 1, 6, true, List.of(3), 1.5, 0));
+        value("shield_impact/strike", ShieldCodecs.IMPACT, impact, ShieldImpact.strike(new Vec3d(0, 0, 1), 1_234L, 2, 4.5F, .3F));
+        value("shield_impact/normal .3 .4 .5", ShieldCodecs.IMPACT, impact, new ShieldImpact(new Vec3d(.3, .4, .5), 7L, 0, 2F, false));
+        value("shield_impact/zero normal", ShieldCodecs.IMPACT, impact, new ShieldImpact(new Vec3d(0, 0, 0), 8L, 3, 1F, false));
         value("shield_impact/NaN distance", ShieldCodecs.IMPACT, impact,
-                new ShieldImpact(new Vec3(0, 1, 0), 9L, 2, 3F, true, List.of(10, 11), Double.NaN, 0));
+                new ShieldImpact(new Vec3d(0, 1, 0), 9L, 2, 3F, true, List.of(10, 11), Double.NaN, 0));
 
         Wire<ShieldImpactHistory> history = wire(ShieldCodecs.IMPACT_HISTORY_STREAM);
         value("shield_impacts/EMPTY", ShieldCodecs.IMPACT_HISTORY, history, ShieldImpactHistory.EMPTY);
         List<ShieldImpact> impacts = new ArrayList<>();
         for (int index = 0; index < 13; index++) {
-            impacts.add(new ShieldImpact(new Vec3(index - 6, 1, 7 - index), 100L + index, index % 4, 1.5F + index, index % 5 == 0,
+            impacts.add(new ShieldImpact(new Vec3d(index - 6, 1, 7 - index), 100L + index, index % 4, 1.5F + index, index % 5 == 0,
                     index % 5 == 0 ? List.of(index * 30) : List.of(), index % 3 == 0 ? -1 : index * .75, index % 4 == 1 ? .25F * index : 0));
         }
         value("shield_impacts/12", ShieldCodecs.IMPACT_HISTORY, history, new ShieldImpactHistory(impacts.subList(0, 12)));

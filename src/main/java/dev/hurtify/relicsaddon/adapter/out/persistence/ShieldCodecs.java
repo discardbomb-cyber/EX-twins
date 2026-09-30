@@ -2,6 +2,7 @@ package dev.hurtify.relicsaddon.adapter.out.persistence;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
 import dev.hurtify.relicsaddon.domain.shield.ShieldCellMove;
 import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
 import dev.hurtify.relicsaddon.domain.shield.ShieldImpactHistory;
@@ -64,7 +65,7 @@ public final class ShieldCodecs {
     };
 
     public static final Codec<ShieldImpact> IMPACT = RecordCodecBuilder.create(instance -> instance.group(
-            Vec3.CODEC.fieldOf("normal").forGetter(ShieldImpact::normal),
+            Vec3.CODEC.xmap(McVectors::toDomain, McVectors::toMc).fieldOf("normal").forGetter(ShieldImpact::normal),
             Codec.LONG.fieldOf("gameTime").forGetter(ShieldImpact::gameTime),
             Codec.INT.fieldOf("panel").forGetter(ShieldImpact::panel),
             Codec.FLOAT.fieldOf("absorbed").forGetter(ShieldImpact::absorbed),

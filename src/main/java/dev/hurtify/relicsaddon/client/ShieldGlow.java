@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.domain.shield.ShieldField;
 import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
@@ -66,7 +67,7 @@ public final class ShieldGlow {
                 for (ShieldImpact impact : impacts) {
                     double age = time - impact.gameTime();
                     if (age < 0 || age >= ShieldResponse.IMPACT_TICKS || impact.absorbed() <= 0) continue;
-                    hit = Math.max(hit, ShieldField.focus(n.dot(impact.normal()), .22) * ShieldField.fade(age, 18));
+                    hit = Math.max(hit, ShieldField.focus(n.dot(McVectors.toMc(impact.normal())), .22) * ShieldField.fade(age, 18));
                 }
                 double ripple = ShieldRipple.active() ? Math.max(0, ShieldRipple.height(n.x, n.y, n.z)) : 0;
                 double light = inside ? hit * .6 : activity * (rim * .55 + .05) + hit * .95 + ripple * .6;

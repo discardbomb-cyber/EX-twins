@@ -2,6 +2,7 @@ package dev.hurtify.relicsaddon.server;
 
 import dev.hurtify.relicsaddon.AddonConfig;
 import dev.hurtify.relicsaddon.RelicsAddon;
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
@@ -89,8 +90,8 @@ public final class ShieldProjectileInterceptor {
 
     public static ShieldField.Crossing crossing(Projectile projectile, Player player, double ticks, ItemStack shield) {
         if (shield.isEmpty()) return null;
-        return ShieldField.intercept(projectile.position().subtract(player.position().add(0, ShieldField.CENTER_Y, 0)),
-                projectile.getDeltaMovement(), ticks, ShieldParameters.radius(player, shield));
+        return ShieldField.intercept(McVectors.toDomain(projectile.position().subtract(player.position().add(0, ShieldField.CENTER_Y, 0))),
+                McVectors.toDomain(projectile.getDeltaMovement()), ticks, ShieldParameters.radius(player, shield));
     }
 
     public static boolean unobstructed(Projectile projectile, double ticks) {
@@ -111,8 +112,8 @@ public final class ShieldProjectileInterceptor {
         if (crossing == null || !unobstructed(projectile, crossing.time())) return false;
         ItemStack shield = equipped(player);
         if (shield.isEmpty()) return false;
-        ShieldStackState state = prepared(player, shield, crossing.normal());
-        int cell = ShieldController.selectCell(player, crossing.normal());
+        ShieldStackState state = prepared(player, shield, McVectors.toMc(crossing.normal()));
+        int cell = ShieldController.selectCell(player, McVectors.toMc(crossing.normal()));
         if (state.sharedBuffer() <= 0 && state.availableHp(cell, player.level().getGameTime()) <= 0) {
             projectile.getPersistentData().putBoolean(PASSED_FOR + player.getUUID(), true);
             return false;

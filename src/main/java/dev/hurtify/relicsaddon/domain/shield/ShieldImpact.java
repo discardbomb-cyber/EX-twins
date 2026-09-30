@@ -1,7 +1,7 @@
 package dev.hurtify.relicsaddon.domain.shield;
 
+import dev.hurtify.relicsaddon.domain.math.Vec3d;
 import java.util.List;
-import net.minecraft.world.phys.Vec3;
 
 /**
  * Last server-confirmed impact, independent of repairs and the player's current facing.
@@ -9,13 +9,13 @@ import net.minecraft.world.phys.Vec3;
  * <p>{@code strike} is zero for an absorbed hit. For the shell striking a mob it is how far beyond the
  * surface the struck body sits, so clients can aim the discharge at it.
  */
-public record ShieldImpact(Vec3 normal, long gameTime, int panel, float absorbed, boolean broken, List<Integer> brokenCells, double distance,
+public record ShieldImpact(Vec3d normal, long gameTime, int panel, float absorbed, boolean broken, List<Integer> brokenCells, double distance,
         float strike) {
-    public ShieldImpact(Vec3 normal, long gameTime, int panel, float absorbed, boolean broken) {
+    public ShieldImpact(Vec3d normal, long gameTime, int panel, float absorbed, boolean broken) {
         this(normal, gameTime, panel, absorbed, broken, List.of(), -1, 0);
     }
 
-    public ShieldImpact(Vec3 normal, long gameTime, int panel, float absorbed, boolean broken, List<Integer> brokenCells) {
+    public ShieldImpact(Vec3d normal, long gameTime, int panel, float absorbed, boolean broken, List<Integer> brokenCells) {
         this(normal, gameTime, panel, absorbed, broken, brokenCells, -1, 0);
     }
 
@@ -24,7 +24,7 @@ public record ShieldImpact(Vec3 normal, long gameTime, int panel, float absorbed
     }
 
     /** The shell struck a body {@code reach} blocks beyond its surface along {@link #normal()}. */
-    public static ShieldImpact strike(Vec3 normal, long time, int panel, float damage, float reach) {
+    public static ShieldImpact strike(Vec3d normal, long time, int panel, float damage, float reach) {
         return new ShieldImpact(normal, time, panel, damage, false, List.of(), -1, Math.max(.05F, reach));
     }
 
@@ -32,7 +32,7 @@ public record ShieldImpact(Vec3 normal, long gameTime, int panel, float absorbed
         return strike > 0;
     }
 
-    public static ShieldImpact of(Vec3 normal, long time, int cell, float absorbed, ShieldStackState before, ShieldStackState after) {
+    public static ShieldImpact of(Vec3d normal, long time, int cell, float absorbed, ShieldStackState before, ShieldStackState after) {
         var broken = java.util.stream.IntStream.range(0, ShieldTopology.CELL_COUNT)
                 .filter(id -> before.cellHp(id) > 0 && after.cellHp(id) == 0).boxed().toList();
         return new ShieldImpact(normal, time, ShieldTopology.INSTANCE.cells()[cell].panel(), absorbed, !broken.isEmpty(), broken);
@@ -40,7 +40,7 @@ public record ShieldImpact(Vec3 normal, long gameTime, int panel, float absorbed
 
     public ShieldImpact {
         normal = normal != null && Double.isFinite(normal.lengthSqr()) && normal.lengthSqr() > 1e-10D
-                ? normal.normalize() : new Vec3(0, 0, 1);
+                ? normal.normalize() : new Vec3d(0, 0, 1);
         gameTime = Math.max(0L, gameTime);
         panel = Math.clamp(panel, 0, 3);
         absorbed = Float.isFinite(absorbed) ? Math.max(0, absorbed) : 0;

@@ -1,5 +1,6 @@
 package dev.hurtify.relicsaddon.client;
 
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
 import dev.hurtify.relicsaddon.domain.shield.ShieldField;
 import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
 import java.util.List;
@@ -33,7 +34,7 @@ public final class ShieldResponse {
         for (ShieldImpact impact : impacts) {
             double age = time - impact.gameTime();
             if (age < 0 || age >= IMPACT_TICKS) continue;
-            double dot = normal.dot(impact.normal());
+            double dot = normal.dot(McVectors.toMc(impact.normal()));
             double fade = ShieldField.fade(age, 16);
             if (impact.absorbed() > 0 && fade > 0) {
                 absorption = Math.max(absorption, fade * ShieldField.focus(dot, .28D));

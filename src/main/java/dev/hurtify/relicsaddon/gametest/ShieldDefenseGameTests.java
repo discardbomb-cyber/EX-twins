@@ -3,6 +3,7 @@ package dev.hurtify.relicsaddon.gametest;
 import static dev.hurtify.relicsaddon.gametest.DeviceTestSupport.ARENA;
 import static dev.hurtify.relicsaddon.gametest.DeviceTestSupport.TEMPLATE;
 
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
 import dev.hurtify.relicsaddon.domain.energy.DeviceEnergy;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
@@ -186,7 +187,7 @@ public final class ShieldDefenseGameTests {
         helper.assertTrue(charge - DevicePower.energy(shield).rf() == (1 + DevicePower.STRIKE) * DevicePower.FE_PER_POINT,
                 "Holding and striking are paid from the battery: " + charge + " -> " + DevicePower.energy(shield).rf());
         ShieldImpact last = shield.getOrDefault(ModDataComponents.SHIELD_IMPACTS.get(), ShieldImpactHistory.EMPTY).impacts().getLast();
-        helper.assertTrue(last.isStrike() && last.normal().dot(outward) > .95, "The strike shows on the shell facing the mob");
+        helper.assertTrue(last.isStrike() && last.normal().dot(McVectors.toDomain(outward)) > .95, "The strike shows on the shell facing the mob");
         helper.assertTrue(RelicRuntime.progression(shield).experience() > 0, "Striking earns device experience");
         DeviceTestSupport.close(helper, player.getHealth(), 20, "The wearer is untouched");
         helper.succeed();

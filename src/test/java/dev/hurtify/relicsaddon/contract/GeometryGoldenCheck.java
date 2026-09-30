@@ -7,6 +7,7 @@ import dev.hurtify.relicsaddon.domain.hive.HiveShapes;
 import dev.hurtify.relicsaddon.domain.hive.HiveSlots;
 import dev.hurtify.relicsaddon.domain.hive.HiveStackState;
 import dev.hurtify.relicsaddon.domain.hive.HiveType;
+import dev.hurtify.relicsaddon.domain.math.Vec3d;
 import dev.hurtify.relicsaddon.domain.shield.ShieldCellDefense;
 import dev.hurtify.relicsaddon.domain.shield.ShieldCellMove;
 import dev.hurtify.relicsaddon.domain.shield.ShieldField;
@@ -25,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.function.Consumer;
-import net.minecraft.world.phys.Vec3;
 
 /**
  * Bit-exact golden master of the shared geometry ({@code golden/geometry.txt}): one SHA-256 per
@@ -38,7 +38,7 @@ import net.minecraft.world.phys.Vec3;
  * overloads they delegate to are covered with the same arguments. {@code --record} rewrites the golden.
  */
 public final class GeometryGoldenCheck {
-    private static final Vec3 OWNER = new Vec3(3, 64, -2), TARGET = new Vec3(-4, 63, 7);
+    private static final Vec3d OWNER = new Vec3d(3, 64, -2), TARGET = new Vec3d(-4, 63, 7);
     private static final float[] YAWS = {0, -0.0F, 35, 89.99F, 90, 180, -180, 271.5F, 1e6F, -1e-7F};
     private static final double[] TIMES = {0, .5, 187.25, 5000.5, 3000000.75};
     private static final int[] SLOTS = {1, 2, 12, 16, 17, 100, 250};
@@ -47,8 +47,8 @@ public final class GeometryGoldenCheck {
     private static final double[] PROGRESS = {-.5, 0, .2, .45, .5, .9, 1, 1.5};
     private static final double[] DISTANCES = {0, .5, 1, 10, 22, 43.9, 44, 44.1, 45, 100, 153, 153.9, 154, 154.1, 200, 1e9, -3,
             Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, OWNER.distanceTo(TARGET)};
-    private static final Vec3[] FORWARDS = {new Vec3(0, 0, 1), new Vec3(1, 0, 0), new Vec3(0, 1, 0), new Vec3(0, -1, 0), new Vec3(0, 0, 0),
-            TARGET.subtract(OWNER), new Vec3(.3, .95, .1), new Vec3(-2.5, -.4, -1)};
+    private static final Vec3d[] FORWARDS = {new Vec3d(0, 0, 1), new Vec3d(1, 0, 0), new Vec3d(0, 1, 0), new Vec3d(0, -1, 0), new Vec3d(0, 0, 0),
+            TARGET.subtract(OWNER), new Vec3d(.3, .95, .1), new Vec3d(-2.5, -.4, -1)};
     private static final ShieldTopology TOPOLOGY = ShieldTopology.INSTANCE;
 
     private final Map<String, String> digests = new LinkedHashMap<>();
@@ -105,7 +105,7 @@ public final class GeometryGoldenCheck {
             }
         });
         function("HiveFormation.belt", d -> {
-            for (HiveType type : HiveType.values()) for (float yaw : YAWS) for (Vec3 owner : new Vec3[] {OWNER, TARGET}) {
+            for (HiveType type : HiveType.values()) for (float yaw : YAWS) for (Vec3d owner : new Vec3d[] {OWNER, TARGET}) {
                 d.v(() -> HiveFormation.belt(owner, yaw, type));
             }
         });
@@ -144,15 +144,15 @@ public final class GeometryGoldenCheck {
             }
         });
         function("HiveFormation.core", d -> {
-            for (Vec3 target : new Vec3[] {OWNER, TARGET}) {
+            for (Vec3d target : new Vec3d[] {OWNER, TARGET}) {
                 for (double height : new double[] {1.9, 1.8, .05, 0, -1, Double.NaN, Double.POSITIVE_INFINITY}) {
                     d.v(() -> HiveFormation.core(target, height));
                 }
             }
         });
-        Vec3[][] pairs = {{OWNER, TARGET}, {TARGET, OWNER}, {OWNER, OWNER.add(0, 5, 0)}, {OWNER, OWNER}};
+        Vec3d[][] pairs = {{OWNER, TARGET}, {TARGET, OWNER}, {OWNER, OWNER.add(0, 5, 0)}, {OWNER, OWNER}};
         function("HiveFormation.muster", d -> {
-            for (Vec3[] pair : pairs) for (int groups : range(1, 16, 25, 40)) for (int group = -1; group <= groups; group++) {
+            for (Vec3d[] pair : pairs) for (int groups : range(1, 16, 25, 40)) for (int group = -1; group <= groups; group++) {
                 for (double time : TIMES) {
                     final int g = group;
                     d.v(() -> HiveFormation.muster(pair[0], pair[1], g, groups, time));
@@ -166,7 +166,7 @@ public final class GeometryGoldenCheck {
         });
         double[] sortieTimes = sweep(TIMES, 100, 220, .5);
         function("HiveFormation.sortie", d -> {
-            for (Vec3[] pair : new Vec3[][] {pairs[0], pairs[2]}) for (int groups : new int[] {1, 2, 5, 16}) {
+            for (Vec3d[] pair : new Vec3d[][] {pairs[0], pairs[2]}) for (int groups : new int[] {1, 2, 5, 16}) {
                 for (int group = 0; group < groups; group++) for (double time : sortieTimes) for (int interval : INTERVALS) {
                     final int g = group;
                     d.d(() -> HiveFormation.sortie(pair[0], pair[1], 1.9, g, groups, time, 100, interval));
@@ -174,7 +174,7 @@ public final class GeometryGoldenCheck {
             }
         });
         function("HiveFormation.dropletCentre", d -> {
-            for (Vec3[] pair : new Vec3[][] {pairs[0], pairs[2]}) for (int groups : new int[] {1, 2, 5, 16}) {
+            for (Vec3d[] pair : new Vec3d[][] {pairs[0], pairs[2]}) for (int groups : new int[] {1, 2, 5, 16}) {
                 for (int group = 0; group < groups; group++) for (double time : sortieTimes) for (int interval : INTERVALS) {
                     final int g = group;
                     d.v(() -> HiveFormation.dropletCentre(pair[0], pair[1], 1.9, g, groups, time, 100, interval));
@@ -223,10 +223,10 @@ public final class GeometryGoldenCheck {
                 }
             }
         });
-        Vec3[] stations = {TARGET.add(1.5, 2.25, -.75), OWNER.add(.1, .9, .2)};
+        Vec3d[] stations = {TARGET.add(1.5, 2.25, -.75), OWNER.add(.1, .9, .2)};
         function("HiveFormation.deployed", d -> {
             for (HiveType type : HiveType.values()) for (float yaw : YAWS) for (int count : new int[] {12, 60, 250}) {
-                for (int unit = -1; unit <= count; unit++) for (Vec3 station : stations) for (int travel : new int[] {0, 20, 30, 70}) {
+                for (int unit = -1; unit <= count; unit++) for (Vec3d station : stations) for (int travel : new int[] {0, 20, 30, 70}) {
                     for (double time : new double[] {140, 150, 151, 155.5, 165, 172.25, 180, 200}) {
                         final int u = unit;
                         d.v(() -> HiveFormation.deployed(OWNER, yaw, station, u, count, type, time, 150, travel));
@@ -236,7 +236,7 @@ public final class GeometryGoldenCheck {
         });
         function("HiveFormation.returning", d -> {
             for (HiveType type : HiveType.values()) for (float yaw : YAWS) for (int count : new int[] {12, 60, 250}) {
-                for (int unit = -1; unit <= count; unit++) for (Vec3 struck : stations) {
+                for (int unit = -1; unit <= count; unit++) for (Vec3d struck : stations) {
                     for (double time : new double[] {140, 150, 151, 160.5, 174, 180, 190}) {
                         final int u = unit;
                         d.v(() -> HiveFormation.returning(OWNER, yaw, struck, u, count, type, time, 150));
@@ -271,13 +271,13 @@ public final class GeometryGoldenCheck {
             for (int[] edge : HiveShapes.TESSERACT_EDGES) for (int corner : edge) d.i(corner);
         });
         function("HiveShapes.droplet", d -> {
-            for (int count : UNITS) for (int m = 0; m < count; m++) for (double time : TIMES) for (Vec3 forward : FORWARDS) {
+            for (int count : UNITS) for (int m = 0; m < count; m++) for (double time : TIMES) for (Vec3d forward : FORWARDS) {
                 final int member = m;
                 d.v(() -> HiveShapes.droplet(member, count, time, forward, .8));
             }
         });
         function("HiveShapes.hexagons", d -> {
-            for (int count : UNITS) for (int m = 0; m < count; m++) for (double time : TIMES) for (Vec3 forward : FORWARDS) {
+            for (int count : UNITS) for (int m = 0; m < count; m++) for (double time : TIMES) for (Vec3d forward : FORWARDS) {
                 final int member = m;
                 d.v(() -> HiveShapes.hexagons(member, count, time, forward, .8));
             }
@@ -289,13 +289,13 @@ public final class GeometryGoldenCheck {
             }
         });
         function("HiveShapes.hexagonCentre", d -> {
-            for (int rings = 1; rings <= 7; rings++) for (int ring = -1; ring <= rings; ring++) for (double time : TIMES) for (Vec3 forward : FORWARDS) {
+            for (int rings = 1; rings <= 7; rings++) for (int ring = -1; ring <= rings; ring++) for (double time : TIMES) for (Vec3d forward : FORWARDS) {
                 final int r = ring, n = rings;
                 d.v(() -> HiveShapes.hexagonCentre(r, n, time, forward, .8));
             }
         });
         function("HiveShapes.hexagonPoint", d -> {
-            for (double along = -1; along <= 7; along += .125) for (double spin : new double[] {0, .7, -2.5}) for (Vec3 forward : FORWARDS) {
+            for (double along = -1; along <= 7; along += .125) for (double spin : new double[] {0, .7, -2.5}) for (Vec3d forward : FORWARDS) {
                 for (double radius : new double[] {.45, 2}) {
                     final double a = along;
                     d.v(() -> HiveShapes.hexagonPoint(a, spin, forward, radius));
@@ -304,15 +304,15 @@ public final class GeometryGoldenCheck {
         });
         function("HiveShapes.clump", d -> {
             for (HiveType type : HiveType.values()) for (int count : UNITS) for (int m = 0; m < count; m++) for (double time : TIMES) {
-                for (Vec3 facing : FORWARDS) for (double radius : new double[] {HiveFormation.clumpRadius(16), .5}) {
+                for (Vec3d facing : FORWARDS) for (double radius : new double[] {HiveFormation.clumpRadius(16), .5}) {
                     final int member = m;
                     d.v(() -> HiveShapes.clump(type, member, count, time, facing, radius));
                 }
             }
         });
         function("HiveShapes.rotate", d -> {
-            Vec3[] axes = {new Vec3(.3, 1, .2).normalize(), new Vec3(0, 1, 0), new Vec3(1, 0, 0)};
-            for (Vec3 v : FORWARDS) for (Vec3 axis : axes) for (double angle : new double[] {-7, -1, 0, .5, 3.14159, 100}) {
+            Vec3d[] axes = {new Vec3d(.3, 1, .2).normalize(), new Vec3d(0, 1, 0), new Vec3d(1, 0, 0)};
+            for (Vec3d v : FORWARDS) for (Vec3d axis : axes) for (double angle : new double[] {-7, -1, 0, .5, 3.14159, 100}) {
                 d.v(() -> HiveShapes.rotate(v, axis, angle));
             }
         });
@@ -356,11 +356,11 @@ public final class GeometryGoldenCheck {
             }
         });
         function("HiveShapes.axes", d -> {
-            for (Vec3 forward : FORWARDS) {
+            for (Vec3d forward : FORWARDS) {
                 d.call(() -> {
-                    Vec3[] axes = HiveShapes.axes(forward);
+                    Vec3d[] axes = HiveShapes.axes(forward);
                     d.i(axes.length);
-                    for (Vec3 axis : axes) d.v(axis);
+                    for (Vec3d axis : axes) d.v(axis);
                 });
             }
         });
@@ -438,19 +438,19 @@ public final class GeometryGoldenCheck {
     private void field() {
         function("ShieldField.constants", d -> d.d(ShieldField.RADIUS).d(ShieldField.CENTER_Y).d(ShieldField.PREVIEW_TICKS));
         double[] coordinates = {-8, -2.5, -1.2, 0, .35, 1.9, 6};
-        List<Vec3> starts = new ArrayList<>();
-        for (double x : coordinates) for (double y : coordinates) for (double z : coordinates) starts.add(new Vec3(x, y, z));
-        Vec3[] velocities = {new Vec3(0, 0, 0), new Vec3(1e-6, 0, 0), new Vec3(.8, 0, 0), new Vec3(-.5, .1, .2), new Vec3(0, -2.2, 0),
-                new Vec3(3, 1, -2), new Vec3(-1.7, -.4, 1.1)};
+        List<Vec3d> starts = new ArrayList<>();
+        for (double x : coordinates) for (double y : coordinates) for (double z : coordinates) starts.add(new Vec3d(x, y, z));
+        Vec3d[] velocities = {new Vec3d(0, 0, 0), new Vec3d(1e-6, 0, 0), new Vec3d(.8, 0, 0), new Vec3d(-.5, .1, .2), new Vec3d(0, -2.2, 0),
+                new Vec3d(3, 1, -2), new Vec3d(-1.7, -.4, 1.1)};
         double[] maxTicks = {0, 1, ShieldField.PREVIEW_TICKS, 40};
         double[] radii = {0, ShieldField.RADIUS, 5.5, 24, Double.NaN};
         function("ShieldField.intercept", d -> {
-            for (Vec3 start : starts) for (Vec3 velocity : velocities) for (double ticks : maxTicks) for (double radius : radii) {
+            for (Vec3d start : starts) for (Vec3d velocity : velocities) for (double ticks : maxTicks) for (double radius : radii) {
                 d.crossing(() -> ShieldField.intercept(start, velocity, ticks, radius));
             }
         });
         function("ShieldField.incoming", d -> {
-            for (Vec3 start : starts) for (Vec3 velocity : velocities) for (double ticks : maxTicks) for (double radius : radii) {
+            for (Vec3d start : starts) for (Vec3d velocity : velocities) for (double ticks : maxTicks) for (double radius : radii) {
                 d.crossing(() -> ShieldField.incoming(start, velocity, ticks, radius));
             }
         });
@@ -508,21 +508,21 @@ public final class GeometryGoldenCheck {
         function("ShieldTopology.migrateLegacyCell", d -> {
             for (int legacy = 0; legacy < ShieldTopology.LEGACY_CELL_COUNT; legacy++) d.i(TOPOLOGY.migrateLegacyCell(legacy));
         });
-        List<Vec3> sphere = sphere(64, 128);
+        List<Vec3d> sphere = sphere(64, 128);
         function("ShieldTopology.nearest", d -> {
-            for (Vec3 direction : sphere) for (double scale : new double[] {1, .25, 3}) {
+            for (Vec3d direction : sphere) for (double scale : new double[] {1, .25, 3}) {
                 d.i(TOPOLOGY.nearest(direction.x * scale, direction.y * scale, direction.z * scale));
             }
             d.i(TOPOLOGY.nearest(0, 0, 0));
             d.i(TOPOLOGY.nearest(Double.NaN, 1, 0));
         });
         // ShieldController.selectCell, written out: the incoming direction turned into the wearer's frame.
-        List<Vec3> incoming = sphere(16, 32);
-        incoming.add(new Vec3(0, 0, 0));
+        List<Vec3d> incoming = sphere(16, 32);
+        incoming.add(new Vec3d(0, 0, 0));
         function("CellSelection.select", d -> {
             for (float yaw : sweep(YAWS, -360, 360, 15)) {
-                Vec3 forward = Vec3.directionFromRotation(0, yaw);
-                for (Vec3 in : incoming) {
+                Vec3d forward = Vec3d.directionFromRotation(0, yaw);
+                for (Vec3d in : incoming) {
                     d.i(TOPOLOGY.nearest(-in.x * forward.z + in.z * forward.x, in.y, in.x * forward.x + in.z * forward.z));
                 }
             }
@@ -582,11 +582,11 @@ public final class GeometryGoldenCheck {
     }
 
     /** A latitude-longitude grid of unit directions. */
-    private static List<Vec3> sphere(int latitudes, int longitudes) {
-        List<Vec3> result = new ArrayList<>();
+    private static List<Vec3d> sphere(int latitudes, int longitudes) {
+        List<Vec3d> result = new ArrayList<>();
         for (int lat = 0; lat < latitudes; lat++) for (int lon = 0; lon < longitudes; lon++) {
             double theta = (lat + .5) / latitudes * Math.PI, phi = lon / (double) longitudes * 2 * Math.PI;
-            result.add(new Vec3(Math.sin(theta) * Math.cos(phi), Math.cos(theta), Math.sin(theta) * Math.sin(phi)));
+            result.add(new Vec3d(Math.sin(theta) * Math.cos(phi), Math.cos(theta), Math.sin(theta) * Math.sin(phi)));
         }
         return result;
     }
@@ -659,11 +659,11 @@ public final class GeometryGoldenCheck {
             return i(value ? 1 : 0);
         }
 
-        Digest v(Vec3 value) {
+        Digest v(Vec3d value) {
             return d(value.x).d(value.y).d(value.z);
         }
 
-        void v(java.util.function.Supplier<Vec3> value) {
+        void v(java.util.function.Supplier<Vec3d> value) {
             call(() -> v(value.get()));
         }
 

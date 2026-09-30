@@ -1,6 +1,7 @@
 package dev.hurtify.relicsaddon.server;
 
 import dev.hurtify.relicsaddon.RelicsAddon;
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.domain.shield.ShieldField;
 import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
@@ -93,7 +94,7 @@ public final class ShieldStrike {
     /** The strike shows on the shell with the flash, wave and traces of a hit, plus an arc out to the mob. */
     private static void record(Player owner, ItemStack shield, Vec3 normal, long now, float damage, float reach) {
         int panel = ShieldTopology.INSTANCE.cells()[ShieldController.selectCell(owner, normal)].panel();
-        ShieldImpact impact = ShieldImpact.strike(normal, now, panel, Math.max(1, damage), reach);
+        ShieldImpact impact = ShieldImpact.strike(McVectors.toDomain(normal), now, panel, Math.max(1, damage), reach);
         shield.set(ModDataComponents.SHIELD_IMPACT.get(), impact);
         shield.set(ModDataComponents.SHIELD_IMPACTS.get(),
                 shield.getOrDefault(ModDataComponents.SHIELD_IMPACTS.get(), ShieldImpactHistory.EMPTY).append(impact));
