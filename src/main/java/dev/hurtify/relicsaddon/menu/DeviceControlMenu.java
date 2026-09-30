@@ -3,6 +3,7 @@ package dev.hurtify.relicsaddon.menu;
 import dev.hurtify.relicsaddon.drone.AttackMode;
 import dev.hurtify.relicsaddon.drone.HiveSettings;
 import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.network.HiveAllocationPayload;
 import dev.hurtify.relicsaddon.power.DeviceEnergy;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
@@ -44,6 +45,9 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
     /** Four buttons per {@link AttackMode}, in ordinal order, adding or taking away {@link #STEPS} drones. */
     public static final int BUTTON_ALLOCATION_BASE = 50;
     public static final int[] STEPS = {-10, -1, 1, 10};
+
+    /** The slider target ({@link HiveAllocationPayload}) that sets the healers; the attack modes are their ordinals. */
+    public static final int HEALERS = AttackMode.values().length;
 
     /** The button that moves {@code step} (an index into {@link #STEPS}) drones into or out of {@code mode}. */
     public static int allocationButton(AttackMode mode, int step) {
@@ -154,6 +158,18 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
             return true;
         }
         return false;
+    }
+
+    /**
+     * A console slider let go: {@code count} drones for attack mode {@code target} (its ordinal) or, for
+     * {@link #HEALERS}, healers. Refused, writing nothing, unless the hive allows it: a mode gets none or
+     * at least its figure's corners, healers come from free drones, and nothing goes past the hive's size.
+     */
+    public boolean allocate(Player player, int target, int count) {
+        if (!stillValid(player) || !EquippedRelicSetResolver.isRealPlayer(player) || !(device().getItem() instanceof AutonomousRelicItem item)
+                || !item.role().isHive() || count < 0 || count > HiveType.MAX_DRONES || target < 0 || target > HEALERS) return false;
+        if (target == HEALERS) return HiveTaskController.configureHealers(player, charm, deviceSlot, identity, count);
+        return HiveTaskController.configureMode(player, charm, deviceSlot, identity, AttackMode.values()[target], count);
     }
 
     @Override public ItemStack quickMoveStack(Player player, int index) {

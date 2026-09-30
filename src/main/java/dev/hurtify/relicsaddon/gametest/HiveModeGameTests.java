@@ -261,6 +261,15 @@ public final class HiveModeGameTests {
                 helper.assertTrue(now.healers() + now.assigned() <= 100, "button " + id + " overfilled the hive");
             }
         }
+        // The console's sliders send a count in their own packet; the server holds it to the same rules.
+        hive.set(ModDataComponents.HIVE_SETTINGS.get(), new HiveSettings(0, 0, 0, 0));
+        for (int count = 1; count < minimum; count++) helper.assertFalse(menu.allocate(player, AttackMode.DROPLET.ordinal(), count), "a slider cannot set " + count);
+        helper.assertTrue(menu.allocate(player, AttackMode.DROPLET.ordinal(), 2 * minimum) && settings(hive).droplet() == 2 * minimum, "two whole figures");
+        helper.assertFalse(menu.allocate(player, AttackMode.BARRAGE.ordinal(), 101 - 2 * minimum), "no more than the hive holds");
+        helper.assertFalse(menu.allocate(player, DeviceControlMenu.HEALERS, 100), "healers only from free drones");
+        helper.assertTrue(menu.allocate(player, DeviceControlMenu.HEALERS, 100 - 2 * minimum) && settings(hive).healers() == 100 - 2 * minimum, "healers from free drones");
+        helper.assertFalse(menu.allocate(player, 7, 0) || menu.allocate(player, -1, 0) || menu.allocate(player, 0, -5), "nonsense is refused");
+        hive.set(ModDataComponents.HIVE_SETTINGS.get(), new HiveSettings(0, 0, 0, 0));
         helper.assertTrue(menu.clickMenuButton(player, DeviceControlMenu.BUTTON_MODE_BASE + AttackMode.BARRAGE.ordinal()), "all into Barrage");
         helper.assertTrue(settings(hive).barrage() == 100 && settings(hive).droplet() == 0 && settings(hive).containment() == 0, "every fighter in Barrage");
         helper.succeed();
