@@ -34,7 +34,11 @@ public final class HiveCombatVisual {
 
     public static RenderType renderType() { return TYPE; }
 
-    public static void renderShots(List<HiveCombatState.Shot> shots, HiveType type, Vec3 camera, Matrix4f matrix, double time) {
+    /** The hive whose shots are being brought to life: its owner's entity id, so their blows only ever cut short their own. */
+    private static long owner;
+
+    public static void renderShots(int ownerId, List<HiveCombatState.Shot> shots, HiveType type, Vec3 camera, Matrix4f matrix, double time) {
+        owner = ownerId;
         var level = Minecraft.getInstance().level;
         if (level == null) return;
         long now = level.getGameTime();
@@ -88,7 +92,7 @@ public final class HiveCombatVisual {
 
     /** Names a blow's strike group, so its next blow cuts this one's tail short. */
     private static long group(HiveType type, HiveCombatState.Shot shot) {
-        return (type.ordinal() + 1) * 1_000_003L + shot.unit() * 31L + shot.kind();
+        return ((owner + 1) * 4 + type.ordinal()) * 1_000_003L + shot.unit() * 31L + shot.kind();
     }
 
     /** The middle of the creature nearest {@code at}: whom a ward's turned-back blow falls on. */

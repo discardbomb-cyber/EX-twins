@@ -300,14 +300,13 @@ public final class HiveModeVisual {
      */
     private static void rifts(Scene s, int group, Vec3 home, Vec3 core, double sortie, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
         if (sortie <= 0) return;
-        Vec3[] rifts = HiveFormation.dropletRifts(home, core, group);
-        double out = sortie <= 1 ? sortie : 2 - sortie;
-        double[] marks = {HiveFormation.RIFT_IN, HiveFormation.RIFT_OUT};
-        for (int index = 0; index < 2; index++) {
-            double open = 1 - Math.abs(out - marks[index]) / .14;
+        double[] marks = HiveFormation.RIFT_MARKS;
+        for (int index = 0; index < marks.length; index++) {
+            double open = 1 - Math.abs(sortie - marks[index]) / .14;
             if (open <= 0) continue;
-            Vec3 across = index == 0 ? core.subtract(home) : core.subtract(rifts[1]);
-            tear(glow, fill, m, rifts[index].subtract(camera), across, 1.7 * Math.sqrt(open), open, s.time(), group * 2 + index, color);
+            Vec3 at = HiveFormation.arcPath(home, core, marks[index], group);
+            Vec3 across = HiveFormation.arcPath(home, core, marks[index] + .02, group).subtract(at);
+            tear(glow, fill, m, at.subtract(camera), across, 1.7 * Math.sqrt(open), open, s.time(), group * 4 + index, color);
         }
     }
 
@@ -440,9 +439,11 @@ public final class HiveModeVisual {
             corners[corner] = slot < s.drones().length && s.drones()[slot] != null ? s.drones()[slot].subtract(camera) : null;
         }
         long flicker = (long) Math.floor(s.time() / 2);
+        double reach = HiveFormation.clumpRadius(members) * 3;
         for (int corner = 0; corner < ring; corner++) {
             Vec3 a = corners[corner], b = corners[(corner + 1) % ring];
-            if (a == null || b == null) continue;
+            // A corner hopping to another clump takes its lines with it only as far as its own clump.
+            if (a == null || b == null || a.distanceTo(centre) > reach || b.distanceTo(centre) > reach) continue;
             GlowBrush.beam(glow, m, a, b, .014, color, 70 + 90 * charge);
             if (s.type() == HiveType.TWINS && charge > .15 && hashOf((int) flicker * 131 + group * 17, corner) < .5 * charge + .1) {
                 GlowBrush.lightning(glow, m, a, b, flicker * 131 + group * 17L + corner, 3, .25, .01, 0xE7C6FF, 210 * charge);

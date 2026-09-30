@@ -44,6 +44,8 @@ public final class HiveVisualRenderer {
     private record EquippedCache(long tick, Object level, List<HiveController.Equipped> hives, java.util.Set<HiveType> present) { }
     private record Visibility(boolean enabled, long changedAt) { }
     private static final Map<Player, EquippedCache> ACTIVE = new WeakHashMap<>();
+    /** The level drawn last frame: a change of it clears what the swarms left behind. */
+    private static Object lastLevel;
     private static final Map<Player, EnumMap<HiveType, Visibility>> VISIBILITY = new WeakHashMap<>();
     /** Last drawn position of every drone, so a hit or recalled drone flies home from exactly where it was seen. */
     private static final Map<Player, EnumMap<HiveType, Vec3[]>> SEEN = new WeakHashMap<>();
@@ -90,6 +92,12 @@ public final class HiveVisualRenderer {
         }
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
         Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level != lastLevel) {
+            lastLevel = minecraft.level;
+            HiveJuice.clear();
+            HiveLoopSounds.clear();
+            HiveConstructVisual.clear();
+        }
         if (minecraft.level == null || minecraft.player == null) {
             ACTIVE.clear(); VISIBILITY.clear(); SEEN.clear(); LAUNCHES.clear(); PREY.clear();
             HiveJuice.clear();
@@ -277,7 +285,7 @@ public final class HiveVisualRenderer {
             Vec3 at = HiveFormation.healing(owner, yaw, index, healerSlots, type, time, supportProgress);
             drawDrone(minecraft, event, player, type, at, null, appear * Math.min(1, supportProgress * 4), count, camera, poses, glow, budget);
         }
-        HiveCombatVisual.renderShots(combat.shots(), type, camera, poses.last().pose(), time);
+        HiveCombatVisual.renderShots(player.getId(), combat.shots(), type, camera, poses.last().pose(), time);
     }
 
     /** Where each drone was when {@code shot} began, noted once per shot (the last element marks which shot it is). */

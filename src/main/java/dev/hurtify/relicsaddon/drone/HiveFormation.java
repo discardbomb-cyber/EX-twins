@@ -199,15 +199,11 @@ public final class HiveFormation {
     /** Where in its flight out a Twins figure enters the first rift and comes out of the second. */
     public static final double RIFT_IN = .3, RIFT_OUT = .55;
 
-    /** Twins: the rift behind the owner a figure dives into, and the one by the target it comes out of. */
-    public static Vec3[] dropletRifts(Vec3 home, Vec3 core, int group) {
-        Vec3 toward = core.subtract(home), flat = new Vec3(toward.x, 0, toward.z);
-        Vec3 forward = flat.lengthSqr() < 1e-6 ? new Vec3(0, 0, 1) : flat.normalize();
-        Vec3 side = new Vec3(-forward.z, 0, forward.x).scale(group % 2 == 0 ? 1 : -1);
-        Vec3 behind = home.subtract(forward.scale(2.4)).add(0, .6, 0);
-        Vec3 near = core.subtract(forward.scale(3.2)).add(side.scale(1.6)).add(0, 1.4, 0);
-        return new Vec3[]{behind, near};
-    }
+    /**
+     * Twins: the rifts on a figure's path, where it vanishes and where it comes out: going in, one by its place in
+     * the fan behind its owner and one by the target; coming home, the same the other way round.
+     */
+    public static final double[] RIFT_MARKS = {RIFT_IN, RIFT_OUT, 2 - RIFT_OUT, 2 - RIFT_IN};
 
     /** Droplet: centre of a group's figure at {@code time}: in the fan, flying at the target, or flying home. */
     public static Vec3 dropletCentre(Vec3 owner, Vec3 target, double targetHeight, int group, int groups,
@@ -231,8 +227,14 @@ public final class HiveFormation {
         Vec3 home = muster(owner, fanTarget, group, groups, time), core = core(strike, strikeHeight);
         double sortie = sortie(owner, fanTarget, strike, strikeHeight, group, groups, time, cycleStart, interval);
         if (sortie <= 0) return home;
+        // A Twins figure keeps the same path as RF's; the client only hides it between the rifts on that path.
         if (type == HiveType.MANA) return rainPath(home, core, sortie, group);
-        if (type == HiveType.TWINS) return riftPath(home, core, sortie, group);
+        return arcPath(home, core, sortie, group);
+    }
+
+    /** RF's flight (and the Twins figure's, rifts or not): in over a shallow arc, home on a wider one swung out to the side. */
+    public static Vec3 arcPath(Vec3 home, Vec3 core, double sortie, int group) {
+        if (sortie <= 0) return home;
         double distance = home.distanceTo(core);
         if (sortie <= 1) {
             // Launched from rest, it gathers speed all the way in over a shallow arc.
@@ -266,19 +268,6 @@ public final class HiveFormation {
         }
         double t = (s - .4) / .6, eased = t * t * (3 - 2 * t);
         return apex.add(0, -1.5, 0).lerp(home, eased);
-    }
-
-    /** Twins: into the rift behind the owner, out of the one by the target and in; home the same way round. */
-    private static Vec3 riftPath(Vec3 home, Vec3 core, double sortie, int group) {
-        Vec3[] rifts = dropletRifts(home, core, group);
-        double s = sortie <= 1 ? sortie : 2 - sortie;
-        if (s <= RIFT_IN) {
-            double t = s / RIFT_IN;
-            return home.lerp(rifts[0], t * t);
-        }
-        if (s < RIFT_OUT) return rifts[0].lerp(rifts[1], (s - RIFT_IN) / (RIFT_OUT - RIFT_IN));
-        double t = (s - RIFT_OUT) / (1 - RIFT_OUT);
-        return rifts[1].lerp(core, t * (2 - t) * .5 + t * t * .5);
     }
 
     /** Size of a droplet figure for a group of {@code members}. */
@@ -487,8 +476,7 @@ public final class HiveFormation {
                 // A few drones hop to the next clump every eight seconds, gliding over for a second.
                 int home = group;
                 Vec3 at = barragePoint(type, home, member, members, groups, target, targetWidth, targetHeight, time, -1);
-                // Corners of an RF or Twins pattern keep to it; only the drones past them hop.
-                if (member % 7 == 3 && groups > 1 && (type == HiveType.MANA || member >= HiveShapes.CLUMP_RING)) {
+                if (member % 7 == 3 && groups > 1) {
                     double clock = time + member * 37 + group * 53;
                     long hops = (long) Math.floor(clock / 160);
                     double into = clock - hops * 160;

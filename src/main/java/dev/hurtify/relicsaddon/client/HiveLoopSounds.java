@@ -41,8 +41,14 @@ public final class HiveLoopSounds {
     }
 
     private static void report(long key, HiveType type, Vec3 at, double time, float volume, boolean hum) {
+        // News of sources never heard (too far, or crowded out) is dropped once it is old.
+        if (NEWS.size() > 128) NEWS.entrySet().removeIf(entry -> !PLAYING.containsKey(entry.getKey()) && time - entry.getValue().time > STALE);
         NEWS.put(key, new News(at, time, volume));
-        if (PLAYING.containsKey(key)) return;
+        Loop playing = PLAYING.get(key);
+        if (playing != null) {
+            if (time - playing.started < 20 || Minecraft.getInstance().getSoundManager().isActive(playing)) return;
+            PLAYING.remove(key);
+        }
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null) return;
         if (!hum) {
@@ -72,7 +78,7 @@ public final class HiveLoopSounds {
             case MANA -> RelicSounds.MANA_FLIGHT;
             case TWINS -> RelicSounds.TWINS_FLIGHT;
         }).get();
-        Loop loop = new Loop(event, key, hum);
+        Loop loop = new Loop(event, key, hum, time);
         PLAYING.put(key, loop);
         minecraft.getSoundManager().play(loop);
     }
@@ -93,12 +99,14 @@ public final class HiveLoopSounds {
     private static final class Loop extends AbstractTickableSoundInstance {
         private final long key;
         private final boolean hum;
+        private final double started;
         private double lastDistance = -1;
 
-        Loop(SoundEvent event, long key, boolean hum) {
+        Loop(SoundEvent event, long key, boolean hum, double started) {
             super(event, SoundSource.PLAYERS, SoundInstance.createUnseededRandom());
             this.key = key;
             this.hum = hum;
+            this.started = started;
             this.looping = true;
             this.delay = 0;
             this.volume = .01F;
