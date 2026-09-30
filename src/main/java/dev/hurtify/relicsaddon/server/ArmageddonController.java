@@ -6,6 +6,7 @@ import dev.hurtify.relicsaddon.drone.ArmageddonState;
 import dev.hurtify.relicsaddon.drone.ArmageddonTimeline;
 import dev.hurtify.relicsaddon.drone.HiveType;
 import dev.hurtify.relicsaddon.drone.ManaArmageddon;
+import dev.hurtify.relicsaddon.drone.RfArmageddon;
 import dev.hurtify.relicsaddon.network.ArmageddonPayloads;
 import dev.hurtify.relicsaddon.power.DeviceEnergy;
 import dev.hurtify.relicsaddon.power.DevicePower;
@@ -25,7 +26,10 @@ import java.util.UUID;
 import dev.hurtify.relicsaddon.AddonConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -46,8 +50,9 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import top.theillusivec4.curios.api.CuriosApi;
 
 /**
- * Armageddon, the ultimate of a fully upgraded Twins or Mana hive (see {@link Armageddon} for the Twins
- * cannon and {@link ArmageddonTimeline} for the course either takes). The owner asks for a shot at the point
+ * Armageddon, the ultimate of a fully upgraded Twins, Mana or RF hive (see {@link Armageddon} for the Twins
+ * cannon, {@link ManaArmageddon} and {@link RfArmageddon} for the others, and {@link ArmageddonTimeline} for the
+ * course each takes). The owner asks for a shot at the point
  * they look at; the hive must be at the top level and fully charged. While the shot charges, the hive's
  * battery pours into it, and a worn shield of the same family feeds it too without letting its own field
  * drop. Where the shot lands the land round it goes (unless the server keeps it safe), and when it bursts
@@ -71,6 +76,8 @@ public final class ArmageddonController {
     private static final int BORES = 6000;
     /** The most places carving or boring looks at in one tick, taken or not (air and bedrock too); it goes on from there the next. */
     private static final int LOOKS = 48000;
+    /** The plain ground an RF crater's rim may be raised from: earth, stone, sand and the like, never anything with contents. */
+    static final TagKey<Block> RIM = TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(RelicsAddon.MOD_ID, "crater_rim"));
     /** Shots in progress, by owner. */
     private static final Map<UUID, Shot> SHOTS = new HashMap<>();
     /** Shots already fired whose owner has gone: they fly on, feed and burst where they were fired. */
@@ -95,6 +102,9 @@ public final class ArmageddonController {
         /** The columns the beam will bore, nearest its axis first (packed x and z), how far it has got, and how low it has cut in the one it is on. */
         long[] shaft;
         int bored, boredTo = Integer.MAX_VALUE;
+        /** The columns of an RF crater's rim, from its lip out (packed x and z), and how many have been raised. */
+        long[] rim;
+        int raised;
 
         Shot(String hive, ServerPlayer owner, ArmageddonState state, DeviceEnergy hiveAtStart, int shieldGives) {
             this.hive = hive;
@@ -119,13 +129,15 @@ public final class ArmageddonController {
         return switch (item.role()) {
             case TWINS_HIVE -> HiveType.TWINS;
             case MANA_HIVE -> HiveType.MANA;
+            case RF_HIVE -> HiveType.RF;
             default -> null;
         };
     }
 
     /** The translation key of a refusal ({@code level}, {@code charge} or {@code running}) in the words of {@code type}'s Armageddon. */
     public static String refusal(HiveType type, String reason) {
-        return (type == HiveType.MANA ? "message.relics_addon.mana_armageddon." : "message.relics_addon.armageddon.") + reason;
+        return (type == HiveType.MANA ? "message.relics_addon.mana_armageddon." : type == HiveType.RF ? "message.relics_addon.rf_armageddon."
+                : "message.relics_addon.armageddon.") + reason;
     }
 
     /**
@@ -196,9 +208,22 @@ public final class ArmageddonController {
         return null;
     }
 
-    /** Where {@code type}'s construct hangs for an owner whose eyes are at {@code eye}: the Twins cannon, or the point between the Mana flowers. */
+    /** Where {@code type}'s construct hangs for an owner whose eyes are at {@code eye}: the Twins cannon, the point between the Mana flowers, or the RF hologram. */
     private static Vec3 origin(HiveType type, Vec3 eye, Vec3 target) {
-        return type == HiveType.MANA ? ManaArmageddon.origin(eye, target) : Armageddon.origin(eye, target);
+        return switch (type) {
+            case MANA -> ManaArmageddon.origin(eye, target);
+            case RF -> RfArmageddon.origin(eye, target);
+            case TWINS -> Armageddon.origin(eye, target);
+        };
+    }
+
+    /** Where the shot leaves from: the Twins muzzle, the point between the Mana flowers, or before the RF hologram's nose. */
+    private static Vec3 firedFrom(ArmageddonState state) {
+        return switch (state.type()) {
+            case MANA -> state.origin();
+            case RF -> RfArmageddon.nose(state);
+            case TWINS -> Armageddon.muzzle(state);
+        };
     }
 
     /**
@@ -230,7 +255,7 @@ public final class ArmageddonController {
     /**
      * Carries a shot on {@code now}, in the level it was fired in: the shot leaving and arriving, the land round
      * its target going (through the first moments of the burst too, until it has had all it marked), the clients
-     * near told of the blast, the burst, and the Twins beam boring the land out.
+     * near told of the blast, the burst, the Twins beam boring the land out and the RF crater's rim rising.
      */
     private static void advance(Shot shot, long now) {
         long age = now - shot.state.startedAt();
@@ -239,7 +264,7 @@ public final class ArmageddonController {
         HiveType type = shot.state.type();
         if (!shot.fired && age >= timeline.fire()) {
             shot.fired = true;
-            RelicSounds.armageddon(level, type == HiveType.TWINS ? Armageddon.muzzle(shot.state) : shot.state.origin(), type, RelicSounds.Cannon.FIRE);
+            RelicSounds.armageddon(level, firedFrom(shot.state), type, RelicSounds.Cannon.FIRE);
         }
         if (!shot.arrived && age >= timeline.arrive()) {
             shot.arrived = true;
@@ -256,6 +281,7 @@ public final class ArmageddonController {
             detonate(level, timeline, shot.owner, shot.state.target(), shot.state.startedAt() + timeline.impact());
         }
         if (type == HiveType.TWINS && shot.landed && !safe()) bore(level, shot, age - timeline.impact());
+        if (type == HiveType.RF && shot.landed && !safe()) rim(level, shot, age - timeline.impact());
     }
 
     /**
@@ -323,13 +349,14 @@ public final class ArmageddonController {
 
     /**
      * The land round the shot's target goes from the middle out: column by column, as its reach passes each,
-     * every breakable block within the sphere of the course's carve radius, a few thousand a tick; and every
+     * every breakable block within the sphere of the course's carve radius (below the target only as deep as its
+     * carve depth: a bowl for the RF crater), a few thousand a tick; and every
      * creature it would strike is dragged in: towards the Twins black hole, or swept round and up into the Mana
      * vortex.
      */
     private static void carve(ServerLevel level, Shot shot, long age) {
         Vec3 centre = shot.state.target();
-        double radius = shot.timeline.carveRadius(), reach = shot.timeline.carved(age), most = radius * radius;
+        double radius = shot.timeline.carveRadius(), reach = shot.timeline.carved(age), most = radius * radius, deep = shot.timeline.carveDepth();
         int budget = BITES, looks = LOOKS;
         BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
         // Asked every tick, so a server turned safe partway through keeps the rest of its land.
@@ -338,7 +365,7 @@ public final class ArmageddonController {
             double dx = x + .5 - centre.x, dz = z + .5 - centre.z, flat = dx * dx + dz * dz;
             if (flat > reach * reach) break;
             double span = Math.sqrt(Math.max(0, most - flat));
-            int floor = Math.max(level.getMinBuildHeight(), (int) Math.ceil(centre.y - span));
+            int floor = Math.max(level.getMinBuildHeight(), (int) Math.ceil(centre.y - span * deep));
             at.set(x, floor, z);
             // Never inside spawn protection or beyond the world border, where its owner could not break a block either.
             if (level.isLoaded(at) && level.mayInteract(shot.owner, at)) {
@@ -413,13 +440,77 @@ public final class ArmageddonController {
         }
     }
 
+    /**
+     * The RF crater's rim, raised once the flash has come and the bowl is cut: column by column from the lip out, the
+     * ground's top block lifted as high as {@link RfArmageddon#rimHeight} says with the block under it filled in
+     * beneath, so the rim stands steep inside and slopes gently away. Only plain ground is raised (the
+     * {@code relics_addon:crater_rim} tag, a whole dry block with no contents), only into open dry air, only where the
+     * ground lies near the blast's own height, only where its owner could build, and each column once, from the bottom
+     * up, so nothing is ever left hanging.
+     */
+    private static void rim(ServerLevel level, Shot shot, double sinceImpact) {
+        if (sinceImpact < RfArmageddon.FLASH || shot.crater != null && shot.eaten < shot.crater.length) return;
+        Vec3 centre = shot.state.target();
+        if (shot.rim == null) shot.rim = columns(centre, RfArmageddon.rimReach(), RfArmageddon.DOME_RADIUS - .15 * RfArmageddon.RIM_WIDTH);
+        int budget = BITES, looks = LOOKS, flags = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
+        BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
+        while (budget > 0 && looks > 0 && shot.raised < shot.rim.length) {
+            int x = (int) (shot.rim[shot.raised] >> 32), z = (int) shot.rim[shot.raised];
+            shot.raised++;
+            int rise = (int) Math.round(RfArmageddon.rimHeight(Math.hypot(x + .5 - centre.x, z + .5 - centre.z)));
+            at.set(x, (int) Math.floor(centre.y), z);
+            if (rise <= 0 || !level.isLoaded(at)) continue;
+            int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
+            looks -= rise + 3;
+            if (Math.abs(top + .5 - centre.y) > RfArmageddon.RIM_REACH || top + rise + 1 >= level.getMaxBuildHeight()) continue;
+            at.setY(top);
+            BlockState ground = level.getBlockState(at);
+            if (!plainGround(level, at, ground) || !level.mayInteract(shot.owner, at)) continue;
+            at.setY(top - 1);
+            BlockState under = level.getBlockState(at), fill = plainGround(level, at, under) ? under : ground;
+            // As high as it may go: into open, dry air the owner could build in.
+            int free = 0;
+            for (int k = 1; k <= rise; k++) {
+                at.setY(top + k);
+                BlockState there = level.getBlockState(at);
+                if (!there.canBeReplaced() || !there.getFluidState().isEmpty() || there.hasBlockEntity() || !level.mayInteract(shot.owner, at)) break;
+                free = k;
+            }
+            if (free <= 0) continue;
+            for (int k = 0; k < free; k++) {
+                at.setY(top + k);
+                level.setBlock(at, fill, flags);
+            }
+            at.setY(top + free);
+            level.setBlock(at, ground, flags);
+            // A tall plant whose lower half the rim took would be left with its top floating over it.
+            at.setY(top + free + 1);
+            BlockState above = level.getBlockState(at);
+            if (above.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF) && above.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER) {
+                level.setBlock(at, Blocks.AIR.defaultBlockState(), flags);
+            }
+            budget -= free + 1;
+        }
+    }
+
+    /** Whether {@code state} at {@code at} is plain ground a crater's rim may be raised from. */
+    private static boolean plainGround(ServerLevel level, BlockPos at, BlockState state) {
+        return state.is(RIM) && !state.hasBlockEntity() && state.getFluidState().isEmpty() && state.isCollisionShapeFullBlock(level, at)
+                && state.getDestroySpeed(level, at) >= 0;
+    }
+
     /** Every column within {@code radius} of {@code centre}, nearest first, as x in the high and z in the low half of a long. */
     private static long[] columns(Vec3 centre, double radius) {
+        return columns(centre, radius, -1);
+    }
+
+    /** Every column within {@code radius} of {@code centre} but not within {@code inner}, nearest first. */
+    private static long[] columns(Vec3 centre, double radius, double inner) {
         int reach = (int) Math.ceil(radius), cx = (int) Math.floor(centre.x), cz = (int) Math.floor(centre.z);
         List<long[]> columns = new ArrayList<>();
         for (int x = cx - reach; x <= cx + reach; x++) for (int z = cz - reach; z <= cz + reach; z++) {
             double dx = x + .5 - centre.x, dz = z + .5 - centre.z, d = dx * dx + dz * dz;
-            if (d <= radius * radius) columns.add(new long[]{(long) x << 32 | (z & 0xFFFFFFFFL), Double.doubleToLongBits(d)});
+            if (d <= radius * radius && (inner < 0 || d >= inner * inner)) columns.add(new long[]{(long) x << 32 | (z & 0xFFFFFFFFL), Double.doubleToLongBits(d)});
         }
         columns.sort(Comparator.comparingDouble(column -> Double.longBitsToDouble(column[1])));
         long[] shaft = new long[columns.size()];
@@ -513,15 +604,23 @@ public final class ArmageddonController {
         entity.hurtMarked = true;
     }
 
-    /** The player's worn hive that can fire Armageddon (a Twins or a Mana hive), switched on or not, or an empty stack. */
+    /** The player's worn hive that can fire Armageddon (a Twins, a Mana or an RF hive), switched on or not, or an empty stack. */
     public static ItemStack hive(Player player) {
-        ItemStack twins = worn(player, RelicRole.TWINS_HIVE);
-        return twins.isEmpty() ? worn(player, RelicRole.MANA_HIVE) : twins;
+        for (RelicRole role : new RelicRole[]{RelicRole.TWINS_HIVE, RelicRole.MANA_HIVE, RelicRole.RF_HIVE}) {
+            ItemStack hive = worn(player, role);
+            if (!hive.isEmpty()) return hive;
+        }
+        return ItemStack.EMPTY;
     }
 
     /** The player's worn shield of {@code type}'s family, the one that feeds that hive's Armageddon, or an empty stack. */
     public static ItemStack shield(Player player, HiveType type) {
-        return type == null ? ItemStack.EMPTY : worn(player, type == HiveType.MANA ? RelicRole.MANA_SHIELD : RelicRole.TWINS_SHIELD);
+        if (type == null) return ItemStack.EMPTY;
+        return worn(player, switch (type) {
+            case MANA -> RelicRole.MANA_SHIELD;
+            case RF -> RelicRole.RF_SHIELD;
+            case TWINS -> RelicRole.TWINS_SHIELD;
+        });
     }
 
     private static ItemStack worn(Player player, RelicRole role) {

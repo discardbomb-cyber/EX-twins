@@ -7,7 +7,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * A hive's Armageddon in progress: which hive fires it (a Twins or a Mana hive, each with its own
+ * A hive's Armageddon in progress: which hive fires it (a Twins, a Mana or an RF hive, each with its own
  * {@link ArmageddonTimeline}), when it started, where its construct hangs and where the shot lands, and
  * whether a worn shield of the same family feeds it. Transient, like the combat state: it only lives
  * while the shot is under way.
@@ -30,9 +30,9 @@ public record ArmageddonState(HiveType type, long startedAt, Vec3 origin, Vec3 t
     };
 
     public ArmageddonState {
-        // Only Twins and Mana hives fire an Armageddon. A start before the world's first tick is fine (a head
-        // start in a young world): only the places are checked.
-        type = type == HiveType.MANA ? HiveType.MANA : HiveType.TWINS;
+        // Every hive family fires an Armageddon of its own; a missing family is taken for Twins. A start before the
+        // world's first tick is fine (a head start in a young world): only the places are checked.
+        type = type == null ? HiveType.TWINS : type;
         origin = finite(origin);
         target = finite(target);
     }

@@ -99,6 +99,16 @@ public final class RelicSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> MANA_ARMAGEDDON_SPHERE = sound("hive.mana_armageddon_sphere");
     public static final DeferredHolder<SoundEvent, SoundEvent> MANA_ARMAGEDDON_BLAST = sound("hive.mana_armageddon_blast");
     public static final DeferredHolder<SoundEvent, SoundEvent> MANA_ARMAGEDDON_SHOCK = sound("hive.mana_armageddon_shock");
+    private static final DeferredHolder<SoundEvent, SoundEvent> RF_ARMAGEDDON_CHARGE = sound("hive.rf_armageddon_charge");
+    private static final DeferredHolder<SoundEvent, SoundEvent> RF_ARMAGEDDON_FIRE = sound("hive.rf_armageddon_fire");
+    /**
+     * Each client plays the rest of RF Armageddon itself, heard wherever it stands (see {@code RfArmageddonVisual}): the
+     * ball's heavy flight and the bolts it strikes the ground with (following the ball), the dome of glass heating, and
+     * the atomic blast, exactly as long as its light takes to fade.
+     */
+    public static final DeferredHolder<SoundEvent, SoundEvent> RF_ARMAGEDDON_FLIGHT = sound("hive.rf_armageddon_flight");
+    public static final DeferredHolder<SoundEvent, SoundEvent> RF_ARMAGEDDON_DOME = sound("hive.rf_armageddon_dome");
+    public static final DeferredHolder<SoundEvent, SoundEvent> RF_ARMAGEDDON_BLAST = sound("hive.rf_armageddon_blast");
 
     private static final int MAX_THROTTLE_ENTRIES = 2_048;
     private static final long STALE_TICKS = 1_200L;
@@ -199,18 +209,31 @@ public final class RelicSounds {
 
     /**
      * The sounds of an Armageddon before its blast: charging, the shot leaving, and the shot reaching its target
-     * (the Twins black hole devouring the land, the Mana streams colliding).
+     * (the Twins black hole devouring the land, the Mana streams colliding; the RF ball meets the ground in a
+     * silence every client near fills with its dome's own sound).
      */
     public enum Cannon { CHARGE, FIRE, ARRIVE }
 
     /** A {@code type} hive's Armageddon charging (heard about 64 blocks off), firing and reaching its target (about 128). */
     public static void armageddon(ServerLevel level, Vec3 position, HiveType type, Cannon sound) {
-        boolean mana = type == HiveType.MANA;
-        DeferredHolder<SoundEvent, SoundEvent> event = switch (sound) {
-            case CHARGE -> mana ? MANA_ARMAGEDDON_CHARGE : ARMAGEDDON_CHARGE;
-            case FIRE -> mana ? MANA_ARMAGEDDON_FIRE : ARMAGEDDON_FIRE;
-            case ARRIVE -> mana ? MANA_ARMAGEDDON_COLLISION : ARMAGEDDON_DEVOUR;
+        DeferredHolder<SoundEvent, SoundEvent> event = switch (type) {
+            case MANA -> switch (sound) {
+                case CHARGE -> MANA_ARMAGEDDON_CHARGE;
+                case FIRE -> MANA_ARMAGEDDON_FIRE;
+                case ARRIVE -> MANA_ARMAGEDDON_COLLISION;
+            };
+            case RF -> switch (sound) {
+                case CHARGE -> RF_ARMAGEDDON_CHARGE;
+                case FIRE -> RF_ARMAGEDDON_FIRE;
+                case ARRIVE -> null;
+            };
+            case TWINS -> switch (sound) {
+                case CHARGE -> ARMAGEDDON_CHARGE;
+                case FIRE -> ARMAGEDDON_FIRE;
+                case ARRIVE -> ARMAGEDDON_DEVOUR;
+            };
         };
+        if (event == null) return;
         level.playSound(null, position.x, position.y, position.z, event.get(), SoundSource.PLAYERS, sound == Cannon.CHARGE ? 4F : 8F, 1F);
     }
 
