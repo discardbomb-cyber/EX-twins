@@ -383,9 +383,10 @@ tasks.register('verifyShieldRipple', JavaExec) {
     mainClass = 'dev.hurtify.relicsaddon.client.ShieldRippleCheck'
 }
 
+// Pure battery rules since S6: the test runtime has no Minecraft.
 tasks.register('verifyDevicePower', JavaExec) {
     dependsOn tasks.named('testClasses')
-    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    classpath = sourceSets.test.runtimeClasspath
     mainClass = 'dev.hurtify.relicsaddon.domain.energy.BatteryRulesCheck'
 }
 
