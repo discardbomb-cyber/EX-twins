@@ -53,7 +53,12 @@ public final class WorldScenarios {
 
     /** One scene: the devices worn, the attackers (relative to the owner), the camera, and how long to film it. */
     private record Scene(String name, RelicRole hive, int hiveLevel, AttackMode mode, RelicRole shield, List<Vec3> foes, boolean foesFight,
-                         Vec3 camera, Vec3 look, int warmTicks, int frames, int killFirstAtFrame) { }
+                         Vec3 camera, Vec3 look, int warmTicks, int frames, int killFirstAtFrame, String foeType) {
+        Scene(String name, RelicRole hive, int hiveLevel, AttackMode mode, RelicRole shield, List<Vec3> foes, boolean foesFight,
+              Vec3 camera, Vec3 look, int warmTicks, int frames, int killFirstAtFrame) {
+            this(name, hive, hiveLevel, mode, shield, foes, foesFight, camera, look, warmTicks, frames, killFirstAtFrame, "minecraft:husk");
+        }
+    }
 
     private static final List<Scene> SCENES = List.of(
             new Scene("droplet-multi", RelicRole.RF_HIVE, 10, AttackMode.DROPLET, null,
@@ -73,6 +78,13 @@ public final class WorldScenarios {
                     List.of(new Vec3(0, 0, -10)), true, new Vec3(9, 5, 0), new Vec3(0, 2, -5), 5, 110, -1),
             new Scene("retarget", RelicRole.TWINS_HIVE, 10, AttackMode.DROPLET, null,
                     List.of(new Vec3(-4, 0, -9), new Vec3(6, 0, -11)), false, new Vec3(15, 8, -1), new Vec3(0, 3, -6), 60, 90, 30),
+            // Containment round a bigger creature: the constructs grow with its hitbox.
+            new Scene("containment-rf-golem", RelicRole.RF_HIVE, 10, AttackMode.CONTAINMENT, null, List.of(new Vec3(0, 0, -10)), false,
+                    new Vec3(13, 8, -2), new Vec3(0, 5, -10), 60, 60, -1, "minecraft:iron_golem"),
+            new Scene("containment-mana-golem", RelicRole.MANA_HIVE, 10, AttackMode.CONTAINMENT, null, List.of(new Vec3(0, 0, -10)), false,
+                    new Vec3(13, 8, -2), new Vec3(0, 5, -10), 60, 60, -1, "minecraft:iron_golem"),
+            new Scene("containment-twins-golem", RelicRole.TWINS_HIVE, 10, AttackMode.CONTAINMENT, null, List.of(new Vec3(0, 0, -10)), false,
+                    new Vec3(14, 9, -2), new Vec3(0, 7, -10), 70, 60, -1, "minecraft:iron_golem"),
             // A slower, level 3 hive keeps its figures in the fan longer, close to the camera.
             new Scene("drone-closeup", RelicRole.RF_HIVE, 3, AttackMode.DROPLET, null,
                     List.of(new Vec3(0, 0, -26)), false, new Vec3(2.5, 3.6, -2.2), new Vec3(0, 3.8, 3), 60, 50, -1));
@@ -219,7 +231,8 @@ public final class WorldScenarios {
 
         FOES.clear();
         for (Vec3 offset : scene.foes()) {
-            net.minecraft.world.entity.Mob husk = scene.foesFight() ? EntityType.PILLAGER.create(level) : EntityType.HUSK.create(level);
+            net.minecraft.world.entity.Mob husk = scene.foesFight() ? EntityType.PILLAGER.create(level)
+                    : EntityType.byString(scene.foeType()).map(type -> type.create(level)).orElse(null) instanceof net.minecraft.world.entity.Mob mob ? mob : null;
             if (husk == null) continue;
             if (scene.foesFight()) husk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(net.minecraft.world.item.Items.CROSSBOW));
             Vec3 at = origin.add(offset);

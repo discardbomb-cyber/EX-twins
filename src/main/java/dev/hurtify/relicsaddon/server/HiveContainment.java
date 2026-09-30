@@ -65,17 +65,17 @@ public final class HiveContainment {
             this.type = type;
             this.since = since;
             this.seen = since;
-            if (type != HiveType.MANA) {
-                // Twins lift four blocks into their rifts; RF lift just enough to sit in the middle of their rings.
-                double wanted = type == HiveType.TWINS ? LIFT
-                        : dev.hurtify.relicsaddon.drone.HiveFormation.ringLift(target.getBbWidth(), target.getBbHeight());
-                anchor = groundBelow(target);
-                lift = headroom(target, anchor, wanted);
-                startLift = Math.clamp(target.getY() - anchor.y, 0, lift);
-            } else {
-                anchor = target.position();
-                lift = startLift = 0;
-            }
+            // Every construct stays centred on its creature, which is lifted just clear of the ground for it:
+            // Twins about four blocks into their tori, RF into the middle of theirs, Mana above the ward's lower tips.
+            double width = target.getBbWidth(), height = target.getBbHeight();
+            double wanted = switch (type) {
+                case TWINS -> dev.hurtify.relicsaddon.drone.HiveFormation.twinsLift(width, height);
+                case RF -> dev.hurtify.relicsaddon.drone.HiveFormation.ringLift(width, height, false);
+                case MANA -> dev.hurtify.relicsaddon.drone.HiveFormation.wardLift(width, height);
+            };
+            anchor = groundBelow(target);
+            lift = headroom(target, anchor, wanted);
+            startLift = Math.clamp(target.getY() - anchor.y, 0, lift);
         }
 
         public HiveType type() { return type; }
@@ -166,15 +166,16 @@ public final class HiveContainment {
         AABB box = target.getBoundingBox().move(anchor.subtract(target.position()));
         double free = 0;
         for (double up = .25; up <= most + 1e-6; up += .25) {
-            if (!target.level().noCollision(target, box.move(0, up, 0))) break;
+            if (!target.level().noCollision(target, box.move(0, up, 0))) return free;
             free = up;
         }
-        return free;
+        // Clear all the way: rise the whole distance, not just to the last quarter step.
+        return target.level().noCollision(target, box.move(0, most, 0)) ? most : free;
     }
 
     private static void pin(LivingEntity target, Hold hold, long now) {
         Vec3 at = hold.anchor;
-        if (hold.type != HiveType.MANA) {
+        if (hold.lift > 0 || hold.startLift > 0) {
             double t = Math.min(1, (now - hold.since) / (double) LIFT_TICKS);
             at = at.add(0, hold.startLift + (hold.lift - hold.startLift) * t * t * (3 - 2 * t), 0);
             CompoundTag data = target.getPersistentData();

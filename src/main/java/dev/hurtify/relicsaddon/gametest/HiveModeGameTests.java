@@ -109,7 +109,8 @@ public final class HiveModeGameTests {
         double ground = floorUnder(helper, fight.husk);
         helper.onEachTick(() -> HiveCombatController.tick(fight.player));
         helper.runAfterDelay(80, () -> {
-            helper.assertTrue(Math.abs(fight.husk.getY() - ground - HiveContainment.LIFT) < .1,
+            double lift = dev.hurtify.relicsaddon.drone.HiveFormation.twinsLift(fight.husk.getBbWidth(), fight.husk.getBbHeight());
+            helper.assertTrue(Math.abs(fight.husk.getY() - ground - lift) < .1,
                     "The rifts hold the target four blocks up (" + (fight.husk.getY() - ground) + ")");
             helper.assertTrue(fight.husk.isNoGravity(), "It hangs there");
             RelicRuntime.setEnabled(fight.player, fight.hive, false);
