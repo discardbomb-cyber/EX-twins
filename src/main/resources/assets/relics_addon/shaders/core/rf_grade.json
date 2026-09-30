@@ -1,0 +1,24 @@
+{
+  "vertex": "relics_addon:armageddon_volume",
+  "fragment": "relics_addon:rf_grade",
+  "samplers": [
+    { "name": "Sampler0" },
+    { "name": "Sampler1" }
+  ],
+  "uniforms": [
+    { "name": "InverseProj", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+    { "name": "TargetSize", "type": "float", "count": 2, "values": [ 1.0, 1.0 ] },
+    { "name": "Centre", "type": "float", "count": 3, "values": [ 0.0, 0.0, -1.0 ] },
+    { "name": "Up", "type": "float", "count": 3, "values": [ 0.0, 1.0, 0.0 ] },
+    { "name": "East", "type": "float", "count": 3, "values": [ 1.0, 0.0, 0.0 ] },
+    { "name": "North", "type": "float", "count": 3, "values": [ 0.0, 0.0, 1.0 ] },
+    { "name": "Grey", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "Dim", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "Silhouette", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "Flood", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "ShockRadius", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "Shock", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "CentreUv", "type": "float", "count": 2, "values": [ 0.5, 0.5 ] },
+    { "name": "Aspect", "type": "float", "count": 1, "values": [ 1.0 ] }
+  ]
+}

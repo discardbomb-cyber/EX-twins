@@ -9,7 +9,7 @@ import net.neoforged.neoforge.client.event.ViewportEvent;
 public final class ArmageddonShake {
     public static void onCameraAngles(ViewportEvent.ComputeCameraAngles event) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null || ArmageddonVisual.BLASTS.isEmpty() && ManaArmageddonVisual.BLASTS.isEmpty()) return;
+        if (minecraft.level == null || ArmageddonVisual.BLASTS.isEmpty() && ManaArmageddonVisual.BLASTS.isEmpty() && RfArmageddonVisual.BLASTS.isEmpty()) return;
         double time = minecraft.level.getGameTime() + event.getPartialTick();
         Vec3 camera = event.getCamera().getPosition();
         double shake = 0;
@@ -21,6 +21,7 @@ public final class ArmageddonShake {
             shake = Math.max(shake, (2.2 * kick + rumble) * (1 - distance / (Armageddon.RADIUS * 1.3)));
         }
         shake = Math.max(shake, ManaArmageddonVisual.shake(camera, time));
+        shake = Math.max(shake, RfArmageddonVisual.shake(camera, time));
         if (shake < .01) return;
         event.setRoll((float) (event.getRoll() + shake * Math.sin(time * 1.9)));
         event.setPitch((float) (event.getPitch() + shake * .7 * Math.sin(time * 2.7 + 1)));

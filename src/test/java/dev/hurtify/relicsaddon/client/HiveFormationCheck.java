@@ -10,6 +10,7 @@ import dev.hurtify.relicsaddon.drone.HiveStackState;
 import dev.hurtify.relicsaddon.drone.HiveTarget;
 import dev.hurtify.relicsaddon.drone.HiveType;
 import dev.hurtify.relicsaddon.drone.ManaArmageddon;
+import dev.hurtify.relicsaddon.drone.RfArmageddon;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.world.phys.Vec3;
@@ -225,9 +226,126 @@ public final class HiveFormationCheck {
         require(total == 250, "every place belongs to exactly one group");
         armageddon();
         manaArmageddon();
+        rfArmageddon();
         System.out.println("Hive formation: every mode bounded, smooth and separated; launches land; blows due on time; lanes rotate; "
                 + "the Armageddon cannon forms, fires, devours and bursts on time; the Mana flowers form apart, their streams meet head-on, "
-                + "and the column grows with the blast");
+                + "and the column grows with the blast; the RF relay unfolds with its charge, its ball flies, hangs and sinks on time, and its dome and "
+                + "shock front strike as they say");
+    }
+
+    /**
+     * RF Armageddon: its stages in order and its blast as long as its sound; the panels folded while the hologram is
+     * built, opening click by click into a full cross exactly as the charge fills and snapped shut as the ball leaves;
+     * the hologram twelve to sixteen blocks long, whole, smooth and over its owner, every place its own; the ball a
+     * point at the first click, as big as the panels are open, flying out to hang over the target and sinking to meet
+     * it on time; the escort riding with it; the dome's and the shock front's reach true to their inverses; the crater
+     * and its rim.
+     */
+    private static void rfArmageddon() {
+        require(RfArmageddon.ASSEMBLED < RfArmageddon.FIRE && RfArmageddon.FIRE < RfArmageddon.SCATTER && RfArmageddon.SCATTER < RfArmageddon.ARRIVE
+                && RfArmageddon.ARRIVE < RfArmageddon.DESCEND && RfArmageddon.DESCEND < RfArmageddon.IMPACT && RfArmageddon.IMPACT < RfArmageddon.RECOVER
+                && RfArmageddon.RECOVER < RfArmageddon.END, "RF Armageddon's stages come in order");
+        require(RfArmageddon.FLASH < RfArmageddon.FLOODED && RfArmageddon.FLOODED < RfArmageddon.SILHOUETTES && RfArmageddon.SILHOUETTES < RfArmageddon.COLOUR
+                && RfArmageddon.FLASH + RfArmageddon.SHOCK < RfArmageddon.FALLEN && RfArmageddon.FALLEN < RfArmageddon.BLAST
+                && RfArmageddon.RECOVER == RfArmageddon.IMPACT + RfArmageddon.FLASH + RfArmageddon.BLAST, "the blast's stages come in order, and the drones go home as it falls silent");
+        require(RfArmageddon.BLAST == Math.round(RfArmageddon.BLAST_SECONDS * 20), "the blast lasts as many ticks as its sound's seconds");
+        require(RfArmageddon.charge(RfArmageddon.ASSEMBLED) == 0 && RfArmageddon.charge(RfArmageddon.FIRE) == 1, "the charge runs from empty to full as the ball leaves");
+        // The panels: folded while the hologram is built, one click after another, a full cross exactly as the charge fills.
+        require(RfArmageddon.unfold(0) == 0 && RfArmageddon.unfold(RfArmageddon.ASSEMBLED) == 0, "the panels lie folded along the body while it is built");
+        require(RfArmageddon.opened(RfArmageddon.FIRE) == 1 && Math.abs(RfArmageddon.opened(RfArmageddon.FIRE - 1) - 1) < 1e-3, "the cross is full as the charge is");
+        require(RfArmageddon.unfold(RfArmageddon.SCATTER) == 0 && RfArmageddon.unfold(RfArmageddon.FIRE + RfArmageddon.SNAP / 2.0) < 1, "the panels snap shut as the ball leaves");
+        for (int click = 0; click < RfArmageddon.CLICKS; click++) {
+            double at = RfArmageddon.clickAt(click), swing = RfArmageddon.CLICK_SWING * (RfArmageddon.FIRE - RfArmageddon.ASSEMBLED) / RfArmageddon.CLICKS;
+            require(Math.abs(RfArmageddon.opened(at) - click / (double) RfArmageddon.CLICKS) < 1e-9
+                    && Math.abs(RfArmageddon.opened(at + swing) - (click + 1) / (double) RfArmageddon.CLICKS) < 1e-9, "click " + click + " opens one step");
+        }
+        for (double age = 0; age < RfArmageddon.FIRE; age += 1) require(RfArmageddon.opened(age + 1) >= RfArmageddon.opened(age), "the panels only open while it charges");
+        for (int row = 0; row < RfArmageddon.ROWS; row++) {
+            double charged = RfArmageddon.ASSEMBLED + (RfArmageddon.FIRE - RfArmageddon.ASSEMBLED) * (row + 1.0) / RfArmageddon.ROWS;
+            require(RfArmageddon.lit(row, charged) > 1 - 1e-9 && RfArmageddon.lit(row, charged - (RfArmageddon.FIRE - RfArmageddon.ASSEMBLED) / (double) RfArmageddon.ROWS) < 1e-9,
+                    "row " + row + " lights in its own share of the charge, from the body out");
+        }
+        // The ball: a point at the first click, as big as the panels are open, whole as it leaves, swelling on its way.
+        require(RfArmageddon.ballRadius(RfArmageddon.ASSEMBLED) == 0 && RfArmageddon.ballRadius(RfArmageddon.clickAt(0) + 30) > 0
+                && RfArmageddon.ballRadius(RfArmageddon.clickAt(0) + 30) < .4, "the ball starts as a point with the first click");
+        require(Math.abs(RfArmageddon.ballRadius(RfArmageddon.FIRE - 1e-6) - RfArmageddon.BALL_CHARGED) < 1e-3
+                && Math.abs(RfArmageddon.ballRadius(RfArmageddon.ARRIVE) - RfArmageddon.BALL_HOVER) < 1e-9, "the ball is whole as it leaves and swells to its hover");
+        for (double age = 0; age < RfArmageddon.ARRIVE; age += 1) require(RfArmageddon.ballRadius(age + 1) >= RfArmageddon.ballRadius(age) - 1e-12, "the ball only grows");
+        require(RfArmageddon.NOSE_TIP + RfArmageddon.NOSE_NEEDLES - (RfArmageddon.STERN_CAP - RfArmageddon.STERN_NEEDLES) >= 12
+                && RfArmageddon.NOSE_TIP + RfArmageddon.NOSE_NEEDLES - (RfArmageddon.STERN_CAP - RfArmageddon.STERN_NEEDLES) <= 16, "the hologram is twelve to sixteen blocks long");
+        require(RfArmageddon.BALL_AT - RfArmageddon.BALL_CHARGED > RfArmageddon.NOSE_TIP + RfArmageddon.NOSE_NEEDLES, "the whole ball stays clear of the nose's needles");
+
+        Vec3 eye = new Vec3(10, 70, 10);
+        for (Vec3 aim : new Vec3[]{new Vec3(0, -10, -60), new Vec3(180, 5, 170), new Vec3(3, -60, 4), new Vec3(0, 0, -12), new Vec3(-200, 40, 20)}) {
+            Vec3 target = eye.add(aim);
+            ArmageddonState shot = new ArmageddonState(HiveType.RF, 1_000, RfArmageddon.origin(eye, target), target, true);
+            require(shot.origin().y - eye.y > 6 && shot.origin().distanceTo(eye) < 10, "the hologram hangs over its owner's head");
+            Vec3[] frame = RfArmageddon.frame(shot);
+            require(Math.abs(frame[0].length() - 1) < 1e-9 && Math.abs(frame[0].dot(frame[1])) < 1e-9 && Math.abs(frame[0].dot(frame[2])) < 1e-9
+                    && Math.asin(Math.abs(frame[0].y)) <= RfArmageddon.MAX_PITCH + 1e-9, "the hologram's frame is square and leans no more than it may");
+            // The ball leaves the nose, hangs over the target, and its middle meets the ground as it bursts.
+            require(RfArmageddon.ball(shot, RfArmageddon.FIRE).distanceTo(RfArmageddon.nose(shot)) < 1e-9
+                    && RfArmageddon.ball(shot, RfArmageddon.ARRIVE).distanceTo(RfArmageddon.hover(shot)) < 1e-9
+                    && RfArmageddon.ball(shot, RfArmageddon.DESCEND).distanceTo(RfArmageddon.hover(shot)) < 1e-9
+                    && RfArmageddon.ball(shot, RfArmageddon.IMPACT).distanceTo(target) < 1e-9, "the ball flies to its hover over the target and sinks onto it");
+            for (double age = RfArmageddon.FIRE; age < RfArmageddon.IMPACT; age += .5) {
+                require(RfArmageddon.ball(shot, age + .5).distanceTo(RfArmageddon.ball(shot, age)) < 2.5, "the ball flies slow and heavy, never jumping");
+            }
+            double reach = target.distanceTo(shot.origin());
+            for (int slots : new int[]{1, 7, 100, 250, 2000}) {
+                require(RfArmageddon.hologram(slots) + RfArmageddon.escorts(slots) == slots, "every place is in the hologram or escorts the ball");
+                Vec3[] previous = new Vec3[slots];
+                for (double age = 0; age <= RfArmageddon.RECOVER; age += .5) {
+                    double time = shot.startedAt() + age;
+                    Vec3[] at = new Vec3[slots];
+                    for (int slot = 0; slot < slots; slot++) {
+                        Vec3 station = RfArmageddon.station(shot, slot, slots, time);
+                        requireFinite(station, "RF Armageddon station");
+                        // As the renderer flies them: in to the axis from where they were (a little below the owner's eyes), then out to their place.
+                        Vec3 start = eye.add(Math.sin(slot) * .8, -1, Math.cos(slot) * .8);
+                        at[slot] = RfArmageddon.assemble(shot, start, station, RfArmageddon.gathered(slot, slots, age));
+                        requireFinite(at[slot], "RF Armageddon drone");
+                        if (age < RfArmageddon.FIRE) require(at[slot].distanceTo(shot.origin()) < 11, "the hologram keeps together over its owner: "
+                                + at[slot].distanceTo(shot.origin()) + " at " + age);
+                        else require(at[slot].distanceTo(shot.origin()) < reach + 150, "the escort stays with the ball and the blast");
+                        if (previous[slot] != null) require(previous[slot].distanceTo(at[slot]) < 2 + reach * .05,
+                                "an RF Armageddon drone must not jump: " + previous[slot].distanceTo(at[slot]) + " at " + age + " (" + slot + "/" + slots + ") aiming " + aim + " from " + previous[slot] + " to " + at[slot] + ", ball " + RfArmageddon.ball(shot, age) + " r " + RfArmageddon.ballRadius(age));
+                    }
+                    if (slots <= 250 && (age == 400 || age == RfArmageddon.FIRE - 1)) for (int a = 0; a < slots; a++) for (int b = a + 1; b < slots; b++) {
+                        require(at[a].distanceToSqr(at[b]) > 1e-8, "RF Armageddon places " + a + " and " + b + " of " + slots + " coincide");
+                    }
+                    previous = at;
+                }
+            }
+        }
+        // The hologram is built by the time the charge starts, the body from the stern and the panels after it.
+        for (int slots : new int[]{7, 250}) for (int slot = 0; slot < slots; slot++) {
+            require(RfArmageddon.gathered(slot, slots, RfArmageddon.ASSEMBLED) == 1 && RfArmageddon.gathered(slot, slots, 0) == 0, "every drone lands by the time the charge starts");
+        }
+        require(RfArmageddon.builtAt(RfArmageddon.STERN_CAP) < RfArmageddon.builtAt(RfArmageddon.NOSE_TIP)
+                && RfArmageddon.builtAt(RfArmageddon.NOSE_TIP) <= RfArmageddon.panelBuiltAt(RfArmageddon.PANEL_LENGTH), "the body is built from the stern to the nose, the panels after");
+        // The dome and the shock front: nothing before the ball meets the ground, the dome's edge to the crater by the flash, the front to the edge.
+        require(RfArmageddon.reach(-1) == 0 && Math.abs(RfArmageddon.reach(0) - RfArmageddon.BALL_HOVER) < 1e-9
+                && Math.abs(RfArmageddon.reach(RfArmageddon.FLASH) - RfArmageddon.DOME_RADIUS) < 1e-9
+                && Math.abs(RfArmageddon.reach(RfArmageddon.FLASH + RfArmageddon.SHOCK) - RfArmageddon.RADIUS) < 1e-9, "the dome swells to the crater, the front runs to the edge");
+        for (double t = 0; t < RfArmageddon.FLASH + RfArmageddon.SHOCK; t += 1.5) require(RfArmageddon.reach(t + 1.5) >= RfArmageddon.reach(t), "the blast's reach only grows");
+        for (double distance = 1; distance <= RfArmageddon.RADIUS; distance += 2.5) {
+            double when = RfArmageddon.reaches(distance);
+            require(RfArmageddon.reach(when) >= distance - 1e-6 && RfArmageddon.reach(when - .01) < distance,
+                    "the RF blast reaches " + distance + " blocks when it says it does (" + when + ")");
+        }
+        require(RfArmageddon.carved(RfArmageddon.IMPACT - 1) == 0 && Math.abs(RfArmageddon.carved(RfArmageddon.IMPACT + RfArmageddon.DOME) - RfArmageddon.DOME_RADIUS) < 1e-9,
+                "the dome cuts the land from the moment the ball meets it out to the crater's edge");
+        for (double distance = .5; distance < RfArmageddon.DOME_RADIUS; distance += 1.5) {
+            double when = RfArmageddon.carvedAt(distance);
+            require(RfArmageddon.carved(when) >= distance - 1e-6, "a block is cut when the dome's edge reaches it");
+        }
+        // The rim: none inside the bowl or past its reach, highest at the crater's edge, sloping gently away outside.
+        require(RfArmageddon.rimHeight(RfArmageddon.DOME_RADIUS * .9) == 0 && RfArmageddon.rimHeight(RfArmageddon.rimReach() + .5) == 0
+                && Math.abs(RfArmageddon.rimHeight(RfArmageddon.DOME_RADIUS) - RfArmageddon.RIM_HEIGHT) < 1e-9, "the rim stands at the crater's edge");
+        for (double d = RfArmageddon.DOME_RADIUS; d < RfArmageddon.rimReach(); d += .5) require(RfArmageddon.rimHeight(d + .5) <= RfArmageddon.rimHeight(d), "the rim slopes away outside");
+        require(RfArmageddon.TIMELINE.carveDepth() == RfArmageddon.BOWL && RfArmageddon.BOWL < 1 && dev.hurtify.relicsaddon.drone.Armageddon.TIMELINE.carveDepth() == 1
+                && ManaArmageddon.TIMELINE.carveDepth() == 1, "only the RF crater is a bowl");
     }
 
     /**

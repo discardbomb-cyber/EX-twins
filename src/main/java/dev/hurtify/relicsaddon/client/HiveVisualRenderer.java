@@ -13,6 +13,7 @@ import dev.hurtify.relicsaddon.drone.HiveSupportState;
 import dev.hurtify.relicsaddon.drone.HiveTarget;
 import dev.hurtify.relicsaddon.drone.HiveType;
 import dev.hurtify.relicsaddon.drone.ManaArmageddon;
+import dev.hurtify.relicsaddon.drone.RfArmageddon;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.server.HiveCombatController;
 import dev.hurtify.relicsaddon.server.HiveController;
@@ -63,14 +64,21 @@ public final class HiveVisualRenderer {
             afterLevel(event);
             return;
         }
+        if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_WEATHER) {
+            // The world's depth as it stands now, before Fabulous graphics put the frame together over a cleared one.
+            ArmageddonVolume.captureDepth();
+            return;
+        }
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null || minecraft.player == null) {
             ACTIVE.clear(); VISIBILITY.clear(); SEEN.clear(); LAUNCHES.clear(); PREY.clear();
             ArmageddonVisual.BLASTS.clear();
             ManaArmageddonVisual.BLASTS.clear();
+            RfArmageddonVisual.clear();
             return;
         }
+        RfArmageddonVisual.startFrame();
         float partial = event.getPartialTick().getGameTimeDeltaPartialTick(false);
         long now = minecraft.level.getGameTime();
         double time = now + partial;
@@ -95,11 +103,14 @@ public final class HiveVisualRenderer {
         ArmageddonVisual.flushDebris();
         ManaArmageddonVisual.debris(minecraft, time, camera, poses);
         ManaArmageddonVisual.flushDebris();
+        RfArmageddonVisual.debris(minecraft, time, camera, poses);
+        RfArmageddonVisual.flushDebris();
         // Black holes bend and darken the world behind them first, before the drones and the light go
         // over it, so those stay crisp and the drones stay where their hexagons are.
         for (HiveModeVisual.Scene scene : scenes) HiveModeVisual.lenses(scene, camera);
         ArmageddonVisual.lenses(time, camera);
         ManaArmageddonVisual.volumes(time, camera, glow, ManaRunes.consumer(), matrix);
+        RfArmageddonVisual.volumes(time, camera);
         BlackHoleLens.flush(matrix);
         ArmageddonVolume.flush(matrix);
         // Drone models are drawn next; the glass of the constructs goes in a buffer taken only after
@@ -107,6 +118,7 @@ public final class HiveVisualRenderer {
         buffers.endBatch();
         var fill = buffers.getBuffer(ShieldVisualRenderer.renderType());
         for (HiveModeVisual.Scene scene : scenes) HiveModeVisual.render(scene, camera, glow, fill, matrix);
+        RfArmageddonVisual.scorches(time, camera, fill, matrix);
         if (EffectLights.enabled()) scenes.forEach(HiveModeVisual::light);
         // Horizons go in solid and write depth before any light, so nothing behind a black hole shows
         // through it; then space bends round blasts, and the glass and the light are laid over it.
@@ -122,16 +134,19 @@ public final class HiveVisualRenderer {
     /**
      * Once the whole level is drawn, clouds, weather and (with Fabulous graphics) its transparent layers put together:
      * Mana Armageddon's passes and the light it throws round the target, so its white sky covers the clouds, its column
-     * stands in front of or behind them as it should, and its light goes over all. The level's view no longer stands on
-     * the render system here, so it is carried in the matrix everything is drawn with.
+     * stands in front of or behind them as it should, and its light goes over all; and RF Armageddon's, its grading of
+     * the whole world, its ball and dome, and their light over them. The level's view no longer stands on the render
+     * system here, so it is carried in the matrix everything is drawn with.
      */
     private static void afterLevel(RenderLevelStageEvent event) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null || minecraft.player == null) return;
         double time = minecraft.level.getGameTime() + event.getPartialTick().getGameTimeDeltaPartialTick(false);
         var matrix = new org.joml.Matrix4f(event.getModelViewMatrix());
-        ArmageddonVolume.flushMana(matrix);
-        ManaArmageddonVisual.blasts(time, event.getCamera().getPosition(), ShieldGlow.consumer(), ManaRunes.consumer(), matrix);
+        Vec3 camera = event.getCamera().getPosition();
+        ArmageddonVolume.flushLate(matrix);
+        ManaArmageddonVisual.blasts(time, camera, ShieldGlow.consumer(), ManaRunes.consumer(), matrix);
+        RfArmageddonVisual.late(time, camera, ShieldGlow.consumer(), matrix);
         ShieldGlow.flush();
         ManaRunes.flush();
     }
@@ -245,6 +260,11 @@ public final class HiveVisualRenderer {
                     camera, poses, glow, budget);
             return;
         }
+        if (shot.type() == HiveType.RF) {
+            rfArmageddon(minecraft, event, player, type, shot, units, slots, fighters, count, owner, yaw, appear, seen, now, time, partial,
+                    camera, poses, glow, budget);
+            return;
+        }
         Vec3[] from = launches(player, type, shot, seen, count);
         double recover = shot.startedAt() + Armageddon.RECOVER;
         // The escort is flung off when the containment breaks and lost until the cannon comes apart and calls it home.
@@ -301,6 +321,42 @@ public final class HiveVisualRenderer {
         Vec3 chest = new Vec3(Mth.lerp(partial, player.xo, player.getX()), Mth.lerp(partial, player.yo, player.getY()) + player.getBbHeight() * .6,
                 Mth.lerp(partial, player.zo, player.getZ()));
         ManaArmageddonVisual.construct(shot, chest, time, camera, glow, ManaRunes.consumer(), poses.last().pose());
+    }
+
+    /**
+     * The swarm in RF Armageddon: every drone flies in to the axis and out to its place in the hologram of the relay
+     * drone, the body built from the stern to the nose and the panels laid along it; as the ball leaves, the hologram's
+     * drones scatter home while its escort rides the rings round the ball, until the flash flings them off and the
+     * drones are called home.
+     */
+    private static void rfArmageddon(Minecraft minecraft, RenderLevelStageEvent event, Player player, HiveType type, ArmageddonState shot,
+            List<HiveStackState.Unit> units, int slots, int fighters, int count, Vec3 owner, float yaw, double appear, Vec3[] seen, long now,
+            double time, float partial, Vec3 camera, PoseStack poses, com.mojang.blaze3d.vertex.VertexConsumer glow, int[] budget) {
+        Vec3[] from = launches(player, type, shot, seen, count);
+        double age = shot.age(time), scatter = shot.startedAt() + RfArmageddon.SCATTER, recover = shot.startedAt() + RfArmageddon.RECOVER;
+        int hologram = RfArmageddon.hologram(slots);
+        // The escort is flung off by the flash and lost until the drones are called home.
+        boolean lost = age > RfArmageddon.IMPACT + RfArmageddon.FLASH + 30 && time < recover;
+        for (int slot = 0; slot < slots; slot++) {
+            int unit = HiveSlots.occupant(units, slot, slots, fighters, now);
+            boolean escort = slot >= hologram;
+            if (unit < 0 || lost && escort) continue;
+            boolean home = !escort && time >= scatter || time >= recover;
+            Vec3 at;
+            if (!escort && time >= scatter) at = HiveFormation.returning(owner, yaw, RfArmageddon.station(shot, slot, slots, scatter), unit, count, type, time, scatter);
+            else if (time >= recover) at = HiveFormation.returning(owner, yaw, RfArmageddon.station(shot, slot, slots, recover), unit, count, type, time, recover);
+            else {
+                Vec3 start = from[unit] != null ? from[unit] : HiveFormation.idle(owner, yaw, unit, count, type, shot.startedAt());
+                at = RfArmageddon.assemble(shot, start, RfArmageddon.station(shot, slot, slots, time), RfArmageddon.gathered(slot, slots, age));
+            }
+            seen[unit] = at;
+            // The hologram's drones a little smaller than the swarm's, so its lines read; the escort faces the ball it rides with.
+            Vec3 facing = home ? null : escort && age >= RfArmageddon.FIRE ? RfArmageddon.ball(shot, Math.min(age, RfArmageddon.IMPACT)) : shot.target();
+            drawDrone(minecraft, event, player, type, at, facing, appear * (home ? 1 : .8), count, camera, poses, glow, budget);
+        }
+        Vec3 chest = new Vec3(Mth.lerp(partial, player.xo, player.getX()), Mth.lerp(partial, player.yo, player.getY()) + player.getBbHeight() * .6,
+                Mth.lerp(partial, player.zo, player.getZ()));
+        RfArmageddonVisual.construct(shot, chest, time, camera, glow, poses.last().pose());
     }
 
     /**

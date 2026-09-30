@@ -3,6 +3,7 @@ package dev.hurtify.relicsaddon.client;
 import dev.hurtify.relicsaddon.drone.Armageddon;
 import dev.hurtify.relicsaddon.drone.HiveType;
 import dev.hurtify.relicsaddon.drone.ManaArmageddon;
+import dev.hurtify.relicsaddon.drone.RfArmageddon;
 import dev.hurtify.relicsaddon.network.ArmageddonPayloads;
 import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.server.ArmageddonController;
@@ -23,7 +24,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * "Activate Armageddon?": the last word before a Twins or Mana hive fires its ultimate at the point its
+ * "Activate Armageddon?": the last word before a Twins, Mana or RF hive fires its ultimate at the point its
  * owner was looking at when they pressed the key. It shows how far off that is and what the shot will do
  * there in that hive's own numbers, that it empties the hive, and what a worn shield of the same family
  * adds, and fires only on an explicit yes (the button or Enter).
@@ -39,9 +40,9 @@ public final class ArmageddonScreen extends Screen {
     private record Line(Component text, int color) { }
 
     private ArmageddonScreen(HiveType type, Vec3 target, List<Line> lines) {
-        super(Component.translatable(type == HiveType.MANA ? "screen.relics_addon.mana_armageddon.title" : "screen.relics_addon.armageddon.title"));
+        super(Component.translatable(words(type) + "title"));
         this.type = type;
-        this.accent = (type == HiveType.MANA ? RelicRole.MANA_HIVE : RelicRole.TWINS_HIVE).color();
+        this.accent = type.role.color();
         this.target = target;
         this.lines = lines;
     }
@@ -59,18 +60,40 @@ public final class ArmageddonScreen extends Screen {
         }
         HiveType type = ArmageddonController.fires(hive);
         float partial = minecraft.getTimer().getGameTimeDeltaPartialTick(true);
-        double reach = type == HiveType.MANA ? ManaArmageddon.REACH : Armageddon.REACH;
+        double reach = switch (type) {
+            case MANA -> ManaArmageddon.REACH;
+            case RF -> RfArmageddon.REACH;
+            case TWINS -> Armageddon.REACH;
+        };
         HitResult hit = player.pick(reach, partial, false);
         Vec3 eye = player.getEyePosition(partial);
         Vec3 target = hit.getType() == HitResult.Type.MISS ? eye.add(player.getViewVector(partial).scale(reach)) : hit.getLocation();
         minecraft.setScreen(new ArmageddonScreen(type, target, lines(type, eye.distanceTo(target), shieldPercent(player, hive, type))));
     }
 
+    /** Where the window's words for {@code type}'s Armageddon are kept. */
+    private static String words(HiveType type) {
+        return switch (type) {
+            case MANA -> "screen.relics_addon.mana_armageddon.";
+            case RF -> "screen.relics_addon.rf_armageddon.";
+            case TWINS -> "screen.relics_addon.armageddon.";
+        };
+    }
+
     /** What the window tells of the shot, in the words and numbers of {@code type}'s Armageddon. */
     private static List<Line> lines(HiveType type, double distance, int shieldPercent) {
         List<Line> lines = new ArrayList<>();
         boolean safe = ArmageddonController.safeClient();
-        if (type == HiveType.MANA) {
+        if (type == HiveType.RF) {
+            lines.add(new Line(Component.translatable("screen.relics_addon.rf_armageddon.target", Math.round(distance)), HoloPaint.TEXT_DIM));
+            lines.add(safe ? new Line(Component.translatable("screen.relics_addon.armageddon.safe"), HoloPaint.TEXT_DIM)
+                    : new Line(Component.translatable("screen.relics_addon.rf_armageddon.crater", (int) (RfArmageddon.DOME_RADIUS * 2)), HoloPaint.TEXT_DIM));
+            lines.add(new Line(Component.translatable("screen.relics_addon.rf_armageddon.radius", (int) RfArmageddon.RADIUS), HoloPaint.TEXT_DIM));
+            lines.add(new Line(Component.translatable("screen.relics_addon.rf_armageddon.drain", RfArmageddon.FIRE / 20, (int) RfArmageddon.BLAST_SECONDS),
+                    HoloPaint.TEXT_DIM));
+            lines.add(shieldPercent > 0 ? new Line(Component.translatable("screen.relics_addon.rf_armageddon.shield", shieldPercent), 0xFF000000 | RfPalette.HOLO_PALE)
+                    : new Line(Component.translatable("screen.relics_addon.rf_armageddon.no_shield"), HoloPaint.TEXT_FAINT));
+        } else if (type == HiveType.MANA) {
             lines.add(new Line(Component.translatable("screen.relics_addon.mana_armageddon.target", Math.round(distance)), HoloPaint.TEXT_DIM));
             lines.add(safe ? new Line(Component.translatable("screen.relics_addon.armageddon.safe"), HoloPaint.TEXT_DIM)
                     : new Line(Component.translatable("screen.relics_addon.mana_armageddon.vortex", (int) ManaArmageddon.CARVE_RADIUS), HoloPaint.TEXT_DIM));
@@ -117,15 +140,18 @@ public final class ArmageddonScreen extends Screen {
         // A band of the hive's colour under the title that breathes, like its charge building.
         g.fill(left + 14, top + 13, left + WIDTH - 14, top + 31, (int) (0x28 + 0x30 * pulse) << 24 | accent);
         g.fill(left + 14, top + 31, left + WIDTH - 14, top + 32, 0xFF000000 | accent);
-        // The Mana seal's split: turquoise to the left of the band's middle, gold to the right.
+        // The Mana seal's split: turquoise to the left of the band's middle, gold to the right; the RF relay's copper belts.
         if (type == HiveType.MANA) g.fill(left + WIDTH / 2, top + 31, left + WIDTH - 14, top + 32, 0xFF000000 | ManaPalette.GOLD);
+        if (type == HiveType.RF) for (int belt = 0; belt < 3; belt++) {
+            int x = left + 14 + (WIDTH - 28) * (belt + 1) / 4;
+            g.fill(x - 6, top + 31, x + 6, top + 32, 0xFF000000 | RfPalette.COPPER);
+        }
         g.pose().pushPose();
         g.pose().translate(left + WIDTH / 2F, top + 16, 0);
         g.pose().scale(1.5F, 1.5F, 1);
         g.drawCenteredString(font, title.copy().withStyle(ChatFormatting.BOLD), 0, 0, 0xFFFFFFFF);
         g.pose().popPose();
-        g.drawCenteredString(font, Component.translatable(type == HiveType.MANA ? "screen.relics_addon.mana_armageddon.question"
-                : "screen.relics_addon.armageddon.question"), left + WIDTH / 2, top + 40, HoloPaint.TEXT);
+        g.drawCenteredString(font, Component.translatable(words(type) + "question"), left + WIDTH / 2, top + 40, HoloPaint.TEXT);
 
         int y = top + FIRST_LINE;
         for (Line line : lines) {

@@ -124,10 +124,11 @@ public final class NetworkCodecCheck {
         require(armageddonBytes < 57, "an Armageddon's counters travel as variable-length numbers, took " + armageddonBytes + " bytes");
         roundTrip(ArmageddonState.STREAM_CODEC, new ArmageddonState(HiveType.MANA, 987_654_321L, new Vec3(-4, 80.5, 12), new Vec3(30, 64, -220.75), true), "mana armageddon");
         roundTrip(ArmageddonState.STREAM_CODEC, new ArmageddonState(HiveType.TWINS, 0, Vec3.ZERO, new Vec3(0, -64, 0), false), "armageddon unlinked");
+        roundTrip(ArmageddonState.STREAM_CODEC, new ArmageddonState(HiveType.RF, 555_555L, new Vec3(8, 72, -3.5), new Vec3(-40.5, 63, 190), true), "rf armageddon");
         ArmageddonState broken = new ArmageddonState(HiveType.RF, -5, new Vec3(Double.NaN, 0, 0), new Vec3(0, Double.POSITIVE_INFINITY, 0), false);
         require(broken.origin().equals(Vec3.ZERO) && broken.target().equals(Vec3.ZERO), "an Armageddon keeps only finite places");
-        require(broken.type() == HiveType.TWINS && new ArmageddonState(null, 0, Vec3.ZERO, Vec3.ZERO, false).type() == HiveType.TWINS,
-                "only Twins and Mana hives fire an Armageddon: anything else is taken for Twins");
+        require(broken.type() == HiveType.RF && new ArmageddonState(null, 0, Vec3.ZERO, Vec3.ZERO, false).type() == HiveType.TWINS,
+                "every hive family fires an Armageddon of its own; a missing family is taken for Twins");
         roundTrip(ArmageddonState.STREAM_CODEC, broken, "armageddon started before the world's first tick");
         require(broken.running(100) && broken.age(100) == 105, "a shot with a head start in a young world is just as far along");
         ByteBuf stray = Unpooled.buffer();
@@ -136,7 +137,7 @@ public final class NetworkCodecCheck {
         for (int coordinate = 0; coordinate < 6; coordinate++) stray.writeDouble(coordinate);
         stray.writeBoolean(false);
         require(ArmageddonState.STREAM_CODEC.decode(stray).type() == HiveType.TWINS && stray.readableBytes() == 0, "a hive family from nowhere reads as Twins");
-        for (HiveType type : new HiveType[]{HiveType.TWINS, HiveType.MANA}) {
+        for (HiveType type : HiveType.values()) {
             int end = ArmageddonTimeline.of(type).end();
             ArmageddonState running = new ArmageddonState(type, 1_000, Vec3.ZERO, new Vec3(0, 0, 60), false);
             require(!running.running(999) && running.running(1_000) && running.running(1_000 + end - 1) && !running.running(1_000 + end),
@@ -146,6 +147,8 @@ public final class NetworkCodecCheck {
                 new dev.hurtify.relicsaddon.network.ArmageddonPayloads.Blast(HiveType.MANA, new Vec3(-12.5, 63, 400.25), new Vec3(3, 75.5, 250), 1_234_567L), "mana blast");
         roundTrip(dev.hurtify.relicsaddon.network.ArmageddonPayloads.Blast.STREAM_CODEC,
                 new dev.hurtify.relicsaddon.network.ArmageddonPayloads.Blast(HiveType.TWINS, Vec3.ZERO, new Vec3(0, 6.5, 1.5), -3L), "twins blast in a young world");
+        roundTrip(dev.hurtify.relicsaddon.network.ArmageddonPayloads.Blast.STREAM_CODEC,
+                new dev.hurtify.relicsaddon.network.ArmageddonPayloads.Blast(HiveType.RF, new Vec3(100.5, 64, -80), new Vec3(4, 80, 2), 9_876_543L), "rf blast");
         System.out.println("Network codecs: " + HiveType.MAX_DRONES + "-drone swarm (" + swarmBytes + " bytes, " + restingBytes + " at rest), old saves, "
                 + "settings, combat, batteries, shield impacts and Armageddon round-trip exactly");
     }

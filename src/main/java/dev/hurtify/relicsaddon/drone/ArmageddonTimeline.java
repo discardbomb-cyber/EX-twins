@@ -1,7 +1,7 @@
 package dev.hurtify.relicsaddon.drone;
 
 /**
- * An Armageddon's course in time, whichever hive fires it, as the server runs it and every client draws
+ * An Armageddon's course in time, whichever hive fires it (Twins, Mana or RF), as the server runs it and every client draws
  * it: when the swarm has gathered and the hive's charge starts to pour into the shot, when the shot
  * leaves and reaches its target, how the land round the target goes, when it bursts and how the blast
  * then sweeps out, and when the drones are home. Ages count ticks from the start of the shot;
@@ -31,6 +31,14 @@ public interface ArmageddonTimeline {
     /** How far round its target the shot takes the land. */
     double carveRadius();
 
+    /**
+     * How deep below its target the land goes, as a share of {@link #carveRadius}: all the way down for a sphere, less
+     * for a bowl. Above the target it always goes as high as the carve radius.
+     */
+    default double carveDepth() {
+        return 1;
+    }
+
     /** How far out the land has gone {@code age} ticks in. */
     double carved(double age);
 
@@ -57,6 +65,10 @@ public interface ArmageddonTimeline {
 
     /** The course of the Armageddon a hive of {@code type} fires. */
     static ArmageddonTimeline of(HiveType type) {
-        return type == HiveType.MANA ? ManaArmageddon.TIMELINE : Armageddon.TIMELINE;
+        return switch (type) {
+            case MANA -> ManaArmageddon.TIMELINE;
+            case RF -> RfArmageddon.TIMELINE;
+            case TWINS -> Armageddon.TIMELINE;
+        };
     }
 }

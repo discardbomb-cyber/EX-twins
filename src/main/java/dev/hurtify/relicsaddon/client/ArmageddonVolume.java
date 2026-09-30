@@ -23,7 +23,9 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL30;
 
 /**
  * The Armageddon supernova drawn into the finished world in three passes (see {@link ArmageddonVisual} for its
@@ -43,14 +45,26 @@ import org.lwjgl.opengl.GL11;
  * the column's far wall); the haze marched small and laid over them ({@code mana_volume}: the vortex, the fog in the
  * sphere, the flash, the ring of dust, the dome of light, the column's haze, the white air); and its near surfaces over
  * that (the front of the sphere, the column's near wall, the crescent moon), so the haze lies between.
+ *
+ * <p>An RF blast (see {@link RfArmageddonVisual}) is drawn at the same late stage in two passes: the whole finished
+ * world graded ({@code rf_grade}: drained grey while the ball hangs over its target, flooded white by the atomic flash,
+ * then black silhouettes on white with the shock front running out, and back to colour), then the ball's dark core in
+ * its electric rim and the dome of glass it becomes ({@code rf_volume}), over that.
+ *
+ * <p>The late passes read the scene's depth as it stood once the weather was in ({@link #captureDepth}): with Fabulous
+ * graphics the frame is put together after that over a cleared depth, which is given back afterwards so that the
+ * light drawn next still keeps behind the world.
  */
 public final class ArmageddonVolume {
     private static final List<Blast> BLASTS = new ArrayList<>();
     private static final List<ManaBlast> MANA = new ArrayList<>();
+    private static final List<RfBlast> RF = new ArrayList<>();
     /** The air's volumes are marched at this fraction of the screen's size. */
     private static final int REDUCE = 3;
-    private static ShaderInstance light, shapes, volume, composite, manaShell, manaVolume;
-    private static TextureTarget depth, reduced;
+    private static ShaderInstance light, shapes, volume, composite, manaShell, manaVolume, rfGrade, rfVolume;
+    private static TextureTarget depth, reduced, scene;
+    /** Whether the scene's depth was copied this frame once the weather was in, for the late passes. */
+    private static boolean captured;
 
     /** The shot in flight this frame, if any: its shell of light is drawn with the blast's shapes. */
     private static Orb orb;
@@ -60,6 +74,18 @@ public final class ArmageddonVolume {
     private record Orb(Vec3 centre, double radius, double glow, double age, boolean solid) { }
 
     private record ManaBlast(Vec3 centre, ManaStage stage) { }
+
+    private record RfBlast(Vec3 centre, RfStage stage) { }
+
+    /**
+     * An RF blast (or a ball still charging) as it stands this frame (see {@link RfArmageddonVisual#stage}): how grey,
+     * dimmed, silhouetted and flooded white the world is; how far the shock front has run and how strongly it shows; the
+     * ball (camera-relative), its radius, how opaque its core and how bright its rim, and its age for the core's swirl;
+     * the dome's radius, how much of its glass is there, how hot it is, how thick its haze and how bright its cutting edge.
+     */
+    record RfStage(double grey, double dim, double silhouette, double flood, double shockRadius, double shock,
+                   Vec3 ball, double ballRadius, double ballCore, double ballRim, double age,
+                   double dome, double domeGlass, double domeHeat, double domeHaze, double domeEdge) { }
 
     /**
      * A Mana blast as it stands this frame (see {@link ManaArmageddonVisual#stage}): {@code t} ticks from its burst, the
@@ -80,6 +106,8 @@ public final class ArmageddonVolume {
         event.registerShader(shader(event, "armageddon_composite"), loaded -> composite = loaded);
         event.registerShader(shader(event, "mana_shell"), loaded -> manaShell = loaded);
         event.registerShader(shader(event, "mana_volume"), loaded -> manaVolume = loaded);
+        event.registerShader(shader(event, "rf_grade"), loaded -> rfGrade = loaded);
+        event.registerShader(shader(event, "rf_volume"), loaded -> rfVolume = loaded);
     }
 
     private static ShaderInstance shader(RegisterShadersEvent event, String name) throws IOException {
@@ -94,6 +122,11 @@ public final class ArmageddonVolume {
     /** Queues a Mana blast round a camera-relative centre, as it stands this frame, for the next {@link #flush}. */
     static void queueMana(Vec3 centre, ManaStage stage) {
         if (MANA.size() < 4 && !ShieldRefraction.shaderPackActive()) MANA.add(new ManaBlast(centre, stage));
+    }
+
+    /** Queues an RF blast (or a charging ball) round a camera-relative centre, as it stands this frame, for the late passes. */
+    static void queueRf(Vec3 centre, RfStage stage) {
+        if (RF.size() < 6 && !ShieldRefraction.shaderPackActive()) RF.add(new RfBlast(centre, stage));
     }
 
     /** Queues the shot's ball (or shell, when not {@code solid}) of light round a camera-relative centre for the next {@link #flush}. */
@@ -111,18 +144,42 @@ public final class ArmageddonVolume {
         }
     }
 
-    /** Draws the Mana blasts queued this frame: called once the clouds and the weather are in. */
-    static void flushMana(Matrix4f pose) {
-        if (MANA.isEmpty()) return;
+    /**
+     * Copies the scene's depth while it is still the world's, once the weather is in, if anything is queued for the late
+     * passes: with Fabulous graphics the frame is put together after this over a cleared depth.
+     */
+    static void captureDepth() {
+        if (MANA.isEmpty() && RF.isEmpty()) return;
+        RenderTarget main = size();
+        depth.copyDepthFrom(main);
+        captured = true;
+        // The copy leaves no target bound: give back the one the world is being drawn into (Fabulous draws the weather into its own).
+        RenderTarget weather = Minecraft.useShaderTransparency() ? Minecraft.getInstance().levelRenderer.getWeatherTarget() : null;
+        (weather != null ? weather : main).bindWrite(false);
+    }
+
+    /**
+     * Draws the Mana and RF blasts queued this frame: called once the whole level is drawn and put together. With
+     * Fabulous graphics the world's depth is then given back to the main target, so the light drawn next keeps behind it.
+     */
+    static void flushLate(Matrix4f pose) {
         try {
-            if (light != null && composite != null && manaShell != null && manaVolume != null) drawManaAll(pose);
+            if (!MANA.isEmpty() && light != null && composite != null && manaShell != null && manaVolume != null) drawManaAll(pose);
+            if (!RF.isEmpty() && rfGrade != null && rfVolume != null) drawRf(pose);
         } finally {
             MANA.clear();
+            RF.clear();
+            if (captured && Minecraft.useShaderTransparency()) {
+                RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
+                main.copyDepthFrom(depth);
+                main.bindWrite(false);
+            }
+            captured = false;
         }
     }
 
-    /** The depth copy and the small target the haze is marched into, made to the screen's size, and the scene's depth copied as it stands now. */
-    private static RenderTarget targets() {
+    /** The depth copy and the small target the haze is marched into, made to the screen's size. */
+    private static RenderTarget size() {
         RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
         if (depth == null) depth = new TextureTarget(main.width, main.height, true, Minecraft.ON_OSX);
         if (main.isStencilEnabled() && !depth.isStencilEnabled()) depth.enableStencil();
@@ -132,8 +189,102 @@ public final class ArmageddonVolume {
             reduced = new TextureTarget(width, height, false, Minecraft.ON_OSX);
             reduced.setFilterMode(GL11.GL_LINEAR);
         } else if (reduced.width != width || reduced.height != height) reduced.resize(width, height, Minecraft.ON_OSX);
-        depth.copyDepthFrom(main);
         return main;
+    }
+
+    /** The targets made to the screen's size, and the scene's depth: as it stands now, or as captured once the weather was in. */
+    private static RenderTarget targets() {
+        RenderTarget main = size();
+        if (!captured) depth.copyDepthFrom(main);
+        main.bindWrite(true);
+        return main;
+    }
+
+    /**
+     * RF Armageddon's two passes: the whole world graded once (the strongest grey, silhouettes and white of every blast
+     * queued, its shock front the strongest one's), then each ball's core and each dome over it.
+     */
+    private static void drawRf(Matrix4f pose) {
+        RenderTarget main = targets();
+        Matrix4f view = new Matrix4f(RenderSystem.getModelViewMatrix()).mul(pose);
+        Vector3f[] axes = {view.transformDirection(new Vector3f(0, 1, 0)).normalize(), view.transformDirection(new Vector3f(1, 0, 0)).normalize(),
+                view.transformDirection(new Vector3f(0, 0, 1)).normalize()};
+        Matrix4f projection = RenderSystem.getProjectionMatrix();
+        Matrix4f inverseProjection = new Matrix4f(projection).invert();
+        int colourUnit = RenderSystem.getShaderTexture(0), depthUnit = RenderSystem.getShaderTexture(1);
+        RenderSystem.disableDepthTest();
+        RenderSystem.depthMask(false);
+        RenderSystem.disableCull();
+        try {
+            double grey = 0, dim = 0, silhouette = 0, flood = 0;
+            RfBlast strongest = null;
+            for (RfBlast blast : RF) {
+                RfStage s = blast.stage;
+                grey = Math.max(grey, s.grey());
+                dim = Math.max(dim, s.dim());
+                silhouette = Math.max(silhouette, s.silhouette());
+                flood = Math.max(flood, s.flood());
+                if (strongest == null || s.shock() + s.silhouette() > strongest.stage.shock() + strongest.stage.silhouette()) strongest = blast;
+            }
+            if (grey + silhouette + flood + strongest.stage.shock() > .002) {
+                if (scene == null) scene = new TextureTarget(main.width, main.height, false, Minecraft.ON_OSX);
+                else if (scene.width != main.width || scene.height != main.height) scene.resize(main.width, main.height, Minecraft.ON_OSX);
+                GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, main.frameBufferId);
+                GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, scene.frameBufferId);
+                GlStateManager._glBlitFrameBuffer(0, 0, main.width, main.height, 0, 0, scene.width, scene.height, GL11.GL_COLOR_BUFFER_BIT, GL11.GL_NEAREST);
+                main.bindWrite(true);
+                RenderSystem.disableBlend();
+                Vector3f centre = position(view, strongest.centre);
+                begin(rfGrade, inverseProjection, centre, axes, main.width, main.height);
+                RenderSystem.setShaderTexture(0, scene.getColorTextureId());
+                set(rfGrade, "Grey", grey);
+                set(rfGrade, "Dim", dim);
+                set(rfGrade, "Silhouette", silhouette);
+                set(rfGrade, "Flood", flood);
+                set(rfGrade, "ShockRadius", strongest.stage.shockRadius());
+                set(rfGrade, "Shock", strongest.stage.shock());
+                set(rfGrade, "Aspect", main.width / (double) main.height);
+                Vector4f clip = projection.transform(new Vector4f(centre, 1));
+                if (clip.w > 1e-4) rfGrade.safeGetUniform("CentreUv").set(clip.x / clip.w * .5F + .5F, clip.y / clip.w * .5F + .5F);
+                else rfGrade.safeGetUniform("CentreUv").set(.5F, -4F);
+                screen();
+            }
+            main.bindWrite(true);
+            RenderSystem.enableBlend();
+            RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
+                    GlStateManager.SourceFactor.ZERO, GlStateManager.DestFactor.ONE);
+            for (RfBlast blast : RF) {
+                RfStage s = blast.stage;
+                if (s.ballRadius() <= .02 && (s.dome() <= .5 || s.domeGlass() <= .001)) continue;
+                begin(rfVolume, inverseProjection, position(view, blast.centre), axes, main.width, main.height);
+                Vector3f ball = position(view, s.ball());
+                rfVolume.safeGetUniform("BallCentre").set(ball.x, ball.y, ball.z);
+                set(rfVolume, "BallRadius", s.ballRadius());
+                set(rfVolume, "BallCore", s.ballCore());
+                set(rfVolume, "BallRim", s.ballRim());
+                set(rfVolume, "Time", s.age() % 10000);
+                set(rfVolume, "DomeRadius", s.dome());
+                set(rfVolume, "DomeGlass", s.domeGlass());
+                set(rfVolume, "DomeHeat", s.domeHeat());
+                set(rfVolume, "DomeHaze", s.domeHaze());
+                set(rfVolume, "DomeEdge", s.domeEdge());
+                screen();
+            }
+        } finally {
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.disableBlend();
+            RenderSystem.enableCull();
+            RenderSystem.depthMask(true);
+            RenderSystem.enableDepthTest();
+            RenderSystem.setShaderTexture(0, colourUnit);
+            RenderSystem.setShaderTexture(1, depthUnit);
+            main.bindWrite(true);
+        }
+    }
+
+    /** A camera-relative point in view space. */
+    private static Vector3f position(Matrix4f view, Vec3 point) {
+        return view.transformPosition(new Vector3f((float) point.x, (float) point.y, (float) point.z));
     }
 
     private static void drawManaAll(Matrix4f pose) {
