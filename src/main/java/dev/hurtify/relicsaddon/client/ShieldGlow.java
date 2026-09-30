@@ -31,6 +31,8 @@ public final class ShieldGlow {
                     .setCullState(RenderStateShard.NO_CULL)
                     .createCompositeState(false));
     private static final MultiBufferSource.BufferSource BUFFERS = MultiBufferSource.immediate(new ByteBufferBuilder(1 << 20));
+    /** Light drawn before the refraction pass, so lenses bend it too (a black hole's own disk). */
+    private static final MultiBufferSource.BufferSource EARLY = MultiBufferSource.immediate(new ByteBufferBuilder(1 << 18));
     private static final Vec3[][] LOW_SPHERE = sphere(16), HIGH_SPHERE = sphere(32);
 
     public static VertexConsumer consumer() {
@@ -39,6 +41,15 @@ public final class ShieldGlow {
 
     public static void flush() {
         BUFFERS.endBatch(TYPE);
+    }
+
+    /** The early layer: filled during a frame, flushed just before {@link ShieldRefraction#flush}. */
+    public static VertexConsumer earlyConsumer() {
+        return EARLY.getBuffer(TYPE);
+    }
+
+    public static void flushEarly() {
+        EARLY.endBatch(TYPE);
     }
 
     static int color(RelicRole role) {

@@ -69,6 +69,7 @@ public final class ShieldController {
             float prepaid = ShieldProjectileInterceptor.consumePaidDamage(projectile, owner, event.getAmount());
             if (prepaid > 0) {
                 settle(event, victim, prepaid);
+                ShieldCoverage.provoked(owner, event.getSource().getEntity());
                 return;
             }
             if (ShieldProjectileInterceptor.alreadyAbsorbed(projectile, owner)
@@ -140,6 +141,7 @@ public final class ShieldController {
             return false;
         }
         settle(event, event.getEntity(), absorbed);
+        ShieldCoverage.provoked(player, event.getSource().getEntity());
         ShieldStackState next = damage.apply(state, cell, absorbed, player.level().getGameTime());
         shield.set(ModDataComponents.SHIELD_STACK_STATE.get(), next);
         ShieldImpact impact = ShieldImpact.of(direction, player.level().getGameTime(), cell, absorbed, state, next);

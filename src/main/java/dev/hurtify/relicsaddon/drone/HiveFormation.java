@@ -290,12 +290,10 @@ public final class HiveFormation {
                 }
                 yield at;
             }
-            case CONTAINMENT -> core.add(switch (type) {
-                case RF -> HiveShapes.torus(slot, slots, time, Math.max(1.25, targetWidth * .7 + .8) * CONTAINMENT_SCALE,
-                        (.42 + .02 * Math.cbrt(slots)) * CONTAINMENT_SCALE);
-                case MANA -> HiveShapes.ward(slot, slots, time, Math.max(1, targetHeight / 1.8) * CONTAINMENT_SCALE);
-                case TWINS -> HiveShapes.riftSpheres(slot, slots, time, Math.max(1.5, targetWidth * .7 + 1.1) * CONTAINMENT_SCALE,
-                        HiveShapes.RIFT_RADIUS * CONTAINMENT_SCALE);
+            case CONTAINMENT -> containmentCentre(type, target, targetWidth, targetHeight, slots).add(switch (type) {
+                case RF -> HiveShapes.torus(slot, slots, time, torusMajor(targetWidth), torusMinor(slots));
+                case MANA -> HiveShapes.ward(slot, slots, time, wardScale(targetHeight));
+                case TWINS -> HiveShapes.riftSpheres(slot, slots, time, riftDistance(targetWidth), riftRadius());
             });
         };
     }
@@ -305,6 +303,31 @@ public final class HiveFormation {
      * own drones) circles just outside it, turned by its home clump so that visitors from different
      * clumps never share a place.
      */
+    // --- containment -----------------------------------------------------------------------------
+
+    /**
+     * Centre of a containment construct: the target's middle, raised just enough that the construct's
+     * lowest point clears the ground the target stands on, so the ground never cuts it off.
+     */
+    public static Vec3 containmentCentre(HiveType type, Vec3 target, double targetWidth, double targetHeight, int slots) {
+        targetWidth = saneSize(targetWidth, .6);
+        targetHeight = saneSize(targetHeight, 1.8);
+        Vec3 core = core(target, targetHeight);
+        double below = switch (type) {
+            case RF -> torusMinor(slots);
+            case MANA -> 1.55 * wardScale(targetHeight);
+            case TWINS -> riftRadius() - .02 * riftDistance(targetWidth);
+        };
+        double clear = below + .15 - (core.y - target.y);
+        return clear > 0 ? core.add(0, clear, 0) : core;
+    }
+
+    public static double torusMajor(double targetWidth) { return Math.max(1.25, saneSize(targetWidth, .6) * .7 + .8) * CONTAINMENT_SCALE; }
+    public static double torusMinor(int slots) { return (.42 + .02 * Math.cbrt(Math.max(1, slots))) * CONTAINMENT_SCALE; }
+    public static double wardScale(double targetHeight) { return Math.max(1, saneSize(targetHeight, 1.8) / 1.8) * CONTAINMENT_SCALE; }
+    public static double riftDistance(double targetWidth) { return Math.max(1.5, saneSize(targetWidth, .6) * .7 + 1.1) * CONTAINMENT_SCALE; }
+    public static double riftRadius() { return HiveShapes.RIFT_RADIUS * CONTAINMENT_SCALE; }
+
     private static Vec3 barragePoint(HiveType type, int group, int member, int members, int groups, Vec3 target,
             double targetWidth, double targetHeight, double time, int visitorFrom) {
         Vec3 centre = clusterCentre(type, target, targetWidth, targetHeight, group, groups, time);

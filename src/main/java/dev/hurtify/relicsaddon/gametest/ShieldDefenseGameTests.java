@@ -319,6 +319,21 @@ public final class ShieldDefenseGameTests {
         return zombie;
     }
 
+    @GameTest(template = ARENA, timeoutTicks = 100)
+    public static void aBlowTheFieldTakesSetsTheSwarmOnTheAttacker(GameTestHelper helper) {
+        ServerPlayer player = openArena(helper);
+        DeviceTestSupport.equip(helper, player, RelicRole.RF_SHIELD, 0);
+        ItemStack hive = DeviceTestSupport.equip(helper, player, RelicRole.RF_HIVE, 1);
+        Husk husk = husk(helper, player.position().add(3, 0, 0));
+        float health = player.getHealth();
+        helper.assertFalse(player.hurt(player.damageSources().mobAttack(husk), 4), "The field takes the whole blow");
+        helper.assertTrue(player.getHealth() == health, "The wearer is untouched");
+        dev.hurtify.relicsaddon.server.HiveCombatController.tick(player);
+        var combat = hive.getOrDefault(ModDataComponents.HIVE_COMBAT_STATE.get(), dev.hurtify.relicsaddon.drone.HiveCombatState.DEFAULT);
+        helper.assertTrue(combat.active() && combat.targetId() == husk.getId(), "A blow on the field sets the swarm on the attacker");
+        helper.succeed();
+    }
+
     private ShieldDefenseGameTests() {
     }
 }

@@ -71,8 +71,8 @@ public final class HiveModeVisual {
                 if (!s.formed()) return;
                 Vec3 core = HiveFormation.core(s.target(), s.height());
                 switch (s.type()) {
-                    case RF -> EffectLights.glow(core, 9, Math.max(.8, s.width()) * HiveFormation.CONTAINMENT_SCALE);
-                    case MANA -> EffectLights.glow(core, 9, 1.45 * Math.max(1, s.height() / 1.8) * HiveFormation.CONTAINMENT_SCALE);
+                    case RF -> EffectLights.glow(centre(s), 9, Math.max(.8, s.width()) * HiveFormation.CONTAINMENT_SCALE);
+                    case MANA -> EffectLights.glow(centre(s), 9, 1.45 * HiveFormation.wardScale(s.height()));
                     // The accretion disk reaches about four horizons out.
                     case TWINS -> EffectLights.glow(core, 11, horizon(s) * 4);
                 }
@@ -291,8 +291,8 @@ public final class HiveModeVisual {
 
     /** Mana: the ward's three rhombi and two circles in light over a glass bubble. */
     private static void ward(Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
-        Vec3 core = HiveFormation.core(s.target(), s.height()).subtract(camera);
-        double scale = Math.max(1, s.height() / 1.8) * HiveFormation.CONTAINMENT_SCALE, turn = s.time() * .008;
+        Vec3 core = centre(s).subtract(camera);
+        double scale = HiveFormation.wardScale(s.height()), turn = s.time() * .008;
         double pulse = .75 + .25 * Math.sin(s.time() * .12);
         for (int rhombus = 0; rhombus < 3; rhombus++) {
             Vec3 previous = null;
@@ -305,16 +305,21 @@ public final class HiveModeVisual {
         for (int ring = 0; ring < 2; ring++) {
             GlowBrush.circle(glow, m, core.add(0, (ring == 0 ? 1.0 : -1.0) * scale, 0), new Vec3(1, 0, 0), new Vec3(0, 0, 1), 1.3 * scale, 72, .03, color, 150 * pulse);
         }
+        // The middle hexagon joining the rhombi's side corners.
+        for (int side = 0; side < 6; side++) {
+            Vec3 a = core.add(HiveShapes.wardHexagonPoint(side / 6.0, turn).scale(scale));
+            Vec3 b = core.add(HiveShapes.wardHexagonPoint((side + 1) / 6.0, turn).scale(scale));
+            GlowBrush.beam(glow, m, a, b, .024, color, 130 * pulse);
+        }
         GlowBrush.sphere(fill, m, core, 1.45 * scale, 0x0B5E62, color, 10, 80, 16);
     }
 
     /** Twins: hexagon-shelled rift spheres around a black hole with a violet accretion disk. */
     private static void rifts(Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
-        Vec3 core = HiveFormation.core(s.target(), s.height()).subtract(camera);
-        double distance = Math.max(1.5, s.width() * .7 + 1.1) * HiveFormation.CONTAINMENT_SCALE;
-        double radius = HiveShapes.RIFT_RADIUS * HiveFormation.CONTAINMENT_SCALE;
+        Vec3 core = HiveFormation.core(s.target(), s.height()).subtract(camera), middle = centre(s).subtract(camera);
+        double distance = HiveFormation.riftDistance(s.width()), radius = HiveFormation.riftRadius();
         for (int sphere = 0; sphere < 4; sphere++) {
-            Vec3 centre = core.add(HiveShapes.riftCentre(sphere, s.time(), distance));
+            Vec3 centre = middle.add(HiveShapes.riftCentre(sphere, s.time(), distance));
             double spin = HiveShapes.riftSpin(sphere, s.time());
             double cos = Math.cos(spin), sin = Math.sin(spin);
             for (ShieldHoneycomb.Cell cell : ShieldHoneycomb.SMALL) {
@@ -329,7 +334,13 @@ public final class HiveModeVisual {
             }
             GlowBrush.dot(glow, m, centre, radius * .9, 0x2A0F45, 90);
         }
-        blackHole(glow, fill, m, core, horizon(s), s.time());
+        // The black hole's own light goes in before the lens pass, so space bends it with everything behind.
+        blackHole(GlowBrush.flat() ? glow : ShieldGlow.earlyConsumer(), fill, m, core, horizon(s), s.time());
+    }
+
+    /** Centre of the containment construct, resting on the ground under its target. */
+    private static Vec3 centre(Scene s) {
+        return HiveFormation.containmentCentre(s.type(), s.target(), s.width(), s.height(), s.slots());
     }
 
     /** The black hole is this many times its base size (its disk, rings and lens follow the horizon). */
@@ -353,13 +364,29 @@ public final class HiveModeVisual {
         GlowBrush.circle(glow, m, core, right, up, horizon * 1.08, 64, horizon * .035, 0xF2DDFF, 220);
         // The far side of the disk, bent over and under the horizon.
         GlowBrush.circle(glow, m, core, right, up, horizon * 1.45, 64, horizon * .12, 0xA24BFF, 90);
-        // The disk itself, tilted and turning; brighter where it swings towards the viewer.
+        // The disk itself, tilted and turning: a solid band of light, hot white inside and violet out,
+        // brighter where it swings towards the viewer, with denser streams of matter over it.
         double tilt = .62;
         Vec3 u = new Vec3(1, 0, 0), v = new Vec3(0, Math.sin(tilt), Math.cos(tilt));
-        int rings = 14, segments = 72;
+        int bands = 12, segments = 96;
+        for (int band = 0; band < bands; band++) {
+            double t0 = band / (double) bands, t1 = (band + 1) / (double) bands;
+            double r0 = horizon * (1.45 + 2.9 * t0), r1 = horizon * (1.45 + 2.9 * t1);
+            int c0 = GlowBrush.mix(0xFFF0FF, 0x7A22D6, Math.pow(t0, .6)), c1 = GlowBrush.mix(0xFFF0FF, 0x7A22D6, Math.pow(t1, .6));
+            for (int step = 0; step < segments; step++) {
+                double a0 = Math.PI * 2 * step / segments, a1 = Math.PI * 2 * (step + 1) / segments;
+                Vec3 p00 = core.add(u.scale(Math.cos(a0) * r0)).add(v.scale(Math.sin(a0) * r0));
+                Vec3 p01 = core.add(u.scale(Math.cos(a1) * r0)).add(v.scale(Math.sin(a1) * r0));
+                Vec3 p11 = core.add(u.scale(Math.cos(a1) * r1)).add(v.scale(Math.sin(a1) * r1));
+                Vec3 p10 = core.add(u.scale(Math.cos(a0) * r1)).add(v.scale(Math.sin(a0) * r1));
+                GlowBrush.quad(glow, m, p00, p01, p11, p10, c0, c0, c1, c1,
+                        diskAlpha(t0, a0, time, eye, u, v), diskAlpha(t0, a1, time, eye, u, v), diskAlpha(t1, a1, time, eye, u, v), diskAlpha(t1, a0, time, eye, u, v));
+            }
+        }
+        int rings = 28;
         for (int ring = 0; ring < rings; ring++) {
             double t = ring / (double) (rings - 1);
-            double radius = horizon * (1.6 + 2.6 * t);
+            double radius = horizon * (1.5 + 2.8 * t);
             int ringColor = GlowBrush.mix(0xFFF0FF, 0x7A22D6, Math.pow(t, .6));
             Vec3 previous = null;
             for (int step = 0; step <= segments; step++) {
@@ -369,20 +396,30 @@ public final class HiveModeVisual {
                     double swirl = .55 + .45 * Math.sin(angle * 3 - time * (.25 - .15 * t) + ring * .7);
                     Vec3 tangent = point.subtract(previous).normalize();
                     double doppler = 1 + .6 * tangent.dot(eye);
-                    double alpha = (1 - t) * (1 - t) * 190 * swirl * doppler + 25;
-                    GlowBrush.line(glow, m, previous, point, horizon * (.1 + .05 * (1 - t)), ringColor, alpha);
+                    double alpha = (1 - t) * (1 - t) * 150 * swirl * doppler + 20;
+                    GlowBrush.line(glow, m, previous, point, horizon * (.08 + .05 * (1 - t)), ringColor, alpha);
                 }
                 previous = point;
             }
         }
         // Matter spiralling in.
-        for (int mote = 0; mote < 24; mote++) {
+        for (int mote = 0; mote < 64; mote++) {
             double life = ((time * .02 + mote * .618) % 1);
-            double radius = horizon * (4.2 - 2.8 * life), angle = mote * 2.4 + time * (.08 + .1 * life);
+            double radius = horizon * (4.3 - 2.9 * life), angle = mote * 2.4 + time * (.08 + .1 * life);
             Vec3 at = core.add(u.scale(Math.cos(angle) * radius)).add(v.scale(Math.sin(angle) * radius));
-            GlowBrush.dot(glow, m, at, horizon * .1, 0xE7C6FF, 160 * Math.sin(Math.PI * life));
+            GlowBrush.dot(glow, m, at, horizon * .08, 0xE7C6FF, 160 * Math.sin(Math.PI * life));
         }
-        if (!GlowBrush.flat()) ShieldRefraction.queueLens(core.x, core.y, core.z, horizon * 1.02, horizon * 4, 1.4, true);
+        // Space bends round the whole black hole, out past the edge of its disk.
+        if (!GlowBrush.flat()) ShieldRefraction.queueLens(core.x, core.y, core.z, horizon * 1.02, horizon * 6, 1.8, true);
+    }
+
+    /** Brightness of the disk at radius fraction {@code t} and angle {@code angle}: hot inside, swirling, Doppler-bright on the approaching side. */
+    private static double diskAlpha(double t, double angle, double time, Vec3 eye, Vec3 u, Vec3 v) {
+        Vec3 tangent = u.scale(-Math.sin(angle)).add(v.scale(Math.cos(angle)));
+        double doppler = 1 + .55 * tangent.dot(eye);
+        double swirl = .7 + .3 * Math.sin(angle * 4 - time * (.2 - .1 * t) + t * 9);
+        double edge = Math.min(1, t * 8) * Math.pow(1 - t, 1.4);
+        return 125 * edge * swirl * doppler;
     }
 
     private static Vec3 spun(double x, double y, double z, double cos, double sin) {

@@ -18,6 +18,16 @@ public final class ShieldCoverage {
         return false;
     }
 
+    /**
+     * A blow the field took, or a shot it stopped, counts as an attack on the field's owner, as if it
+     * had landed: the owner's swarm, and pets that defend their owner, turn on the attacker.
+     */
+    public static void provoked(Player owner, Entity attacker) {
+        if (attacker instanceof LivingEntity living && living != owner && living.isAlive() && !friendly(owner, living)) {
+            owner.setLastHurtByMob(living);
+        }
+    }
+
     public static boolean covers(Player owner, ItemStack shield, LivingEntity victim) {
         if (!owner.isAlive() || owner.isSpectator() || !victim.isAlive() || victim.isSpectator()) return false;
         if (owner == victim) return true;

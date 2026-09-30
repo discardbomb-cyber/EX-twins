@@ -51,6 +51,14 @@ public final class HiveFormationCheck {
             }
         }
 
+        // Containment constructs rest on the ground: no drone of an unlifted target's construct is below its feet.
+        for (HiveType type : HiveType.values()) for (int slots : new int[]{1, 12, 100, 250}) for (double height : new double[]{.5, 1.8, 2.9}) {
+            for (int slot = 0; slot < slots; slot++) {
+                Vec3 at = HiveFormation.station(AttackMode.CONTAINMENT, type, slot, slots, owner, target, .6, height, 777.5, 100, 60);
+                require(at.y >= target.y + .1, type + " containment dips into the ground: " + (at.y - target.y) + " (height " + height + ")");
+            }
+        }
+
         // Drones fly out from their hive slot and land exactly on their station, smoothly in between.
         for (HiveType type : HiveType.values()) for (int unit = 0; unit < 60; unit++) {
             Vec3 station = HiveFormation.station(AttackMode.BARRAGE, type, unit, 60, owner, target, 1.1, 1.9, 150, 100, 60);
@@ -114,9 +122,8 @@ public final class HiveFormationCheck {
                 }
                 for (int member = 0; member < members; member += Math.max(1, members / 30)) {
                     Vec3 offset = dev.hurtify.relicsaddon.drone.HiveShapes.clump(type, member, members, time, new Vec3(1, -.3, .2), radius);
-                    double limit = type == HiveType.TWINS ? radius * 1.25 : radius * 1.08;
-                    require(offset.length() < limit, type + " clump member strays: " + offset.length() + " of " + radius);
-                    if (type != HiveType.TWINS) require(offset.length() > radius * .5, "RF and Mana clumps leave their middle to the charge");
+                    require(offset.length() < radius * 1.08, type + " clump member strays: " + offset.length() + " of " + radius);
+                    require(offset.length() > radius * .5, type + " clumps swirl round their charge and leave its middle clear");
                 }
             }
             int[][] links = HiveFormation.clusterLinks(type, groups);
