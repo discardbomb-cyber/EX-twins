@@ -1,6 +1,5 @@
 package dev.hurtify.relicsaddon.domain.shield;
 
-import dev.hurtify.relicsaddon.shield.ShieldStackState;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -10,6 +9,8 @@ import java.util.List;
 public final class ShieldTopology {
     public static final int CELL_COUNT = 420;
     public static final int LEGACY_CELL_COUNT = 42;
+    /** The four sectors a cell belongs to by its azimuth; PANEL_NONE is no sector. */
+    public static final int PANEL_FRONT = 0, PANEL_LEFT = 1, PANEL_RIGHT = 2, PANEL_BACK = 3, PANEL_NONE = -1;
     private static final int CANDIDATE_NEIGHBORS = 16;
     private static final double EPSILON = 1.0E-6D;
     public static final ShieldTopology INSTANCE = create();
@@ -222,10 +223,10 @@ public final class ShieldTopology {
 
     private static int panelFor(float[] center) {
         double azimuth = Math.atan2(center[0], center[2]);
-        if (azimuth >= -Math.PI / 4.0D && azimuth < Math.PI / 4.0D) return ShieldStackState.PANEL_FRONT;
-        if (azimuth >= Math.PI / 4.0D && azimuth < Math.PI * 3.0D / 4.0D) return ShieldStackState.PANEL_RIGHT;
-        if (azimuth >= -Math.PI * 3.0D / 4.0D && azimuth < -Math.PI / 4.0D) return ShieldStackState.PANEL_LEFT;
-        return ShieldStackState.PANEL_BACK;
+        if (azimuth >= -Math.PI / 4.0D && azimuth < Math.PI / 4.0D) return PANEL_FRONT;
+        if (azimuth >= Math.PI / 4.0D && azimuth < Math.PI * 3.0D / 4.0D) return PANEL_RIGHT;
+        if (azimuth >= -Math.PI * 3.0D / 4.0D && azimuth < -Math.PI / 4.0D) return PANEL_LEFT;
+        return PANEL_BACK;
     }
 
     private static int nearest(float[] point, float[][] candidates) {

@@ -13,7 +13,9 @@ import net.minecraft.network.codec.StreamCodec;
 public record ShieldStackState(boolean enabled, int front, int left, int right, int back,
         int lastHitPanel, float lastAbsorbed, long lastActiveGameTime,
         int sharedBuffer, List<Integer> cells, List<ShieldCellMove> moves, long gatherTime) {
-    public static final int PANEL_FRONT = 0, PANEL_LEFT = 1, PANEL_RIGHT = 2, PANEL_BACK = 3, PANEL_NONE = -1;
+    /** Aliases of the ShieldTopology sectors for existing callers. */
+    public static final int PANEL_FRONT = ShieldTopology.PANEL_FRONT, PANEL_LEFT = ShieldTopology.PANEL_LEFT,
+            PANEL_RIGHT = ShieldTopology.PANEL_RIGHT, PANEL_BACK = ShieldTopology.PANEL_BACK, PANEL_NONE = ShieldTopology.PANEL_NONE;
     public static final int MAX_PANEL_INTEGRITY = 12;
     /** New shields have the former 42-cell total as a common pool before local cells can break. */
     public static final int MAX_SHARED_BUFFER = 504;
