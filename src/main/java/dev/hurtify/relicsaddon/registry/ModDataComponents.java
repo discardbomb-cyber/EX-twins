@@ -2,7 +2,7 @@ package dev.hurtify.relicsaddon.registry;
 
 import com.mojang.serialization.Codec;
 import dev.hurtify.relicsaddon.RelicsAddon;
-import dev.hurtify.relicsaddon.drone.DroneStackState;
+import dev.hurtify.relicsaddon.adapter.out.persistence.LegacyDroneStackState;
 import dev.hurtify.relicsaddon.shield.ShieldStackState;
 import dev.hurtify.relicsaddon.shield.ShieldImpact;
 import net.minecraft.core.component.DataComponentType;
@@ -59,10 +59,10 @@ public final class ModDataComponents {
                     .networkSynchronized(ShieldStackState.STREAM_CODEC));
 
     // Retained only to decode existing stacks that still carry the pre-hive component.
-    public static final DeferredHolder<DataComponentType<?>, DataComponentType<DroneStackState>> DRONE_STACK_STATE =
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<LegacyDroneStackState>> DRONE_STACK_STATE =
             DATA_COMPONENTS.registerComponentType("drone_stack_state", builder -> builder
-                    .persistent(DroneStackState.CODEC)
-                    .networkSynchronized(DroneStackState.STREAM_CODEC));
+                    .persistent(LegacyDroneStackState.CODEC)
+                    .networkSynchronized(LegacyDroneStackState.STREAM_CODEC));
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ShieldImpact>> SHIELD_IMPACT =
             DATA_COMPONENTS.registerComponentType("shield_impact", builder -> builder

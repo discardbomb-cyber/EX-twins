@@ -1,9 +1,9 @@
 package dev.hurtify.relicsaddon.contract;
 
 import com.mojang.serialization.Codec;
+import dev.hurtify.relicsaddon.adapter.out.persistence.LegacyDroneStackState;
 import dev.hurtify.relicsaddon.domain.hive.AttackMode;
 import dev.hurtify.relicsaddon.domain.hive.HiveType;
-import dev.hurtify.relicsaddon.drone.DroneStackState;
 import dev.hurtify.relicsaddon.drone.HiveCombatState;
 import dev.hurtify.relicsaddon.drone.HiveSettings;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
@@ -240,9 +240,9 @@ public final class CodecGoldenCheck {
         value("instance_id/0f8fad5b-d9cb-469f-a165-70867728950e", Codec.STRING, wire(ByteBufCodecs.STRING_UTF8),
                 "0f8fad5b-d9cb-469f-a165-70867728950e");
 
-        Wire<DroneStackState> drone = wire(DroneStackState.STREAM_CODEC);
-        value("drone_stack_state/DEFAULT", DroneStackState.CODEC, drone, DroneStackState.DEFAULT);
-        value("drone_stack_state/false 42 1.5", DroneStackState.CODEC, drone, new DroneStackState(false, 42, 1.5F));
+        Wire<LegacyDroneStackState> drone = wire(LegacyDroneStackState.STREAM_CODEC);
+        value("drone_stack_state/DEFAULT", LegacyDroneStackState.CODEC, drone, LegacyDroneStackState.DEFAULT);
+        value("drone_stack_state/false 42 1.5", LegacyDroneStackState.CODEC, drone, new LegacyDroneStackState(false, 42, 1.5F));
 
         Wire<OpenDevicePayload> open = registryWire(OpenDevicePayload.STREAM_CODEC);
         value("open_device/true 0", null, open, new OpenDevicePayload(true, 0));

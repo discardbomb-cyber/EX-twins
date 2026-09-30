@@ -383,7 +383,7 @@ tasks.register('verifyDevicePower', JavaExec) {
 tasks.register('verifyNetworkCodecs', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
-    mainClass = 'dev.hurtify.relicsaddon.drone.NetworkCodecCheck'
+    mainClass = 'dev.hurtify.relicsaddon.adapter.out.persistence.NetworkCodecCheck'
 }
 
 tasks.register('verifyRegistryFilter', JavaExec) {
