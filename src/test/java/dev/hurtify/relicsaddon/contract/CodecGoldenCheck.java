@@ -3,6 +3,7 @@ package dev.hurtify.relicsaddon.contract;
 import com.mojang.serialization.Codec;
 import dev.hurtify.relicsaddon.adapter.out.persistence.HiveCodecs;
 import dev.hurtify.relicsaddon.adapter.out.persistence.LegacyDroneStackState;
+import dev.hurtify.relicsaddon.adapter.out.persistence.ShieldCodecs;
 import dev.hurtify.relicsaddon.domain.hive.AttackMode;
 import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import dev.hurtify.relicsaddon.drone.HiveCombatState;
@@ -149,28 +150,28 @@ public final class CodecGoldenCheck {
     }
 
     private void shield() {
-        Wire<ShieldSettings> settings = wire(ShieldSettings.STREAM_CODEC);
-        value("shield_settings/DEFAULT", ShieldSettings.CODEC, settings, ShieldSettings.DEFAULT);
-        value("shield_settings/5.5 owner", ShieldSettings.CODEC, settings, new ShieldSettings(5.5, "owner"));
-        value("shield_settings/24 all", ShieldSettings.CODEC, settings, new ShieldSettings(24, "all"));
-        nbtInput("shield_settings/nbt {}", ShieldSettings.CODEC, settings, new CompoundTag());
+        Wire<ShieldSettings> settings = wire(ShieldCodecs.SETTINGS_STREAM);
+        value("shield_settings/DEFAULT", ShieldCodecs.SETTINGS, settings, ShieldSettings.DEFAULT);
+        value("shield_settings/5.5 owner", ShieldCodecs.SETTINGS, settings, new ShieldSettings(5.5, "owner"));
+        value("shield_settings/24 all", ShieldCodecs.SETTINGS, settings, new ShieldSettings(24, "all"));
+        nbtInput("shield_settings/nbt {}", ShieldCodecs.SETTINGS, settings, new CompoundTag());
         CompoundTag bogus = new CompoundTag();
         bogus.putString("coverage", "bogus");
-        nbtInput("shield_settings/nbt coverage bogus", ShieldSettings.CODEC, settings, bogus);
+        nbtInput("shield_settings/nbt coverage bogus", ShieldCodecs.SETTINGS, settings, bogus);
 
-        Wire<ShieldStackState> state = wire(ShieldStackState.STREAM_CODEC);
-        value("shield_stack_state/DEFAULT", ShieldStackState.CODEC, state, ShieldStackState.DEFAULT);
+        Wire<ShieldStackState> state = wire(ShieldCodecs.STACK_STATE_STREAM);
+        value("shield_stack_state/DEFAULT", ShieldCodecs.STACK_STATE, state, ShieldStackState.DEFAULT);
         ShieldStackState damaged = ShieldStackState.DEFAULT.damageLocalCell(5, 12, 3.5F, 1_000)
                 .damageLocalCell(17, 4, 2.25F, 1_001).damageLocalCell(203, 7, 1.5F, 1_002);
         damaged = damaged.withCellsAndBuffer(damaged.cells(), 100,
                 List.of(new ShieldCellMove(40, 5), new ShieldCellMove(41, 17), new ShieldCellMove(300, 203)), 77);
-        value("shield_stack_state/damaged", ShieldStackState.CODEC, state, damaged);
+        value("shield_stack_state/damaged", ShieldCodecs.STACK_STATE, state, damaged);
         CompoundTag sectors = legacyShield();
         sectors.putInt("front", 3);
         sectors.putInt("left", 12);
         sectors.putInt("right", 7);
         sectors.putInt("back", 0);
-        nbtInput("shield_stack_state/nbt legacy sectors", ShieldStackState.CODEC, state, sectors);
+        nbtInput("shield_stack_state/nbt legacy sectors", ShieldCodecs.STACK_STATE, state, sectors);
         CompoundTag legacyCells = legacyShield();
         legacyCells.put("cells", new IntArrayTag(cells(42)));
         ListTag moves = new ListTag();
@@ -179,33 +180,33 @@ public final class CodecGoldenCheck {
         legacyCells.put("moves", moves);
         legacyCells.putInt("sharedBuffer", 250);
         legacyCells.putLong("gatherTime", 880L);
-        nbtInput("shield_stack_state/nbt legacy 42 cells 2 moves", ShieldStackState.CODEC, state, legacyCells);
+        nbtInput("shield_stack_state/nbt legacy 42 cells 2 moves", ShieldCodecs.STACK_STATE, state, legacyCells);
         CompoundTag odd = legacyShield();
         odd.put("cells", new IntArrayTag(cells(41)));
-        nbtInput("shield_stack_state/nbt 41 cells", ShieldStackState.CODEC, state, odd);
+        nbtInput("shield_stack_state/nbt 41 cells", ShieldCodecs.STACK_STATE, state, odd);
         // Four moves cannot be built either: the packet of the damaged state gets count 4 and one more move.
         byte[] three = state.encode(damaged);
         byte[] four = concat(three, new byte[] {0x00, 0x01, 0x00, 0x02});
         four[three.length - 1 - 3 * 4] = 4;
-        streamInput("shield_stack_state/stream 4 moves", ShieldStackState.CODEC, state, four);
+        streamInput("shield_stack_state/stream 4 moves", ShieldCodecs.STACK_STATE, state, four);
 
-        Wire<ShieldImpact> impact = wire(ShieldImpact.STREAM_CODEC);
-        value("shield_impact/absorbed", ShieldImpact.CODEC, impact, new ShieldImpact(new Vec3(1, 0, 0), 99L, 1, 6, true, List.of(3), 1.5, 0));
-        value("shield_impact/strike", ShieldImpact.CODEC, impact, ShieldImpact.strike(new Vec3(0, 0, 1), 1_234L, 2, 4.5F, .3F));
-        value("shield_impact/normal .3 .4 .5", ShieldImpact.CODEC, impact, new ShieldImpact(new Vec3(.3, .4, .5), 7L, 0, 2F, false));
-        value("shield_impact/zero normal", ShieldImpact.CODEC, impact, new ShieldImpact(new Vec3(0, 0, 0), 8L, 3, 1F, false));
-        value("shield_impact/NaN distance", ShieldImpact.CODEC, impact,
+        Wire<ShieldImpact> impact = wire(ShieldCodecs.IMPACT_STREAM);
+        value("shield_impact/absorbed", ShieldCodecs.IMPACT, impact, new ShieldImpact(new Vec3(1, 0, 0), 99L, 1, 6, true, List.of(3), 1.5, 0));
+        value("shield_impact/strike", ShieldCodecs.IMPACT, impact, ShieldImpact.strike(new Vec3(0, 0, 1), 1_234L, 2, 4.5F, .3F));
+        value("shield_impact/normal .3 .4 .5", ShieldCodecs.IMPACT, impact, new ShieldImpact(new Vec3(.3, .4, .5), 7L, 0, 2F, false));
+        value("shield_impact/zero normal", ShieldCodecs.IMPACT, impact, new ShieldImpact(new Vec3(0, 0, 0), 8L, 3, 1F, false));
+        value("shield_impact/NaN distance", ShieldCodecs.IMPACT, impact,
                 new ShieldImpact(new Vec3(0, 1, 0), 9L, 2, 3F, true, List.of(10, 11), Double.NaN, 0));
 
-        Wire<ShieldImpactHistory> history = wire(ShieldImpactHistory.STREAM_CODEC);
-        value("shield_impacts/EMPTY", ShieldImpactHistory.CODEC, history, ShieldImpactHistory.EMPTY);
+        Wire<ShieldImpactHistory> history = wire(ShieldCodecs.IMPACT_HISTORY_STREAM);
+        value("shield_impacts/EMPTY", ShieldCodecs.IMPACT_HISTORY, history, ShieldImpactHistory.EMPTY);
         List<ShieldImpact> impacts = new ArrayList<>();
         for (int index = 0; index < 13; index++) {
             impacts.add(new ShieldImpact(new Vec3(index - 6, 1, 7 - index), 100L + index, index % 4, 1.5F + index, index % 5 == 0,
                     index % 5 == 0 ? List.of(index * 30) : List.of(), index % 3 == 0 ? -1 : index * .75, index % 4 == 1 ? .25F * index : 0));
         }
-        value("shield_impacts/12", ShieldImpactHistory.CODEC, history, new ShieldImpactHistory(impacts.subList(0, 12)));
-        value("shield_impacts/13", ShieldImpactHistory.CODEC, history, new ShieldImpactHistory(impacts));
+        value("shield_impacts/12", ShieldCodecs.IMPACT_HISTORY, history, new ShieldImpactHistory(impacts.subList(0, 12)));
+        value("shield_impacts/13", ShieldCodecs.IMPACT_HISTORY, history, new ShieldImpactHistory(impacts));
     }
 
     private void device() {

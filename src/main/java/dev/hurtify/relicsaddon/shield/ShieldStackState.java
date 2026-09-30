@@ -1,13 +1,8 @@
 package dev.hurtify.relicsaddon.shield;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
-import io.netty.buffer.ByteBuf;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
 
 /** Cell HP is authoritative; the four old sector fields remain as migration summaries. */
 public record ShieldStackState(boolean enabled, int front, int left, int right, int back,
@@ -23,42 +18,6 @@ public record ShieldStackState(boolean enabled, int front, int left, int right, 
     public static final int BUFFER_REPAIR_QUIET_TICKS = 40;
     public static final int MAX_TOTAL_INTEGRITY = MAX_SHARED_BUFFER + ShieldTopology.CELL_COUNT * MAX_PANEL_INTEGRITY;
     public static final ShieldStackState DEFAULT = new ShieldStackState(true, 12, 12, 12, 12, -1, 0, 0, MAX_SHARED_BUFFER, List.of(), List.of(), -1);
-
-    public static final Codec<ShieldStackState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Codec.BOOL.fieldOf("enabled").forGetter(ShieldStackState::enabled),
-            Codec.INT.fieldOf("front").forGetter(ShieldStackState::front),
-            Codec.INT.fieldOf("left").forGetter(ShieldStackState::left),
-            Codec.INT.fieldOf("right").forGetter(ShieldStackState::right),
-            Codec.INT.fieldOf("back").forGetter(ShieldStackState::back),
-            Codec.INT.fieldOf("lastHitPanel").forGetter(ShieldStackState::lastHitPanel),
-            Codec.FLOAT.fieldOf("lastAbsorbed").forGetter(ShieldStackState::lastAbsorbed),
-            Codec.LONG.fieldOf("lastActiveGameTime").forGetter(ShieldStackState::lastActiveGameTime),
-            // Missing on legacy saves is intentionally empty, not a free refill.
-            Codec.INT.optionalFieldOf("sharedBuffer", 0).forGetter(ShieldStackState::sharedBuffer),
-            Codec.INT.listOf(0, ShieldTopology.CELL_COUNT).optionalFieldOf("cells", List.of()).forGetter(ShieldStackState::cells),
-            ShieldCellMove.CODEC.listOf(0, 3).optionalFieldOf("moves", List.of()).forGetter(ShieldStackState::moves),
-            Codec.LONG.optionalFieldOf("gatherTime", -1L).forGetter(ShieldStackState::gatherTime)
-    ).apply(instance, ShieldStackState::new));
-    public static final StreamCodec<ByteBuf, ShieldStackState> STREAM_CODEC = new StreamCodec<>() {
-        @Override public void encode(ByteBuf buffer, ShieldStackState state) {
-            buffer.writeBoolean(state.enabled).writeByte(state.lastHitPanel).writeFloat(state.lastAbsorbed)
-                    .writeLong(state.lastActiveGameTime).writeShort(state.sharedBuffer);
-            for (int hp : state.cells) buffer.writeByte(hp);
-            buffer.writeLong(state.gatherTime).writeByte(state.moves.size());
-            for (ShieldCellMove move : state.moves) buffer.writeShort(move.from()).writeShort(move.to());
-        }
-        @Override public ShieldStackState decode(ByteBuf buffer) {
-            boolean enabled = buffer.readBoolean(); int hit = buffer.readByte(); float absorbed = buffer.readFloat();
-            long active = buffer.readLong(); int pool = buffer.readUnsignedShort();
-            var cells = new ArrayList<Integer>(ShieldTopology.CELL_COUNT);
-            for (int id = 0; id < ShieldTopology.CELL_COUNT; id++) cells.add((int) buffer.readUnsignedByte());
-            long gathered = buffer.readLong(); int count = buffer.readUnsignedByte();
-            if (count > 3) throw new IllegalArgumentException("Oversized shield relocation packet");
-            var moves = new ArrayList<ShieldCellMove>(count);
-            for (int id = 0; id < count; id++) moves.add(new ShieldCellMove(buffer.readUnsignedShort(), buffer.readUnsignedShort()));
-            return new ShieldStackState(enabled, 12, 12, 12, 12, hit, absorbed, active, pool, cells, moves, gathered);
-        }
-    };
 
     public ShieldStackState(boolean enabled, int front, int left, int right, int back,
             int lastHitPanel, float lastAbsorbed, long lastActiveGameTime) {

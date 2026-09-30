@@ -1,12 +1,7 @@
 package dev.hurtify.relicsaddon.shield;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
-import io.netty.buffer.ByteBuf;
 import java.util.List;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -17,18 +12,6 @@ import net.minecraft.world.phys.Vec3;
  */
 public record ShieldImpact(Vec3 normal, long gameTime, int panel, float absorbed, boolean broken, List<Integer> brokenCells, double distance,
         float strike) {
-    public static final Codec<ShieldImpact> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Vec3.CODEC.fieldOf("normal").forGetter(ShieldImpact::normal),
-            Codec.LONG.fieldOf("gameTime").forGetter(ShieldImpact::gameTime),
-            Codec.INT.fieldOf("panel").forGetter(ShieldImpact::panel),
-            Codec.FLOAT.fieldOf("absorbed").forGetter(ShieldImpact::absorbed),
-            Codec.BOOL.fieldOf("broken").forGetter(ShieldImpact::broken),
-            Codec.intRange(0, ShieldTopology.CELL_COUNT - 1).listOf(0, 3).optionalFieldOf("brokenCells", List.of()).forGetter(ShieldImpact::brokenCells),
-            Codec.DOUBLE.optionalFieldOf("distance", -1.0).forGetter(ShieldImpact::distance),
-            Codec.FLOAT.optionalFieldOf("strike", 0F).forGetter(ShieldImpact::strike)
-    ).apply(instance, ShieldImpact::new));
-    public static final StreamCodec<ByteBuf, ShieldImpact> STREAM_CODEC = ByteBufCodecs.fromCodec(CODEC);
-
     public ShieldImpact(Vec3 normal, long gameTime, int panel, float absorbed, boolean broken) {
         this(normal, gameTime, panel, absorbed, broken, List.of(), -1, 0);
     }
