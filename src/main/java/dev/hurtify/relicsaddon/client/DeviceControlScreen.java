@@ -8,6 +8,7 @@ import dev.hurtify.relicsaddon.drone.HiveSettings;
 import dev.hurtify.relicsaddon.drone.HiveType;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
 import dev.hurtify.relicsaddon.menu.DeviceControlMenu;
+import dev.hurtify.relicsaddon.network.HiveAllocationPayload;
 import dev.hurtify.relicsaddon.power.DeviceEnergy;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
@@ -148,27 +149,14 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
                 }
             }
             case SWARM -> {
-                // One row per attack mode, then the healers: a count, four step buttons and, for a mode, "all in".
+                // One row per attack mode, then the healers: a count, a slider (drawn and dragged by the tab itself) and, for a mode, "all in".
                 for (AttackMode mode : AttackMode.values()) {
                     int y = SWARM_ROW_Y + mode.ordinal() * SWARM_ROW_H;
-                    for (int step = 0; step < DeviceControlMenu.STEPS.length; step++) {
-                        int delta = DeviceControlMenu.STEPS[step], id = DeviceControlMenu.allocationButton(mode, step);
-                        controls.add(new Control(STEP_X[step], y, STEP_W, 13, () -> Component.literal(stepLabel(delta)),
-                                () -> allocation().adjust(hiveType(), hiveCapacity(), mode, delta).allowed(), () -> false, () -> press(id),
-                                () -> stepTooltip(allocation().adjust(hiveType(), hiveCapacity(), mode, delta), mode, delta)));
-                    }
-                    controls.add(new Control(ALL_X, y, ALL_W, 13, () -> Component.translatable("screen.relics_addon.all_in"),
+                    controls.add(new Control(ALL_X, y + 2, ALL_W, 13, () -> Component.translatable("screen.relics_addon.all_in"),
                             () -> allocation().allInto(hiveType(), hiveCapacity(), mode).allowed(),
                             () -> allocation().allocated(mode) > 0 && allocation().allocated(mode) == allocation().fighters(hiveCapacity()),
                             () -> press(DeviceControlMenu.BUTTON_MODE_BASE + mode.ordinal()),
                             () -> allInTooltip(mode)));
-                }
-                int healersY = SWARM_ROW_Y + AttackMode.values().length * SWARM_ROW_H;
-                for (int step = 0; step < DeviceControlMenu.STEPS.length; step++) {
-                    int delta = DeviceControlMenu.STEPS[step], id = DeviceControlMenu.BUTTON_HEALERS_MINUS_10 + step;
-                    controls.add(new Control(STEP_X[step], healersY, STEP_W, 13, () -> Component.literal(stepLabel(delta)),
-                            () -> allocation().adjustHealers(hiveType(), hiveCapacity(), delta).allowed(), () -> false, () -> press(id),
-                            () -> healerTooltip(delta)));
                 }
             }
         }
@@ -213,29 +201,107 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
 
     // --- swarm tab -----------------------------------------------------------------------------
 
-    private static final int SWARM_ROW_Y = 49, SWARM_ROW_H = 17, STEP_W = 17, ALL_W = 22;
-    private static final int ALL_X = CR - ALL_W, STEPS_X = ALL_X - 3 - 4 * (STEP_W + 1);
-    private static final int[] STEP_X = {STEPS_X, STEPS_X + STEP_W + 1, STEPS_X + 2 * (STEP_W + 1), STEPS_X + 3 * (STEP_W + 1)};
+    private static final int SWARM_ROW_Y = 49, SWARM_ROW_H = 17, ALL_W = 22, ALL_X = CR - ALL_W;
+    /** Each row's slider: its track under the row's label, and the area that takes a click on it. */
+    private static final int TRACK_X = CX, TRACK_W = ALL_X - 4 - CX, TRACK_DY = 10, TRACK_H = 5, HIT_DY = 7, HIT_H = 10;
+    private static final int HEALERS = DeviceControlMenu.HEALERS;
+    /** The slider being dragged (a mode's ordinal or {@link #HEALERS}), or -1, and the count it stands at. */
+    private int dragging = -1, dragged;
 
-    private static String stepLabel(int delta) {
-        return (delta < 0 ? "−" : "+") + Math.abs(delta);
+    /** For scripted captures: shows the Swarm tab. */
+    public void showSwarmTab() {
+        select(Tab.SWARM);
     }
 
-    /** What a step button would do, or why it cannot. */
-    private List<Component> stepTooltip(HiveSettings.Change change, AttackMode mode, int delta) {
-        Component name = Component.translatable("screen.relics_addon.mode." + mode.id());
-        int minimum = HiveFigures.minimum(hiveType(), mode);
-        if (change.allowed()) {
-            return List.of(Component.translatable("screen.relics_addon.allocation_step", name, change.value()).withStyle(ChatFormatting.AQUA),
-                    Component.translatable("screen.relics_addon.allocation_minimum", minimum).withStyle(ChatFormatting.GRAY));
+    /** For scripted captures: the middle of {@code mode}'s slider, on screen. */
+    public int[] sliderAt(AttackMode mode) {
+        return new int[]{leftPos + TRACK_X + TRACK_W / 2, topPos + SWARM_ROW_Y + mode.ordinal() * SWARM_ROW_H + TRACK_DY + 2};
+    }
+
+    private static AttackMode mode(int target) { return AttackMode.values()[target]; }
+
+    /** The orders as the tab shows them: the hive's own, with the slider being dragged where it stands. */
+    private HiveSettings shown() {
+        HiveSettings settings = allocation();
+        if (dragging < 0) return settings;
+        return dragging == HEALERS ? settings.withHealers(dragged) : settings.with(mode(dragging), dragged);
+    }
+
+    /** A slider's step: a whole figure for a mode, so it only ever stops on whole figures; one drone for the healers. */
+    private int step(int target) { return target == HEALERS ? 1 : HiveFigures.minimum(hiveType(), mode(target)); }
+
+    /** A slider's full length: every fighter for a mode, the whole hive for the healers. */
+    private int span(int target) {
+        return Math.max(1, target == HEALERS ? hiveCapacity() : allocation().fighters(hiveCapacity()));
+    }
+
+    private int count(HiveSettings settings, int target) {
+        return target == HEALERS ? settings.healerCount(hiveCapacity()) : settings.allocated(mode(target));
+    }
+
+    /** How far a slider can go: its own drones and the free ones. */
+    private int reach(int target) {
+        HiveSettings settings = allocation();
+        return count(settings, target) + settings.free(hiveCapacity());
+    }
+
+    /** Whether a slider can move at all: a mode with drones can always be switched off; otherwise the free drones must make a figure. */
+    private boolean sliderActive(int target) {
+        return count(allocation(), target) > 0 || reach(target) >= step(target);
+    }
+
+    /** The count under the mouse: the nearest whole figure (or healer) within reach. */
+    private int valueAt(int target, double mouseX) {
+        double fraction = Math.clamp((mouseX - leftPos - TRACK_X) / TRACK_W, 0, 1);
+        int step = step(target), top = reach(target) / step * step;
+        return Math.clamp(Math.round(fraction * span(target) / step) * (long) step, 0, top);
+    }
+
+    private boolean onSlider(int target, double mouseX, double mouseY) {
+        return inside(mouseX, mouseY, leftPos + TRACK_X - 2, topPos + SWARM_ROW_Y + target * SWARM_ROW_H + HIT_DY, TRACK_W + 4, HIT_H);
+    }
+
+    /**
+     * A row's slider: the whole track, the part within reach a little lighter, its drones filled in, a tick
+     * at every whole figure and the handle where it stands.
+     */
+    private void slider(GuiGraphics g, int target, int count, int color) {
+        int x0 = leftPos + TRACK_X, y0 = topPos + SWARM_ROW_Y + target * SWARM_ROW_H + TRACK_DY, span = span(target), step = step(target);
+        boolean active = sliderActive(target);
+        g.fill(x0, y0, x0 + TRACK_W, y0 + TRACK_H, 0x80101317);
+        int reachX = x0 + (int) Math.round(TRACK_W * Math.min(1, reach(target) / (double) span));
+        g.fill(x0, y0, reachX, y0 + TRACK_H, 0x28FFFFFF);
+        int valueX = x0 + (int) Math.round(TRACK_W * Math.min(1, count / (double) span));
+        g.fill(x0, y0 + 1, valueX, y0 + TRACK_H - 1, active ? 0xC0000000 | color & 0xFFFFFF : 0x60808080);
+        if (span / step <= TRACK_W / 3) for (int tick = step; tick < span; tick += step) {
+            int tx = x0 + (int) Math.round(TRACK_W * tick / (double) span);
+            g.fill(tx, y0 + 1, tx + 1, y0 + TRACK_H - 1, 0x60E6EBF0);
         }
-        return List.of(name.copy().withStyle(ChatFormatting.AQUA), refusal(change.refusal(), minimum));
+        HoloPaint.box(g, x0, y0, TRACK_W, TRACK_H, 0x70E6EBF0);
+        g.fill(valueX - 1, y0 - 2, valueX + 1, y0 + TRACK_H + 2, active ? 0xFFF2F5F8 : 0xFF707880);
     }
 
-    private List<Component> healerTooltip(int delta) {
-        HiveSettings.Change change = allocation().adjustHealers(hiveType(), hiveCapacity(), delta);
-        if (change.allowed()) return List.of(Component.translatable("screen.relics_addon.healers_step", change.value()).withStyle(ChatFormatting.AQUA));
-        return List.of(refusal(change.refusal(), 0));
+    /** What a slider does, or why it cannot move. */
+    private List<Component> sliderTooltip(int target) {
+        HiveSettings settings = shown();
+        int free = allocation().free(hiveCapacity());
+        if (target == HEALERS) {
+            return List.of(Component.translatable("screen.relics_addon.healers", settings.healerCount(hiveCapacity())).withStyle(ChatFormatting.AQUA),
+                    Component.translatable("screen.relics_addon.healers_slider.hint").withStyle(ChatFormatting.GRAY));
+        }
+        AttackMode mode = mode(target);
+        int minimum = step(target), count = settings.allocated(mode);
+        Component name = Component.translatable("screen.relics_addon.mode." + mode.id());
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.translatable("screen.relics_addon.allocation_figures", name, count, count / minimum).withStyle(ChatFormatting.AQUA));
+        if (!sliderActive(target)) {
+            lines.add(refusal(HiveSettings.Refusal.BELOW_MINIMUM, minimum));
+            lines.add(Component.translatable("screen.relics_addon.allocation_free_only", free).withStyle(ChatFormatting.GRAY));
+        } else {
+            lines.add(Component.translatable("screen.relics_addon.allocation_minimum", minimum).withStyle(ChatFormatting.GRAY));
+            lines.add(Component.translatable("screen.relics_addon.allocation_slider.hint").withStyle(ChatFormatting.GRAY));
+        }
+        return lines;
     }
 
     private List<Component> allInTooltip(AttackMode mode) {
@@ -431,26 +497,26 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
     private void renderSwarm(GuiGraphics g) {
         int x = leftPos, y = topPos;
         int capacity = hiveCapacity();
-        HiveSettings settings = allocation();
+        HiveSettings settings = shown();
         HiveFlightPlan plan = HiveFlightPlan.of(hiveType(), capacity, settings);
         fit(g, Component.translatable("screen.relics_addon.swarm_title"), x + CX, y + CY + 1, 70, HoloPaint.TEXT, false, false);
         Component free = Component.translatable("screen.relics_addon.allocation_free", settings.free(capacity), capacity);
         fit(g, free, x + CX + 72, y + CY + 1, CR - CX - 72, settings.free(capacity) > 0 ? 0xFFE0B04A : HoloPaint.TEXT_DIM, false, false);
-        int labelW = STEPS_X - 3 - CX;
         for (AttackMode mode : AttackMode.values()) {
             int ry = y + SWARM_ROW_Y + mode.ordinal() * SWARM_ROW_H;
             HiveFlightPlan.Wing wing = plan.wing(mode);
             int count = settings.allocated(mode);
-            fit(g, Component.translatable("screen.relics_addon.allocation_row", Component.translatable("screen.relics_addon.mode." + mode.id()), count),
-                    x + CX, ry, labelW, count > 0 ? HoloPaint.TEXT : HoloPaint.TEXT_DIM, false, false);
+            Component label = Component.translatable("screen.relics_addon.allocation_row", Component.translatable("screen.relics_addon.mode." + mode.id()), count);
             Component detail = wing.grounded()
                     ? Component.translatable("screen.relics_addon.allocation_grounded", HiveFigures.minimum(hiveType(), mode))
                     : Component.translatable("screen.relics_addon.allocation_detail", HiveFigures.minimum(hiveType(), mode), wing.slots());
-            smallLine(g, detail, x + CX, ry + 9, labelW, wing.grounded() ? 0xFFF2837B : HoloPaint.TEXT_FAINT);
+            rowLabel(g, label, detail, ry, count > 0 ? HoloPaint.TEXT : HoloPaint.TEXT_DIM, wing.grounded() ? 0xFFF2837B : HoloPaint.TEXT_FAINT);
+            slider(g, mode.ordinal(), count, accent());
         }
-        int hy = y + SWARM_ROW_Y + AttackMode.values().length * SWARM_ROW_H;
-        fit(g, Component.translatable("screen.relics_addon.healers", settings.healerCount(capacity)), x + CX, hy, labelW, 0xFF5FCB7A, false, false);
-        smallLine(g, Component.translatable("screen.relics_addon.healers_detail", plan.healerSlots()), x + CX, hy + 9, labelW, HoloPaint.TEXT_FAINT);
+        int hy = y + SWARM_ROW_Y + HEALERS * SWARM_ROW_H;
+        rowLabel(g, Component.translatable("screen.relics_addon.healers", settings.healerCount(capacity)),
+                Component.translatable("screen.relics_addon.healers_detail", plan.healerSlots()), hy, 0xFF5FCB7A, HoloPaint.TEXT_FAINT);
+        slider(g, HEALERS, settings.healerCount(capacity), 0x5FCB7A);
         HiveSettings.Notice notice = settings.notice();
         if (notice != null && notice.kind() != HiveSettings.Notice.Kind.LEGACY) {
             Component name = Component.translatable("screen.relics_addon.mode." + notice.mode().id());
@@ -459,17 +525,25 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
         }
     }
 
-    /** One line of small text within {@code width}; cut with an ellipsis if it still does not fit. */
+    /** A row's first line: its name and count, then in small text its minimum and how many fly, up to the "All" button. */
+    private void rowLabel(GuiGraphics g, Component label, Component detail, int y, int color, int detailColor) {
+        int x = leftPos + CX, width = ALL_X - 4 - CX, labelWidth = Math.min(font.width(label), width / 2);
+        fit(g, label, x, y, labelWidth, color, false, false);
+        smallLine(g, detail, x + labelWidth + 4, y + 1, width - labelWidth - 4, detailColor);
+    }
+
+    /** One line of small text within {@code width}: it shrinks to fit, down to a little smaller, and is cut with an ellipsis past that. */
     private void smallLine(GuiGraphics g, Component text, int x, int y, int width, int color) {
-        g.pose().pushPose();
-        g.pose().translate(x, y, 0);
-        g.pose().scale(.75F, .75F, 1);
         String shown = text.getString();
-        int room = (int) (width / .75F);
+        float scale = Math.max(.6F, Math.min(.75F, width / (float) Math.max(1, font.width(shown))));
+        int room = (int) (width / scale);
         if (font.width(shown) > room) {
             shown = font.plainSubstrByWidth(shown, Math.max(0, room - font.width("…"))) + "…";
             clipped.add(new Clipped(x, y - 1, width, 8, text));
         }
+        g.pose().pushPose();
+        g.pose().translate(x, y + (.75F - scale) * 4, 0);
+        g.pose().scale(scale, scale, 1);
         g.drawString(font, shown, 0, 0, color, false);
         g.pose().popPose();
     }
@@ -597,6 +671,9 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
                 }
             }
         }
+        if (tab == Tab.SWARM) {
+            for (int target = 0; target <= HEALERS; target++) if (onSlider(target, mouseX, mouseY)) return sliderTooltip(target);
+        }
         if (tab == Tab.UPGRADES) {
             List<DeviceUpgrade> upgrades = DeviceUpgrade.availableUpgrades(role());
             for (int row = 0; row < upgrades.size(); row++) {
@@ -607,6 +684,15 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
     }
 
     @Override public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 && tab == Tab.SWARM && !help && role().isHive()) {
+            for (int target = 0; target <= HEALERS; target++) {
+                if (onSlider(target, mouseX, mouseY) && sliderActive(target)) {
+                    dragging = target;
+                    dragged = valueAt(target, mouseX);
+                    return true;
+                }
+            }
+        }
         if (button == 0) {
             for (Control control : controls) {
                 if (control.active.getAsBoolean() && inside(mouseX, mouseY, leftPos + control.x, topPos + control.y, control.w, control.h)) {
@@ -622,6 +708,28 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (dragging >= 0) {
+            dragged = valueAt(dragging, mouseX);
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    /** A slider let go sends its count to the server, which checks it like any other change. */
+    @Override public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (dragging >= 0) {
+            int target = dragging;
+            dragging = -1;
+            if (dragged != count(allocation(), target)) {
+                net.neoforged.neoforge.network.PacketDistributor.sendToServer(new HiveAllocationPayload(menu.containerId, target, dragged));
+                playClick();
+            }
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     private void playClick() {

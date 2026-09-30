@@ -1,8 +1,10 @@
 package dev.hurtify.relicsaddon.gametest.client;
 
 import dev.hurtify.relicsaddon.RelicsAddon;
+import dev.hurtify.relicsaddon.client.DeviceControlScreen;
 import dev.hurtify.relicsaddon.drone.AttackMode;
 import dev.hurtify.relicsaddon.drone.HiveSettings;
+import dev.hurtify.relicsaddon.menu.DeviceControlMenu;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.registry.ModItems;
@@ -51,14 +53,31 @@ import top.theillusivec4.curios.api.CuriosApi;
 public final class WorldScenarios {
     private static final String PROPERTY = "relics_addon.worldScenario";
 
-    /** One scene: the devices worn, the attackers (relative to the owner), the camera, and how long to film it. */
+    /**
+     * One scene: the devices worn, the attackers (relative to the owner), the camera, and how long to film it.
+     * A console scene ({@code console} set) films the hive's console on its Swarm tab instead.
+     */
     private record Scene(String name, RelicRole hive, int hiveLevel, AttackMode mode, RelicRole shield, List<Vec3> foes, boolean foesFight,
-                         Vec3 camera, Vec3 look, int warmTicks, int frames, int killFirstAtFrame, String foeType) {
+                         Vec3 camera, Vec3 look, int warmTicks, int frames, int killFirstAtFrame, String foeType, Console console) {
+        Scene(String name, RelicRole hive, int hiveLevel, AttackMode mode, RelicRole shield, List<Vec3> foes, boolean foesFight,
+              Vec3 camera, Vec3 look, int warmTicks, int frames, int killFirstAtFrame, String foeType) {
+            this(name, hive, hiveLevel, mode, shield, foes, foesFight, camera, look, warmTicks, frames, killFirstAtFrame, foeType, null);
+        }
+
         Scene(String name, RelicRole hive, int hiveLevel, AttackMode mode, RelicRole shield, List<Vec3> foes, boolean foesFight,
               Vec3 camera, Vec3 look, int warmTicks, int frames, int killFirstAtFrame) {
             this(name, hive, hiveLevel, mode, shield, foes, foesFight, camera, look, warmTicks, frames, killFirstAtFrame, "minecraft:husk");
         }
+
+        /** The console of a {@code hive} of {@code level} with {@code orders}, the mouse over {@code hover}'s slider (none if null). */
+        static Scene console(String name, RelicRole hive, int level, HiveSettings orders, AttackMode hover) {
+            return new Scene(name, hive, level, null, null, List.of(), false, new Vec3(0, 3, 4), new Vec3(0, 2, -4), 20, 2, -1, "minecraft:husk",
+                    new Console(orders, hover));
+        }
     }
+
+    /** What a console scene shows: the hive's orders, and which mode's slider the mouse rests on (none if {@code hover} is null). */
+    private record Console(HiveSettings orders, AttackMode hover) { }
 
     private static final List<Scene> SCENES = List.of(
             new Scene("droplet-multi", RelicRole.RF_HIVE, 10, AttackMode.DROPLET, null,
@@ -127,7 +146,12 @@ public final class WorldScenarios {
                     List.of(new Vec3(-8, 0, -58)), false, new Vec3(70, 3, 20), new Vec3(0, 150, -20), 200, 400, -1),
             // A slower, level 3 hive keeps its figures in the fan longer, close to the camera.
             new Scene("drone-closeup", RelicRole.RF_HIVE, 3, AttackMode.DROPLET, null,
-                    List.of(new Vec3(0, 0, -26)), false, new Vec3(2.5, 3.6, -2.2), new Vec3(0, 3.8, 3), 60, 50, -1));
+                    List.of(new Vec3(0, 0, -26)), false, new Vec3(2.5, 3.6, -2.2), new Vec3(0, 3.8, 3), 60, 50, -1),
+            // The console's Swarm tab: drones shared between all three modes and the healers, a slider hovered;
+            // Containment with no free drones for its tori, dimmed, with its reason; a Droplet squeezed out of the air by Barrage.
+            Scene.console("console-shared", RelicRole.RF_HIVE, 10, new HiveSettings(40, 608, 900, 432), AttackMode.DROPLET),
+            Scene.console("console-refused", RelicRole.RF_HIVE, 0, new HiveSettings(10, 16, 64, 0), AttackMode.CONTAINMENT),
+            Scene.console("console-no-room", RelicRole.MANA_HIVE, 10, new HiveSettings(0, 14, 1986, 0), null));
 
     /**
      * Armageddon scenes: where the owner fires (from the owner's feet) as filming starts, how far into the
@@ -194,6 +218,7 @@ public final class WorldScenarios {
                     frame = 0;
                     captureStart = minecraft.level.getGameTime();
                     Shot shot = ARMAGEDDON.get(plan.get(scene).name());
+                    if (plan.get(scene).console() != null) onServer(minecraft, level -> DeviceControlMenu.open(owner(level), true, 0));
                     if (shot != null) onServer(minecraft, level -> {
                         // Slowed down, every tick gets its frame: the film plays back smoothly at full speed.
                         level.getServer().tickRateManager().setTickRate(shot.tickRate());
@@ -206,6 +231,15 @@ public final class WorldScenarios {
                 }
             }
             case CAPTURE -> {
+                Console console = plan.get(scene).console();
+                if (console != null) {
+                    // The console opens a few ticks after it is asked for; then its Swarm tab, the mouse where the scene wants it.
+                    if (minecraft.screen instanceof DeviceControlScreen screen) {
+                        if (ticks == 0) screen.showSwarmTab();
+                        if (++ticks >= 8 && ticks % 4 == 0) due = true;
+                    }
+                    return;
+                }
                 attachCamera(minecraft);
                 // A key pressed into the game window must not open a screen over the shot.
                 if (minecraft.screen != null) minecraft.setScreen(null);
@@ -216,6 +250,28 @@ public final class WorldScenarios {
                 if (++ticks >= 10) next(minecraft);
             }
             case DONE -> { }
+        }
+    }
+
+    /** Rests the mouse on a console scene's button (or out of the way) before the frame is drawn, so its tooltip shows. */
+    @SubscribeEvent
+    public static void beforeFrame(RenderFrameEvent.Pre event) {
+        if (!enabled() || phase != Phase.CAPTURE || plan.get(scene).console() == null) return;
+        Minecraft minecraft = Minecraft.getInstance();
+        if (!(minecraft.screen instanceof DeviceControlScreen screen)) return;
+        Console console = plan.get(scene).console();
+        int[] at = console.hover() == null ? new int[]{2, 2} : screen.sliderAt(console.hover());
+        var window = minecraft.getWindow();
+        try {
+            for (String field : new String[]{"xpos", "ypos"}) {
+                var handle = net.minecraft.client.MouseHandler.class.getDeclaredField(field);
+                handle.setAccessible(true);
+                boolean x = field.equals("xpos");
+                handle.setDouble(minecraft.mouseHandler, (x ? at[0] : at[1]) * (double) (x ? window.getScreenWidth() : window.getScreenHeight())
+                        / (x ? window.getGuiScaledWidth() : window.getGuiScaledHeight()));
+            }
+        } catch (ReflectiveOperationException exception) {
+            RelicsAddon.LOGGER.warn("World scenario {}: could not place the mouse", plan.get(scene).name(), exception);
         }
     }
 
@@ -250,6 +306,7 @@ public final class WorldScenarios {
         if (frame >= current.frames() || burntOut) {
             RelicsAddon.LOGGER.info("World scenario {}: {} frames", current.name(), frame);
             onServer(minecraft, WorldScenarios::teardown);
+            if (current.console() != null && minecraft.player != null) minecraft.player.closeContainer();
             minecraft.setCameraEntity(minecraft.player);
             phase = Phase.TEARDOWN;
             ticks = 0;
@@ -330,7 +387,9 @@ public final class WorldScenarios {
         var curios = CuriosApi.getCuriosInventory(player).orElseThrow();
         var charms = curios.getStacksHandler(RelicRole.EQUIPMENT_SLOT).orElseThrow().getStacks();
         for (int slot = 0; slot < charms.getSlots(); slot++) charms.setStackInSlot(slot, ItemStack.EMPTY);
-        curios.setEquippedCurio(RelicRole.EQUIPMENT_SLOT, 0, device(scene.hive(), scene.hiveLevel(), scene.mode()));
+        ItemStack hive = device(scene.hive(), scene.hiveLevel(), scene.mode());
+        if (scene.console() != null) hive.set(ModDataComponents.HIVE_SETTINGS.get(), scene.console().orders());
+        curios.setEquippedCurio(RelicRole.EQUIPMENT_SLOT, 0, hive);
         if (scene.shield() != null) curios.setEquippedCurio(RelicRole.EQUIPMENT_SLOT, 1, device(scene.shield(), 0, null));
 
         FOES.clear();
