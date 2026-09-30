@@ -46,7 +46,15 @@ public final class AegisFields {
         }
     }
 
-    private static final Map<ResourceKey<Level>, Map<ShipHiveBlockEntity, Field>> FIELDS = new HashMap<>();
+    /** The shields of one level: kept by hive, and handed out as a list worked out once a tick. */
+    private static final class Standing {
+        final Map<ShipHiveBlockEntity, Field> fields = new IdentityHashMap<>();
+        List<Field> list = List.of();
+        long prunedAt = Long.MIN_VALUE / 4;
+        boolean changed;
+    }
+
+    private static final Map<ResourceKey<Level>, Standing> FIELDS = new HashMap<>();
     /** Create Big Cannons' shells by class: 2 a big cannon's, 1 an autocannon's, 0 not a cannon's at all. */
     private static final Map<Class<?>, Integer> CANNON = new ConcurrentHashMap<>();
     private static final String BIG_SHELL = "rbasamoyai.createbigcannons.munitions.big_cannon.AbstractBigCannonProjectile",
@@ -55,51 +63,72 @@ public final class AegisFields {
     static final float BIG_SHELL_COST = 40, ROUND_COST = 6;
 
     static void put(ServerLevel level, ShipHiveBlockEntity hive, AegisModule module, ShipFrame frame, AegisShape shape, ShipBrain brain, long now) {
-        FIELDS.computeIfAbsent(level.dimension(), ignored -> new IdentityHashMap<>()).put(hive, new Field(hive, module, frame, shape, brain, now));
+        Standing standing = FIELDS.computeIfAbsent(level.dimension(), ignored -> new Standing());
+        standing.fields.put(hive, new Field(hive, module, frame, shape, brain, now));
+        standing.changed = true;
     }
 
-    /** The shields standing in {@code level} now; those whose hives stopped putting them up are dropped. */
+    /** The shields standing in {@code level} now; those whose hives stopped putting them up are dropped, once a tick. */
     static List<Field> live(ServerLevel level, long now) {
-        Map<ShipHiveBlockEntity, Field> fields = FIELDS.get(level.dimension());
-        if (fields == null || fields.isEmpty()) return List.of();
-        fields.values().removeIf(field -> field.hive().isRemoved() || now - field.at() > 2 || field.at() > now || !field.module().raised());
-        return fields.isEmpty() ? List.of() : new ArrayList<>(fields.values());
+        Standing standing = FIELDS.get(level.dimension());
+        if (standing == null || standing.fields.isEmpty()) return List.of();
+        if (standing.prunedAt != now) {
+            standing.prunedAt = now;
+            standing.changed |= standing.fields.values().removeIf(field -> field.hive().isRemoved() || now - field.at() > 2 || field.at() > now
+                    || !field.module().raised());
+        }
+        if (standing.changed) {
+            standing.changed = false;
+            standing.list = List.copyOf(standing.fields.values());
+        }
+        return standing.list;
     }
 
     // --- shots -------------------------------------------------------------------------------------
 
-    /** A shot about to fly in through a shield this tick is stopped at the shell, if the shield can pay for it. */
+    /** A crossing of a shot through a shield's shell: which shield, how far along the shot's tick, and where on the shell. */
+    private record Crossing(Field field, double t, Vec3 unit) {
+    }
+
+    /**
+     * A shot about to fly in through a shield this tick is stopped at the shell, if the shield can pay for it; one that
+     * breaks a shield flies on to the next shield it meets. The crew's own shots fly out, and so do the shots of players
+     * who may not fight (with PvP off, they could not hurt anyone inside anyway).
+     */
     public static void onEntityTick(EntityTickEvent.Pre event) {
         if (event.isCanceled() || !(event.getEntity() instanceof Projectile projectile) || !(projectile.level() instanceof ServerLevel level)) return;
+        if (!FIELDS.containsKey(level.dimension()) || !interceptable(projectile)) return;
         long now = level.getGameTime();
         List<Field> fields = live(level, now);
-        if (fields.isEmpty() || !interceptable(projectile)) return;
-        Vec3 from = projectile.position(), motion = projectile.getDeltaMovement();
+        if (fields.isEmpty()) return;
         Entity owner = projectile.getOwner();
-        Field first = null;
-        double soonest = 2;
-        Vec3 where = null;
+        if (owner instanceof net.minecraft.world.entity.player.Player && !level.getServer().isPvpAllowed()) return;
+        Vec3 from = projectile.position(), motion = projectile.getDeltaMovement();
+        List<Crossing> crossings = null;
         for (Field field : fields) {
-            double reach = field.shape().reach() + motion.length() + 1;
-            if (field.middle(now).distanceToSqr(from) > reach * reach) continue;
-            if (owner != null && ShipAllies.friendly(field.brain(), owner, now)) continue;
             // The shot's way through the shield, seen from the ship: its own motion less the ship's.
             Vec3 relative = motion.subtract(field.frame().velocity());
+            double reach = field.shape().reach() + Math.max(motion.length(), relative.length()) + 1;
+            if (field.middle(now).distanceToSqr(from) > reach * reach) continue;
+            if (owner != null && ShipAllies.friendly(field.brain(), owner, now)) continue;
             Vec3 a = field.unit(from, now), b = field.unit(from.add(relative), now);
             double t = AegisShape.entry(a, b);
-            if (t < 0 || t >= soonest) continue;
-            first = field;
-            soonest = t;
-            where = a.lerp(b, t);
+            if (t < 0) continue;
+            if (crossings == null) crossings = new ArrayList<>(2);
+            crossings.add(new Crossing(field, t, a.lerp(b, t)));
         }
-        if (first == null) return;
+        if (crossings == null) return;
+        crossings.sort(java.util.Comparator.comparingDouble(Crossing::t));
         boolean big = cannon(projectile.getClass()) == 2;
-        if (!first.module().absorb(first.hive(), where, cost(projectile), now)) return;
-        Vec3 at = from.add(motion.scale(soonest));
-        flash(level, at, big ? 2 : projectile instanceof net.minecraft.world.entity.projectile.AbstractArrow ? 0 : 1);
-        if (owner instanceof LivingEntity shooter) first.brain().grudge(shooter, now);
-        projectile.discard();
-        event.setCanceled(true);
+        for (Crossing crossing : crossings) {
+            if (!crossing.field().module().absorb(crossing.field().hive(), crossing.unit(), cost(projectile), now)) continue;
+            Vec3 at = from.add(motion.scale(crossing.t()));
+            flash(level, at, big ? 2 : projectile instanceof net.minecraft.world.entity.projectile.AbstractArrow ? 0 : 1);
+            if (owner instanceof LivingEntity shooter) crossing.field().brain().grudge(shooter, now);
+            projectile.discard();
+            event.setCanceled(true);
+            return;
+        }
     }
 
     /** Shots a shield stops: whatever a personal shield stops, and Create Big Cannons' shells and rounds. */
@@ -139,7 +168,7 @@ public final class AegisFields {
         if (fields.isEmpty()) return;
         Entity attacker = source.getEntity();
         for (Field field : fields) {
-            if (!ShipAllies.friendly(field.brain(), victim, now) || attacker != null && ShipAllies.friendly(field.brain(), attacker, now)) continue;
+            if (attacker != null && ShipAllies.friendly(field.brain(), attacker, now) || !ShipAllies.friendly(field.brain(), victim, now)) continue;
             if (field.unit(victim.getBoundingBox().getCenter(), now).lengthSqr() >= 1) continue;
             Vec3 from = field.unit(origin, now);
             if (from.lengthSqr() <= 1) continue;
@@ -188,14 +217,14 @@ public final class AegisFields {
     private static void flash(ServerLevel level, Vec3 at, int size) {
         level.sendParticles(ParticleTypes.END_ROD, at.x, at.y, at.z, 6 + size * 10, .2 + size * .3, .2 + size * .3, .2 + size * .3, .05 + size * .05);
         if (size >= 2) level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y, at.z, 1, 0, 0, 0, 0);
-        level.playSound(null, at.x, at.y, at.z, size >= 2 ? SoundEvents.GENERIC_EXPLODE.value() : SoundEvents.AMETHYST_BLOCK_RESONATE,
-                SoundSource.BLOCKS, size >= 2 ? 2 : .8F, size >= 2 ? 1.4F : 1.6F);
+        dev.hurtify.relicsaddon.sound.RelicSounds.ship(level, at, dev.hurtify.relicsaddon.sound.RelicSounds.Ship.AEGIS_BLOCK, 1 + size * .5F, size >= 2 ? .75F : 1);
+        if (size >= 2) level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.BLOCKS, 1.5F, 1.3F);
     }
 
     @Nullable
     static Field of(ServerLevel level, ShipHiveBlockEntity hive) {
-        Map<ShipHiveBlockEntity, Field> fields = FIELDS.get(level.dimension());
-        return fields == null ? null : fields.get(hive);
+        Standing standing = FIELDS.get(level.dimension());
+        return standing == null ? null : standing.fields.get(hive);
     }
 
     /** Once a second, the shields whose hives stopped putting them up are let go of. */
@@ -205,8 +234,9 @@ public final class AegisFields {
             ServerLevel level = event.getServer().getLevel(entry.getKey());
             if (level == null) return true;
             long now = level.getGameTime();
-            entry.getValue().values().removeIf(field -> field.hive().isRemoved() || now - field.at() > 40 || field.at() > now);
-            return entry.getValue().isEmpty();
+            Standing standing = entry.getValue();
+            standing.changed |= standing.fields.values().removeIf(field -> field.hive().isRemoved() || now - field.at() > 40 || field.at() > now);
+            return standing.fields.isEmpty();
         });
     }
 

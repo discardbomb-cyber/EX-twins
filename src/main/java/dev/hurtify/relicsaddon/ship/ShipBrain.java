@@ -197,7 +197,10 @@ public final class ShipBrain {
             ranked.add(threat);
         }
         ranked.sort(Comparator.comparingDouble((Threat threat) -> worth.get(threat.entity())).reversed());
-        for (Threat threat : ranked) if (reachable.test(threat.entity())) return threat.entity();
+        // The board is up to half a second old: whoever has since become crew, or stopped being a threat, is passed over.
+        for (Threat threat : ranked) {
+            if (ShipAllies.threat(this, threat.entity(), now) > 0 && reachable.test(threat.entity())) return threat.entity();
+        }
         return null;
     }
 
@@ -268,7 +271,7 @@ public final class ShipBrain {
         for (ShipBrain brain : BRAINS.values()) {
             for (ShipHiveBlockEntity hive : brain.members.keySet()) {
                 lines.add((brain.ship() == null ? "base" : "ship " + brain.ship()) + " " + hive.kind() + " at " + hive.getBlockPos().toShortString()
-                        + ": " + hive.module().status().getString() + ", " + hive.energy().getEnergyStored() + " FE, "
+                        + ": " + hive.status().text().getString() + ", " + hive.energy().getEnergyStored() + " FE, "
                         + brain.threats(brain.level.getGameTime()).size() + " threats");
             }
         }

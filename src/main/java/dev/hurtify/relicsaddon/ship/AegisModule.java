@@ -3,11 +3,10 @@ package dev.hurtify.relicsaddon.ship;
 import dev.hurtify.relicsaddon.AddonConfig;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.ChatFormatting;
+import dev.hurtify.relicsaddon.sound.RelicSounds;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.Vec3;
 
@@ -16,7 +15,8 @@ import net.minecraft.world.phys.Vec3;
  * shield stops shots flying in at the ship (cannon shells too), takes the blows meant for the crew from outside it and
  * keeps explosions outside from tearing at the hull, paying for each from its charge. The charge comes back from the
  * hive's FE once nothing has struck it for a few seconds; a blow bigger than what is left breaks the shield, which then
- * takes a few seconds to come back up. The drones lean towards the side the ship's threats are on.
+ * takes a few seconds to come back up. The drones lean towards the side the ship's threats are on. A hive newly set
+ * down raises an empty shield, which fills from its FE.
  */
 public final class AegisModule implements ShipModule {
     /** A full shield's charge; how long a broken one takes to come back up, and with how much. */
@@ -30,7 +30,7 @@ public final class AegisModule implements ShipModule {
     }
 
     // Kept with the hive, and sent to clients.
-    private int charge = FULL;
+    private int charge;
     private boolean down;
     private long downAt = NEVER;
 
@@ -61,6 +61,7 @@ public final class AegisModule implements ShipModule {
             raised = up;
             changedAt = now;
             changed = true;
+            if (up) RelicSounds.ship(level, frame.middle(), RelicSounds.Ship.AEGIS_RAISE, 1.5F, 1);
         }
         if (raised) {
             if (now - hitAt >= REGEN_DELAY && charge < FULL && hive.draw(regenCost())) charge = Math.min(FULL, charge + REGEN);
@@ -106,6 +107,9 @@ public final class AegisModule implements ShipModule {
         hits.add(new Hit(where, now, holds ? Math.min(1, cost / 20F) : 1));
         if (charge <= 0) {
             charge = 0;
+            if (hive.getLevel() instanceof ServerLevel level) {
+                RelicSounds.ship(level, ShipFrame.of(hive).middle(), RelicSounds.Ship.AEGIS_BREAK, 2, 1);
+            }
             down = true;
             downAt = now;
             raised = false;
@@ -124,11 +128,11 @@ public final class AegisModule implements ShipModule {
     }
 
     @Override
-    public Component status() {
-        if (down) return Component.translatable("ship.relics_addon.status.aegis.down").withStyle(ChatFormatting.RED);
-        if (unpowered) return Component.translatable("ship.relics_addon.status.unpowered").withStyle(ChatFormatting.GOLD);
-        if (!raised) return Component.translatable("ship.relics_addon.status.watching").withStyle(ChatFormatting.GREEN);
-        return Component.translatable("ship.relics_addon.status.aegis.up", charge * 100 / FULL).withStyle(ChatFormatting.AQUA);
+    public ShipStatus.Line status() {
+        if (down) return ShipStatus.AEGIS_DOWN.line();
+        if (unpowered) return ShipStatus.UNPOWERED.line();
+        if (!raised) return ShipStatus.WATCHING.line();
+        return ShipStatus.AEGIS_UP.with(charge * 100 / FULL);
     }
 
     public int charge() {
@@ -165,7 +169,7 @@ public final class AegisModule implements ShipModule {
 
     @Override
     public void load(CompoundTag tag) {
-        charge = tag.contains("Charge") ? Math.clamp(tag.getInt("Charge"), 0, FULL) : FULL;
+        charge = Math.clamp(tag.getInt("Charge"), 0, FULL);
         down = tag.getBoolean("Down");
         downAt = tag.contains("DownAt") ? tag.getLong("DownAt") : NEVER;
     }

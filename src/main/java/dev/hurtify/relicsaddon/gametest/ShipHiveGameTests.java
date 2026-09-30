@@ -5,6 +5,7 @@ import static dev.hurtify.relicsaddon.gametest.DeviceTestSupport.ARENA;
 import dev.hurtify.relicsaddon.registry.ModBlocks;
 import dev.hurtify.relicsaddon.AddonConfig;
 import dev.hurtify.relicsaddon.ship.AegisModule;
+import dev.hurtify.relicsaddon.ship.AegisShape;
 import dev.hurtify.relicsaddon.ship.EscortModule;
 import dev.hurtify.relicsaddon.ship.LanceModule;
 import dev.hurtify.relicsaddon.ship.ShipDamage;
@@ -198,8 +199,13 @@ public final class ShipHiveGameTests {
             long now = helper.getLevel().getGameTime();
             helper.assertFalse(module(scene.hive).absorb(scene.hive, new Vec3(1, 0, 0), AegisModule.FULL + 1, now), "A blow bigger than the charge gets through");
             helper.assertTrue(module(scene.hive).down() && !module(scene.hive).raised(), "and breaks the shield");
-            Arrow arrow = shoot(helper, scene.foe, new Vec3(11.5, 2, 11.5), new Vec3(2.5, 2, 2.5));
-            helper.runAfterDelay(4, () -> helper.assertFalse(arrow.isRemoved() && module(scene.hive).charge() > 0, "A broken shield stops nothing"));
+            // Over the owner's head, so nothing but the shell could stop it on its way in.
+            Arrow arrow = shoot(helper, scene.foe, new Vec3(11.5, 3.5, 11.5), new Vec3(1.5, 4.5, 1.5));
+            Vec3 middle = helper.absoluteVec(Vec3.atCenterOf(AEGIS));
+            helper.runAfterDelay(4, () -> {
+                helper.assertTrue(arrow.position().distanceTo(middle) < AegisShape.BASE, "The arrow has come in past the shell");
+                helper.assertFalse(arrow.isRemoved(), "A broken shield stops nothing");
+            });
             helper.runAfterDelay(AegisModule.REBOOT + 5, () -> {
                 helper.assertTrue(module(scene.hive).raised(), "It comes back up by itself");
                 helper.assertTrue(module(scene.hive).charge() >= AegisModule.REBOOT_CHARGE, "with a part of its charge");
@@ -280,6 +286,12 @@ public final class ShipHiveGameTests {
         double leash = AddonConfig.ESCORT_LEASH.get();
         AddonConfig.ESCORT_LEASH.set(8.0);
         Scene scene = escort(helper, new Vec3(11.5, 1, 11.5));
+        Vec3 hiveAt = helper.absoluteVec(Vec3.atCenterOf(AEGIS));
+        helper.onEachTick(() -> {
+            for (EscortModule.Wing wing : escortOf(scene.hive).wings()) {
+                if (wing.position() != null) helper.assertTrue(wing.position().distanceTo(hiveAt) < 8 + 3, "The wings keep within their leash");
+            }
+        });
         helper.runAfterDelay(120, () -> {
             AddonConfig.ESCORT_LEASH.set(leash);
             helper.assertTrue(scene.husk.getHealth() == scene.husk.getMaxHealth(), "A monster beyond the leash is left alone");
@@ -301,6 +313,9 @@ public final class ShipHiveGameTests {
         while (hive.energy().receiveEnergy(Integer.MAX_VALUE, false) > 0) {
             // Filled a tick's worth of input at a time.
         }
+        var charges = hive.saveCustomOnly(helper.getLevel().registryAccess());
+        charges.getCompound("Module").putIntArray("Charges", new int[]{EscortModule.FULL, EscortModule.FULL});
+        hive.loadCustomOnly(charges, helper.getLevel().registryAccess());
         Husk husk = null;
         if (huskAt != null) {
             husk = EntityType.HUSK.create(helper.getLevel());
@@ -317,6 +332,25 @@ public final class ShipHiveGameTests {
 
     private static EscortModule escortOf(ShipHiveBlockEntity hive) {
         return (EscortModule) hive.module();
+    }
+
+    @GameTest(template = ARENA, batch = "ship_aegis_fills", timeoutTicks = 100)
+    public static void aNewAegisFillsItsShieldFromItsBattery(GameTestHelper helper) {
+        Aegis scene = aegis(helper);
+        setModule(scene.hive, "Charge", 0);
+        int stored = scene.hive.energy().getEnergyStored();
+        helper.runAfterDelay(30, () -> {
+            helper.assertTrue(module(scene.hive).charge() > 0, "The shield fills");
+            helper.assertTrue(scene.hive.energy().getEnergyStored() < stored, "from the hive's battery");
+            helper.succeed();
+        });
+    }
+
+    /** Sets a number the hive's module keeps with it, as if it had been saved so. */
+    private static void setModule(ShipHiveBlockEntity hive, String key, int value) {
+        var tag = hive.saveCustomOnly(hive.getLevel().registryAccess());
+        tag.getCompound("Module").putInt(key, value);
+        hive.loadCustomOnly(tag, hive.getLevel().registryAccess());
     }
 
     private record Aegis(ShipHiveBlockEntity hive, ServerPlayer owner, Husk foe) { }
@@ -337,6 +371,7 @@ public final class ShipHiveGameTests {
         while (hive.energy().receiveEnergy(Integer.MAX_VALUE, false) > 0) {
             // Filled a tick's worth of input at a time.
         }
+        setModule(hive, "Charge", AegisModule.FULL);
         Husk foe = EntityType.HUSK.create(helper.getLevel());
         helper.assertTrue(foe != null, "Husk fixture");
         Vec3 at = helper.absoluteVec(new Vec3(11.5, 1, 11.5));

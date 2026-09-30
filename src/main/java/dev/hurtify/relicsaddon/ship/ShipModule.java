@@ -1,7 +1,6 @@
 package dev.hurtify.relicsaddon.ship;
 
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 
 /**
@@ -17,8 +16,8 @@ public interface ShipModule {
     default void stop(ShipHiveBlockEntity hive) {
     }
 
-    /** A line on what the drones are doing, for the hive's status. */
-    Component status();
+    /** What the drones are doing, for the hive's status. */
+    ShipStatus.Line status();
 
     /** What lasts, saved with the hive (and sent to clients). */
     void save(CompoundTag tag);

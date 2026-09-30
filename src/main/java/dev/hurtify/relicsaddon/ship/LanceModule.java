@@ -3,9 +3,8 @@ package dev.hurtify.relicsaddon.ship;
 import dev.hurtify.relicsaddon.AddonConfig;
 import java.util.List;
 import javax.annotation.Nullable;
-import net.minecraft.ChatFormatting;
+import dev.hurtify.relicsaddon.sound.RelicSounds;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
@@ -83,14 +82,15 @@ public final class LanceModule implements ShipModule {
             Vec3 from = LanceShape.focus(frame.centre(), normal, aim);
             Vec3 end = ShipRays.reach(level, from, aim, ShipBrain.range());
             LivingEntity first = firstInPath(level, from, end);
-            reach = (float) (first == null ? end.distanceTo(from) : entry(first, from, end).distanceTo(from));
+            Vec3 cut = first == null ? null : entry(first, from, end);
+            reach = (float) (cut == null ? end.distanceTo(from) : cut.distanceTo(from));
             boolean ready = now - deployedAt >= LanceShape.DEPLOY_TICKS && Math.acos(Math.clamp(aim.dot(want), -1, 1)) < ALIGNED;
             if (ready && !overheated) {
                 blocked = first != null && !(ShipAllies.threat(brain, first, now) > 0);
                 unpowered = !blocked && !hive.draw(energyPerTick());
                 if (!blocked && !unpowered) {
                     firing = true;
-                    if (now % PULSE == 0 && first != null) burn(hive, level, first);
+                    if (now % PULSE == 0 && first != null) burn(hive, level, first, from);
                 }
             }
         } else {
@@ -109,7 +109,9 @@ public final class LanceModule implements ShipModule {
         if (firing && nowHeat >= HOT) {
             overheated = true;
             firing = false;
+            RelicSounds.ship(level, mount, RelicSounds.Ship.LANCE_OVERHEAT, 1.2F, 1);
         } else if (overheated && nowHeat == 0) overheated = false;
+        if (firing && !wasFiring) RelicSounds.ship(level, LanceShape.focus(frame.centre(), normal, aim), RelicSounds.Ship.LANCE_IGNITE, 1.2F, 1);
         heat = nowHeat;
         heatAt = now;
         boolean turned = Math.acos(Math.clamp(aimLocal.dot(wasAim), -1, 1)) > AIM_SYNC || Math.abs(reach - wasReach) > REACH_SYNC;
@@ -167,8 +169,8 @@ public final class LanceModule implements ShipModule {
     }
 
     /** One strike of the beam on the creature it meets first (always a threat: the turret holds its fire otherwise). */
-    private static void burn(ShipHiveBlockEntity hive, ServerLevel level, LivingEntity victim) {
-        victim.hurt(level.damageSources().source(ShipDamage.LANCE, hive.owner() == null ? null : level.getPlayerByUUID(hive.owner())), damage());
+    private static void burn(ShipHiveBlockEntity hive, ServerLevel level, LivingEntity victim, Vec3 from) {
+        victim.hurt(ShipDamage.source(level, ShipDamage.LANCE, hive, from), damage());
     }
 
     /** The first creature a line from {@code from} to {@code to} passes through (with a little room round each), or null. */
@@ -179,7 +181,9 @@ public final class LanceModule implements ShipModule {
         LivingEntity first = null;
         double best = Double.MAX_VALUE;
         for (LivingEntity entity : near) {
-            double distance = entry(entity, from, to).distanceToSqr(from);
+            Vec3 cut = entry(entity, from, to);
+            if (cut == null) continue;
+            double distance = cut.distanceToSqr(from);
             if (distance < best) {
                 best = distance;
                 first = entity;
@@ -188,11 +192,12 @@ public final class LanceModule implements ShipModule {
         return first;
     }
 
-    /** Where the line from {@code from} to {@code to} enters {@code entity} (its box with a little room), or {@code to} if it misses it. */
+    /** Where the line from {@code from} to {@code to} enters {@code entity} (its box with a little room), or null if it misses it. */
+    @Nullable
     private static Vec3 entry(LivingEntity entity, Vec3 from, Vec3 to) {
         AABB box = entity.getBoundingBox().inflate(.3);
         if (box.contains(from)) return from;
-        return box.clip(from, to).orElse(to);
+        return box.clip(from, to).orElse(null);
     }
 
     private static int energyPerTick() {
@@ -209,13 +214,18 @@ public final class LanceModule implements ShipModule {
     }
 
     @Override
-    public Component status() {
-        if (overheated) return Component.translatable("ship.relics_addon.status.lance.overheated").withStyle(ChatFormatting.RED);
-        if (blocked) return Component.translatable("ship.relics_addon.status.lance.blocked").withStyle(ChatFormatting.GOLD);
-        if (unpowered) return Component.translatable("ship.relics_addon.status.unpowered").withStyle(ChatFormatting.GOLD);
-        if (firing) return Component.translatable("ship.relics_addon.status.lance.firing").withStyle(ChatFormatting.LIGHT_PURPLE);
-        if (targetId >= 0) return Component.translatable("ship.relics_addon.status.lance.aiming").withStyle(ChatFormatting.LIGHT_PURPLE);
-        return Component.translatable("ship.relics_addon.status.watching").withStyle(ChatFormatting.GREEN);
+    public ShipStatus.Line status() {
+        if (overheated) return ShipStatus.LANCE_OVERHEATED.line();
+        if (blocked) return ShipStatus.LANCE_BLOCKED.line();
+        if (unpowered) return ShipStatus.UNPOWERED.line();
+        if (firing) return ShipStatus.LANCE_FIRING.line();
+        if (targetId >= 0) return ShipStatus.LANCE_AIMING.line();
+        return ShipStatus.WATCHING.line();
+    }
+
+    /** The turret's heat as the server has it (the window's meter). */
+    public int heat() {
+        return heat;
     }
 
     /** The turret's heat at {@code time} (a client's frame time is fine): what was sent, run on at the rate it was going. */

@@ -13,9 +13,12 @@ import net.minecraft.world.phys.Vec3;
  * @param radii  its half-widths along the ship's own axes
  */
 public record AegisShape(Vec3 centre, Vec3 radii) {
-    /** Room kept between the ship's blocks and the shell, as a share of the hull's size and in blocks. */
-    private static final double GROW = 1.25, MARGIN = 2.5;
-    /** Least and most half-width of the shell, and the radius of a base's dome. */
+    /**
+     * The shell round a box of the ship's blocks: its half-widths times the square root of three reach the box's
+     * corners (the smallest such ellipsoid), with a little room besides.
+     */
+    private static final double GROW = Math.sqrt(3), MARGIN = 1.5;
+    /** Least and most half-width of the shell (past the most, the corners of a huge ship's box stick out), and the radius of a base's dome. */
     public static final double LEAST = 4, MOST = 96, BASE = 8;
 
     public static AegisShape of(ShipFrame frame, BlockPos hive) {

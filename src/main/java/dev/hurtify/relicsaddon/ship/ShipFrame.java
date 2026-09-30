@@ -25,7 +25,7 @@ import org.joml.Vector3d;
  * @param velocity    how fast the hive is moving with its ship, in blocks a tick
  * @param bounds      the whole ship's box in the world (the block's own off a ship)
  * @param hull        the ship's blocks' box in its own plot, the frame {@link #toWorld} carries out (the block's own off a ship)
- * @param pose        the ship's pose, or null off a ship
+ * @param pose        the ship's pose as it was when the frame was taken, or null off a ship
  */
 public record ShipFrame(@Nullable UUID ship, Vec3 centre, Quaterniondc orientation, Vec3 velocity, AABB bounds, AABB hull, @Nullable Pose3dc pose) {
     private static final Quaterniondc LEVEL = new Quaterniond();
@@ -53,7 +53,9 @@ public record ShipFrame(@Nullable UUID ship, Vec3 centre, Quaterniondc orientati
         return new ShipFrame(null, centre, LEVEL, Vec3.ZERO, block, block, null);
     }
 
-    private static ShipFrame carried(Level level, Vec3 centre, SubLevelAccess ship, Pose3dc pose) {
+    private static ShipFrame carried(Level level, Vec3 centre, SubLevelAccess ship, Pose3dc live) {
+        // Sable moves its ships by changing their pose in place: the frame keeps a copy, true at this moment.
+        Pose3dc pose = new dev.ryanhcode.sable.companion.math.Pose3d(live);
         // Sable gives the velocity in blocks a second, like its physics; everything here moves by the tick.
         Vec3 velocity = SableCompanion.INSTANCE.getVelocity(level, ship, centre);
         return new ShipFrame(ship.getUniqueId(), pose.transformPosition(centre), pose.orientation(), velocity == null ? Vec3.ZERO : velocity.scale(1 / 20.0),
