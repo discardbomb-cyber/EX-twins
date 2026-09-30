@@ -125,6 +125,30 @@ public final class WorldScenarios {
             // Looking up from beside the blast at the column rising into the sky, the white it dissolves into and the moon.
             new Scene("mana-armageddon-sky", RelicRole.MANA_HIVE, 10, AttackMode.DROPLET, RelicRole.MANA_SHIELD,
                     List.of(new Vec3(-8, 0, -58)), false, new Vec3(70, 3, 20), new Vec3(0, 150, -20), 200, 400, -1),
+            // RF Armageddon in one take, from the swarm building the relay hologram to the crater after the blast: the
+            // hologram over the owner (an RF shield feeds it) launches its ball at a crowd 150 blocks off.
+            new Scene("rf-armageddon", RelicRole.RF_HIVE, 10, AttackMode.DROPLET, RelicRole.RF_SHIELD,
+                    List.of(new Vec3(-6, 0, -148), new Vec3(4, 0, -152), new Vec3(9, 0, -145), new Vec3(-10, 0, -156), new Vec3(0, 0, -160)), false,
+                    new Vec3(14, 13, 16), new Vec3(-1, 9, -40), 40, 2600, -1),
+            // The hologram being built and its panels starting to open, from in front and to the side.
+            new Scene("rf-armageddon-hologram", RelicRole.RF_HIVE, 10, AttackMode.DROPLET, RelicRole.RF_SHIELD,
+                    List.of(new Vec3(0, 0, -60)), false, new Vec3(13, 14, -17), new Vec3(0, 9.6, -3), 40, 270, -1),
+            // From behind the owner: the full cross and the ball before the nose, the panels snapping shut and the ball leaving.
+            new Scene("rf-armageddon-charged", RelicRole.RF_HIVE, 10, AttackMode.DROPLET, RelicRole.RF_SHIELD,
+                    List.of(new Vec3(0, 0, -60)), false, new Vec3(4, 12, 11), new Vec3(0, 9.6, -10), 60, 200, -1),
+            // From the side of its way: the ball's heavy flight and its bolts, its hover while the world goes grey, its sinking.
+            new Scene("rf-armageddon-flight", RelicRole.RF_HIVE, 10, AttackMode.DROPLET, RelicRole.RF_SHIELD,
+                    List.of(new Vec3(-8, 0, -118)), false, new Vec3(62, 24, -48), new Vec3(0, 20, -85), 200, 340, -1),
+            // The blast from 125 blocks off: the dome of glass heating, the flash, the silhouettes and the shock front passing.
+            new Scene("rf-armageddon-blast", RelicRole.RF_HIVE, 10, AttackMode.DROPLET, RelicRole.RF_SHIELD,
+                    List.of(new Vec3(-8, 0, -118), new Vec3(6, 0, -126)), false, new Vec3(95, 22, -40), new Vec3(0, 12, -120), 200, 420, -1),
+            // Looking down on it all from over the edge: the dome, the flash and the silhouettes, then the crater, its rim, the glow
+            // fading at its heart and the discharges over its floor.
+            new Scene("rf-armageddon-crater", RelicRole.RF_HIVE, 10, AttackMode.DROPLET, RelicRole.RF_SHIELD,
+                    List.of(new Vec3(-8, 0, -118)), false, new Vec3(30, 62, -52), new Vec3(0, 0, -120), 200, 300, -1),
+            // The same from over the edge on a server that keeps its land: no crater, only a rim of light-lifted blocks while the blast lasts.
+            new Scene("rf-armageddon-safe", RelicRole.RF_HIVE, 10, AttackMode.DROPLET, RelicRole.RF_SHIELD,
+                    List.of(new Vec3(-8, 0, -118)), false, new Vec3(30, 62, -52), new Vec3(0, 0, -120), 200, 300, -1),
             // A slower, level 3 hive keeps its figures in the fan longer, close to the camera.
             new Scene("drone-closeup", RelicRole.RF_HIVE, 3, AttackMode.DROPLET, null,
                     List.of(new Vec3(0, 0, -26)), false, new Vec3(2.5, 3.6, -2.2), new Vec3(0, 3.8, 3), 60, 50, -1));
@@ -135,12 +159,28 @@ public final class WorldScenarios {
      * ordinary health.
      */
     private record Shot(Vec3 aim, int headStart, int cadence, float tickRate) { }
-    private static final java.util.Map<String, Shot> ARMAGEDDON = java.util.Map.of(
-            "armageddon", new Shot(new Vec3(0, 0, -150), 0, 1, 20), "armageddon-close", new Shot(new Vec3(0, 0, -60), 1000, 2, 20),
-            "armageddon-devour", new Shot(new Vec3(0, 0, -60), 1150, 1, 5), "armageddon-blast", new Shot(new Vec3(0, 0, -60), 1265, 1, 5),
-            "mana-armageddon", new Shot(new Vec3(0, 0, -150), 0, 1, 20), "mana-armageddon-flowers", new Shot(new Vec3(0, 0, -60), 300, 2, 20),
-            "mana-armageddon-blast", new Shot(new Vec3(0, 0, -60), 1160, 1, 20), "mana-armageddon-seal", new Shot(new Vec3(0, 0, -60), 1300, 1, 20),
-            "mana-armageddon-sky", new Shot(new Vec3(0, 0, -60), 1423, 3, 20), "mana-armageddon-streams", new Shot(new Vec3(0, 0, -60), 1190, 1, 20));
+    private static final java.util.Map<String, Shot> ARMAGEDDON = java.util.Map.ofEntries(
+            java.util.Map.entry("armageddon", new Shot(new Vec3(0, 0, -150), 0, 1, 20)),
+            java.util.Map.entry("armageddon-close", new Shot(new Vec3(0, 0, -60), 1000, 2, 20)),
+            java.util.Map.entry("armageddon-devour", new Shot(new Vec3(0, 0, -60), 1150, 1, 5)),
+            java.util.Map.entry("armageddon-blast", new Shot(new Vec3(0, 0, -60), 1265, 1, 5)),
+            java.util.Map.entry("mana-armageddon", new Shot(new Vec3(0, 0, -150), 0, 1, 20)),
+            java.util.Map.entry("mana-armageddon-flowers", new Shot(new Vec3(0, 0, -60), 300, 2, 20)),
+            java.util.Map.entry("mana-armageddon-blast", new Shot(new Vec3(0, 0, -60), 1160, 1, 20)),
+            java.util.Map.entry("mana-armageddon-seal", new Shot(new Vec3(0, 0, -60), 1300, 1, 20)),
+            java.util.Map.entry("mana-armageddon-sky", new Shot(new Vec3(0, 0, -60), 1423, 3, 20)),
+            java.util.Map.entry("mana-armageddon-streams", new Shot(new Vec3(0, 0, -60), 1190, 1, 20)),
+            java.util.Map.entry("rf-armageddon", new Shot(new Vec3(0, 0, -150), 0, 1, 20)),
+            java.util.Map.entry("rf-armageddon-hologram", new Shot(new Vec3(0, 0, -60), 0, 2, 20)),
+            java.util.Map.entry("rf-armageddon-charged", new Shot(new Vec3(0, 0, -60), 1050, 1, 20)),
+            java.util.Map.entry("rf-armageddon-flight", new Shot(new Vec3(0, 0, -120), 1190, 1, 20)),
+            java.util.Map.entry("rf-armageddon-blast", new Shot(new Vec3(0, 0, -120), 1440, 1, 20)),
+            java.util.Map.entry("rf-armageddon-crater", new Shot(new Vec3(0, 0, -120), 1499, 3, 20)),
+            java.util.Map.entry("rf-armageddon-safe", new Shot(new Vec3(0, 0, -120), 1499, 3, 20)));
+    /** Scenes played on a server that keeps its land (Armageddon's safe mode), put back as it was when they end. */
+    private static final java.util.Set<String> SAFE = java.util.Set.of("rf-armageddon-safe");
+    /** Whether the server kept its land before a safe scene changed it; null while no safe scene has. */
+    private static Boolean wasSafe;
     /** How many frames may be on their way to disk at once. */
     private static final int GRABS_IN_FLIGHT = 6;
     /** When the current take started, in game time: an Armageddon take ends when its blast has burnt out. */
@@ -244,8 +284,11 @@ public final class WorldScenarios {
             if (!FOES.isEmpty() && level.getEntity(FOES.getFirst()) instanceof net.minecraft.world.entity.LivingEntity foe) foe.kill();
         });
         Shot filming = ARMAGEDDON.get(current.name());
-        int burnsOut = current.hive() == RelicRole.MANA_HIVE ? dev.hurtify.relicsaddon.drone.ManaArmageddon.IMPACT + dev.hurtify.relicsaddon.drone.ManaArmageddon.QUIET + 40
-                : dev.hurtify.relicsaddon.drone.Armageddon.IMPACT + dev.hurtify.relicsaddon.drone.Armageddon.GONE + 40;
+        int burnsOut = switch (current.hive()) {
+            case MANA_HIVE -> dev.hurtify.relicsaddon.drone.ManaArmageddon.IMPACT + dev.hurtify.relicsaddon.drone.ManaArmageddon.QUIET + 40;
+            case RF_HIVE -> dev.hurtify.relicsaddon.drone.RfArmageddon.RECOVER + 40;
+            default -> dev.hurtify.relicsaddon.drone.Armageddon.IMPACT + dev.hurtify.relicsaddon.drone.Armageddon.GONE + 40;
+        };
         boolean burntOut = filming != null && minecraft.level != null && minecraft.level.getGameTime() - captureStart >= burnsOut - filming.headStart();
         if (frame >= current.frames() || burntOut) {
             RelicsAddon.LOGGER.info("World scenario {}: {} frames", current.name(), frame);
@@ -302,6 +345,10 @@ public final class WorldScenarios {
     }
 
     private static void setup(ServerLevel level, Scene scene) {
+        if (SAFE.contains(scene.name())) {
+            if (wasSafe == null) wasSafe = dev.hurtify.relicsaddon.AddonConfig.ARMAGEDDON_SAFE.get();
+            dev.hurtify.relicsaddon.AddonConfig.ARMAGEDDON_SAFE.set(true);
+        }
         ServerPlayer player = owner(level);
         if (origin == null) {
             int x = player.getBlockX(), z = player.getBlockZ();
@@ -387,6 +434,10 @@ public final class WorldScenarios {
     }
 
     private static void teardown(ServerLevel level) {
+        if (wasSafe != null) {
+            dev.hurtify.relicsaddon.AddonConfig.ARMAGEDDON_SAFE.set(wasSafe);
+            wasSafe = null;
+        }
         level.getServer().tickRateManager().setTickRate(20);
         clear(level);
         backdrop(level, false);
