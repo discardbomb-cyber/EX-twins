@@ -72,6 +72,9 @@ public final class HiveCombatController {
     private static final Map<UUID, EnumMap<HiveType, List<Flight>>> FLIGHTS = new HashMap<>();
     /** Creatures that attacked each owner (or the owner's field) lately: entity id to the tick of the attack. */
     private static final Map<UUID, Map<Integer, Long>> ATTACKERS = new HashMap<>();
+    /** When each creature last swung at a drone, and how often it may. */
+    private static final Map<LivingEntity, Long> SWUNG = new java.util.WeakHashMap<>();
+    private static final int SWING_TICKS = 20;
     /** How long an attack keeps its attacker a target, and how far round the owner creatures targeting them are sought. */
     private static final int ATTACK_MEMORY = 100, ATTACKER_SCAN = 32;
 
@@ -173,12 +176,16 @@ public final class HiveCombatController {
             fight(owner, level, stack, type, state, fight, units, perDrone, interval, shots, now);
         }
 
-        // Each engaged creature swings at drones that come within its reach; a hit drone heads home and its lane sends the next.
+        // Each engaged creature swings at a drone as soon as one comes within its reach, once a second at most; a hit
+        // drone heads home and its lane sends the next. Checked every tick: figures arriving in step with a fixed
+        // second would otherwise be missed every time.
         List<HiveStackState.Unit> next = units;
-        if (now % 20 == 7) {
+        {
             Vec3[][] at = new Vec3[fights.size()][];
             for (LivingEntity foe : foes) {
                 if (!(foe instanceof Mob mob) || HiveContainment.pinned(mob) || !mob.getAttributes().hasAttribute(Attributes.ATTACK_DAMAGE)) continue;
+                Long swung = SWUNG.get(mob);
+                if (swung != null && now - swung < SWING_TICKS && now >= swung) continue;
                 double attack = mob.getAttributeValue(Attributes.ATTACK_DAMAGE);
                 AABB reach = mob.getBoundingBox().inflate(1.5);
                 int closest = -1;
@@ -201,6 +208,7 @@ public final class HiveCombatController {
                 }
                 if (attack > 0 && closest >= 0) {
                     next = hitDrone(owner, stack, type, next, closest, attack >= 6 ? 2 : 1, now);
+                    SWUNG.put(mob, now);
                     shots.add(new HiveCombatState.Shot(closest, now, HiveCombatState.DRONE_HIT, struck.x, struck.y, struck.z, struck.x, struck.y, struck.z, now));
                 }
             }
