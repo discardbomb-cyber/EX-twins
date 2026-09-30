@@ -1,0 +1,39 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "ELE",
+    "CKC",
+    "RPR"
+  ],
+  "key": {
+    "E": {
+      "item": "relics_addon:energy_cell"
+    },
+    "L": {
+      "item": "minecraft:lightning_rod"
+    },
+    "C": {
+      "item": "create:brass_casing"
+    },
+    "K": {
+      "item": "relics_addon:rf_shield_core"
+    },
+    "R": {
+      "item": "minecraft:redstone_block"
+    },
+    "P": {
+      "item": "create:precision_mechanism"
+    }
+  },
+  "result": {
+    "id": "relics_addon:rf_ship_shield_generator",
+    "count": 1
+  },
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "create"
+    }
+  ]
+}

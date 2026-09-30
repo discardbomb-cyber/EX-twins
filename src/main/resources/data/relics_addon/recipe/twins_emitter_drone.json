@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " S ",
+    "GXG",
+    " C "
+  ],
+  "key": {
+    "S": {
+      "item": "relics_addon:twins_drone_plate"
+    },
+    "G": {
+      "item": "minecraft:glass"
+    },
+    "X": {
+      "item": "relics_addon:resonant_circuit"
+    },
+    "C": {
+      "item": "minecraft:copper_ingot"
+    }
+  },
+  "result": {
+    "id": "relics_addon:twins_emitter_drone",
+    "count": 4
+  }
+}

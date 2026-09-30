@@ -140,6 +140,22 @@ public final class ShipDeviceGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = TEMPLATE)
+    public static void recipesLoadWithAndWithoutCreate(GameTestHelper helper) {
+        boolean create = ModList.get().isLoaded("create");
+        var recipes = helper.getLevel().getRecipeManager();
+        for (ShipFamily family : ShipFamily.values()) {
+            for (String block : new String[]{family.generatorId(), family.dockId()}) {
+                boolean withCreate = recipes.byKey(ResourceLocation.fromNamespaceAndPath(RelicsAddon.MOD_ID, block)).isPresent();
+                boolean basic = recipes.byKey(ResourceLocation.fromNamespaceAndPath(RelicsAddon.MOD_ID, block + "_basic")).isPresent();
+                helper.assertTrue(withCreate == create, block + ": the Create recipe loads only with Create (loaded=" + create + ", present=" + withCreate + ")");
+                helper.assertTrue(basic != create, block + ": the basic recipe loads only without Create");
+            }
+            helper.assertTrue(recipes.byKey(ResourceLocation.fromNamespaceAndPath(RelicsAddon.MOD_ID, family.droneId())).isPresent(), family.droneId() + " recipe loads");
+        }
+        helper.succeed();
+    }
+
     private ShipDeviceGameTests() {
     }
 }

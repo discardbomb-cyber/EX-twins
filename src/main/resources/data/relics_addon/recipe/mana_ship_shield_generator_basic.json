@@ -1,0 +1,39 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "MGM",
+    "GKG",
+    "XAX"
+  ],
+  "key": {
+    "M": {
+      "item": "relics_addon:mana_cell"
+    },
+    "G": {
+      "item": "minecraft:gold_block"
+    },
+    "K": {
+      "item": "relics_addon:mana_shield_core"
+    },
+    "X": {
+      "item": "relics_addon:resonant_circuit"
+    },
+    "A": {
+      "item": "minecraft:amethyst_block"
+    }
+  },
+  "result": {
+    "id": "relics_addon:mana_ship_shield_generator",
+    "count": 1
+  },
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:not",
+      "value": {
+        "type": "neoforge:mod_loaded",
+        "modid": "create"
+      }
+    }
+  ]
+}

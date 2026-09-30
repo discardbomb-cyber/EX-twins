@@ -1,0 +1,42 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "ENM",
+    "CKC",
+    "OPO"
+  ],
+  "key": {
+    "E": {
+      "item": "relics_addon:energy_cell"
+    },
+    "N": {
+      "item": "minecraft:end_crystal"
+    },
+    "M": {
+      "item": "relics_addon:mana_cell"
+    },
+    "C": {
+      "item": "create:brass_casing"
+    },
+    "K": {
+      "item": "relics_addon:twins_shield_core"
+    },
+    "O": {
+      "item": "minecraft:crying_obsidian"
+    },
+    "P": {
+      "item": "create:precision_mechanism"
+    }
+  },
+  "result": {
+    "id": "relics_addon:twins_ship_shield_generator",
+    "count": 1
+  },
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "create"
+    }
+  ]
+}

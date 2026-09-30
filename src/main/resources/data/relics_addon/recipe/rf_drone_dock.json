@@ -1,0 +1,36 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "FXF",
+    "AHE",
+    "FXF"
+  ],
+  "key": {
+    "F": {
+      "item": "relics_addon:rf_drone_frame"
+    },
+    "X": {
+      "item": "relics_addon:resonant_circuit"
+    },
+    "A": {
+      "item": "create:andesite_casing"
+    },
+    "H": {
+      "item": "minecraft:chest"
+    },
+    "E": {
+      "item": "relics_addon:energy_cell"
+    }
+  },
+  "result": {
+    "id": "relics_addon:rf_drone_dock",
+    "count": 1
+  },
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "create"
+    }
+  ]
+}

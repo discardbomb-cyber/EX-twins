@@ -1,0 +1,39 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "TXT",
+    "EHM",
+    "TCT"
+  ],
+  "key": {
+    "T": {
+      "item": "relics_addon:twins_drone_plate"
+    },
+    "X": {
+      "item": "relics_addon:resonant_circuit"
+    },
+    "E": {
+      "item": "relics_addon:energy_cell"
+    },
+    "H": {
+      "item": "minecraft:chest"
+    },
+    "M": {
+      "item": "relics_addon:mana_cell"
+    },
+    "C": {
+      "item": "create:brass_casing"
+    }
+  },
+  "result": {
+    "id": "relics_addon:twins_drone_dock",
+    "count": 1
+  },
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "create"
+    }
+  ]
+}
