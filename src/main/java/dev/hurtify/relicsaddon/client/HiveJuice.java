@@ -29,7 +29,8 @@ public final class HiveJuice {
     }
 
     /** One blow: where, along which way, whose, when and how hard; {@code key} names its strike group. */
-    private record Impact(Vec3 at, Vec3 normal, HiveType type, int style, double start, double strength, long key, double ground) { }
+    private record Impact(Vec3 at, Vec3 normal, HiveType type, int style, double start, double strength, long key, double ground, Vec3[] axes) { }
+    private static final Vec3 X = new Vec3(1, 0, 0), Z = new Vec3(0, 0, 1);
 
     /** The kinds of blow, which set how it bursts. */
     public static final int STRIKE = 0, CHARGE = 1, ZAP = 2, SPARK = 3, GROUNDED = 4, REFLECTED = 5, PUFF = 6;
@@ -52,7 +53,7 @@ public final class HiveJuice {
         if (IMPACTS.size() >= MAX_IMPACTS) IMPACTS.removeFirst();
         // A turned-back blow keeps its whole way, to the creature it falls on.
         Vec3 way = style == REFLECTED ? normal : normal.lengthSqr() < 1e-8 ? new Vec3(0, 1, 0) : normal.normalize();
-        IMPACTS.add(new Impact(at, way, type, style, time, strength, key, groundBelow(at)));
+        IMPACTS.add(new Impact(at, way, type, style, time, strength, key, groundBelow(at), dev.hurtify.relicsaddon.drone.HiveShapes.axes(way)));
     }
 
     /** The height of the ground up to five blocks below {@code at}, or NaN if there is none. */
@@ -106,7 +107,7 @@ public final class HiveJuice {
         // The shock ring, across the blow in the air.
         if (age < RING && hit.style != SPARK && hit.style != GROUNDED && hit.style != REFLECTED) {
             double t = age / RING, radius = s * (.3 + 2.6 * (1 - (1 - t) * (1 - t)));
-            Vec3[] axes = dev.hurtify.relicsaddon.drone.HiveShapes.axes(hit.normal);
+            Vec3[] axes = hit.axes;
             GlowBrush.circle(glow, m, at, axes[1], axes[2], radius, 48, .03 + .05 * (1 - t), hot, 210 * (1 - t));
         }
         // And over the ground under it.
@@ -114,7 +115,7 @@ public final class HiveJuice {
         if (grounded && hit.style != SPARK && hit.style != GROUNDED && hit.style != REFLECTED) {
             Vec3 floor = new Vec3(hit.at.x, hit.ground, hit.at.z).subtract(camera);
             double t = Math.min(1, age / (RING * 1.4)), radius = s * (.5 + 3.4 * (1 - (1 - t) * (1 - t)));
-            GlowBrush.circle(glow, m, floor, new Vec3(1, 0, 0), new Vec3(0, 0, 1), radius, 40, .04 * (1 - t) + .01, color, 170 * (1 - t));
+            GlowBrush.circle(glow, m, floor, X, Z, radius, 40, .04 * (1 - t) + .01, color, 170 * (1 - t));
             if (near) linger(hit, age, life, floor, glow, fill, m, color);
         }
         if (near) sparks(hit, age, at, glow, m, detail, color, hot);
@@ -153,9 +154,7 @@ public final class HiveJuice {
             double fade = 1 - age / 14;
             int[][] faces = HiveProjectiles.icosahedronFaces();
             for (int shard = 0; shard < faces.length; shard++) {
-                Vec3 a = HiveProjectiles.icosahedronCorner(faces[shard][0], HiveProjectiles.RADIUS, 0);
-                Vec3 b = HiveProjectiles.icosahedronCorner(faces[shard][1], HiveProjectiles.RADIUS, 0);
-                Vec3 d = HiveProjectiles.icosahedronCorner(faces[shard][2], HiveProjectiles.RADIUS, 0);
+                Vec3 a = SHARD_CORNERS[faces[shard][0]], b = SHARD_CORNERS[faces[shard][1]], d = SHARD_CORNERS[faces[shard][2]];
                 Vec3 middle = a.add(b).add(d).scale(1 / 3.0), out = middle.normalize();
                 Vec3 flown = out.scale(age * (.12 + .1 * hash(hit.key, shard + 90))).subtract(0, .004 * age * age, 0);
                 Vec3 axis = new Vec3(hash(hit.key, shard) - .5, hash(hit.key, shard + 1) - .5, hash(hit.key, shard + 2) - .5);
@@ -172,11 +171,14 @@ public final class HiveJuice {
         }
     }
 
+    /** The corners of the icosahedron a Twins shot flies apart from, unturned. */
+    private static final Vec3[] SHARD_CORNERS = HiveProjectiles.icosahedronCorners(HiveProjectiles.RADIUS, 0, new Vec3[12]);
+
     /** What lingers on the ground after the ring has passed: scorched on RF, ripples on Mana, smoke and cracks on Twins. */
     private static void linger(Impact hit, double age, double life, Vec3 floor, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
         double fade = Math.clamp(1 - (age - 4) / (life - 4), 0, 1) * Math.min(1, age / 4);
         if (fade <= 0) return;
-        Vec3 x = new Vec3(1, 0, 0), z = new Vec3(0, 0, 1);
+        Vec3 x = X, z = Z;
         double s = hit.strength;
         switch (hit.type) {
             case RF -> {
@@ -215,20 +217,25 @@ public final class HiveJuice {
             case HIGH -> 60;
         };
         if (hit.style == SPARK || hit.style == ZAP) count /= 3;
-        Vec3[] axes = dev.hurtify.relicsaddon.drone.HiveShapes.axes(hit.normal);
+        Vec3 forward = hit.axes[0], side = hit.axes[1], up = hit.axes[2];
         for (int spark = 0; spark < count; spark++) {
             double life = 6 + 10 * hash(hit.key + (long) hit.start, spark);
             if (age > life) continue;
             boolean metal = hit.type == HiveType.RF && spark % 3 == 0;
             double spread = 1.1, a = hash(hit.key * 7 + (long) hit.start, spark) * Math.PI * 2, b = hash(hit.key * 11 + (long) hit.start, spark) * spread;
-            Vec3 dir = axes[0].scale(-Math.cos(b)).add(axes[1].scale(Math.sin(b) * Math.cos(a))).add(axes[2].scale(Math.sin(b) * Math.sin(a)));
+            double back = -Math.cos(b), across = Math.sin(b) * Math.cos(a), lift = Math.sin(b) * Math.sin(a);
+            double dx = forward.x * back + side.x * across + up.x * lift;
+            double dy = forward.y * back + side.y * across + up.y * lift;
+            double dz = forward.z * back + side.z * across + up.z * lift;
             // Thrown back out of the blow, and up a little.
-            dir = dir.scale(-1).add(0, .35, 0);
+            dx = dx * -1 + 0; dy = dy * -1 + .35; dz = dz * -1 + 0;
             double speed = (.12 + .3 * hash(hit.key, spark + 50)) * hit.strength, gravity = metal ? .025 : .006;
-            Vec3 now = at.add(dir.scale(speed * age)).subtract(0, gravity * age * age, 0);
-            Vec3 before = at.add(dir.scale(speed * Math.max(0, age - 1.2))).subtract(0, gravity * Math.pow(Math.max(0, age - 1.2), 2), 0);
+            double flown = speed * age, earlier = speed * Math.max(0, age - 1.2);
+            double drop = gravity * age * age, droppedEarlier = gravity * Math.pow(Math.max(0, age - 1.2), 2);
+            double nowX = at.x + dx * flown - 0, nowY = at.y + dy * flown - drop, nowZ = at.z + dz * flown - 0;
+            double beforeX = at.x + dx * earlier - 0, beforeY = at.y + dy * earlier - droppedEarlier, beforeZ = at.z + dz * earlier - 0;
             double fade = 1 - age / life;
-            GlowBrush.line(glow, m, before, now, metal ? .03 : .015, metal ? 0xFFB347 : spark % 2 == 0 ? hot : color, 230 * fade);
+            GlowBrush.line(glow, m, beforeX, beforeY, beforeZ, nowX, nowY, nowZ, metal ? .03 : .015, metal ? 0xFFB347 : spark % 2 == 0 ? hot : color, 230 * fade);
         }
     }
 
@@ -240,23 +247,21 @@ public final class HiveJuice {
         double ground = groundUnder(feet);
         Vec3 at = new Vec3(feet.x, ground, feet.z).subtract(camera);
         double radius = size * (1.6 - .9 * closing), alpha = 170 * Math.sin(Math.PI * Math.min(1, closing * 1.1 + .05));
-        Vec3 x = new Vec3(1, 0, 0), z = new Vec3(0, 0, 1);
-        GlowBrush.circle(glow, m, at, x, z, radius, 64, .02, color, alpha);
-        double turn = time * .05;
+        GlowBrush.circle(glow, m, at, X, Z, radius, 64, .02, color, alpha);
+        double turn = time * .05, level = at.y + 0;
         for (int dash = 0; dash < 12; dash++) {
             double a0 = turn + dash * Math.PI / 6, a1 = a0 + Math.PI / 9;
-            Vec3 p0 = at.add(Math.cos(a0) * radius * .78, 0, Math.sin(a0) * radius * .78), p1 = at.add(Math.cos(a1) * radius * .78, 0, Math.sin(a1) * radius * .78);
-            GlowBrush.line(glow, m, p0, p1, .025, accent, alpha);
+            GlowBrush.line(glow, m, at.x + Math.cos(a0) * radius * .78, level, at.z + Math.sin(a0) * radius * .78,
+                    at.x + Math.cos(a1) * radius * .78, level, at.z + Math.sin(a1) * radius * .78, .025, accent, alpha);
         }
         for (int tick = 0; tick < 36; tick++) {
             double a = -turn * .5 + tick * Math.PI / 18, length = tick % 3 == 0 ? .16 : .08;
-            Vec3 in = at.add(Math.cos(a) * radius, 0, Math.sin(a) * radius), out = at.add(Math.cos(a) * (radius + length * size), 0, Math.sin(a) * (radius + length * size));
-            GlowBrush.line(glow, m, in, out, .012, color, alpha * .8);
+            GlowBrush.line(glow, m, at.x + Math.cos(a) * radius, level, at.z + Math.sin(a) * radius,
+                    at.x + Math.cos(a) * (radius + length * size), level, at.z + Math.sin(a) * (radius + length * size), .012, color, alpha * .8);
         }
         for (int mark = 0; mark < 3; mark++) {
             double a = turn * 1.6 + mark * Math.PI * 2 / 3;
-            Vec3 centre = at.add(Math.cos(a) * radius * 1.12, 0, Math.sin(a) * radius * 1.12);
-            GlowBrush.circle(glow, m, centre, x, z.scale(.5), .09 * size, 12, .01, accent, alpha);
+            GlowBrush.circle(glow, m, at.x + Math.cos(a) * radius * 1.12, level, at.z + Math.sin(a) * radius * 1.12, 1, 0, 0, 0, 0, .5, .09 * size, 12, .01, accent, alpha);
         }
     }
 

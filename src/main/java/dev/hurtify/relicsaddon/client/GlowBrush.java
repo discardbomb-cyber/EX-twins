@@ -78,6 +78,18 @@ public final class GlowBrush {
         }
     }
 
+    /**
+     * How squarely a face of normal {@code (nx, ny, nz)} at {@code (x, y, z)} faces the viewer: the dot product
+     * of the unit normal and {@link #view}, as {@code normal.normalize().dot(view(at))} gives it.
+     */
+    static double facing(double nx, double ny, double nz, double x, double y, double z) {
+        double[] normal = UP;
+        normalize(nx, ny, nz, normal);
+        double[] view = VIEW;
+        view(x, y, z, view);
+        return normal[0] * view[0] + normal[1] * view[1] + normal[2] * view[2];
+    }
+
     /** Scratch for a view, a side and an up vector. */
     private static final double[] VIEW = new double[3], SIDE = new double[3], UP = new double[3];
 
