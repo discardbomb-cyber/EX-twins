@@ -4,7 +4,7 @@
   "pattern": [
     "MMM",
     "CSC",
-    "MIM"
+    "MMM"
   ],
   "key": {
     "M": {
@@ -15,9 +15,6 @@
     },
     "S": {
       "item": "relics_addon:mana_shield_core"
-    },
-    "I": {
-      "item": "minecraft:iron_block"
     }
   },
   "result": {

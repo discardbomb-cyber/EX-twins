@@ -47,8 +47,9 @@ public final class ShipHiveRenderer {
         final Vec3[] wings = new Vec3[EscortModule.WINGS];
         /** The last arc of each wing that has thrown its light. */
         final long[] flashed = new long[EscortModule.WINGS];
-        /** The lance's beam as it is heard, while it burns. */
+        /** The lance's beam as it is heard, while it burns, and when a beam was last started. */
         ShipBeamSound beam;
+        double beamTriedAt = Double.NaN;
         double spin, drawnAt = Double.NaN, firingSince = Double.NaN;
         long sparkTick = Long.MIN_VALUE;
     }
@@ -68,6 +69,7 @@ public final class ShipHiveRenderer {
         for (ShipHiveBlockEntity hive : new ArrayList<>(ShipHiveBlockEntity.CLIENT_LOADED)) {
             if (hive.isRemoved() || hive.getLevel() != level) {
                 ShipHiveBlockEntity.CLIENT_LOADED.remove(hive);
+                VIEWS.remove(hive);
                 continue;
             }
             ShipFrame frame = ShipFrame.drawn(hive, partial);
@@ -144,7 +146,10 @@ public final class ShipHiveRenderer {
             int link = lance.overheated() ? hot : LANCE_COLOR;
             GlowBrush.lightning(glow, matrix, a, b, (long) (time / 3) * 31 + k, 5, .035, .018, link, (lance.firing() ? 150 : 70) * shown);
         }
-        if (lance.firing() && (view.beam == null || view.beam.isStopped())) {
+        // A beam the sound engine let go of (muted, or reloaded) is started again, but no more than once a second.
+        if (lance.firing() && (view.beam == null || view.beam.isStopped() || !minecraft.getSoundManager().isActive(view.beam))
+                && (Double.isNaN(view.beamTriedAt) || time - view.beamTriedAt >= 20 || time < view.beamTriedAt)) {
+            view.beamTriedAt = time;
             view.beam = new ShipBeamSound(hive);
             minecraft.getSoundManager().play(view.beam);
         }
