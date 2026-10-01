@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "PPP",
+    "ICI",
+    "IEI"
+  ],
+  "key": {
+    "P": {
+      "item": "relics_addon:twins_drone_plate"
+    },
+    "C": {
+      "item": "relics_addon:resonant_circuit"
+    },
+    "E": {
+      "item": "relics_addon:energy_cell"
+    },
+    "I": {
+      "item": "minecraft:iron_block"
+    }
+  },
+  "result": {
+    "id": "relics_addon:lance_hive",
+    "count": 1
+  }
+}

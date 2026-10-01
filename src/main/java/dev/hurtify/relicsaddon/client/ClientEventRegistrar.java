@@ -13,6 +13,8 @@ public final class ClientEventRegistrar {
         NeoForge.EVENT_BUS.addListener(ShieldThreatTracker::onTick);
         NeoForge.EVENT_BUS.addListener(HiveVisualRenderer::onRenderLevelStage);
         NeoForge.EVENT_BUS.addListener(HiveVisualRenderer::onLoggingOut);
+        NeoForge.EVENT_BUS.addListener(ShipHiveRenderer::onRenderLevelStage);
+        NeoForge.EVENT_BUS.addListener(ShipHiveRenderer::onLoggingOut);
         NeoForge.EVENT_BUS.addListener(ArmageddonShake::onCameraAngles);
         NeoForge.EVENT_BUS.addListener(EffectLights::onFrame);
         NeoForge.EVENT_BUS.addListener(HiveMenuKey::tick);
@@ -39,6 +41,7 @@ public final class ClientEventRegistrar {
 
     private static void registerScreens(net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event) {
         event.register(dev.hurtify.relicsaddon.registry.ModMenus.DEVICE_CONTROL.get(), DeviceControlScreen::new);
+        event.register(dev.hurtify.relicsaddon.registry.ModMenus.SHIP_HIVE.get(), ShipHiveScreen::new);
     }
 
     private static void registerItemExtensions(RegisterClientExtensionsEvent event) {

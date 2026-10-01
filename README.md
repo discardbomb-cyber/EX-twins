@@ -12,6 +12,8 @@ The showcase above is rendered in-game by the capture galleries: shield impacts 
 
 Install `EX-twins-1.0.0-beta.1.jar` on both the client and server alongside Curios, Photon, LDLib2 and KilaGraph (Photon 2.2.7+, LDLib2 2.2.40+). This is a beta release; back up existing worlds before upgrading. Devices run on built-in batteries; Botania, Ars Nouveau and Iron's Spells are optional mana sources.
 
+Optional: with [Create Aeronautics](https://modrinth.com/mod/create-aeronautics) (Sable) the ship hives ride and defend its ships; without it they defend a base where they stand. Sable Companion is bundled; nothing else is needed.
+
 Optional, client only: with [LambDynamicLights](https://modrinth.com/mod/lambdynamiclights) 4.8.11+ installed, the mod's effects light up the world around them: a visible shield (brighter for a moment after each hit), swarm strike groups, barrage charges while they build and in flight, blasts, the containment constructs, the Twins black hole, and the Armageddons (the Mana flowers, streams, sphere, seal and column among them). Nearby lights are merged and capped at 24 sources so chunk relighting stays cheap; the light is colourless. Client config `lights.dynamic` turns it off. Without LambDynamicLights nothing changes.
 
 ## Build From Source
@@ -28,6 +30,7 @@ Run `./gradlew build` on Linux/macOS or `.\gradlew.bat build` on Windows. The re
 - `relics_addon:rf_hive` -> Curios `charm`
 - `relics_addon:mana_hive` -> Curios `charm`
 - `relics_addon:twins_hive` -> Curios `charm`
+- `relics_addon:lance_hive`, `relics_addon:aegis_hive`, `relics_addon:escort_hive` -> blocks (ship hives)
 The RF, Mana, and Ex-Twins labels are style identities. Shields operate without external energy.
 Standalone drone item IDs are no longer registered. Hives deploy their existing models as typed defensive swarms; old `rf_drone`, `mana_drone`, and `twins_drone` stacks are unsupported and will not be converted.
 
@@ -76,6 +79,9 @@ Devices are built from the mod's own parts rather than raw vanilla items (all us
 | RF Drone Frame (x2) | iron, copper, redstone, circuit | RF Hive (six frames) |
 | Mana Drone Shell (x2) | gold nuggets, amethyst shards, circuit | Mana Hive (six shells) |
 | Twins Drone Plate (x2) | obsidian, amethyst shards, circuit | Twins Hive (four plates, both cells and an end crystal) |
+| Lance Ship Hive | three Twins drone plates, a circuit, an energy cell, four iron blocks | built into a ship |
+| Aegis Ship Hive | six Mana drone shells, a Mana shield core, two circuits | built into a ship |
+| Escort Ship Hive | four RF drone frames, a circuit, an energy cell, three iron blocks | built into a ship |
 
 Recipes unlock in the recipe book once you hold the key part. Icons are drawn by `tools/draw_component_icons.mjs`.
 
@@ -226,14 +232,30 @@ RF Armageddon is the ultimate of a level 10 RF hive. When its RF battery is full
 
   The panels are the charge bar. They unfold smoothly as the charge fills, a servo labouring under them and their gears ticking over, until they stand in a full cross at a full charge. Their cells light row by row from the body out, and blue sparks run in along the grid to the body. The charge takes a minute and drains the hive's RF battery. A worn RF shield feeds it too, along a crackling link (a Twins or Mana shield does not), but never gives up the charge its own field needs.
 - **Ball.** A ball grows before the nose as the panels open, from a point to about 6 blocks across. It has a near-black navy core in a bright electric rim, with lightning crawling over it and short discharges leaping to it from the nose's needles. Atomic orbits ring it, each with a bright electron. There are three at first and five by a full charge, and they spin faster as it fills.
-- **Flight.** The panels snap shut, the hologram scatters back into the swarm, and the ball leaves. It flies slow and heavy, ringed by an escort of drones in three tori, and swells as it goes. Thick jagged bolts leap from its rim to whatever they can reach within about 48 blocks (the ground, a wall, a ceiling), throwing sparks and leaving scorch marks; with nothing in reach, a bolt lashes out into the air and dies there. The ball stops out from the face it was aimed at and hangs there: 26 blocks over the ground, under a ceiling or before a wall, nearer where there is less room. Its bolts come faster, its orbits close in on it, and the world turns grey: only the ball's rim, its lightning and the dome after it keep their colour.
+- **Flight.** The panels snap shut, the hologram scatters back into the swarm, and the ball leaves. It flies slow and heavy, ringed by an escort of drones in three tori, and swells as it goes. Thick jagged bolts leap from its rim to whatever they can reach within about 48 blocks (the ground, a wall, a ceiling), throwing sparks and leaving scorch marks; when none of the ways a bolt tries finds anything in reach, it lashes out into the air and dies there. The ball stops out from the face it was aimed at and hangs there: 26 blocks over the ground, under a ceiling or before a wall, nearer (and smaller) where there is less room. Its bolts come faster, its orbits close in on it, and the world turns grey: only the ball's rim, its lightning and the dome after it keep their colour.
 - **Dome.** The ball comes in to that face (down into the ground, up into a ceiling, sideways into a wall) and becomes a dome of ice-blue glass standing out of it, with lightning inside and blocks floating out in its haze. Over three seconds it swells to 88 blocks across and heats to white, and its edge cuts a bowl into the face.
 - **Atomic flash.** The orbits blaze out and a white flash floods everything. For a few seconds the world is pure black silhouettes on white, clouds included. A shock front runs out to 256 blocks, with rays raking the land behind it. Then the colour comes back over a round crater. In the ground its rim is pushed up round the edge, steep inside and sloping away outside; a crater in a ceiling or a wall is left as the dome cut it. Debris falls from the sky for a few seconds. A blue glow fades slowly at the crater's heart, and small discharges run over its floor. Then the drones come home.
 
-  The dome's edge, and then the shock front, strike each creature as they pass it: 2000 at the heart, falling to 20 at the edge. All of it is drawn in the world. With a shader pack (Iris or Oculus) in use, simpler stand-ins are drawn and the world is not greyed.
+  The blast strikes each creature as its front passes it (first the dome's reach, then the shock front's, a sphere round the point the ball met, whatever face that was): 2000 at the heart, falling to 20 at the edge. All of it is drawn in the world. With a shader pack (Iris or Oculus) in use, simpler stand-ins are drawn and the world is not greyed.
 
   The blast's length is one number, `RfArmageddon.BLAST_SECONDS` (40 seconds from the flash). The sound generator reads it, the crater's glow fades by it, and `verifyArmageddonSounds` checks that each RF sound lasts exactly as long as the stage it scores. The ball's flight is heard from where the ball is, with a crack for every bolt it strikes.
-- **Targets, aftermath and safe mode** work as for the other Armageddons. With `armageddon.safeMode`, no blocks are broken and no crater is dug. A rim of the land's own blocks stands round the edge only while the blast lasts, then sinks back. The real rim only rises from plain ground (earth, stone, sand and the like, the `relics_addon:crater_rim` block tag), only into open air, and only where the owner could build.
+- **Targets, aftermath and safe mode** work as for the other Armageddons. With `armageddon.safeMode`, no blocks are broken and no crater is dug. Round a crater in the ground a rim of the land's own blocks stands only while the blast lasts, then sinks back. The real rim only rises from plain ground (earth, stone, sand and the like, the `relics_addon:crater_rim` block tag), only into open air, and only where the owner could build.
+
+## Ship Hives
+
+Three blocks to build into a [Create Aeronautics](https://modrinth.com/mod/create-aeronautics) ship (or a base on the ground) whose drones, each about a block across, fight on their own. Each kind works its drones in a different number at once and wears one family's drone model.
+
+| Block | Drones | Worked | What they do |
+| --- | --- | --- | --- |
+| Lance Ship Hive (Ex-Twins drones) | 3 | all three as one turret | A continuous beam on the worst threat in sight: 3 damage four times a second, 100 FE a tick. The turret swings onto its mark before it burns, overheats after 8 seconds and must cool right down (4 seconds). It only ever burns a threat: with anyone else first in its line of fire it holds and looks for another mark. |
+| Aegis Ship Hive (Mana drones) | 6 | one by one, each holding its piece of the shield | A shield round the whole ship, an ellipsoid fitted to its hull (a dome of 8 blocks round a hive on the ground). It stops shots flying in (arrows, fireballs, Create Big Cannons' shells and autocannon rounds), takes blows from outside meant for the crew, and keeps explosions outside off what it covers, each for some of its charge (a full shield holds 400; a big cannon shell costs 40). The charge comes back from FE once nothing has struck it for three seconds; a blow bigger than what is left breaks the shield for five seconds. The drones lean towards the ship's threats. 30 FE a tick while it stands. |
+| Escort Ship Hive (RF drones) | 4 | two by two | Two wings, each a linked pair with a small swarm of its own. They patrol round the ship, go after threats within their leash (40 blocks from the ship's middle; each wing its own when it can), circle them, strike with the arc between their two drones and their swarm's dives, and fly home to refill from FE when they run low or the hive is switched off. |
+
+- Set a hive against the outside of the hull: its drones launch from the lit face. A right click opens its window (what it is doing, its battery, the lance's heat, the shield's charge or the wings' charges and whereabouts, and its switch); a sneak and a right click switch it at once. A redstone signal grounds it. It takes FE through any cable from any side (a 400 kFE battery). A hive newly set down fills its shield or its wings from its battery before they fight.
+- The hives of one ship share one mind: a board of the threats round the ship, rescanned twice a second, and grudges (half a minute) against whoever hurts the crew or the hull. They spread over the threats instead of piling onto one, and weigh a creature's allegiance again just before they strike. The owners, their teams and their pets are never fired on; players and peaceful creatures riding the ship are friendly until they hurt the crew; a monster that climbs aboard is still a monster. Other players are only fought once they hurt the crew or the ship, with PvP on (or always, with the server's `ship.targetPlayers`).
+- A block on a Sable ship lives in the ship's far-off plot. Each hive works out where its ship really is from Sable's pose, so the turret, the shield and the wings ride the ship however it moves and turns, and sight lines meet terrain and ships' hulls alike. Without Sable the hives simply stand where they are.
+- Server config: `ship.targetRange`, `ship.targetPlayers`, `ship.lanceDamage`, `ship.lanceEnergyPerTick`, `ship.aegisUpkeep`, `ship.aegisEnergyPerPoint`, `ship.escortLeash`, `ship.escortDamage`.
+- `runShipScenarioClient` films the hives on a real Sable ship: copy Sable's jar into `run-ship/mods` first. Sable brings Veil, which rewrites core shaders; the mod's shaders are written so Veil's GLSL processor keeps them intact.
 
 ## Verification
 

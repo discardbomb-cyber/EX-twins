@@ -2,6 +2,8 @@
   "replace": false,
   "values": [
     "#relics_addon:shield_strike",
-    "#relics_addon:swarm_damage"
+    "#relics_addon:swarm_damage",
+    "relics_addon:ship_lance",
+    "relics_addon:ship_escort"
   ]
 }
