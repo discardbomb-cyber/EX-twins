@@ -1,11 +1,13 @@
 package dev.hurtify.relicsaddon.client;
 
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
+
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import dev.hurtify.relicsaddon.relic.RelicRole;
-import dev.hurtify.relicsaddon.shield.ShieldField;
-import dev.hurtify.relicsaddon.shield.ShieldImpact;
-import dev.hurtify.relicsaddon.shield.ShieldStackState;
-import dev.hurtify.relicsaddon.shield.ShieldTopology;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.shield.ShieldField;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
+import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
+import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
 import java.util.List;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
@@ -398,7 +400,7 @@ final class ShieldShellVisualReference {
         for (ShieldImpact impact : impacts) {
             double age = time - impact.gameTime();
             if (age < 0 || age >= ShieldResponse.IMPACT_TICKS) continue;
-            double dot = normal.dot(impact.normal());
+            double dot = normal.dot(McVectors.toMc(impact.normal()));
             double fade = ShieldField.fade(age, 16);
             if (impact.absorbed() > 0 && fade > 0) {
                 absorption = Math.max(absorption, fade * ShieldField.focus(dot, .28D));

@@ -1,7 +1,7 @@
 package dev.hurtify.relicsaddon.client;
 
 import dev.hurtify.relicsaddon.RelicsAddon;
-import dev.hurtify.relicsaddon.relic.RelicRole;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.resources.model.ModelResourceLocation;

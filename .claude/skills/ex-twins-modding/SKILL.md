@@ -42,6 +42,12 @@ export JAVA_HOME="/c/Program Files/Eclipse Adoptium/jdk-21.0.12.8-hotspot"
 
 ## Architecture map
 
+- Staged hexagonal migration: pure rules, records and math live in `domain/`, hive code in
+  `domain/hive/`; Minecraft conversions in `adapter/out/world/McVectors`, codecs in
+  `adapter/out/persistence/`. Keep release features when moving code; `build` checks these
+  boundaries and the reconciled resource, codec and geometry contracts.
+
+
 - Items: `relic/AutonomousRelicItem` (shields), `relic/HiveRelicItem` (hives, only one wearable -
   Curios `canEquip`), `relic/ComponentItem` (crafting parts), `registry/ModItems`.
 - Per-item state = data components (`registry/ModDataComponents`): `DEVICE_PROGRESSION` (level, XP,

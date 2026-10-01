@@ -2,6 +2,8 @@ package dev.hurtify.relicsaddon.power;
 
 import dev.hurtify.relicsaddon.AddonConfig;
 import dev.hurtify.relicsaddon.RelicsAddon;
+import dev.hurtify.relicsaddon.domain.energy.DeviceEnergy;
+import dev.hurtify.relicsaddon.domain.energy.ExperienceCurve;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -53,7 +55,7 @@ final class ManaSources {
 
     private static int experience(Player player, int points) {
         int value = AddonConfig.XP_POINT_VALUE.get();
-        int available = totalExperience(player) - pointsForLevel(AddonConfig.XP_RESERVE_LEVELS.get());
+        int available = totalExperience(player) - ExperienceCurve.pointsForLevel(AddonConfig.XP_RESERVE_LEVELS.get());
         int used = Math.min(available, (points + value - 1) / value);
         if (used <= 0) return 0;
         player.giveExperiencePoints(-used);
@@ -61,14 +63,7 @@ final class ManaSources {
     }
 
     static int totalExperience(Player player) {
-        return pointsForLevel(player.experienceLevel) + Math.round(player.experienceProgress * player.getXpNeededForNextLevel());
-    }
-
-    /** Vanilla's cumulative experience to reach {@code level}. */
-    static int pointsForLevel(int level) {
-        if (level <= 16) return level * level + 6 * level;
-        if (level <= 31) return (int) (2.5 * level * level - 40.5 * level + 360);
-        return (int) (4.5 * level * level - 162.5 * level + 2220);
+        return ExperienceCurve.pointsForLevel(player.experienceLevel) + Math.round(player.experienceProgress * player.getXpNeededForNextLevel());
     }
 
     // --- optional magic mods -------------------------------------------------------------------

@@ -1,11 +1,13 @@
 package dev.hurtify.relicsaddon.client;
 
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
-import dev.hurtify.relicsaddon.drone.Armageddon;
-import dev.hurtify.relicsaddon.drone.ArmageddonState;
-import dev.hurtify.relicsaddon.drone.HiveShapes;
+import dev.hurtify.relicsaddon.domain.hive.Armageddon;
+import dev.hurtify.relicsaddon.domain.hive.ArmageddonState;
+import dev.hurtify.relicsaddon.domain.hive.HiveShapes;
 import dev.hurtify.relicsaddon.sound.RelicSounds;
 import java.util.ArrayList;
 import java.util.List;
@@ -71,7 +73,7 @@ public final class ArmageddonVisual {
      * The server tells of a {@code hive} Armageddon's blast at {@code centre} (on the block face {@code face}, with
      * {@code room} free out from it), fired from {@code from}, bursting at {@code impactAt}.
      */
-    public static void told(dev.hurtify.relicsaddon.drone.HiveType hive, Vec3 centre, Vec3 from, net.minecraft.core.Direction face, double room, long impactAt) {
+    public static void told(dev.hurtify.relicsaddon.domain.hive.HiveType hive, Vec3 centre, Vec3 from, net.minecraft.core.Direction face, double room, long impactAt) {
         switch (hive) {
             case MANA -> ManaArmageddonVisual.blast(centre, from, impactAt);
             case RF -> RfArmageddonVisual.blast(centre, from, face, room, impactAt);
@@ -119,21 +121,21 @@ public final class ArmageddonVisual {
         double formed = smooth(age / Armageddon.ASSEMBLED), gone = age > Armageddon.RECOVER ? smooth((age - Armageddon.RECOVER) / 20) : 0;
         double alpha = formed * (1 - gone);
         if (alpha <= .01 && age < Armageddon.FIRE) return;
-        Vec3[] f = Armageddon.frame(s);
+        Vec3[] f = ArmageddonMath.frame(s);
         double charge = Armageddon.charge(age), pulse = .5 + .5 * Math.sin(age * (.3 + .9 * charge));
         double heat = age >= Armageddon.FIRE ? Math.exp(-(age - Armageddon.FIRE) / 55) : 0;
         double reformed = Math.clamp((age - Armageddon.CHARGED) / (Armageddon.FIRE - Armageddon.CHARGED), 0, 1);
 
         // The core: a ball of light that swells and quickens with the charge, white-hot as the shot leaves,
         // and violet motes spiralling into it while it charges.
-        Vec3 core = Armageddon.point(s, f, Armageddon.CORE, 0, 0).subtract(camera);
+        Vec3 core = ArmageddonMath.point(s, f, Armageddon.CORE, 0, 0).subtract(camera);
         GlowBrush.dot(glow, m, core, .8 + .9 * charge + .2 * pulse, GlowBrush.mix(VIOLET, 0xFFFFFF, .25 + .6 * charge), 230 * alpha);
         GlowBrush.dot(glow, m, core, 1.6 + 1.2 * charge, VIOLET, (50 + 80 * charge) * alpha);
         if (age > Armageddon.ASSEMBLED * .5 && age < Armageddon.FIRE) {
             for (int mote = 0; mote < MOTES; mote++) {
                 double life = (age * .012 * (1 + charge) + hash(mote, 1)) % 1, reach = 7 * (1 - life) + .4;
                 double angle = hash(mote, 2) * Math.PI * 2 + life * 7, rise = (hash(mote, 3) - .5) * 5 * (1 - life);
-                Vec3 at = Armageddon.point(s, f, Armageddon.CORE + rise, Math.cos(angle) * reach, Math.sin(angle) * reach).subtract(camera);
+                Vec3 at = ArmageddonMath.point(s, f, Armageddon.CORE + rise, Math.cos(angle) * reach, Math.sin(angle) * reach).subtract(camera);
                 GlowBrush.dot(glow, m, at, .09 + .06 * hash(mote, 4), GlowBrush.mix(VIOLET, PALE, hash(mote, 5)), 200 * alpha * Math.sin(Math.PI * life) * (.4 + .6 * charge));
             }
         }
@@ -143,7 +145,7 @@ public final class ArmageddonVisual {
         int barrel = GlowBrush.mix(GlowBrush.mix(DIM, VIOLET, .45 + .55 * charge), HOT, heat * .6);
         honeycomb(glow, m, camera, s, f, 16, 10, alpha * (60 + 90 * charge), barrel, age * .01, u -> from + u * length, u -> Armageddon.BARREL_OUTER);
         honeycomb(glow, m, camera, s, f, 12, 7, alpha * (50 + 110 * charge), GlowBrush.mix(barrel, PALE, .3), -age * .02, u -> from + u * length, u -> Armageddon.BARREL_INNER);
-        Vec3 breech = Armageddon.point(s, f, Armageddon.CORE, 0, 0), muzzle = Armageddon.point(s, f, Armageddon.MUZZLE, 0, 0);
+        Vec3 breech = ArmageddonMath.point(s, f, Armageddon.CORE, 0, 0), muzzle = ArmageddonMath.point(s, f, Armageddon.MUZZLE, 0, 0);
         double run = age * (.12 + .55 * charge);
         for (int dash = 0; dash < 14; dash++) {
             double at = ((dash / 14.0 + run / length) % 1) * length;
@@ -157,7 +159,7 @@ public final class ArmageddonVisual {
             double lit = Math.clamp((age - Armageddon.ringLit(ring)) / 8, 0, 1), flash = Math.exp(-Math.max(0, age - Armageddon.ringLit(ring)) / 6) * lit;
             int color = GlowBrush.mix(GlowBrush.mix(DIM, VIOLET, lit), HOT, heat * .85);
             double a = (70 + 170 * lit) * alpha, radius = Armageddon.ringRadius(ring), turn = Armageddon.ringTurn(ring, age);
-            Vec3 centre = Armageddon.point(s, f, Armageddon.ringAt(ring), 0, 0).subtract(camera);
+            Vec3 centre = ArmageddonMath.point(s, f, Armageddon.ringAt(ring), 0, 0).subtract(camera);
             GlowBrush.circle(glow, m, centre, f[1], f[2], radius * 1.06, 56, .07, color, a);
             GlowBrush.circle(glow, m, centre, f[1], f[2], radius * .84, 56, .045, color, a * .8);
             chevrons(glow, m, centre, f, 9, turn, radius * .8, radius * 1.14, .09, GlowBrush.mix(color, 0xFFFFFF, .35), a);
@@ -173,14 +175,14 @@ public final class ArmageddonVisual {
                 int color = GlowBrush.mix(hoop < 3 ? VIOLET : DEEP, PALE, .25 + .35 * charge);
                 Vec3 previous = null;
                 for (int step = 0; step <= 96; step++) {
-                    Vec3 at = Armageddon.hoopPoint(s, f, hoop, Math.PI * 2 * step / 96, age).subtract(camera);
+                    Vec3 at = ArmageddonMath.hoopPoint(s, f, hoop, Math.PI * 2 * step / 96, age).subtract(camera);
                     if (previous != null) GlowBrush.line(glow, m, previous, at, hoop < 3 ? .05 : .065, color, (90 + 90 * charge) * hoops);
                     previous = at;
                 }
                 // Marks along each hoop, running with its drones.
                 for (int mark = 0; mark < 16; mark++) {
                     double angle = mark * Math.PI * 2 / 16 + Armageddon.hoopRun(hoop, age) * .5;
-                    Vec3 at = Armageddon.hoopPoint(s, f, hoop, angle, age).subtract(camera), next = Armageddon.hoopPoint(s, f, hoop, angle + .06, age).subtract(camera);
+                    Vec3 at = ArmageddonMath.hoopPoint(s, f, hoop, angle, age).subtract(camera), next = ArmageddonMath.hoopPoint(s, f, hoop, angle + .06, age).subtract(camera);
                     GlowBrush.line(glow, m, at, next, .14, GlowBrush.mix(color, 0xFFFFFF, .4), (110 + 80 * charge) * hoops);
                 }
             }
@@ -229,14 +231,14 @@ public final class ArmageddonVisual {
         double size = Armageddon.shotSize(age);
         if (size < .05 || age >= Armageddon.IMPACT) return;
         if (age < Armageddon.ARRIVE) {
-            Vec3 at = Armageddon.shot(s, age).subtract(camera);
+            Vec3 at = ArmageddonMath.shot(s, age).subtract(camera);
             ArmageddonVolume.queueOrb(at, size * 2.2, Math.min(1, size / Armageddon.SHOT_HORIZON), age, true);
             if (since > 0) escortTori(glow, m, at, age, Math.min(1, since / 10));
             return;
         }
         double opened = smooth((age - Armageddon.ARRIVE) / 3), crushed = smooth((age - Armageddon.HUNGER) / (Armageddon.IMPACT - 4 - Armageddon.HUNGER));
         double horizon = .4 + (Armageddon.HOLE - .4) * opened * (1 - crushed);
-        Vec3 touched = s.target().subtract(camera), at = touched;
+        Vec3 touched = McVectors.toMc(s.target()).subtract(camera), at = touched;
         giantHole(glow, GlowBrush.flat() ? glow : ShieldGlow.horizonConsumer(), m, at, horizon, age);
         // Bending the world round it hard: its Einstein ring well out from the horizon.
         if (!GlowBrush.flat()) BlackHoleLens.queue(at, horizon, horizon * 4.5 + 6, 0, 1.6);
@@ -276,14 +278,14 @@ public final class ArmageddonVisual {
     /** The three dense violet tori of drones flying round the black hole, like the Twins containment's. */
     private static void escortTori(VertexConsumer glow, Matrix4f m, Vec3 at, double time, double alpha) {
         double radius = Armageddon.SHOT_RINGS;
-        int rows = HiveShapes.ringRows(true), line = GlowBrush.mix(VIOLET, PALE, .3);
+        int rows = SwarmMath.ringRows(true), line = GlowBrush.mix(VIOLET, PALE, .3);
         for (int ring = 0; ring < 3; ring++) {
-            Vec3[] frame = HiveShapes.ringFrame(ring, time);
-            int columns = HiveShapes.ringColumns(ring, radius, true);
+            Vec3[] frame = SwarmMath.ringFrame(ring, time);
+            int columns = SwarmMath.ringColumns(ring, radius, true);
             for (int column = 0; column < columns; column++) for (int row = 0; row < rows; row++) {
                 Vec3 previous = null;
                 for (int corner = 0; corner <= 6; corner++) {
-                    Vec3 point = at.add(HiveShapes.ringHexCorner(frame, ring, column, row, corner % 6, time, radius, true));
+                    Vec3 point = at.add(SwarmMath.ringHexCorner(frame, ring, column, row, corner % 6, time, radius, true));
                     if (previous != null) GlowBrush.line(glow, m, previous, point, .018, line, 115 * alpha);
                     previous = point;
                 }
@@ -306,7 +308,7 @@ public final class ArmageddonVisual {
                 double angle = Math.PI / 6 + corner * Math.PI / 3;
                 double cu = u + Math.cos(angle) / (Math.sqrt(3) * (columns + .5)) * .88, cv = v + Math.PI * 2 / rows * Math.sin(angle) / 1.5 * .88;
                 double r = radius.applyAsDouble(Math.clamp(cu, 0, 1));
-                Vec3 at = Armageddon.point(s, f, along.applyAsDouble(Math.clamp(cu, 0, 1)), Math.cos(cv) * r, Math.sin(cv) * r).subtract(camera);
+                Vec3 at = ArmageddonMath.point(s, f, along.applyAsDouble(Math.clamp(cu, 0, 1)), Math.cos(cv) * r, Math.sin(cv) * r).subtract(camera);
                 if (previous != null) GlowBrush.line(glow, m, previous, at, .03, color, alpha);
                 previous = at;
             }

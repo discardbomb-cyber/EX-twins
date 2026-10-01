@@ -1,12 +1,14 @@
 package dev.hurtify.relicsaddon.client;
 
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
+
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import dev.hurtify.relicsaddon.relic.RelicRole;
-import dev.hurtify.relicsaddon.shield.ShieldField;
-import dev.hurtify.relicsaddon.shield.ShieldCellDefense;
-import dev.hurtify.relicsaddon.shield.ShieldImpact;
-import dev.hurtify.relicsaddon.shield.ShieldStackState;
-import dev.hurtify.relicsaddon.shield.ShieldTopology;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.shield.ShieldField;
+import dev.hurtify.relicsaddon.domain.shield.ShieldCellDefense;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
+import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
+import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,11 +28,11 @@ public final class ShieldShellEquivalenceCheck {
 
     public static void main(String[] args) {
         List<ShieldImpact> none = List.of();
-        List<ShieldImpact> one = List.of(new ShieldImpact(HIT, 252, 0, 6, false));
-        List<ShieldImpact> two = List.of(new ShieldImpact(HIT, 252, 0, 6, false), new ShieldImpact(new Vec3(-.8, .45, .5).normalize(), 265, 0, 6, false));
+        List<ShieldImpact> one = List.of(new ShieldImpact( McVectors.toDomain(HIT), 252, 0, 6, false));
+        List<ShieldImpact> two = List.of(new ShieldImpact( McVectors.toDomain(HIT), 252, 0, 6, false), new ShieldImpact( McVectors.toDomain(new Vec3(-.8, .45, .5).normalize()), 265, 0, 6, false));
         var twelve = new ArrayList<ShieldImpact>();
         for (int k = 0; k < 12; k++) {
-            twelve.add(new ShieldImpact(new Vec3(Math.sin(k * 2.1), Math.cos(k * 1.3) * .6, Math.cos(k * 2.1)).normalize(), 240 + k * 2, 0, 3 + k, k % 5 == 0));
+            twelve.add(new ShieldImpact( McVectors.toDomain(new Vec3(Math.sin(k * 2.1), Math.cos(k * 1.3) * .6, Math.cos(k * 2.1)).normalize()), 240 + k * 2, 0, 3 + k, k % 5 == 0));
         }
         long checked = 0;
         for (Vec3 eye : new Vec3[]{OUTSIDE, ABOVE, Vec3.ZERO}) for (boolean low : new boolean[]{false, true}) {
@@ -52,7 +54,7 @@ public final class ShieldShellEquivalenceCheck {
 
     private static long compareShells(List<ShieldImpact> none, List<ShieldImpact> one, List<ShieldImpact> two, List<ShieldImpact> twelve) {
         int struck = ShieldTopology.INSTANCE.nearest(-HIT.x, HIT.y, HIT.z);
-        List<ShieldImpact> broken = List.of(new ShieldImpact(HIT, 250, 0, 6, true, List.of(struck)));
+        List<ShieldImpact> broken = List.of(new ShieldImpact( McVectors.toDomain(HIT), 250, 0, 6, true, List.of(struck)));
         ShieldStackState whole = ShieldStackState.DEFAULT;
         ShieldStackState hit = whole.damageCell(struck, 12, 6, 250);
         var health = new ArrayList<>(whole.cells());
@@ -212,7 +214,7 @@ public final class ShieldShellEquivalenceCheck {
                 for (ShieldImpact impact : impacts) {
                     double age = time - impact.gameTime();
                     if (age < 0 || age >= ShieldResponse.IMPACT_TICKS || impact.absorbed() <= 0) continue;
-                    hit = Math.max(hit, ShieldField.focus(n.dot(impact.normal()), .22) * ShieldField.fade(age, 18));
+                    hit = Math.max(hit, ShieldField.focus(n.dot(McVectors.toMc(impact.normal())), .22) * ShieldField.fade(age, 18));
                 }
                 double ripple = ShieldRipple.active() ? Math.max(0, ShieldRipple.height(n.x, n.y, n.z)) : 0;
                 double light = inside ? hit * .6 : activity * (rim * .55 + .05) + hit * .95 + ripple * .6;

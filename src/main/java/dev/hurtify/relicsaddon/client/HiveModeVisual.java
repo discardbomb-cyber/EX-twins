@@ -1,12 +1,14 @@
 package dev.hurtify.relicsaddon.client;
 
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
+
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import dev.hurtify.relicsaddon.drone.AttackMode;
-import dev.hurtify.relicsaddon.drone.HiveFormation;
-import dev.hurtify.relicsaddon.drone.HiveShapes;
-import dev.hurtify.relicsaddon.drone.HiveSlots;
-import dev.hurtify.relicsaddon.drone.HiveTarget;
-import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.domain.hive.AttackMode;
+import dev.hurtify.relicsaddon.domain.hive.HiveFormation;
+import dev.hurtify.relicsaddon.domain.hive.HiveShapes;
+import dev.hurtify.relicsaddon.domain.hive.HiveSlots;
+import dev.hurtify.relicsaddon.domain.hive.HiveTarget;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import java.util.List;
 import java.util.Random;
 import net.minecraft.world.phys.Vec3;
@@ -37,10 +39,10 @@ public final class HiveModeVisual {
     public record Scene(AttackMode mode, HiveType type, int slots, int groups, int[] members, Vec3[] drones, Vec3 owner, List<HiveTarget> targets,
                  double time, double cycleStart, int interval, boolean formed, int[] timing, int timingGroups) {
         /** The first (or, in a part, the only) target's feet, width and height. */
-        public Vec3 target() { return targets.getFirst().feet(); }
+        public Vec3 target() { return McVectors.toMc(targets.getFirst().feet()); }
         public double width() { return targets.getFirst().width(); }
         public double height() { return targets.getFirst().height(); }
-        public int engaged() { return HiveFormation.engaged(targets.size(), HiveSlots.figures(groups, mode, type)); }
+        public int engaged() { return SwarmMath.engaged(targets.size(), HiveSlots.figures(groups, mode, type)); }
         public HiveTarget targetOf(int group) { return targets.get(group % engaged()); }
         public int timingGroup(int group) { return timing == null ? group : timing[group]; }
     }
@@ -59,7 +61,7 @@ public final class HiveModeVisual {
                     HiveConstructVisual.render(part, camera, glow, fill, m, color);
                     // A heads-up circle turns slowly on the ground under what is held.
                     if (HiveJuice.detail() != HiveJuice.Detail.LOW) {
-                        HiveJuice.aim(part.target(), Math.max(1.2, HiveFormation.enclosure(part.width(), part.height()) * 1.3), .5, s.time(), color, accent(s.type()),
+                        HiveJuice.aim(part.target(), Math.max(1.2, SwarmMath.enclosure(part.width(), part.height()) * 1.3), .5, s.time(), color, accent(s.type()),
                                 camera, glow, m);
                     }
                 }
@@ -114,7 +116,7 @@ public final class HiveModeVisual {
             case DROPLET -> {
                 for (int group = 0; group < s.groups(); group++) {
                     if (s.members()[group] == 0) continue;
-                    EffectLights.glow(dropletCentre(s, group, s.time()), 7 + 6 * heat(s, group), HiveFormation.shapeSize(s.members()[group]));
+                    EffectLights.glow(dropletCentre(s, group, s.time()), 7 + 6 * heat(s, group), SwarmMath.shapeSize(s.members()[group]));
                 }
             }
             case BARRAGE -> {
@@ -124,8 +126,8 @@ public final class HiveModeVisual {
                         if (part.members()[group] == 0) continue;
                         // Every clump glows a little; its charge brightens it as it builds.
                         double charge = charge(part, group);
-                        Vec3 centre = HiveFormation.clusterCentre(part.type(), part.target(), part.width(), part.height(), group, part.groups(), part.time());
-                        EffectLights.glow(centre, 4 + 10 * charge, HiveFormation.clumpRadius(part.members()[group]));
+                        Vec3 centre = SwarmMath.clusterCentre(part.type(), part.target(), part.width(), part.height(), group, part.groups(), part.time());
+                        EffectLights.glow(centre, 4 + 10 * charge, SwarmMath.clumpRadius(part.members()[group]));
                     }
                 }
             }
@@ -133,8 +135,8 @@ public final class HiveModeVisual {
                 if (!s.formed()) return;
                 for (int index = 0; index < s.engaged(); index++) {
                     Scene part = part(s, index);
-                    Vec3 core = HiveFormation.core(part.target(), part.height());
-                    EffectLights.glow(core, part.type() == HiveType.TWINS ? 8 : 10, HiveFormation.enclosure(part.width(), part.height()) * 1.3);
+                    Vec3 core = SwarmMath.core(part.target(), part.height());
+                    EffectLights.glow(core, part.type() == HiveType.TWINS ? 8 : 10, SwarmMath.enclosure(part.width(), part.height()) * 1.3);
                 }
             }
         }
@@ -180,7 +182,7 @@ public final class HiveModeVisual {
 
     /** Ticks until a group's cycle next passes {@code mark} (its blow or its shot). */
     private static double until(Scene s, int group, double mark) {
-        double phase = HiveFormation.groupPhase(s.time(), s.cycleStart(), s.interval(), s.timingGroup(group), s.timingGroups());
+        double phase = SwarmMath.groupPhase(s.time(), s.cycleStart(), s.interval(), s.timingGroup(group), s.timingGroups());
         if (phase < 0) return Double.MAX_VALUE;
         return (phase < mark ? mark - phase : 1 + mark - phase) * s.interval();
     }
@@ -194,12 +196,12 @@ public final class HiveModeVisual {
         for (int group = 0; group < s.groups(); group++) {
             if (s.members()[group] == 0) continue;
             HiveTarget target = s.targetOf(group);
-            Vec3 core = HiveFormation.core(target.feet(), target.height());
+            Vec3 core = SwarmMath.core(McVectors.toMc(target.feet()), target.height());
             double coming = until(s, group, HiveFormation.IMPACT);
             if (coming <= AIM_TICKS && HiveJuice.detail() != HiveJuice.Detail.LOW) {
-                HiveJuice.aim(target.feet(), Math.max(1, target.width() * 1.6), 1 - coming / AIM_TICKS, s.time() + group * 13, color, accent(s.type()), camera, glow, m);
+                HiveJuice.aim(McVectors.toMc(target.feet()), Math.max(1, target.width() * 1.6), 1 - coming / AIM_TICKS, s.time() + group * 13, color, accent(s.type()), camera, glow, m);
             }
-            Vec3 home = HiveFormation.muster(s.owner(), s.target(), group, s.groups(), s.time());
+            Vec3 home = SwarmMath.muster(s.owner(), s.target(), group, s.groups(), s.time());
             Vec3 centre = dropletCentre(s, group, s.time());
             double sortie = sortie(s, group);
             boolean flying = sortie > 0 && sortie < 1;
@@ -212,17 +214,17 @@ public final class HiveModeVisual {
                 return slot < relative.length ? relative[slot] : null;
             };
             if (s.type() == HiveType.TWINS) rifts(s, group, home, core, sortie, camera, glow, fill, m, color);
-            if (HiveFormation.dropletHidden(s.type(), sortie)) continue;
+            if (SwarmMath.dropletHidden(s.type(), sortie)) continue;
             if (sortie > 0 && sortie < 2 && !GlowBrush.flat()) HiveLoopSounds.flying(owner << 8 | (long) s.type().ordinal() << 5 | group, s.type(), centre, s.time());
-            Vec3[] axes = HiveShapes.axes(facing);
-            double size = HiveFormation.shapeSize(s.members()[group]);
+            Vec3[] axes = SwarmMath.axes(facing);
+            double size = SwarmMath.shapeSize(s.members()[group]);
             Vec3 c = centre.subtract(camera);
             // The figure's place in the fan: a faint ring it forms up in, brighter while it waits there.
             GlowBrush.circle(glow, m, home.subtract(camera), axes[1], axes[2], size * 1.9, 40, .012, color, sortie <= 0 ? 60 : 22);
             // A streak behind a figure on the move.
             // (None where it came out of a rift a moment ago, and never longer than a few blocks.)
-            double earlier = HiveFormation.sortie(s.owner(), s.target(), target.feet(), target.height(), group, s.groups(), s.time() - 1.5, s.cycleStart(), s.interval());
-            if (sortie > 0 && sortie != 1 && !HiveFormation.dropletHidden(s.type(), earlier)) {
+            double earlier = SwarmMath.sortie(s.owner(), s.target(), McVectors.toMc(target.feet()), target.height(), group, s.groups(), s.time() - 1.5, s.cycleStart(), s.interval());
+            if (sortie > 0 && sortie != 1 && !SwarmMath.dropletHidden(s.type(), earlier)) {
                 Vec3 before = dropletCentre(s, group, s.time() - 1.5).subtract(camera);
                 if (before.distanceToSqr(c) > .04) {
                     Vec3 back = before.subtract(c).scale(2.2);
@@ -247,7 +249,7 @@ public final class HiveModeVisual {
                 }
                 case MANA -> dropletFacets(drone, fill, glow, m, c, color, heat);
                 case TWINS -> {
-                    int rings = HiveShapes.hexagonCount(s.members()[group]);
+                    int rings = SwarmMath.hexagonCount(s.members()[group]);
                     Vec3[] centres = new Vec3[rings];
                     for (int ring = 0; ring < rings; ring++) {
                         Vec3 sum = Vec3.ZERO;
@@ -312,13 +314,13 @@ public final class HiveModeVisual {
     /** A droplet figure's centre: it forms up in the fan facing the first target and strikes its own. */
     private static Vec3 dropletCentre(Scene s, int group, double time) {
         HiveTarget target = s.targetOf(group);
-        return HiveFormation.dropletCentre(s.type(), s.owner(), s.target(), target.feet(), target.height(), group, s.groups(), time, s.cycleStart(),
+        return SwarmMath.dropletCentre(s.type(), s.owner(), s.target(), McVectors.toMc(target.feet()), target.height(), group, s.groups(), time, s.cycleStart(),
                 s.interval());
     }
 
     private static double sortie(Scene s, int group) {
         HiveTarget target = s.targetOf(group);
-        return HiveFormation.sortie(s.owner(), s.target(), target.feet(), target.height(), group, s.groups(), s.time(), s.cycleStart(), s.interval());
+        return SwarmMath.sortie(s.owner(), s.target(), McVectors.toMc(target.feet()), target.height(), group, s.groups(), s.time(), s.cycleStart(), s.interval());
     }
 
     /**
@@ -331,8 +333,8 @@ public final class HiveModeVisual {
         for (int index = 0; index < marks.length; index++) {
             double open = 1 - Math.abs(sortie - marks[index]) / .14;
             if (open <= 0) continue;
-            Vec3 at = HiveFormation.arcPath(home, core, marks[index], group);
-            Vec3 across = HiveFormation.arcPath(home, core, marks[index] + .02, group).subtract(at);
+            Vec3 at = SwarmMath.arcPath(home, core, marks[index], group);
+            Vec3 across = SwarmMath.arcPath(home, core, marks[index] + .02, group).subtract(at);
             tear(glow, fill, m, at.subtract(camera), across, 1.7 * Math.sqrt(open), open, s.time(), group * 4 + index, color);
         }
     }
@@ -419,11 +421,11 @@ public final class HiveModeVisual {
         if (soonest <= AIM_TICKS && HiveJuice.detail() != HiveJuice.Detail.LOW && s.type() != HiveType.MANA) {
             HiveJuice.aim(s.target(), Math.max(1, s.width() * 1.6), 1 - soonest / AIM_TICKS, s.time(), color, accent(s.type()), camera, glow, m);
         }
-        Vec3 core = HiveFormation.core(s.target(), s.height()).subtract(camera);
+        Vec3 core = SwarmMath.core(s.target(), s.height()).subtract(camera);
         Vec3[] centres = new Vec3[groups];
         double[] charges = new double[groups];
         for (int group = 0; group < groups; group++) {
-            centres[group] = HiveFormation.clusterCentre(s.type(), s.target(), s.width(), s.height(), group, groups, s.time()).subtract(camera);
+            centres[group] = SwarmMath.clusterCentre(s.type(), s.target(), s.width(), s.height(), group, groups, s.time()).subtract(camera);
             charges[group] = charge(s, group);
         }
         // The pattern the clumps make, with pulses of light running along its lines.
@@ -441,7 +443,7 @@ public final class HiveModeVisual {
         for (int group = 0; group < groups; group++) {
             if (s.members()[group] == 0) continue;
             Vec3 centre = centres[group];
-            double charge = charges[group], radius = HiveFormation.clumpRadius(s.members()[group]);
+            double charge = charges[group], radius = SwarmMath.clumpRadius(s.members()[group]);
             // A soft halo so a clump reads from far off, then its charge glowing through the drones.
             GlowBrush.dot(glow, m, centre, radius * 2.8, color, 28 + 52 * charge);
             if (s.type() == HiveType.MANA) {
@@ -476,7 +478,7 @@ public final class HiveModeVisual {
             corners[corner] = slot < relative.length ? relative[slot] : null;
         }
         long flicker = (long) Math.floor(s.time() / 2);
-        double reach = HiveFormation.clumpRadius(members) * 3;
+        double reach = SwarmMath.clumpRadius(members) * 3;
         for (int corner = 0; corner < ring; corner++) {
             Vec3 a = corners[corner], b = corners[(corner + 1) % ring];
             // A corner hopping to another clump takes its lines with it only as far as its own clump.
@@ -498,15 +500,15 @@ public final class HiveModeVisual {
     private static final int[][][][] LINKS = new int[HiveType.values().length][HiveType.MAX_DEPLOYED + 1][][];
 
     private static int[][] clusterLinks(HiveType type, int groups) {
-        if (groups > HiveType.MAX_DEPLOYED) return HiveFormation.clusterLinks(type, groups);
+        if (groups > HiveType.MAX_DEPLOYED) return SwarmMath.clusterLinks(type, groups);
         int[][] links = LINKS[type.ordinal()][groups];
-        if (links == null) LINKS[type.ordinal()][groups] = links = HiveFormation.clusterLinks(type, groups);
+        if (links == null) LINKS[type.ordinal()][groups] = links = SwarmMath.clusterLinks(type, groups);
         return links;
     }
 
     /** A barrage clump's charge, 0 to 1: it builds until the clump fires, then collapses within a few ticks. */
     private static double charge(Scene s, int group) {
-        double phase = HiveFormation.groupPhase(s.time(), s.cycleStart(), s.interval(), s.timingGroup(group), s.timingGroups());
+        double phase = SwarmMath.groupPhase(s.time(), s.cycleStart(), s.interval(), s.timingGroup(group), s.timingGroups());
         return phase < 0 ? 0 : phase < HiveFormation.FIRE ? phase / HiveFormation.FIRE
                 : Math.max(0, 1 - (phase - HiveFormation.FIRE) / .06);
     }

@@ -1,21 +1,23 @@
 package dev.hurtify.relicsaddon.client;
 
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
-import dev.hurtify.relicsaddon.drone.Armageddon;
-import dev.hurtify.relicsaddon.drone.AttackMode;
-import dev.hurtify.relicsaddon.drone.ArmageddonState;
-import dev.hurtify.relicsaddon.drone.HiveCombatState;
-import dev.hurtify.relicsaddon.drone.HiveFormation;
-import dev.hurtify.relicsaddon.drone.HiveFlightPlan;
-import dev.hurtify.relicsaddon.drone.HiveSettings;
-import dev.hurtify.relicsaddon.drone.HiveSlots;
-import dev.hurtify.relicsaddon.drone.HiveStackState;
-import dev.hurtify.relicsaddon.drone.HiveSupportState;
-import dev.hurtify.relicsaddon.drone.HiveTarget;
-import dev.hurtify.relicsaddon.drone.HiveType;
-import dev.hurtify.relicsaddon.drone.ManaArmageddon;
-import dev.hurtify.relicsaddon.drone.RfArmageddon;
+import dev.hurtify.relicsaddon.domain.hive.Armageddon;
+import dev.hurtify.relicsaddon.domain.hive.AttackMode;
+import dev.hurtify.relicsaddon.domain.hive.ArmageddonState;
+import dev.hurtify.relicsaddon.domain.hive.HiveCombatState;
+import dev.hurtify.relicsaddon.domain.hive.HiveFormation;
+import dev.hurtify.relicsaddon.domain.hive.HiveFlightPlan;
+import dev.hurtify.relicsaddon.domain.hive.HiveSettings;
+import dev.hurtify.relicsaddon.domain.hive.HiveSlots;
+import dev.hurtify.relicsaddon.domain.hive.HiveStackState;
+import dev.hurtify.relicsaddon.domain.hive.HiveSupportState;
+import dev.hurtify.relicsaddon.domain.hive.HiveTarget;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
+import dev.hurtify.relicsaddon.domain.hive.ManaArmageddon;
+import dev.hurtify.relicsaddon.domain.hive.RfArmageddon;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.server.HiveCombatController;
 import dev.hurtify.relicsaddon.server.HiveController;
@@ -275,13 +277,13 @@ public final class HiveVisualRenderer {
         boolean near = owner.distanceTo(camera) < RANGE;
         for (HiveTarget recorded : combat.targets()) {
             Entity entity = minecraft.level.getEntity(recorded.id());
-            HiveTarget live = entity != null ? new HiveTarget(recorded.id(), entity.getPosition(partial), entity.getBbWidth(), entity.getBbHeight()) : recorded;
+            HiveTarget live = entity != null ? new HiveTarget(recorded.id(), McVectors.toDomain(entity.getPosition(partial)), entity.getBbWidth(), entity.getBbHeight()) : recorded;
             targets.add(live);
-            near |= live.feet().distanceTo(camera) < RANGE;
+            near |= McVectors.toMc(live.feet()).distanceTo(camera) < RANGE;
         }
         ArmageddonState armageddon = stack.get(ModDataComponents.HIVE_ARMAGEDDON.get());
         // An Armageddon's shot and escort fly out to its target, up to its whole reach away: someone near the target sees them come.
-        if (armageddon != null && armageddon.running(now)) near |= armageddon.target().distanceTo(camera) < RANGE;
+        if (armageddon != null && armageddon.running(now)) near |= McVectors.toMc(armageddon.target()).distanceTo(camera) < RANGE;
         if (!near) return;
         int interval = HiveCombatController.strikeInterval(player, stack);
 
@@ -298,7 +300,7 @@ public final class HiveVisualRenderer {
                 List<HiveTarget> previous = HiveFormation.wingTargets(wing.mode(), combat.previous(), combat.previousHeld());
                 long cycleStart = HiveCombatController.cycleStart(combat, flying);
                 double start = Math.max(combat.changedAt(), flying.since());
-                int groups = wing.groups(), engaged = HiveFormation.engaged(wingTargets.size(), wing.figures());
+                int groups = wing.groups(), engaged = SwarmMath.engaged(wingTargets.size(), wing.figures());
                 int[] members = new int[groups];
                 Vec3[] drones = new Vec3[wing.slots()];
                 int[] occupants = lanes.occupants(wing, units, now);
@@ -308,18 +310,18 @@ public final class HiveVisualRenderer {
                     if (unit < 0) continue;
                     double launched = Math.max(since[slot], start);
                     int group = HiveSlots.group(slot, groups);
-                    Vec3 station = HiveFormation.engagedStation(wing.mode(), type, slot, wing.slots(), owner, wingTargets, previous, combat.retargetedAt(),
+                    Vec3 station = SwarmMath.engagedStation(wing.mode(), type, slot, wing.slots(), owner, wingTargets, previous, combat.retargetedAt(),
                             time, cycleStart, interval);
-                    Vec3 at = HiveFormation.deployed(owner, yaw, station, unit, count, type, time, launched, combat.travel());
+                    Vec3 at = SwarmMath.deployed(owner, yaw, station, unit, count, type, time, launched, combat.travel());
                     HiveTarget target = wingTargets.get(group % engaged);
                     members[group]++;
                     seen[unit] = at;
                     // A Twins figure between the rifts of its jump is nowhere to be seen.
-                    if (wing.mode() == AttackMode.DROPLET && type == HiveType.TWINS && HiveFormation.dropletHidden(type, HiveFormation.sortie(owner,
-                            wingTargets.getFirst().feet(), target.feet(), target.height(), group, groups, time, cycleStart, interval))) continue;
+                    if (wing.mode() == AttackMode.DROPLET && type == HiveType.TWINS && SwarmMath.dropletHidden(type, SwarmMath.sortie(owner,
+                            McVectors.toMc(wingTargets.getFirst().feet()), McVectors.toMc(target.feet()), target.height(), group, groups, time, cycleStart, interval))) continue;
                     drones[slot] = at;
                     trail(player, type, unit, count, at, time, camera, glow, poses);
-                    drawDrone(minecraft, event, player, type, at, HiveFormation.core(target.feet(), target.height()), appear, count, camera, poses, glow, budget);
+                    drawDrone(minecraft, event, player, type, at, SwarmMath.core(McVectors.toMc(target.feet()), target.height()), appear, count, camera, poses, glow, budget);
                 }
                 scenes.add(new HiveModeVisual.Scene(wing.mode(), type, wing.slots(), groups, members, drones, owner, List.copyOf(wingTargets), time,
                         cycleStart, interval, time >= start + combat.travel() * .5, null, groups));
@@ -348,8 +350,8 @@ public final class HiveVisualRenderer {
             boolean struck = state.lastHit() >= 0 && time - state.lastHit() < HiveFormation.RETURN_TICKS && !state.ready(now);
             if (!recalled && !benched && !struck) continue;
             double from = struck ? state.lastHit() : recalled ? combat.changedAt() : benchedAt;
-            Vec3 start = seen[unit] != null ? seen[unit] : HiveFormation.belt(owner, yaw, type);
-            Vec3 at = HiveFormation.returning(owner, yaw, start, unit, count, type, time, from);
+            Vec3 start = seen[unit] != null ? seen[unit] : SwarmMath.belt(owner, yaw, type);
+            Vec3 at = SwarmMath.returning(owner, yaw, start, unit, count, type, time, from);
             drawDrone(minecraft, event, player, type, at, null, appear * (struck ? .8 : 1), count, camera, poses, glow, budget);
             if (struck && ((long) time + unit) % 3 == 0) GlowBrush.dot(glow, poses.last().pose(), at.subtract(camera), .12, 0xFFB36B, 160);
         }
@@ -360,7 +362,7 @@ public final class HiveVisualRenderer {
         double supportProgress = support.active() && enabled ? Mth.clamp(supportAge / 12, 0, 1)
                 : support.changedAt() > 0 ? Mth.clamp(1 - supportAge / 12, 0, 1) : 0;
         if (supportProgress > 0 && !held) for (int index = 0; index < healerSlots; index++) {
-            Vec3 at = HiveFormation.healing(owner, yaw, index, healerSlots, type, time, supportProgress);
+            Vec3 at = SwarmMath.healing(owner, yaw, index, healerSlots, type, time, supportProgress);
             drawDrone(minecraft, event, player, type, at, null, appear * Math.min(1, supportProgress * 4), count, camera, poses, glow, budget);
         }
         HiveCombatVisual.renderShots(player.getId(), combat.shots(), type, camera, poses.last().pose(), time);
@@ -405,13 +407,13 @@ public final class HiveVisualRenderer {
         for (int slot = 0; slot < slots; slot++) {
             int unit = occupants[slot];
             if (unit < 0 || lost && slot >= escort) continue;
-            Vec3 station = Armageddon.station(shot, slot, slots, Math.min(time, recover));
+            Vec3 station = ArmageddonMath.station(shot, slot, slots, Math.min(time, recover));
             Vec3 at;
-            if (time >= recover) at = HiveFormation.returning(owner, yaw, station, unit, count, type, time, recover);
-            else if (from[unit] != null) at = HiveFormation.flight(from[unit], station, unit, type, (time - shot.startedAt()) / Armageddon.ASSEMBLED);
-            else at = HiveFormation.deployed(owner, yaw, station, unit, count, type, time, shot.startedAt(), Armageddon.ASSEMBLED);
+            if (time >= recover) at = SwarmMath.returning(owner, yaw, station, unit, count, type, time, recover);
+            else if (from[unit] != null) at = SwarmMath.flight(from[unit], station, unit, type, (time - shot.startedAt()) / Armageddon.ASSEMBLED);
+            else at = SwarmMath.deployed(owner, yaw, station, unit, count, type, time, shot.startedAt(), Armageddon.ASSEMBLED);
             seen[unit] = at;
-            drawDrone(minecraft, event, player, type, at, time >= recover ? null : shot.target(), appear, count, camera, poses, glow, budget);
+            drawDrone(minecraft, event, player, type, at, time >= recover ? null : McVectors.toMc(shot.target()), appear, count, camera, poses, glow, budget);
         }
         Vec3 chest = new Vec3(Mth.lerp(partial, player.xo, player.getX()), Mth.lerp(partial, player.yo, player.getY()) + player.getBbHeight() * .6,
                 Mth.lerp(partial, player.zo, player.getZ()));
@@ -440,18 +442,18 @@ public final class HiveVisualRenderer {
         for (int slot = 0; slot < slots; slot++) {
             int unit = occupants[slot];
             if (unit < 0 || lost && slot >= flowered) continue;
-            Vec3 station = ManaArmageddon.station(shot, slot, slots, Math.min(time, recover));
+            Vec3 station = ManaArmageddonMath.station(shot, slot, slots, Math.min(time, recover));
             Vec3 at;
-            if (time >= recover) at = HiveFormation.returning(owner, yaw, station, unit, count, type, time, recover);
+            if (time >= recover) at = SwarmMath.returning(owner, yaw, station, unit, count, type, time, recover);
             else {
                 double gathered = slot < flowered ? ManaArmageddon.gathered(slot, slots, age) : Math.clamp(age / ManaArmageddon.ASSEMBLED, 0, 1);
-                Vec3 start = from[unit] != null ? from[unit] : HiveFormation.idle(owner, yaw, unit, count, type, shot.startedAt());
-                at = ManaArmageddon.spiral(shot, ManaArmageddon.side(slot < flowered ? slot : slot - flowered), start, station, gathered);
+                Vec3 start = from[unit] != null ? from[unit] : SwarmMath.idle(owner, yaw, unit, count, type, shot.startedAt());
+                at = ManaArmageddonMath.spiral(shot, ManaArmageddon.side(slot < flowered ? slot : slot - flowered), start, station, gathered);
             }
             seen[unit] = at;
             // Petal drones a little smaller than the swarm's, so the petals read as petals.
             double scale = slot < flowered && age < ManaArmageddon.IGNITE + ManaArmageddon.COLLAPSE ? .7 : 1;
-            drawDrone(minecraft, event, player, type, at, time >= recover ? null : shot.target(), appear * scale, count, camera, poses, glow, budget);
+            drawDrone(minecraft, event, player, type, at, time >= recover ? null : McVectors.toMc(shot.target()), appear * scale, count, camera, poses, glow, budget);
             if (slot < flowered && age < ManaArmageddon.IGNITE) ManaArmageddonVisual.twinkle(glow, poses.last().pose(), at.subtract(camera), slot, time, ManaArmageddon.side(slot));
         }
         Vec3 chest = new Vec3(Mth.lerp(partial, player.xo, player.getX()), Mth.lerp(partial, player.yo, player.getY()) + player.getBbHeight() * .6,
@@ -479,10 +481,10 @@ public final class HiveVisualRenderer {
         // The escort is flung off by the flash and lost until the drones are called home.
         boolean lost = age > RfArmageddon.IMPACT + RfArmageddon.FLASH + 30 && time < recover;
         // The shot's shape, worked out once for the whole swarm this frame (and as it stood when it scattered and when it is called home).
-        RfArmageddon.Pose pose = time < recover ? RfArmageddon.pose(shot, age) : null;
-        RfArmageddon.Pose scattered = time >= scatter && time - scatter < HiveFormation.RETURN_TICKS ? RfArmageddon.pose(shot, RfArmageddon.SCATTER) : null;
-        RfArmageddon.Pose recalled = time >= recover && time - recover < HiveFormation.RETURN_TICKS ? RfArmageddon.pose(shot, RfArmageddon.RECOVER) : null;
-        Vec3 ball = age >= RfArmageddon.FIRE ? RfArmageddon.ball(shot, Math.min(age, RfArmageddon.IMPACT)) : null;
+        RfArmageddonMath.Pose pose = time < recover ? RfArmageddonMath.pose(shot, age) : null;
+        RfArmageddonMath.Pose scattered = time >= scatter && time - scatter < HiveFormation.RETURN_TICKS ? RfArmageddonMath.pose(shot, RfArmageddon.SCATTER) : null;
+        RfArmageddonMath.Pose recalled = time >= recover && time - recover < HiveFormation.RETURN_TICKS ? RfArmageddonMath.pose(shot, RfArmageddon.RECOVER) : null;
+        Vec3 ball = age >= RfArmageddon.FIRE ? RfArmageddonMath.ball(shot, Math.min(age, RfArmageddon.IMPACT)) : null;
         for (int slot = 0; slot < slots; slot++) {
             int unit = occupants[slot];
             boolean escort = slot >= hologram;
@@ -490,25 +492,25 @@ public final class HiveVisualRenderer {
             boolean home = !escort && time >= scatter || time >= recover;
             Vec3 at;
             if (!escort && time >= scatter) {
-                at = scattered == null ? HiveFormation.idle(owner, yaw, unit, count, type, time)
-                        : HiveFormation.returning(owner, yaw, RfArmageddon.station(shot, slot, slots, scatter, scattered), unit, count, type, time, scatter);
+                at = scattered == null ? SwarmMath.idle(owner, yaw, unit, count, type, time)
+                        : SwarmMath.returning(owner, yaw, RfArmageddonMath.station(shot, slot, slots, scatter, scattered), unit, count, type, time, scatter);
             } else if (time >= recover) {
-                at = recalled == null ? HiveFormation.idle(owner, yaw, unit, count, type, time)
-                        : HiveFormation.returning(owner, yaw, RfArmageddon.station(shot, slot, slots, recover, recalled), unit, count, type, time, recover);
+                at = recalled == null ? SwarmMath.idle(owner, yaw, unit, count, type, time)
+                        : SwarmMath.returning(owner, yaw, RfArmageddonMath.station(shot, slot, slots, recover, recalled), unit, count, type, time, recover);
             } else {
-                Vec3 station = RfArmageddon.station(shot, slot, slots, time, pose);
+                Vec3 station = RfArmageddonMath.station(shot, slot, slots, time, pose);
                 // A drone that took its place during the shot (repaired, or replacing a hit one) flies in from the hive.
                 long took = since[slot];
                 if (took > shot.startedAt()) {
-                    at = HiveFormation.flight(HiveFormation.belt(owner, yaw, type), station, unit, type, (time - took) / 30.0);
+                    at = SwarmMath.flight(SwarmMath.belt(owner, yaw, type), station, unit, type, (time - took) / 30.0);
                 } else {
-                    Vec3 start = from[unit] != null ? from[unit] : HiveFormation.idle(owner, yaw, unit, count, type, shot.startedAt());
-                    at = RfArmageddon.assemble(shot, start, station, RfArmageddon.gathered(slot, slots, age));
+                    Vec3 start = from[unit] != null ? from[unit] : SwarmMath.idle(owner, yaw, unit, count, type, shot.startedAt());
+                    at = RfArmageddonMath.assemble(shot, start, station, RfArmageddon.gathered(slot, slots, age));
                 }
             }
             seen[unit] = at;
             // The hologram's drones a little smaller than the swarm's, so its lines read; the escort faces the ball it rides with.
-            Vec3 facing = home ? null : escort && ball != null ? ball : shot.target();
+            Vec3 facing = home ? null : escort && ball != null ? ball : McVectors.toMc(shot.target());
             drawDrone(minecraft, event, player, type, at, facing, appear * (home ? 1 : .8), count, camera, poses, glow, budget);
         }
         Vec3 chest = new Vec3(Mth.lerp(partial, player.xo, player.getX()), Mth.lerp(partial, player.yo, player.getY()) + player.getBbHeight() * .6,
@@ -526,8 +528,8 @@ public final class HiveVisualRenderer {
             if (age > Armageddon.IMPACT + 2) PREY.remove(shot.startedAt());
             return;
         }
-        List<Prey> prey = PREY.computeIfAbsent(shot.startedAt(), ignored -> notePrey(minecraft, shot.target()));
-        Vec3 hole = shot.target();
+        List<Prey> prey = PREY.computeIfAbsent(shot.startedAt(), ignored -> notePrey(minecraft, McVectors.toMc(shot.target())));
+        Vec3 hole = McVectors.toMc(shot.target());
         var buffers = minecraft.renderBuffers().bufferSource();
         var blocks = minecraft.getBlockRenderer();
         for (Prey block : prey) {

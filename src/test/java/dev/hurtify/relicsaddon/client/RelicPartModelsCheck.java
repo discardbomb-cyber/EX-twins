@@ -1,6 +1,6 @@
 package dev.hurtify.relicsaddon.client;
 
-import dev.hurtify.relicsaddon.relic.RelicRole;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;

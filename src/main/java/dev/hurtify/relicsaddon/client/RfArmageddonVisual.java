@@ -1,11 +1,13 @@
 package dev.hurtify.relicsaddon.client;
 
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
-import dev.hurtify.relicsaddon.drone.ArmageddonState;
-import dev.hurtify.relicsaddon.drone.HiveType;
-import dev.hurtify.relicsaddon.drone.RfArmageddon;
+import dev.hurtify.relicsaddon.domain.hive.ArmageddonState;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
+import dev.hurtify.relicsaddon.domain.hive.RfArmageddon;
 import dev.hurtify.relicsaddon.server.ArmageddonController;
 import dev.hurtify.relicsaddon.sound.RelicSounds;
 import java.util.ArrayList;
@@ -85,7 +87,7 @@ public final class RfArmageddonVisual {
         List<RimBlock> rim;
 
         Blast(Vec3 centre, Vec3 from, Direction face, double room, long impactAt, ClientLevel level) {
-            this.shot = new ArmageddonState(HiveType.RF, impactAt - RfArmageddon.IMPACT, from, centre, face, room, false);
+            this.shot = new ArmageddonState(HiveType.RF, impactAt - RfArmageddon.IMPACT, McVectors.toDomain(from), McVectors.toDomain(centre), ArmageddonState.Face.from3DDataValue(face.get3DDataValue()), room, false);
             this.impactAt = impactAt;
             this.level = level;
         }
@@ -95,7 +97,7 @@ public final class RfArmageddonVisual {
         }
 
         Vec3 centre() {
-            return shot.target();
+            return McVectors.toMc(shot.target());
         }
     }
 
@@ -113,7 +115,7 @@ public final class RfArmageddonVisual {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null || BLASTS.size() >= 8) return;
         for (Blast known : BLASTS) {
-            if (known.impactAt == impactAt && known.centre().distanceToSqr(centre) < 1e-4 && known.shot.origin().distanceToSqr(from) < 1e-4) return;
+            if (known.impactAt == impactAt && known.centre().distanceToSqr(centre) < 1e-4 && McVectors.toMc(known.shot.origin()).distanceToSqr(from) < 1e-4) return;
         }
         BLASTS.add(new Blast(centre, from, face, room, impactAt, minecraft.level));
     }
@@ -158,7 +160,7 @@ public final class RfArmageddonVisual {
         hologram(s, age, time, camera, glow, m);
         if (age < RfArmageddon.FIRE) {
             if (RfArmageddon.ballRadius(s, age) > .02) CHARGING.add(s);
-        } else blast(s.target(), s.origin(), s.face(), s.room(), s.startedAt() + RfArmageddon.IMPACT);
+        } else blast(McVectors.toMc(s.target()), McVectors.toMc(s.origin()), Direction.from3DDataValue(s.face().get3DDataValue()), s.room(), s.startedAt() + RfArmageddon.IMPACT);
         // A worn RF shield hands its charge up to the body while it charges, along a crackling link.
         if (s.shieldLinked() && chest != null && age > RfArmageddon.ASSEMBLED && age < RfArmageddon.FIRE) {
             double link = Math.min(1, (age - RfArmageddon.ASSEMBLED) / 10) * Math.min(1, (RfArmageddon.FIRE - age) / 6);
@@ -187,16 +189,16 @@ public final class RfArmageddonVisual {
     private static void hologram(ArmageddonState s, double age, double time, Vec3 camera, VertexConsumer glow, Matrix4f m) {
         double base = 1 - smooth((age - RfArmageddon.SCATTER) / 12);
         if (base <= .01) return;
-        Vec3[] f = RfArmageddon.frame(s);
+        Vec3[] f = RfArmageddonMath.frame(s);
         double unfold = RfArmageddon.unfold(age), charge = RfArmageddon.charge(age), scan = scanline(time);
         body(s, f, age, time, scan, base, camera, glow, m);
-        EffectLights.glow(RfArmageddon.body(s, f, (RfArmageddon.STERN_CAP + RfArmageddon.NOSE_TIP) / 2, 0, 0), (5 + 4 * charge) * base, 12);
+        EffectLights.glow(RfArmageddonMath.body(s, f, (RfArmageddon.STERN_CAP + RfArmageddon.NOSE_TIP) / 2, 0, 0), (5 + 4 * charge) * base, 12);
         for (int panel = 0; panel < RfArmageddon.PANELS; panel++) panel(s, f, panel, unfold, charge, age, time, base, camera, glow, m);
     }
 
     /** A point of the body, relative to the camera. */
     private static Vec3 body(ArmageddonState s, Vec3[] f, double along, double angle, double radius, Vec3 camera) {
-        return RfArmageddon.body(s, f, along, angle, radius).subtract(camera);
+        return RfArmageddonMath.body(s, f, along, angle, radius).subtract(camera);
     }
 
     /** A ring round the axis, {@code along} it and {@code radius} out. */
@@ -291,7 +293,7 @@ public final class RfArmageddonVisual {
      */
     private static void panel(ArmageddonState s, Vec3[] f, int panel, double unfold, double charge, double age, double time, double base, Vec3 camera,
             VertexConsumer glow, Matrix4f m) {
-        Vec3[] p = RfArmageddon.panel(s, f, panel, unfold);
+        Vec3[] p = RfArmageddonMath.panel(s, f, panel, unfold);
         double length = RfArmageddon.PANEL_LENGTH, width = RfArmageddon.PANEL_WIDTH;
         int rows = RfArmageddon.ROWS, columns = RfArmageddon.COLUMNS;
         double sweep = length * ((time / 60 + panel * .25) % 1) * 1.3 - length * .15;
@@ -342,12 +344,12 @@ public final class RfArmageddonVisual {
     }
 
     private static Vec3 cell(Vec3[] panel, double length, double width, Vec3 camera) {
-        return RfArmageddon.onPanel(panel, length, width).subtract(camera);
+        return RfArmageddonMath.onPanel(panel, length, width).subtract(camera);
     }
 
     /** The RF shield's link: a crackling bolt from the owner's chest up to the underside of the body's stern, copper beads running up beside it. */
     private static void link(ArmageddonState s, Vec3 chest, double age, double time, double link, Vec3 camera, VertexConsumer glow, Matrix4f m) {
-        Vec3[] f = RfArmageddon.frame(s);
+        Vec3[] f = RfArmageddonMath.frame(s);
         Vec3 from = chest.subtract(camera), to = body(s, f, RfArmageddon.STERN + .4, -Math.PI / 2, RfArmageddon.BODY_RADIUS, camera);
         long seed = (long) Math.floor(time / 2) * 7717;
         GlowBrush.lightning(glow, m, from, to, seed, 10, .07, .035, RfPalette.ELECTRIC, 170 * link);
@@ -369,7 +371,7 @@ public final class RfArmageddonVisual {
         boolean plain = ShieldRefraction.shaderPackActive();
         for (ArmageddonState s : CHARGING) {
             double age = s.age(time), radius = RfArmageddon.ballRadius(s, age), charge = RfArmageddon.charge(age);
-            Vec3 c = RfArmageddon.nose(s).subtract(camera);
+            Vec3 c = RfArmageddonMath.nose(s).subtract(camera);
             if (plain) plainBall(c, radius, glow, m);
             ball(c, radius, age, time, charge, 1, s.startedAt(), camera, glow, m);
             // The ball lights the world round the nose as it fills.
@@ -382,7 +384,7 @@ public final class RfArmageddonVisual {
             double age = blast.age(time), t = age - RfArmageddon.IMPACT;
             if (age >= RfArmageddon.FIRE && age < RfArmageddon.IMPACT + 1) {
                 double hover = smooth((age - RfArmageddon.ARRIVE) / RfArmageddon.HOVER), radius = RfArmageddon.ballRadius(blast.shot, age);
-                Vec3 c = RfArmageddon.ball(blast.shot, age).subtract(camera);
+                Vec3 c = RfArmageddonMath.ball(blast.shot, age).subtract(camera);
                 if (plain) plainBall(c, radius, glow, m);
                 ball(c, radius, age, time, 1, 1 - .45 * hover, blast.impactAt, camera, glow, m);
                 EffectLights.glow(c.add(camera), 14, radius * 2 + 8);
@@ -424,7 +426,7 @@ public final class RfArmageddonVisual {
             double reach = .6 + .6 * hash(k, bucket * 13 + seed + 2);
             Vec3 previous = null;
             for (int step = 0; step <= 8; step++) {
-                Vec3 dir = dev.hurtify.relicsaddon.drone.HiveShapes.rotate(from, bend, reach * step / 8);
+                Vec3 dir = SwarmMath.rotate(from, bend, reach * step / 8);
                 double out = radius * (1.008 + .035 * hash(k * 11 + step, bucket * 19 + seed));
                 Vec3 at = c.add(dir.scale(out));
                 if (dir.dot(toEye) > .05 && previous != null) {
@@ -515,7 +517,7 @@ public final class RfArmageddonVisual {
     /** Short discharges leaping from the nose's needles to the growing ball, a pair every few ticks. */
     private static void discharges(ArmageddonState s, Vec3 c, double radius, double age, double time, Vec3 camera, VertexConsumer glow, Matrix4f m) {
         if (radius < .1) return;
-        Vec3[] f = RfArmageddon.frame(s);
+        Vec3[] f = RfArmageddonMath.frame(s);
         long bucket = (long) Math.floor(time / 3);
         double flicker = new double[]{1, .45, .8}[(int) Math.floor(time) % 3];
         for (int k = 0; k < 2; k++) {
@@ -544,7 +546,7 @@ public final class RfArmageddonVisual {
     private static Vec3 strike(Blast blast, int k) {
         if (blast.strikes[k] != null) return blast.strikes[k];
         double at = RfArmageddon.boltAt(k);
-        Vec3 ball = RfArmageddon.ball(blast.shot, at), normal = blast.shot.normal(), target = blast.centre();
+        Vec3 ball = RfArmageddonMath.ball(blast.shot, at), normal = McVectors.toMc(blast.shot.normal()), target = blast.centre();
         Vec3[] plane = plane(normal);
         double radius = RfArmageddon.ballRadius(blast.shot, Math.min(at, RfArmageddon.DESCEND)), angle = hash(k, 301) * Math.PI * 2, out = radius * (.35 + 1.3 * hash(k, 302));
         Vec3 over = ball.subtract(normal.scale(ball.subtract(target).dot(normal)));
@@ -587,7 +589,7 @@ public final class RfArmageddonVisual {
      */
     private static void bolts(Blast blast, double age, Vec3 camera, VertexConsumer glow, Matrix4f m) {
         // The ball, while it still flies, hides whatever of a bolt passes behind it.
-        Vec3 ballNow = age < RfArmageddon.IMPACT + 1 ? RfArmageddon.ball(blast.shot, age).subtract(camera) : null;
+        Vec3 ballNow = age < RfArmageddon.IMPACT + 1 ? RfArmageddonMath.ball(blast.shot, age).subtract(camera) : null;
         double ballRadius = ballNow == null ? 0 : RfArmageddon.ballRadius(blast.shot, age) * .97;
         java.util.function.Predicate<Vec3> hidden = ballNow == null ? point -> false : point -> behind(ballNow, ballRadius, point);
         for (int k = 0; k < RfArmageddon.bolts(); k++) {
@@ -595,7 +597,7 @@ public final class RfArmageddonVisual {
             if (life < 0) break;
             if (life >= 7) continue;
             Vec3 ground = strike(blast, k), face = blast.struckFaces[k];
-            Vec3 centre = RfArmageddon.ball(blast.shot, at);
+            Vec3 centre = RfArmageddonMath.ball(blast.shot, at);
             double radius = RfArmageddon.ballRadius(blast.shot, at);
             Vec3 from = ground.subtract(centre).normalize().scale(radius).add(centre).subtract(camera), to = ground.subtract(camera);
             double flicker = new double[]{1, .45, 1, .8, .5, .25, .1}[(int) life];
@@ -665,7 +667,7 @@ public final class RfArmageddonVisual {
      * flash, the orbits blazing white and flung out, and a white disc swelling from its middle.
      */
     private static void dome(Blast blast, double t, double time, boolean plain, Vec3 camera, VertexConsumer glow, Matrix4f m) {
-        Vec3 c = blast.centre().subtract(camera), n = blast.shot.normal();
+        Vec3 c = blast.centre().subtract(camera), n = McVectors.toMc(blast.shot.normal());
         Vec3[] sides = plane(n);
         double radius = RfArmageddon.dome(Math.min(t, RfArmageddon.FLASH)), heat = smooth((t - 8) / (RfArmageddon.FLASH - 8));
         double shown = smooth(t / 3) * (1 - smooth((t - RfArmageddon.FLASH) / 3));
@@ -714,7 +716,7 @@ public final class RfArmageddonVisual {
         double fade = smooth((t - RfArmageddon.FLASH - 20) / 30) * (1 - smooth((t - RfArmageddon.FLASH - 60) / (RfArmageddon.BLAST - 80)));
         Vec3 centre = blast.centre();
         if (fade < .01 || centre.distanceTo(camera) > RfArmageddon.RADIUS * 1.5) return;
-        Vec3 n = blast.shot.normal();
+        Vec3 n = McVectors.toMc(blast.shot.normal());
         Vec3[] across = plane(n);
         long bucket = (long) Math.floor(time / 3);
         // The crater's floor under its heart and the discharges over it, found again every few ticks as the crater takes shape.
@@ -823,7 +825,7 @@ public final class RfArmageddonVisual {
                 stop();
                 return;
             }
-            Vec3 ball = RfArmageddon.ball(blast.shot, Math.clamp(age, RfArmageddon.FIRE, RfArmageddon.IMPACT));
+            Vec3 ball = RfArmageddonMath.ball(blast.shot, Math.clamp(age, RfArmageddon.FIRE, RfArmageddon.IMPACT));
             x = ball.x;
             y = ball.y;
             z = ball.z;
@@ -859,12 +861,12 @@ public final class RfArmageddonVisual {
             if (centre.distanceTo(camera) > RfArmageddon.RADIUS * 1.5 || t < -2) continue;
             if (safe) {
                 // A rim of light only stands round a crater in the ground.
-                if (blast.shot.face() == Direction.UP) rim(minecraft, blast, t, camera, poses);
+                if (blast.shot.face() == ArmageddonState.Face.UP) rim(minecraft, blast, t, camera, poses);
                 continue;
             }
             if (t > RfArmageddon.FALLEN + 20) continue;
             if (blast.stones == null) blast.stones = noteStones(minecraft, blast);
-            Vec3 n = blast.shot.normal();
+            Vec3 n = McVectors.toMc(blast.shot.normal());
             for (Stone stone : blast.stones) {
                 double since = t - stone.liftAt;
                 if (since < 0) continue;
@@ -902,7 +904,7 @@ public final class RfArmageddonVisual {
      */
     private static List<Stone> noteStones(Minecraft minecraft, Blast blast) {
         List<Stone> all = new ArrayList<>();
-        Vec3 centre = blast.centre(), normal = blast.shot.normal();
+        Vec3 centre = blast.centre(), normal = McVectors.toMc(blast.shot.normal());
         Vec3[] across = plane(normal);
         double radius = RfArmageddon.DOME_RADIUS;
         for (double a = -radius; a <= radius; a += 1.5) for (double b = -radius; b <= radius; b += 1.5) {
@@ -913,7 +915,7 @@ public final class RfArmageddonVisual {
             if (hit.getType() == HitResult.Type.MISS) continue;
             BlockPos at = hit.getBlockPos();
             // Only a block the dome will really take: inside its cut, as the server works that out column by column.
-            double[] cut = RfArmageddon.bowl(normal, at.getX() + .5 - centre.x, at.getZ() + .5 - centre.z, radius, RfArmageddon.BOWL);
+            double[] cut = RfArmageddonMath.bowl(normal, at.getX() + .5 - centre.x, at.getZ() + .5 - centre.z, radius, RfArmageddon.BOWL);
             if (cut == null || at.getY() < Math.ceil(centre.y + cut[0]) || at.getY() > Math.floor(centre.y + cut[1])) continue;
             BlockState state = minecraft.level.getBlockState(at);
             if (state.isAir() || state.getRenderShape() != RenderShape.MODEL) continue;
@@ -1000,8 +1002,8 @@ public final class RfArmageddonVisual {
     static void volumes(double time, Vec3 camera) {
         for (ArmageddonState s : CHARGING) {
             double age = s.age(time), charge = RfArmageddon.charge(age);
-            ArmageddonVolume.queueRf(s.target().subtract(camera), new ArmageddonVolume.RfStage(0, 0, 0, 0, 0, 0, RfArmageddon.nose(s).subtract(camera),
-                    RfArmageddon.ballRadius(s, age), .95, .8 + .7 * charge, age, 0, 0, 0, 0, 0, s.normal()));
+            ArmageddonVolume.queueRf(McVectors.toMc(s.target()).subtract(camera), new ArmageddonVolume.RfStage(0, 0, 0, 0, 0, 0, RfArmageddonMath.nose(s).subtract(camera),
+                    RfArmageddon.ballRadius(s, age), .95, .8 + .7 * charge, age, 0, 0, 0, 0, 0, McVectors.toMc(s.normal())));
         }
         for (Blast blast : BLASTS) {
             double age = blast.age(time), t = age - RfArmageddon.IMPACT;
@@ -1022,13 +1024,13 @@ public final class RfArmageddonVisual {
         double flood = t < RfArmageddon.FLASH ? 0 : smooth((t - RfArmageddon.FLASH) / 2) * (1 - smooth((t - RfArmageddon.FLASH - 4) / (RfArmageddon.FLOODED - RfArmageddon.FLASH)));
         double shock = t < RfArmageddon.FLASH ? 0 : 1 - smooth((t - RfArmageddon.FLASH - RfArmageddon.SHOCK) / 12);
         boolean flying = age < RfArmageddon.IMPACT + 1;
-        Vec3 ball = flying ? RfArmageddon.ball(blast.shot, age).subtract(camera) : Vec3.ZERO;
+        Vec3 ball = flying ? RfArmageddonMath.ball(blast.shot, age).subtract(camera) : Vec3.ZERO;
         double hover = smooth((age - RfArmageddon.ARRIVE) / RfArmageddon.HOVER);
         double dome = t >= 0 && t < RfArmageddon.FLASH + 4 ? RfArmageddon.dome(Math.min(t, RfArmageddon.FLASH)) : 0;
         double heat = smooth((t - 8) / (RfArmageddon.FLASH - 8)), glass = smooth(t / 3) * (1 - smooth((t - RfArmageddon.FLASH) / 4));
         double edge = smooth(t / 4) * (1 + heat) * (1 - smooth((t - RfArmageddon.FLASH) / 6));
         return new ArmageddonVolume.RfStage(grey * near, .08 * grey * near, silhouette * near, flood * near, RfArmageddon.reach(t), shock * near,
-                ball, flying ? RfArmageddon.ballRadius(blast.shot, age) : 0, .95, 1.5 + .6 * hover, age, dome, glass, heat, .5 + 1.6 * heat, edge, blast.shot.normal());
+                ball, flying ? RfArmageddon.ballRadius(blast.shot, age) : 0, .95, 1.5 + .6 * hover, age, dome, glass, heat, .5 + 1.6 * heat, edge, McVectors.toMc(blast.shot.normal()));
     }
 
     // --- the ground shaking ------------------------------------------------------------------------

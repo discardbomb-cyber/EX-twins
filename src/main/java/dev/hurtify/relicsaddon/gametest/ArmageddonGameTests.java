@@ -3,15 +3,16 @@ package dev.hurtify.relicsaddon.gametest;
 import static dev.hurtify.relicsaddon.gametest.DeviceTestSupport.ARENA;
 
 import dev.hurtify.relicsaddon.AddonConfig;
-import dev.hurtify.relicsaddon.drone.Armageddon;
-import dev.hurtify.relicsaddon.drone.ArmageddonState;
-import dev.hurtify.relicsaddon.drone.HiveType;
-import dev.hurtify.relicsaddon.drone.ManaArmageddon;
-import dev.hurtify.relicsaddon.drone.RfArmageddon;
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
+import dev.hurtify.relicsaddon.domain.hive.Armageddon;
+import dev.hurtify.relicsaddon.domain.hive.ArmageddonState;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
+import dev.hurtify.relicsaddon.domain.hive.ManaArmageddon;
+import dev.hurtify.relicsaddon.domain.hive.RfArmageddon;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
-import dev.hurtify.relicsaddon.relic.DeviceProgression;
-import dev.hurtify.relicsaddon.relic.RelicRole;
+import dev.hurtify.relicsaddon.domain.device.DeviceProgression;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.server.ArmageddonController;
 import dev.hurtify.relicsaddon.server.HiveCombatController;
@@ -214,8 +215,8 @@ public final class ArmageddonGameTests {
         helper.assertTrue(ArmageddonController.shooting(owner) && state != null && state.type() == HiveType.MANA, "The shot under way is the Mana hive's own");
         // It lands on the way from the owner's eyes to the point aimed at: there, or on the first thing in the way.
         Vec3 eye = owner.getEyePosition(), way = target.subtract(eye);
-        double along = state.target().subtract(eye).dot(way) / way.lengthSqr();
-        helper.assertTrue(state.origin().y > owner.getEyeY() && along > 0 && along <= 1 + 1e-6 && eye.add(way.scale(along)).distanceTo(state.target()) < 1e-3,
+        double along = McVectors.toMc(state.target()).subtract(eye).dot(way) / way.lengthSqr();
+        helper.assertTrue(state.origin().y > owner.getEyeY() && along > 0 && along <= 1 + 1e-6 && eye.add(way.scale(along)).distanceTo(McVectors.toMc(state.target())) < 1e-3,
                 "Its flowers hang over the owner's head and it aims at the target, stopping at whatever is in the way");
         helper.assertTrue(MANA_RUNNING.equals(ArmageddonController.request(owner, target)), "One shot at a time");
         ArmageddonController.abort(owner);
@@ -382,8 +383,8 @@ public final class ArmageddonGameTests {
         ArmageddonState state = hive.get(ModDataComponents.HIVE_ARMAGEDDON.get());
         helper.assertTrue(ArmageddonController.shooting(owner) && state != null && state.type() == HiveType.RF, "The shot under way is the RF hive's own");
         Vec3 eye = owner.getEyePosition(), way = target.subtract(eye);
-        double along = state.target().subtract(eye).dot(way) / way.lengthSqr();
-        helper.assertTrue(state.origin().y > owner.getEyeY() + 6 && along > 0 && along <= 1 + 1e-6 && eye.add(way.scale(along)).distanceTo(state.target()) < 1e-3,
+        double along = McVectors.toMc(state.target()).subtract(eye).dot(way) / way.lengthSqr();
+        helper.assertTrue(state.origin().y > owner.getEyeY() + 6 && along > 0 && along <= 1 + 1e-6 && eye.add(way.scale(along)).distanceTo(McVectors.toMc(state.target())) < 1e-3,
                 "Its hologram hangs over the owner's head and it aims at the target, stopping at whatever is in the way");
         helper.assertTrue(RF_RUNNING.equals(ArmageddonController.request(owner, target)), "One shot at a time");
         ArmageddonController.abort(owner);
@@ -478,8 +479,8 @@ public final class ArmageddonGameTests {
         String refused = ArmageddonController.request(owner, helper.absoluteVec(new Vec3(6.5, ceiling, 6.5)), RfArmageddon.IMPACT - 1);
         helper.assertTrue(refused == null, "The RF shot fires (refused: " + refused + ")");
         ArmageddonState state = DeviceTestSupport.charm(helper, owner, 0).get(ModDataComponents.HIVE_ARMAGEDDON.get());
-        helper.assertTrue(state != null && state.face() == net.minecraft.core.Direction.DOWN, "Aimed up at a ceiling, it lands on its underside");
-        Vec3 hover = RfArmageddon.hover(state);
+        helper.assertTrue(state != null && state.face() == ArmageddonState.Face.DOWN, "Aimed up at a ceiling, it lands on its underside");
+        var hover = RfArmageddon.hover(state);
         helper.assertTrue(hover.y < state.target().y - RfArmageddon.LEAST_HOVER + 1e-6 && Math.abs(hover.x - state.target().x) < 1e-6,
                 "The ball hangs under the ceiling and comes up into it");
         helper.assertTrue(state.room() < ceiling, "There is only as much room under it as down to the floor");
@@ -508,18 +509,18 @@ public final class ArmageddonGameTests {
         String refused = ArmageddonController.request(owner, aim, RfArmageddon.IMPACT - 1);
         helper.assertTrue(refused == null, "The RF shot fires (refused: " + refused + ")");
         ArmageddonState state = DeviceTestSupport.charm(helper, owner, 0).get(ModDataComponents.HIVE_ARMAGEDDON.get());
-        helper.assertTrue(state != null && state.face() == net.minecraft.core.Direction.WEST, "Aimed at a wall, it lands on the face turned to the owner");
-        Vec3 hover = RfArmageddon.hover(state);
+        helper.assertTrue(state != null && state.face() == ArmageddonState.Face.WEST, "Aimed at a wall, it lands on the face turned to the owner");
+        var hover = RfArmageddon.hover(state);
         helper.assertTrue(hover.x < state.target().x - RfArmageddon.LEAST_HOVER + 1e-6 && Math.abs(hover.y - state.target().y) < 1e-6,
                 "The ball hangs out in front of the wall and flies into it");
         // Just behind the face, in the wall (worked out in the arena's own terms, which may be turned in the world).
-        BlockPos hit = BlockPos.containing(helper.relativeVec(state.target()).add(.5, 0, 0));
+        BlockPos hit = BlockPos.containing(helper.relativeVec(McVectors.toMc(state.target())).add(.5, 0, 0));
         int[] ticks = {0};
         helper.onEachTick(() -> {
             HiveCombatController.tick(owner);
             if (++ticks[0] < 6) return;
             helper.assertTrue(helper.getBlockState(hit).isAir() && helper.getBlockState(hit.offset(0, 1, 1)).isAir(), "The dome cuts into the wall it flew into (target "
-                    + helper.relativeVec(state.target()) + ", face " + state.face() + ", room " + state.room() + ", at " + hit + ": " + helper.getBlockState(hit) + ")");
+                    + helper.relativeVec(McVectors.toMc(state.target())) + ", face " + state.face() + ", room " + state.room() + ", at " + hit + ": " + helper.getBlockState(hit) + ")");
             ArmageddonController.abort(owner);
             setting.restore();
             helper.succeed();

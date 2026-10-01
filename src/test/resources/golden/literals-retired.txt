@@ -1,0 +1,19 @@
+literal	stage	reason
+_activity	S2	RelicProgression was deleted as dead code (no callers); its combatSource, role.itemId() + "_activity", was the only use
+target_id	S3	NBT field name of HiveCombatState.CODEC, dropped as unused (the hive_combat_state component is synced only, never saved)
+changed_at	S3	NBT field name of HiveCombatState.CODEC, dropped as unused (the hive_combat_state component is synced only, never saved)
+target_x	S3	NBT field name of HiveCombatState.CODEC, dropped as unused (the hive_combat_state component is synced only, never saved)
+target_y	S3	NBT field name of HiveCombatState.CODEC, dropped as unused (the hive_combat_state component is synced only, never saved)
+target_z	S3	NBT field name of HiveCombatState.CODEC, dropped as unused (the hive_combat_state component is synced only, never saved)
+travel	S3	NBT field name of HiveCombatState.CODEC, dropped as unused (the hive_combat_state component is synced only, never saved)
+shots	S3	NBT field name of HiveCombatState.CODEC, dropped as unused (the hive_combat_state component is synced only, never saved)
+unit	S3	NBT field name of HiveCombatState.Shot.CODEC, dropped as unused together with HiveCombatState.CODEC
+fired_at	S3	NBT field name of HiveCombatState.Shot.CODEC, dropped as unused together with HiveCombatState.CODEC
+kind	S3	NBT field name of HiveCombatState.Shot.CODEC, dropped as unused together with HiveCombatState.CODEC
+start_x	S3	NBT field name of HiveCombatState.Shot.CODEC, dropped as unused together with HiveCombatState.CODEC
+start_y	S3	NBT field name of HiveCombatState.Shot.CODEC, dropped as unused together with HiveCombatState.CODEC
+start_z	S3	NBT field name of HiveCombatState.Shot.CODEC, dropped as unused together with HiveCombatState.CODEC
+end_x	S3	NBT field name of HiveCombatState.Shot.CODEC, dropped as unused together with HiveCombatState.CODEC
+end_y	S3	NBT field name of HiveCombatState.Shot.CODEC, dropped as unused together with HiveCombatState.CODEC
+end_z	S3	NBT field name of HiveCombatState.Shot.CODEC, dropped as unused together with HiveCombatState.CODEC
+impact_at	S3	NBT field name of HiveCombatState.Shot.CODEC, dropped as unused together with HiveCombatState.CODEC

@@ -3,8 +3,8 @@ package dev.hurtify.relicsaddon.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
-import dev.hurtify.relicsaddon.drone.ArmageddonState;
-import dev.hurtify.relicsaddon.drone.ManaArmageddon;
+import dev.hurtify.relicsaddon.domain.hive.ArmageddonState;
+import dev.hurtify.relicsaddon.domain.hive.ManaArmageddon;
 import dev.hurtify.relicsaddon.sound.RelicSounds;
 import java.util.ArrayList;
 import java.util.List;
@@ -110,7 +110,7 @@ public final class ManaArmageddonVisual {
                 petals(s, side, age, time, charge, alpha * (1 - closing), camera, glow, m);
                 seal(s, side, age, charge, alpha, camera, glow, runes, m);
                 for (int ring = 1; ring < ManaArmageddon.RINGS; ring++) {
-                    runeRing(ManaArmageddon.ringFrame(s, side, ring, age), camera, side, ring, ManaArmageddon.ringRadius(ring), .21,
+                    runeRing(ManaArmageddonMath.ringFrame(s, side, ring, age), camera, side, ring, ManaArmageddon.ringRadius(ring), .21,
                             ManaArmageddon.written(ring, age), age, alpha, true, glow, runes, m);
                 }
             }
@@ -119,12 +119,12 @@ public final class ManaArmageddonVisual {
         for (int side : SIDES) {
             heart(s, side, age, charge, formed, camera, glow, m);
             // Each heart lights the ground under the flowers as it grows, until the flowers close.
-            if (age < ManaArmageddon.IGNITE) EffectLights.glow(ManaArmageddon.heart(s, side), (5 + 10 * charge) * formed, 4);
+            if (age < ManaArmageddon.IGNITE) EffectLights.glow(ManaArmageddonMath.heart(s, side), (5 + 10 * charge) * formed, 4);
         }
         // A worn Mana shield hands its charge up to both hearts while they charge, in a ribbon of beads.
         if (s.shieldLinked() && chest != null && age > ManaArmageddon.ASSEMBLED && age < ManaArmageddon.FIRE) {
             double link = Math.min(1, (age - ManaArmageddon.ASSEMBLED) / 10) * Math.min(1, (ManaArmageddon.FIRE - age) / 8);
-            for (int side : SIDES) ribbon(chest.subtract(camera), ManaArmageddon.heart(s, side).subtract(camera), age, side, link, glow, m);
+            for (int side : SIDES) ribbon(chest.subtract(camera), ManaArmageddonMath.heart(s, side).subtract(camera), age, side, link, glow, m);
         }
         streams(s, age, camera, glow, m);
     }
@@ -138,7 +138,7 @@ public final class ManaArmageddonVisual {
     /** Each petal: a soft rounded outline, filled from the heart out with sparks that twinkle as they drift. */
     private static void petals(ArmageddonState s, int side, double age, double time, double charge, double alpha, Vec3 camera, VertexConsumer glow, Matrix4f m) {
         if (alpha < .01) return;
-        Vec3[] face = ManaArmageddon.face(s, side);
+        Vec3[] face = ManaArmageddonMath.face(s, side);
         int color = ManaPalette.side(side, false), bright = ManaPalette.side(side, true);
         double middle = (ManaArmageddon.PETAL_BASE + ManaArmageddon.PETAL) / 2, half = (ManaArmageddon.PETAL - ManaArmageddon.PETAL_BASE) / 2;
         for (int petal = 0; petal < ManaArmageddon.PETALS; petal++) {
@@ -149,7 +149,7 @@ public final class ManaArmageddonVisual {
                 double phi = Math.PI * 2 * k / 48, along = middle + half * Math.cos(phi), across = Math.signum(Math.sin(phi)) * ManaArmageddon.petalHalfWidth(along)
                         * Math.min(1, Math.abs(Math.sin(phi)) * 3);
                 double out = -.12 * along / ManaArmageddon.PETAL;
-                Vec3 at = ManaArmageddon.onFace(s, side, face, cos * along - sin * across, sin * along + cos * across, out).subtract(camera);
+                Vec3 at = ManaArmageddonMath.onFace(s, side, face, cos * along - sin * across, sin * along + cos * across, out).subtract(camera);
                 if (previous != null) GlowBrush.line(glow, m, previous, at, .016, bright, (40 + 70 * charge) * alpha * filled);
                 previous = at;
             }
@@ -161,7 +161,7 @@ public final class ManaArmageddonVisual {
                 int id = petal * 131 + k + (side > 0 ? 7000 : 0);
                 double twinkle = Math.pow(.5 + .5 * Math.sin(time * (.2 + .35 * hash(id, 1)) + hash(id, 2) * 6.283), 3);
                 double right = place[0] + .05 * Math.sin(time * .03 + hash(id, 3) * 6.283), up = place[1] + .05 * Math.cos(time * .027 + hash(id, 4) * 6.283);
-                Vec3 at = ManaArmageddon.onFace(s, side, face, right, up, -.12 * out + .08 * (hash(id, 5) - .5)).subtract(camera);
+                Vec3 at = ManaArmageddonMath.onFace(s, side, face, right, up, -.12 * out + .08 * (hash(id, 5) - .5)).subtract(camera);
                 GlowBrush.dot(glow, m, at, .03 + .035 * hash(id, 6) + .03 * twinkle, GlowBrush.mix(color, 0xFFFFFF, .25 + .55 * twinkle),
                         (50 + 190 * twinkle) * alpha * landed * (.55 + .45 * charge));
             }
@@ -173,7 +173,7 @@ public final class ManaArmageddonVisual {
         double close = ManaArmageddon.IGNITE + ManaArmageddon.COLLAPSE;
         double lit = formed * (age < close ? 1 : Math.max(0, 1 - (age - close) / 24));
         if (lit < .01) return;
-        Vec3 heart = ManaArmageddon.heart(s, side).subtract(camera);
+        Vec3 heart = ManaArmageddonMath.heart(s, side).subtract(camera);
         double pulse = .5 + .5 * Math.sin(age * (.18 + .6 * charge) + side), flare = age >= ManaArmageddon.IGNITE ? Math.exp(-(age - ManaArmageddon.IGNITE) / 7) : 0;
         double loosed = age >= ManaArmageddon.FIRE && age < ManaArmageddon.IGNITE ? 1 : 0;
         double core = .15 + .32 * charge + .1 * loosed;
@@ -182,12 +182,12 @@ public final class ManaArmageddonVisual {
         GlowBrush.dot(glow, m, heart, core * 2.8 + 2.4 * flare, color, (55 + 95 * charge) * lit);
         // Motes spiralling into the heart while it charges.
         if (age > ManaArmageddon.ASSEMBLED * .6 && age < ManaArmageddon.FIRE) {
-            Vec3[] face = ManaArmageddon.face(s, side);
+            Vec3[] face = ManaArmageddonMath.face(s, side);
             for (int mote = 0; mote < 36; mote++) {
                 int id = mote + (side > 0 ? 500 : 0);
                 double life = (age * .014 * (1 + charge) + hash(id, 21)) % 1, reach = 2.3 * (1 - life) + .15;
                 double angle = hash(id, 22) * Math.PI * 2 - side * life * 5;
-                Vec3 at = ManaArmageddon.onFace(s, side, face, Math.cos(angle) * reach, Math.sin(angle) * reach, (hash(id, 23) - .5) * .8 * (1 - life)).subtract(camera);
+                Vec3 at = ManaArmageddonMath.onFace(s, side, face, Math.cos(angle) * reach, Math.sin(angle) * reach, (hash(id, 23) - .5) * .8 * (1 - life)).subtract(camera);
                 GlowBrush.dot(glow, m, at, .04 + .03 * hash(id, 24), GlowBrush.mix(color, 0xFFFFFF, hash(id, 25) * .6), 190 * Math.sin(Math.PI * life) * (.4 + .6 * charge) * lit);
             }
         }
@@ -195,7 +195,7 @@ public final class ManaArmageddonVisual {
 
     /** The seal behind a flower: a double ring round its belt of runes (the first ring written), a seven-pointed star, and a ring at the core. */
     private static void seal(ArmageddonState s, int side, double age, double charge, double alpha, Vec3 camera, VertexConsumer glow, VertexConsumer runes, Matrix4f m) {
-        Vec3[] f = ManaArmageddon.ringFrame(s, side, 0, age);
+        Vec3[] f = ManaArmageddonMath.ringFrame(s, side, 0, age);
         Vec3 c = f[0].subtract(camera);
         double r = ManaArmageddon.SEAL_RADIUS, a = alpha * (95 + 115 * charge);
         int color = ManaPalette.side(side, false), bright = ManaPalette.side(side, true);
@@ -258,7 +258,7 @@ public final class ManaArmageddonVisual {
      * charge grows; the sun on the turquoise half and a crescent moon on the gold one.
      */
     private static void central(ArmageddonState s, double age, double charge, double alpha, Vec3 camera, VertexConsumer glow, VertexConsumer runes, Matrix4f m) {
-        Vec3[] f = ManaArmageddon.centralFrame(s);
+        Vec3[] f = ManaArmageddonMath.centralFrame(s);
         Vec3 c = f[0].subtract(camera);
         Vec3[] plane = {f[0], f[1], f[2]};
         double r = ManaArmageddon.CENTRAL, a = alpha * (90 + 120 * charge);
@@ -338,14 +338,14 @@ public final class ManaArmageddonVisual {
         double head = ManaArmageddon.streamHead(age), tail = ManaArmageddon.streamTail(age);
         if (head <= tail + 1e-4) return;
         for (int side : SIDES) {
-            double length = ManaArmageddon.stream(s, side, 0).distanceTo(ManaArmageddon.stream(s, side, 1)) * 1.35;
+            double length = ManaArmageddonMath.stream(s, side, 0).distanceTo(ManaArmageddonMath.stream(s, side, 1)) * 1.35;
             int samples = (int) Math.clamp(length * (head - tail) / 1.1, 12, 220);
             Vec3[] points = new Vec3[samples + 1];
             Vec3[][] axes = new Vec3[samples + 1][];
             for (int k = 0; k <= samples; k++) {
                 double u = tail + (head - tail) * k / samples;
-                points[k] = ManaArmageddon.stream(s, side, u).subtract(camera);
-                axes[k] = ManaArmageddon.streamAxes(s, side, u);
+                points[k] = ManaArmageddonMath.stream(s, side, u).subtract(camera);
+                axes[k] = ManaArmageddonMath.streamAxes(s, side, u);
             }
             double pour = Math.min(1, (age - ManaArmageddon.FIRE) / 3);
             // The streams light what they pass over: a light every few blocks along them (merged where they crowd).
@@ -932,7 +932,7 @@ public final class ManaArmageddonVisual {
     }
 
     private static Vec3 rotate(Vec3 v, Vec3 axis, double angle) {
-        return dev.hurtify.relicsaddon.drone.HiveShapes.rotate(v, axis, angle);
+        return SwarmMath.rotate(v, axis, angle);
     }
 
     static double hash(int index, long salt) {

@@ -1,7 +1,7 @@
 package dev.hurtify.relicsaddon.sound;
 
-import dev.hurtify.relicsaddon.drone.ManaArmageddon;
-import dev.hurtify.relicsaddon.drone.RfArmageddon;
+import dev.hurtify.relicsaddon.domain.hive.ManaArmageddon;
+import dev.hurtify.relicsaddon.domain.hive.RfArmageddon;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;

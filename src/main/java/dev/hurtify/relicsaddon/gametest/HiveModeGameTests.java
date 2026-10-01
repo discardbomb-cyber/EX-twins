@@ -2,16 +2,17 @@ package dev.hurtify.relicsaddon.gametest;
 
 import static dev.hurtify.relicsaddon.gametest.DeviceTestSupport.ARENA;
 
-import dev.hurtify.relicsaddon.drone.AttackMode;
-import dev.hurtify.relicsaddon.drone.HiveCombatState;
-import dev.hurtify.relicsaddon.drone.HiveFigures;
-import dev.hurtify.relicsaddon.drone.HiveFlightPlan;
-import dev.hurtify.relicsaddon.drone.HiveSettings;
-import dev.hurtify.relicsaddon.drone.HiveStackState;
-import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.adapter.out.persistence.HiveCodecs;
+import dev.hurtify.relicsaddon.domain.device.DeviceProgression;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.hive.AttackMode;
+import dev.hurtify.relicsaddon.domain.hive.HiveCombatState;
+import dev.hurtify.relicsaddon.domain.hive.HiveFigures;
+import dev.hurtify.relicsaddon.domain.hive.HiveFlightPlan;
+import dev.hurtify.relicsaddon.domain.hive.HiveSettings;
+import dev.hurtify.relicsaddon.domain.hive.HiveStackState;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
-import dev.hurtify.relicsaddon.relic.DeviceProgression;
-import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.server.HiveCombatController;
 import dev.hurtify.relicsaddon.server.HiveContainment;
@@ -117,7 +118,7 @@ public final class HiveModeGameTests {
         double ground = floorUnder(helper, fight.husk);
         helper.onEachTick(() -> HiveCombatController.tick(fight.player));
         helper.runAfterDelay(80, () -> {
-            double lift = dev.hurtify.relicsaddon.drone.HiveFormation.twinsLift(fight.husk.getBbWidth(), fight.husk.getBbHeight());
+            double lift = dev.hurtify.relicsaddon.domain.hive.HiveFormation.twinsLift(fight.husk.getBbWidth(), fight.husk.getBbHeight());
             helper.assertTrue(Math.abs(fight.husk.getY() - ground - lift) < .1,
                     "The black hole holds the target " + lift + " blocks up (" + (fight.husk.getY() - ground) + ")");
             helper.assertTrue(fight.husk.isNoGravity(), "It hangs there");
@@ -166,7 +167,7 @@ public final class HiveModeGameTests {
         Husk second = attacker(helper, fight.player, new Vec3(8.5, 1, 2.5));
         helper.onEachTick(() -> {
             HiveCombatController.tick(fight.player);
-            var combat = fight.hive.getOrDefault(ModDataComponents.HIVE_COMBAT_STATE.get(), dev.hurtify.relicsaddon.drone.HiveCombatState.DEFAULT);
+            var combat = fight.hive.getOrDefault(ModDataComponents.HIVE_COMBAT_STATE.get(), dev.hurtify.relicsaddon.domain.hive.HiveCombatState.DEFAULT);
             if (combat.targets().size() == 2 && fight.husk.getHealth() < fight.husk.getMaxHealth() && second.getHealth() < second.getMaxHealth()) {
                 helper.succeed();
             }
@@ -180,13 +181,13 @@ public final class HiveModeGameTests {
         helper.onEachTick(() -> HiveCombatController.tick(fight.player));
         long[] started = {-1};
         helper.runAfterDelay(10, () -> {
-            var combat = fight.hive.getOrDefault(ModDataComponents.HIVE_COMBAT_STATE.get(), dev.hurtify.relicsaddon.drone.HiveCombatState.DEFAULT);
+            var combat = fight.hive.getOrDefault(ModDataComponents.HIVE_COMBAT_STATE.get(), dev.hurtify.relicsaddon.domain.hive.HiveCombatState.DEFAULT);
             helper.assertTrue(combat.active() && combat.targets().size() == 2, "Both creatures are engaged (" + combat.targets().size() + ")");
             started[0] = combat.changedAt();
             fight.husk.discard();
         });
         helper.runAfterDelay(12, () -> {
-            var combat = fight.hive.getOrDefault(ModDataComponents.HIVE_COMBAT_STATE.get(), dev.hurtify.relicsaddon.drone.HiveCombatState.DEFAULT);
+            var combat = fight.hive.getOrDefault(ModDataComponents.HIVE_COMBAT_STATE.get(), dev.hurtify.relicsaddon.domain.hive.HiveCombatState.DEFAULT);
             helper.assertTrue(combat.active(), "The swarm stays out");
             helper.assertTrue(combat.changedAt() == started[0], "It does not go home and set out again");
             helper.assertTrue(combat.targets().size() == 1 && combat.targets().getFirst().id() == second.getId(), "It moves on to the other attacker");
@@ -368,13 +369,13 @@ public final class HiveModeGameTests {
         CompoundTag old = new CompoundTag();
         old.putInt("healers", 10);
         old.putString("mode", AttackMode.CONTAINMENT.id());
-        hive.set(ModDataComponents.HIVE_SETTINGS.get(), HiveSettings.CODEC.parse(NbtOps.INSTANCE, old).getOrThrow());
+        hive.set(ModDataComponents.HIVE_SETTINGS.get(), HiveCodecs.SETTINGS.parse(NbtOps.INSTANCE, old).getOrThrow());
         HiveSettings migrated = HiveController.normalize(player, hive);
         helper.assertTrue(migrated.healers() == 10 && migrated.containment() == 90 && migrated.assigned() == 90 && migrated.notice() == null,
                 "every fighter holds, as before: " + migrated);
         helper.assertTrue(settings(hive).equals(migrated), "the migrated orders are written back");
         old.putInt("healers", 80);
-        hive.set(ModDataComponents.HIVE_SETTINGS.get(), HiveSettings.CODEC.parse(NbtOps.INSTANCE, old).getOrThrow());
+        hive.set(ModDataComponents.HIVE_SETTINGS.get(), HiveCodecs.SETTINGS.parse(NbtOps.INSTANCE, old).getOrThrow());
         migrated = HiveController.normalize(player, hive);
         helper.assertTrue(migrated.containment() == 0 && migrated.barrage() == 20, "twenty cannot build the Twins tori, so they go to Barrage: " + migrated);
         helper.assertTrue(migrated.notice() != null && migrated.notice().kind() == HiveSettings.Notice.Kind.MOVED && migrated.notice().need() == 24,

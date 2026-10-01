@@ -1,5 +1,9 @@
 package dev.hurtify.relicsaddon.gametest.client;
 
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
+
+import dev.hurtify.relicsaddon.client.SwarmMath;
+
 import com.mojang.math.Axis;
 import dev.hurtify.relicsaddon.RelicsAddon;
 import dev.hurtify.relicsaddon.client.GlowBrush;
@@ -7,10 +11,10 @@ import dev.hurtify.relicsaddon.client.HiveModeVisual;
 import dev.hurtify.relicsaddon.client.HiveVisualRenderer;
 import dev.hurtify.relicsaddon.client.ShieldGlow;
 import dev.hurtify.relicsaddon.client.ShieldVisualRenderer;
-import dev.hurtify.relicsaddon.drone.AttackMode;
-import dev.hurtify.relicsaddon.drone.HiveFormation;
-import dev.hurtify.relicsaddon.drone.HiveSlots;
-import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.domain.hive.AttackMode;
+import dev.hurtify.relicsaddon.domain.hive.HiveFormation;
+import dev.hurtify.relicsaddon.domain.hive.HiveSlots;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import dev.hurtify.relicsaddon.registry.ModItems;
 import dev.hurtify.relicsaddon.server.HiveContainment;
 import java.util.Locale;
@@ -83,9 +87,9 @@ final class NativeHiveGallery extends Screen {
             // Twins lift their target into the rifts, RF into the middle of their rings.
             double lift = Math.clamp((time - combatStart - TRAVEL * .5) / 30, 0, 1);
             double height = switch (type) {
-                case TWINS -> dev.hurtify.relicsaddon.drone.HiveFormation.twinsLift(.6, 1.8);
-                case RF -> dev.hurtify.relicsaddon.drone.HiveFormation.ringLift(.6, 1.8, false);
-                case MANA -> dev.hurtify.relicsaddon.drone.HiveFormation.wardLift(.6, 1.8);
+                case TWINS -> SwarmMath.twinsLift(.6, 1.8);
+                case RF -> SwarmMath.ringLift(.6, 1.8, false);
+                case MANA -> SwarmMath.wardLift(.6, 1.8);
             };
             target = target.add(0, height * lift * lift * (3 - 2 * lift), 0);
         }
@@ -94,7 +98,7 @@ final class NativeHiveGallery extends Screen {
         int groups = HiveSlots.groups(SLOTS, mode, type);
         int[] members = new int[groups];
         Vec3[] drones = new Vec3[SLOTS];
-        Vec3 core = HiveFormation.core(target, 1.8);
+        Vec3 core = SwarmMath.core(target, 1.8);
 
         graphics.flush();
         var pose = graphics.pose();
@@ -107,8 +111,8 @@ final class NativeHiveGallery extends Screen {
         GlowBrush.setFlatView(new Vec3(-Math.cos(.30) * Math.sin(turn), Math.sin(.30), Math.cos(.30) * Math.cos(turn)));
         try {
             for (int slot = 0; slot < SLOTS; slot++) {
-                Vec3 station = HiveFormation.station(mode, type, slot, SLOTS, owner, target, .6, 1.8, time, cycleStart, INTERVAL);
-                Vec3 at = HiveFormation.deployed(owner, -90, station, slot, UNITS, type, time, combatStart, TRAVEL);
+                Vec3 station = SwarmMath.station(mode, type, slot, SLOTS, owner, target, .6, 1.8, time, cycleStart, INTERVAL);
+                Vec3 at = SwarmMath.deployed(owner, -90, station, slot, UNITS, type, time, combatStart, TRAVEL);
                 drones[slot] = at;
                 members[HiveSlots.group(slot, groups)]++;
                 pose.pushPose();
@@ -128,7 +132,7 @@ final class NativeHiveGallery extends Screen {
             outline(glow, matrix, target, 0xC8CED6);
             if (droplet) outline(glow, matrix, owner, HiveModeVisual.color(type));
             HiveModeVisual.render(new HiveModeVisual.Scene(mode, type, SLOTS, groups, members, drones, owner,
-                    java.util.List.of(new dev.hurtify.relicsaddon.drone.HiveTarget(-1, target, .6, 1.8)), time, cycleStart,
+                    java.util.List.of(new dev.hurtify.relicsaddon.domain.hive.HiveTarget(-1, McVectors.toDomain(target), .6, 1.8)), time, cycleStart,
                     INTERVAL, time >= combatStart + TRAVEL * .5, null, groups), Vec3.ZERO, glow, fill, matrix);
             graphics.bufferSource().endBatch(ShieldVisualRenderer.renderType());
             ShieldGlow.flush();

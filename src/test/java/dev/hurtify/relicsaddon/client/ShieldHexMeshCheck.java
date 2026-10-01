@@ -3,7 +3,7 @@ package dev.hurtify.relicsaddon.client;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import dev.hurtify.relicsaddon.shield.ShieldTopology;
+import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
@@ -55,7 +55,7 @@ public final class ShieldHexMeshCheck {
         var honeycomb = ShieldHoneycomb.CELLS;
         require(honeycomb.size() == 10 * ShieldHoneycomb.FREQUENCY * ShieldHoneycomb.FREQUENCY + 2, "a Goldberg honeycomb has 10f²+2 cells");
         int pentagons = 0;
-        boolean[] drawn = new boolean[dev.hurtify.relicsaddon.shield.ShieldTopology.CELL_COUNT];
+        boolean[] drawn = new boolean[dev.hurtify.relicsaddon.domain.shield.ShieldTopology.CELL_COUNT];
         for (ShieldHoneycomb.Cell cell : honeycomb) {
             int corners = cell.perimeter().length / 3;
             require(corners == 5 || corners == 6, "honeycomb cells are pentagons or hexagons, got " + corners);

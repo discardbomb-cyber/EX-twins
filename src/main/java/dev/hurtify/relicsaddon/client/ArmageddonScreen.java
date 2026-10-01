@@ -1,11 +1,11 @@
 package dev.hurtify.relicsaddon.client;
 
-import dev.hurtify.relicsaddon.drone.Armageddon;
-import dev.hurtify.relicsaddon.drone.HiveType;
-import dev.hurtify.relicsaddon.drone.ManaArmageddon;
-import dev.hurtify.relicsaddon.drone.RfArmageddon;
+import dev.hurtify.relicsaddon.domain.hive.Armageddon;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
+import dev.hurtify.relicsaddon.domain.hive.ManaArmageddon;
+import dev.hurtify.relicsaddon.domain.hive.RfArmageddon;
 import dev.hurtify.relicsaddon.network.ArmageddonPayloads;
-import dev.hurtify.relicsaddon.relic.RelicRole;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.server.ArmageddonController;
 import java.util.ArrayList;
 import java.util.List;

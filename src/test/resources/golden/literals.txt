@@ -1,0 +1,790 @@
+
+ (expected 
+ -> 
+ / 
+ / 250 drones out of 750
+ = 
+ enters the level
+ fixture
+ goes straight through armour
+ health=
+ is softened by armour: 
+ mode=
+ of 
+ strikes with 
+ survives its neighbours
+ xp 
+#
+#minecraft:arrows
+#minecraft:is_fire
+#relics_addon:shield_strike
+#relics_addon:swarm_damage
+%.1f
+(starvation, drowning, suffocation, the void). Damage type ids or #tags, e.g. ["minecraft:fall", "#minecraft:is_fire"].
++1
++10
+, got 
+.
+.desc
+.fx
+.hint
+.hint.
+.png
+2
+210 cells / 50% local HP
+420 cells / full local HP
+8100 experience from level 0 to 10, got 
+90 cells / critical local HP
+?
+A calm zombified piglin is held out but not struck
+A charge blasts the target
+A drone hit lands
+A drone hit never knocks the target back
+A field never shelters a stranger inside it from its own owner's swarm
+A full Twins pair pays 20 points
+A fully absorbed hit must be cancelled, not applied as zero damage
+A group's dive lands as a swarm blow
+A held target cannot move
+A hit drone goes home for repair
+A kept effect is not cut off
+A kept effect is not trimmed: 
+A level 10 hive holds 750 drones, got 
+A listed snowball is intercepted
+A point buys an upgrade rank
+A quarter of the wither stays: 
+A sealed target's blows do nothing
+A second touch inside the cooldown is only pushed
+A strike still lands
+A stronger hit inside the window pays only the difference
+A switched-off battery is never drawn from
+A tamed wolf is never pushed
+A tamed wolf is never struck
+ATTACK
+AUTO
+Absorbed starvation never reaches the wearer
+Absorption
+After the cooldown the field strikes again
+After the window a new hit is paid again
+An RF shield cannot buy a Twins-only upgrade
+An RF shield strikes with its own discharge damage
+An arrow in an ignored tag is not a target
+An attacker's poison is cut off
+An empty RF battery leaves the shield unpowered
+Approach
+Arrows are stopped in flight by default
+At most 250 fly at once
+At most 30 experience per minute, got level 
+BALANCED
+BARRAGE
+BLAST
+Battery charge gained from one player experience point.
+Battery charge gained from one point of a player's own mana (Ars Nouveau, Iron's Spells).
+Blocks from the owner a hive keeps chasing its target.
+Blocks from the owner within which a hive picks up a target.
+Botania mana taken from mana tablets and similar items per point of battery charge.
+Burning is absorbed by the field
+CHARGE
+CLIENT
+COMBAT
+CONTAIN
+CONTAINMENT
+Containment zaps do not knock the target about
+Could not bind the {} mana API; its mana will not charge batteries
+Curios did not equip 
+Curios inventory must exist for the test player
+Curios must refuse a second hive
+Cutting an effect costs charge
+DISTRIBUTION
+DRONE
+DROPLET
+Damage in a listed tag passes the field, bad entries aside
+Damage types that always pass the field and reach the wearer, on top of the data tag relics_addon:shield_passes
+Damage types the field absorbs although relics_addon:shield_passes lets them through, e.g. ["minecraft:drown"].
+Disabled automatically while an Iris/Oculus shader pack is active.
+EX-twins / Hives and swarms
+EXPERIENCE
+Effects nobody cast (a wither rose) still apply
+Effects off the list are still cut
+Even if two are forced in, only one hive runs
+Every drone has three hit points
+Expected twenty Twins facets
+Experience levels a mana battery never draws below.
+FE charges the battery
+Failed to build Photon effect {}
+Failed to load shield refraction shader
+Failed to register addon client hooks
+Feature GIF: 290 native shield frames captured
+GATHER
+Gathering surviving cells / no healing
+HIGH
+HIVE
+Harmful effects the field never cuts off or trims when an attacker applies them, e.g. ["minecraft:poison"].
+Health
+Helpful effects pass
+Hits inside the immunity window cost nothing extra
+Hive GIF evidence: {} native frames captured
+Hive evidence: {}; {} drones per family, mean gallery render submission {} ms across {} frames
+Hive unit count exceeds limit
+Holding and striking are paid from the battery: 
+How strongly the refraction band bends the image behind the wave.
+How visible a shield is when nothing is attacking (0 hides it until a hit, 1 is as bright as in combat).
+Husk fixture
+IMPACT
+Idle
+Impact wave / across the sphere
+Incomplete spherical Voronoi cell 
+Independent impact waves / continuous animation
+Invalid Twins hive layer
+Invalid Twins shield arc
+Invalid Twins shield layer
+Invalid healer allocation
+Invalid hive joint
+Invalid legacy shield relocation
+Invalid shield cell count
+Invalid shield relocation
+It does not suffocate
+It hangs there
+It is still kept out of the field
+Its own blow, reflected
+Keeping an effect costs nothing
+LOW
+LambDynamicLights found: shields, swarm effects and blasts will light the world
+Let visible shields, swarm strike groups, charges, blasts and constructs light up the world around them.
+Letting it through costs nothing
+Level thresholds
+Listed damage reaches the wearer
+Listed starvation is absorbed although shield_passes lets it through
+Loaded three shields and three typed defender hives
+MAGIC
+MANA
+MANA_DRONE
+MANA_HIVE
+MANA_SHIELD
+Mana batteries can draw from {}
+Mana devices have no RF battery
+Mana source {} failed; it is disabled for this session
+Mob effect ids or #tags.
+Most device experience one shield or hive can earn per minute of combat.
+Multiplier for how far a shield throws hostile mobs back. 0 only holds them at the surface.
+Multiplier for the damage a shield deals to hostile mobs it throws back. 0 only pushes them.
+Native shield evidence: {}
+Native visual evidence: {}
+Needs LambDynamicLights; without it this does nothing.
+No hurt animation and no knockback from an absorbed hit
+No poison reaches the wearer
+Normal startup: TitleScreen, no preview; {}
+Not An Id!
+Not a hive: 
+Not a shield: 
+Not an item-backed device: 
+OVERVIEW
+Once it attacks the wearer, it is struck
+Oversized hive shot packet
+Oversized shield relocation packet
+POWER
+Panel break
+Photon effect failed; further effect errors are suppressed
+Players must get two charm slots from the mod's Curios data
+Projectiles the field never stops in flight, whatever the other rules say. Their hits are still absorbed at the
+Projectiles the field stops in flight besides arrows and the tag relics_addon:shield_interceptable_projectiles,
+RECOVERY
+REFLECT
+RESTORATION
+RF
+RF devices expose a receive-only FE storage
+RF_DRONE
+RF_HIVE
+RF_SHIELD
+RIPPLE
+Rank of 
+RefractionGain
+Released, it falls again
+Relics / Native Model Test
+Relics / Reactive Shield Test
+Run with runGameTestServer
+SAVE 
+SHIELD
+STABILIZATION
+STRIKE
+SUMMON
+SUPPORT
+SWARM
+Scale of the geometric hit wave on Mana and Twins shields. 0 disables it.
+Screen-space refraction along the hit wave of Mana and Twins shields.
+Server config {}: ignoring "{}", expected a {} id such as minecraft:example or a #tag
+Server config {}: no {} "{}" is registered, the entry matches nothing
+Server config {}: no {} tag "#{}" exists, the entry matches nothing
+Share of a player's own mana pool that batteries leave untouched for spellcasting.
+Share of each drone's damage that goes into its group's blow or charge.
+Shields and hives run on their built-in RF and mana batteries. Disable to make them free.
+Shots the target fires are swallowed
+Snowballs fly through by default
+Starvation is not blocked by the field
+Starvation reaches the wearer
+Status damage never reaches the wearer
+Strike damage is registered and lands
+Striking earns device experience
+Swapping the worn hive in its own slot stays allowed
+Swarm blows are not waved through every field: another player's field stops them
+TOGGLE
+TWINS
+TWINS_DRONE
+TWINS_HIVE
+TWINS_SHIELD
+The attacker's poison reaches the wearer
+The blow is turned back on the attacker
+The charge slot only takes FE items
+The console tracks the worn shield
+The drone hit hurts
+The drones charge the ward (
+The field does not stop an ignored arrow
+The field never absorbs its own strike, whatever the absorb list says
+The field pays for the arrow
+The field pays for the hit: 
+The field pays for the starvation
+The field pays for the wither hit
+The field pays the snowball's cost
+The field spends nothing on damage it lets through
+The field spends nothing on its own strike
+The field strikes a hostile mob it holds back
+The first touch is struck
+The ignore list wins over the intercept list
+The ignored arrow keeps flying
+The lift stops under the ceiling (
+The listed snowball is stopped at the shell
+The mob loses health
+The owner gets the credit
+The owner gets the kill credit
+The owner is untouched
+The owner's swarm lands
+The pass list wins over the absorb list
+The power button switches the shield off
+The projectile enters the level
+The rank rises and the point is spent
+The rifts hold the target four blocks up (
+The skull enters the level
+The skull must not hurt the wearer through the field
+The skull must not wither the wearer through the field
+The strike shows on the shell facing the mob
+The strike throws the mob away from the wearer (outward speed 
+The target enters the level
+The target is never pushed into the blocks
+The torus holds the target
+The torus strikes its prisoner with lightning
+The ward stops the blow
+The wearer is untouched
+The wearer keeps full health
+The zombie enters the level
+The zombie is held at the shell (
+Ticks before a shield can strike the same mob again.
+Tint
+Twins split a cost evenly between RF and mana
+UPGRADE
+UPGRADES
+Unexpected legacy shield topology
+Unknown device upgrade: 
+Unlisted damage is still absorbed
+With both batteries off the device has no power
+With the list restored the arrow is stopped
+With the list restored, fire is absorbed again
+Wither damage is absorbed by the field
+Without power the hit lands
+Without power the wearer takes the damage
+Wolf fixture
+Zombie fixture
+_activity
+_disabled
+_enabled
+a;b;c
+absorbed
+absorption
+active
+active;changedAt
+active;targetId;changedAt;targetX;targetY;targetZ;mode;travel;shots
+all
+allies
+approach
+ars_nouveau
+attack_damage
+attack_interval_max
+auto
+axisX;axisY;axisZ;degrees
+back
+beam
+body
+bolt_
+botania
+break
+broken
+brokenCells
+buffer_capacity
+cells
+center;perimeter;gameplay
+changed_at
+charm
+charm;slot
+com.hollingsworth.arsnouveau.common.capability.ManaCap
+com.hollingsworth.arsnouveau.setup.registry.CapabilityRegistry
+combat_protocol
+cooldown
+core
+coverage
+curios
+damage_distribution
+dense
+deploy
+dev.hurtify.relicsaddon.client.ClientEventRegistrar
+device-test
+device_control
+device_energy
+device_progression
+disabled
+dist
+distance
+drone_count
+drone_health
+drone_shot
+drone_stack_state
+dust
+e.g. ["minecraft:snowball"] or a mod's bullet. Tridents, pearls and potions listed here are stopped too. Entity type ids or #tags.
+enabled
+enabled;changedAt
+enabled;front;left;right;back;lastHitPanel;lastAbsorbed;lastActiveGameTime;sharedBuffer;cells;moves;gatherTime
+enabled;lastInterceptGameTime;lastAbsorbed
+enabled;units
+end_x
+end_y
+end_z
+energy_cell
+entity;position
+experience
+experience;level;points;upgrades
+field_arena
+fill;deep;bright;edge;node
+fired_at
+flash
+from
+from;to
+front
+fx
+fx/
+gameTime
+gather-end
+gather-start
+gatherTime
+getCurrentMana
+getInstance
+getMana
+getMaxMana
+getPlayerMagicData
+glints
+halo
+head
+healers
+healers;mode
+health;sharedBuffer;spent
+hive
+hive.mana_charge_fire
+hive.mana_droplet
+hive.mana_lightning_blast
+hive.mana_ward
+hive.maxHealingPerSecond
+hive.pursuitRange
+hive.rf_charge_fire
+hive.rf_lightning_blast
+hive.rf_seal
+hive.rf_tesseract
+hive.strikeEfficiency
+hive.targetRange
+hive.twins_charge_fire
+hive.twins_lightning_blast
+hive.twins_pulsar
+hive.twins_rift
+hive.ward_reflect
+hive_beam_
+hive_bolt_
+hive_combat_state
+hive_dismiss_
+hive_impact_
+hive_lightning_
+hive_settings
+hive_stack_state
+hive_summon_
+hive_support_state
+hp
+hp-critical
+hp-full
+hp-half
+hp;readyAt
+hp;readyAt;lastHit;attackReadyAt
+id
+id;panel;perimeter;center
+idle
+impact_at
+impacts
+inactive_slot
+instance
+instance_id
+io.redspace.ironsspellbooks.api.magic.MagicData
+io.redspace.ironsspellbooks.network.SyncManaPacket
+iris
+irons_spellbooks
+irons_spellbooks:max_mana
+isShaderPackInUse
+item.relics_addon.
+item/animated/
+itemGroup.relics_addon.main
+key.categories.relics_addon
+key.relics_addon.device_control
+kind
+lastAbsorbed
+lastActiveGameTime
+lastHitPanel
+lastInterceptGameTime
+left
+level
+light;behavior;distanceSqr
+light;start;ticks
+lights.dynamic
+main
+mana
+mana.attack_1
+mana.attack_2
+mana.dismiss
+mana.impact_1
+mana.impact_2
+mana.summon
+mana_cell
+mana_drone
+mana_drone_shell
+mana_hive
+mana_on
+mana_shield
+mana_shield_core
+matrix;x;y;z;radius;fx;fz;eye;perspective
+max_mana
+message.relics_addon.
+message.relics_addon.coverage.
+message.relics_addon.shield_blocked
+message.relics_addon.shield_coverage.changed
+message.relics_addon.shield_effect_cut
+message.relics_addon.shield_effect_trimmed
+message.relics_addon.shield_radius.changed
+message.relics_addon.shield_radius.invalid
+message.relics_addon.shield_status
+message.relics_addon.status.
+message.relics_addon.status.no_shield
+minecraft:no_such_damage
+minecraft:poison
+minecraft:snowball
+minecraft:starve
+minecraft:wither
+mode
+mode;type;slots;groups;members;drones;owner;target;width;height;time;cycleStart;interval;formed
+motes
+moves
+n;t1;t2;x;y;z;radius
+name
+net.irisshaders.iris.api.v0.IrisApi
+net.neoforged.fml.loading.FMLEnvironment
+no hold
+none
+normal
+normal;gameTime;panel;absorbed;broken;brokenCells;distance;strike
+normal;tangent;pivot;offset;tilt;twist
+normal;ticks
+nova
+oculus
+open_device
+overlapping-waves
+owner
+owner;shield
+panel
+passingDamageTypes wins over this list, and shield strikes and swarm blows always pass. Damage type ids or #tags.
+photon
+player
+player;hive;husk
+player;time
+playerGameType
+point
+points
+power.botaniaManaPerPoint
+power.experiencePointValue
+power.experienceReserveLevels
+power.playerManaReserve
+power.playerManaValue
+power.requireBatteries
+presence;absorption;destruction
+priority
+progression.maxExperiencePerMinute
+radius
+radius;coverage
+ready
+ready_at
+recovery_protocol
+register
+relic_hive_combat
+relic_shield
+relic_shield_glow
+relics-hive-
+relics-hive-gif-%03d.png
+relics-native-models-
+relics-normal-startup.png
+relics-shield-gif-%03d.png
+relics-shields-
+relics_addon
+relics_addon.captureAndExit
+relics_addon.cellSmoke
+relics_addon.featureGif
+relics_addon.hiveGif
+relics_addon.hiveSmoke
+relics_addon.interactiveSmoke
+relics_addon.shieldSmoke
+relics_addon.startupSmoke
+relics_addon.visualSmoke
+relics_addon:
+relics_addon:field_absorbed_for
+relics_addon:field_credit_for
+relics_addon:field_credit_stack
+relics_addon:field_passed_for
+relics_addon:held_gravity
+removeMana
+requestMana
+research
+resonant_circuit
+rf
+rf.attack_1
+rf.attack_2
+rf.dismiss
+rf.impact_1
+rf.impact_2
+rf.summon
+rf;mana;rfOn;manaOn;source
+rf_drone
+rf_drone_frame
+rf_hive
+rf_on
+rf_shield
+rf_shield_core
+right
+ring
+scatter
+screen.relics_addon.battery_mana
+screen.relics_addon.battery_mana.hint
+screen.relics_addon.battery_mana_amount
+screen.relics_addon.battery_mana_short
+screen.relics_addon.battery_off
+screen.relics_addon.battery_on
+screen.relics_addon.battery_rf
+screen.relics_addon.battery_rf.hint
+screen.relics_addon.battery_rf.tab_hint
+screen.relics_addon.battery_rf_amount
+screen.relics_addon.battery_rf_short
+screen.relics_addon.battery_toggle.hint
+screen.relics_addon.charge_slot
+screen.relics_addon.charge_slot.hint
+screen.relics_addon.charge_slot_short
+screen.relics_addon.close
+screen.relics_addon.console_title
+screen.relics_addon.device_control
+screen.relics_addon.experience
+screen.relics_addon.experience.hint
+screen.relics_addon.fighters
+screen.relics_addon.healers
+screen.relics_addon.healers_adjust
+screen.relics_addon.healers_move
+screen.relics_addon.help
+screen.relics_addon.help_button
+screen.relics_addon.mana_source.
+screen.relics_addon.mana_source_label
+screen.relics_addon.max_level
+screen.relics_addon.mode.
+screen.relics_addon.monitor_level
+screen.relics_addon.monitor_no_power
+screen.relics_addon.monitor_offline
+screen.relics_addon.monitor_online
+screen.relics_addon.no_devices
+screen.relics_addon.overview_drones
+screen.relics_addon.overview_integrity
+screen.relics_addon.overview_level
+screen.relics_addon.power_off
+screen.relics_addon.power_on
+screen.relics_addon.stat.buffer
+screen.relics_addon.stat.damage
+screen.relics_addon.stat.drone_health
+screen.relics_addon.stat.drones
+screen.relics_addon.stat.interval
+screen.relics_addon.stat.radius
+screen.relics_addon.stat.repair
+screen.relics_addon.stat.strike
+screen.relics_addon.stats
+screen.relics_addon.swarm_hint
+screen.relics_addon.swarm_title
+screen.relics_addon.tab.
+screen.relics_addon.toggle.hint
+screen.relics_addon.upgrade_buy
+screen.relics_addon.upgrade_cost
+screen.relics_addon.upgrade_maxed
+screen.relics_addon.upgrade_needs_level
+screen.relics_addon.upgrade_no_points
+screen.relics_addon.upgrade_points
+screen.relics_addon.upgrade_rank
+screen.relics_addon.upgrade_requirement
+seg
+segments;pads
+setMana
+shards
+sharedBuffer
+shell
+shell_
+shield
+shield.absorbedDamageTypes
+shield.idleOpacity
+shield.ignoredProjectiles
+shield.interceptedProjectiles
+shield.keptEffects
+shield.mana_absorb_1
+shield.mana_absorb_2
+shield.mana_cell_break
+shield.mana_collapse
+shield.mana_ripple
+shield.mana_strike
+shield.maxRadius
+shield.passingDamageTypes
+shield.refraction
+shield.refractionStrength
+shield.rf_absorb_1
+shield.rf_absorb_2
+shield.rf_cell_break
+shield.rf_collapse
+shield.rf_strike
+shield.rippleStrength
+shield.strikeCooldownTicks
+shield.strikeDamage
+shield.strikeKnockback
+shield.twins_absorb_1
+shield.twins_absorb_2
+shield.twins_cell_break
+shield.twins_collapse
+shield.twins_ripple
+shield.twins_strike
+shield_absorb_
+shield_cell_break_
+shield_collapse_
+shield_coverage
+shield_discharge
+shield_gather
+shield_impact
+shield_impacts
+shield_interceptable_projectiles
+shield_mana_burst
+shield_passes
+shield_radius
+shield_refraction
+shield_restoration
+shield_settings
+shield_stabilization
+shield_stack_state
+shield_status
+shield_strike
+shield_strike_arc_
+shield_strike_burst_
+shield_strike_zap_
+shield_twin_surge
+shots
+smoke
+source
+source;ids;tags;rejected
+sparkle
+sparks
+stack
+start_x
+start_y
+start_z
+strike
+support_protocol
+swarm
+swarm_blast_
+swarm_charge_
+swarm_damage
+swarm_reflect
+swarm_smoke
+swarm_spark_
+swarm_strike
+swarm_void
+swarm_ward
+swirl
+syncToClient
+target_id
+target_x
+target_y
+target_z
+test_room
+textures/gui/upgrades/
+textures/particle/kila_tail.png
+textures/particle/ring.png
+textures/particle/smoke.png
+tick;attacker;absorbed;passed
+tick;level;hives;present
+time;normal
+to
+tooltip.relics_addon.battery_mana
+tooltip.relics_addon.battery_mana_off
+tooltip.relics_addon.battery_rf
+tooltip.relics_addon.battery_rf_off
+tooltip.relics_addon.device_level
+tooltip.relics_addon.hive
+tooltip.relics_addon.hold_shift
+tooltip.relics_addon.shield.autonomous
+tooltip.relics_addon.shield.buffer
+tooltip.relics_addon.shield.strike
+tooltip.relics_addon.state.
+tooltip.relics_addon.strike.
+travel
+twins
+twins.bolt_attack_1
+twins.bolt_attack_2
+twins.bolt_impact_1
+twins.bolt_impact_2
+twins.dismiss
+twins.lightning_attack_1
+twins.lightning_attack_2
+twins.lightning_impact_1
+twins.lightning_impact_2
+twins.summon
+twins_drone
+twins_drone_plate
+twins_hive
+twins_shield
+twins_shield_core
+type;stack
+u0;v0;u1;v1;s0;s1
+u;v;s;size
+ui.toggle
+ui.upgrade
+unit
+unit;firedAt;kind;startX;startY;startZ;endX;endY;endZ;impactAt
+units
+upgrade.relics_addon.
+upgrades
+vazkii.botania.api.mana.ManaItemHandler
+vertices;triangles;edges;vertexCell;triangleCell
+wave
+wearer unless their damage type passes the field (passingDamageTypes). Entity type ids or #tags.
+x;y;w;h;label;active;selected;action;tooltip
+x;y;w;h;text
+x;y;z
+x;y;z;category
+x;y;z;inner;radius;strength;funnel
+x;y;z;luminance;radius
+x;y;z;offset;tilt;spin
+x;y;z;radius;role;impacts;time
+zap_
+\u00d7
+\u2026
+\u22121
+\u221210
+\u25ae
+\u25af
+\u25cf 
+\u26a1

@@ -1,7 +1,7 @@
 package dev.hurtify.relicsaddon.network;
 
 import dev.hurtify.relicsaddon.RelicsAddon;
-import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import net.minecraft.core.Direction;
 import dev.hurtify.relicsaddon.server.ArmageddonController;
 import io.netty.buffer.ByteBuf;

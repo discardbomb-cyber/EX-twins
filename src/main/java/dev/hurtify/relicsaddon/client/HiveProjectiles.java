@@ -1,8 +1,8 @@
 package dev.hurtify.relicsaddon.client;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import dev.hurtify.relicsaddon.drone.HiveShapes;
-import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.domain.hive.HiveShapes;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.world.phys.Vec3;
@@ -56,7 +56,7 @@ final class HiveProjectiles {
      * then a ring, then a ring with bolts tearing round it up to a block and a half out.
      */
     static void ring(VertexConsumer glow, Matrix4f m, Vec3 at, Vec3 facing, double charge, double time, long seed) {
-        Vec3[] axes = HiveShapes.axes(facing.lengthSqr() < 1e-8 ? new Vec3(0, 0, 1) : facing);
+        Vec3[] axes = SwarmMath.axes(facing.lengthSqr() < 1e-8 ? new Vec3(0, 0, 1) : facing);
         int blue = 0x38E8FF, hot = 0xBFF6FF;
         if (charge < .3) {
             GlowBrush.dot(glow, m, at, .04 + .2 * charge, hot, 120 + 400 * charge);
@@ -106,8 +106,8 @@ final class HiveProjectiles {
 
     /** A corner of an icosahedron of {@code radius} turned by {@code spin}; for tests and shards. */
     static Vec3 icosahedronCorner(int corner, double radius, double spin) {
-        Vec3 p = HiveShapes.rotate(ICO[Math.floorMod(corner, 12)], Y_AXIS, spin);
-        return HiveShapes.rotate(p, X_AXIS, spin * .6).scale(radius);
+        Vec3 p = SwarmMath.rotate(ICO[Math.floorMod(corner, 12)], Y_AXIS, spin);
+        return SwarmMath.rotate(p, X_AXIS, spin * .6).scale(radius);
     }
 
     /** All twelve corners of that icosahedron, into {@code into}. */

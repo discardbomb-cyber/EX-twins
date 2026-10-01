@@ -299,10 +299,69 @@ tasks.named('check') {
     dependsOn 'verifyEffectLights'
     dependsOn 'verifyEffectLightSources'
     dependsOn 'verifyReleaseContents'
+    dependsOn 'verifyArchitecture'
+    dependsOn 'verifyContracts'
+    dependsOn 'verifyEntrypoints'
+    dependsOn 'verifyCodecGolden'
+    dependsOn 'verifyGeometryGolden'
+    dependsOn 'verifyMathKernel'
+    dependsOn 'verifyDomainRules'
     dependsOn 'verifyObjCompact'
     dependsOn 'verifyPartModels'
     dependsOn 'verifyTwinsShieldLayers'
     dependsOn 'verifyHiveVisuals'
+}
+
+// Safety net of the hexagonal migration (docs/architecture/hexagonal-migration.md, sections 3 and 11).
+// Golden masters live in src/test/resources/golden and are frozen: -PgoldenRecord rewrites them (S0 only).
+def goldenRecord = providers.gradleProperty('goldenRecord').isPresent()
+def goldenDir = file('src/test/resources/golden')
+// S6 reconciled with released main: ship/runtime adapters remain legacy; all migrated domain rules stay pure.
+// See the merge reconciliation note in the migration document; the task prepends the classes and source root.
+def architectureArgs = ['--max-legacy', '56', '--min-domain', '65', '--min-application', '0', '--min-adapter', '5']
+
+tasks.register('verifyArchitecture', JavaExec) {
+    dependsOn tasks.named('classes'), tasks.named('testClasses')
+    classpath = sourceSets.test.output.classesDirs
+    mainClass = 'dev.hurtify.relicsaddon.contract.ArchitectureCheck'
+    args([layout.buildDirectory.dir('classes/java/main').get().asFile.absolutePath,
+          '--sources', file('src/main/java/dev/hurtify/relicsaddon').absolutePath] + architectureArgs)
+}
+
+// Resource bytes and the string constants of the compiled mod (ids, keys, messages) against their goldens.
+tasks.register('verifyContracts', JavaExec) {
+    dependsOn tasks.named('classes'), tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.hurtify.relicsaddon.contract.ContractCheck'
+    args '--root', projectDir.absolutePath, '--golden', goldenDir.absolutePath,
+            '--resources', file('src/main/resources').absolutePath, '--resources', file('src/generated/resources').absolutePath,
+            '--classes', layout.buildDirectory.dir('classes/java/main').get().asFile.absolutePath
+    if (goldenRecord) args '--record'
+}
+
+// Classes named only in strings (the reflective client hook, the LambDynamicLights entrypoint) must resolve.
+tasks.register('verifyEntrypoints', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.contract.EntrypointCheck'
+}
+
+// Saved and synced forms, byte for byte, including old saves and malformed packets.
+tasks.register('verifyCodecGolden', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.contract.CodecGoldenCheck'
+    args new File(goldenDir, 'codecs.txt').absolutePath
+    if (goldenRecord) args '--record'
+}
+
+// The geometry shared by server and client, bit for bit. Since S5 it is domain code and runs without Minecraft.
+tasks.register('verifyGeometryGolden', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.hurtify.relicsaddon.contract.GeometryGoldenCheck'
+    args new File(goldenDir, 'geometry.txt').absolutePath
+    if (goldenRecord) args '--record'
 }
 
 tasks.register('verifyTwinsShieldLayers', JavaExec) {
@@ -348,8 +407,8 @@ tasks.register('verifyHiveLayers', JavaExec) {
 
 tasks.register('verifyHiveFormation', JavaExec) {
     dependsOn tasks.named('testClasses')
-    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
-    mainClass = 'dev.hurtify.relicsaddon.client.HiveFormationCheck'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.hurtify.relicsaddon.domain.hive.HiveFormationCheck'
 }
 
 // Mana Armageddon's sounds must last exactly as long as the stages they score (the blast as long as its column grows).
@@ -391,28 +450,28 @@ tasks.register('verifyShieldShell', JavaExec) {
 
 tasks.register('verifyDevicePower', JavaExec) {
     dependsOn tasks.named('testClasses')
-    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
-    mainClass = 'dev.hurtify.relicsaddon.power.DevicePowerCheck'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.hurtify.relicsaddon.domain.energy.BatteryRulesCheck'
 }
 
 // Each attack mode's minimum is its figure's corner count; the places in the air add up; the console never asks for a forbidden allocation.
 tasks.register('verifyHiveAllocation', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
-    mainClass = 'dev.hurtify.relicsaddon.drone.HiveAllocationCheck'
+    mainClass = 'dev.hurtify.relicsaddon.adapter.out.persistence.HiveAllocationCheck'
 }
 
 // The new figures: geodesic cages, lotus and rift bounded at every stage, the tesseract's cube, the droplet paths.
 tasks.register('verifyHiveConstructs', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
-    mainClass = 'dev.hurtify.relicsaddon.drone.HiveConstructsCheck'
+    mainClass = 'dev.hurtify.relicsaddon.adapter.out.persistence.HiveConstructsCheck'
 }
 
 tasks.register('verifyNetworkCodecs', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
-    mainClass = 'dev.hurtify.relicsaddon.drone.NetworkCodecCheck'
+    mainClass = 'dev.hurtify.relicsaddon.adapter.out.persistence.NetworkCodecCheck'
 }
 
 tasks.register('verifyRegistryFilter', JavaExec) {
@@ -430,14 +489,29 @@ tasks.register('inspectShieldSave', JavaExec) {
     }
 }
 
-// NeoForge can exit zero after a loading error, before running any tests.
+// NeoForge can exit zero after a loading error, before running any tests. The count is pinned, so a
+// GameTest that silently stops being discovered fails the run too.
+def expectedGameTests = 94
+
 tasks.named('runGameTestServer').configure {
     doFirst { ext.testStartedMillis = System.currentTimeMillis() }
     doLast {
         def log = file('run-gametest/logs/latest.log')
+        def summary = log.exists() && log.lastModified() >= ext.testStartedMillis ? (log.getText('UTF-8') =~ /All (\d+) required tests passed/) : null
+        if (summary == null || !summary.find() || summary.group(1).toInteger() != expectedGameTests) {
+            throw new GradleException("GameTest server did not confirm a fresh run of all ${expectedGameTests} required tests; inspect run-gametest/logs/latest.log")
+        }
+    }
+}
+
+// The development client must reach the ordinary title screen (NativeModelSmoke logs it, then stops the client).
+tasks.named('runStartupCheckClient').configure {
+    doFirst { ext.testStartedMillis = System.currentTimeMillis() }
+    doLast {
+        def log = file('run-verification/logs/latest.log')
         if (!log.exists() || log.lastModified() < ext.testStartedMillis ||
-                !(log.getText('UTF-8') =~ /All \d+ required tests passed/).find()) {
-            throw new GradleException('GameTest server did not confirm a fresh successful test run; inspect run-gametest/logs/latest.log')
+                !log.getText('UTF-8').contains('Normal startup: TitleScreen, no preview')) {
+            throw new GradleException('Development client did not reach the ordinary title screen; inspect run-verification/logs/latest.log')
         }
     }
 }
@@ -500,4 +574,16 @@ tasks.register('verifyTwinsFacets', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'dev.hurtify.relicsaddon.client.TwinsFacetPoseCheck'
     args layout.buildDirectory.file('reports/twins-facet-poses.json').get().asFile.absolutePath
+}
+
+tasks.register('verifyMathKernel', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.domain.math.MathKernelCheck'
+}
+
+tasks.register('verifyDomainRules', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.hurtify.relicsaddon.domain.DomainRulesCheck'
 }

@@ -1,10 +1,12 @@
 package dev.hurtify.relicsaddon.relic;
 
+import dev.hurtify.relicsaddon.domain.device.DeviceProgression;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
+import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.server.EquippedRelicSetResolver;
 import dev.hurtify.relicsaddon.shield.ShieldParameters;
-import dev.hurtify.relicsaddon.shield.ShieldStackState;
-import dev.hurtify.relicsaddon.shield.ShieldTopology;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.ChatFormatting;
@@ -44,7 +46,7 @@ public abstract class AutonomousRelicItem extends Item {
         if (!stack.has(ModDataComponents.DEVICE_PROGRESSION.get())) stack.set(ModDataComponents.DEVICE_PROGRESSION.get(), DeviceProgression.DEFAULT);
         if (!stack.has(ModDataComponents.DEVICE_ENERGY.get())) stack.set(ModDataComponents.DEVICE_ENERGY.get(), dev.hurtify.relicsaddon.power.DevicePower.full(stack));
         if (stack.getItem() instanceof AutonomousRelicItem item && item.role().isHive()) {
-            stack.set(ModDataComponents.HIVE_STACK_STATE.get(), stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), dev.hurtify.relicsaddon.drone.HiveStackState.DEFAULT));
+            stack.set(ModDataComponents.HIVE_STACK_STATE.get(), stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), dev.hurtify.relicsaddon.domain.hive.HiveStackState.DEFAULT));
         } else if (stack.getItem() instanceof AutonomousRelicItem item && item.role().isShield()) {
             stack.set(ModDataComponents.SHIELD_STACK_STATE.get(), stack.getOrDefault(ModDataComponents.SHIELD_STACK_STATE.get(), ShieldStackState.DEFAULT));
         }
@@ -70,7 +72,7 @@ public abstract class AutonomousRelicItem extends Item {
                     energy.mana(), dev.hurtify.relicsaddon.power.DevicePower.capacity(stack)).withStyle(ChatFormatting.BLUE));
         }
         if (role().isHive()) {
-            var state = stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), dev.hurtify.relicsaddon.drone.HiveStackState.DEFAULT);
+            var state = stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), dev.hurtify.relicsaddon.domain.hive.HiveStackState.DEFAULT);
             long now = context.level() == null ? 0 : context.level().getGameTime();
             lines.add(Component.translatable("tooltip.relics_addon.hive", Component.translatable("tooltip.relics_addon.state." + (state.enabled() ? "enabled" : "disabled")), state.readyCount(now), state.units().size()).withStyle(style()));
             return;

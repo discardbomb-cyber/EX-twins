@@ -1,7 +1,7 @@
 package dev.hurtify.relicsaddon.client;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -99,7 +99,7 @@ final class HiveJuiceReference {
         // The shock ring, across the blow in the air.
         if (age < RING && hit.style != SPARK && hit.style != GROUNDED && hit.style != REFLECTED) {
             double t = age / RING, radius = s * (.3 + 2.6 * (1 - (1 - t) * (1 - t)));
-            Vec3[] axes = dev.hurtify.relicsaddon.drone.HiveShapes.axes(hit.normal);
+            Vec3[] axes = SwarmMath.axes(hit.normal);
             GlowBrushReference.circle(glow, m, at, axes[1], axes[2], radius, 48, .03 + .05 * (1 - t), hot, 210 * (1 - t));
         }
         // And over the ground under it.
@@ -154,9 +154,9 @@ final class HiveJuiceReference {
                 Vec3 axis = new Vec3(hash(hit.key, shard) - .5, hash(hit.key, shard + 1) - .5, hash(hit.key, shard + 2) - .5);
                 axis = axis.lengthSqr() < 1e-6 ? new Vec3(0, 1, 0) : axis.normalize();
                 double spin = age * .5;
-                Vec3 pa = at.add(middle).add(flown).add(dev.hurtify.relicsaddon.drone.HiveShapes.rotate(a.subtract(middle), axis, spin));
-                Vec3 pb = at.add(middle).add(flown).add(dev.hurtify.relicsaddon.drone.HiveShapes.rotate(b.subtract(middle), axis, spin));
-                Vec3 pd = at.add(middle).add(flown).add(dev.hurtify.relicsaddon.drone.HiveShapes.rotate(d.subtract(middle), axis, spin));
+                Vec3 pa = at.add(middle).add(flown).add(SwarmMath.rotate(a.subtract(middle), axis, spin));
+                Vec3 pb = at.add(middle).add(flown).add(SwarmMath.rotate(b.subtract(middle), axis, spin));
+                Vec3 pd = at.add(middle).add(flown).add(SwarmMath.rotate(d.subtract(middle), axis, spin));
                 GlowBrushReference.quad(fill, m, pa, pb, pd, pd, 0x3A0F66, 0x3A0F66, 0x3A0F66, 0x3A0F66, 150 * fade, 150 * fade, 150 * fade, 150 * fade);
                 GlowBrushReference.line(glow, m, pa, pb, .006, 0xE7C6FF, 220 * fade);
                 GlowBrushReference.line(glow, m, pb, pd, .006, 0xE7C6FF, 220 * fade);
@@ -208,7 +208,7 @@ final class HiveJuiceReference {
             case HIGH -> 60;
         };
         if (hit.style == SPARK || hit.style == ZAP) count /= 3;
-        Vec3[] axes = dev.hurtify.relicsaddon.drone.HiveShapes.axes(hit.normal);
+        Vec3[] axes = SwarmMath.axes(hit.normal);
         for (int spark = 0; spark < count; spark++) {
             double life = 6 + 10 * hash(hit.key + (long) hit.start, spark);
             if (age > life) continue;

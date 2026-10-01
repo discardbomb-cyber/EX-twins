@@ -1,12 +1,13 @@
 package dev.hurtify.relicsaddon.server;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.hive.SwarmRules;
 
 import dev.hurtify.relicsaddon.RelicsAddon;
-import dev.hurtify.relicsaddon.drone.HiveSettings;
-import dev.hurtify.relicsaddon.drone.HiveStackState;
-import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.domain.hive.HiveSettings;
+import dev.hurtify.relicsaddon.domain.hive.HiveStackState;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
-import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,14 +43,14 @@ public final class HiveController {
 
     public static int capacity(Player player, ItemStack stack) {
         HiveType type = HiveType.of(((AutonomousRelicItem) stack.getItem()).role());
-        return (int) Math.round(RelicRuntime.stat(player, stack, "drone_count", type.initialCount, 12, HiveType.MAX_DRONES));
+        return SwarmRules.capacity(type, RelicRuntime.progression(stack).level());
     }
 
     public static HiveStackState prepare(Player player, ItemStack stack, boolean repair) {
         HiveStackState old = stack.getOrDefault(ModDataComponents.HIVE_STACK_STATE.get(), HiveStackState.DEFAULT);
         HiveStackState next = old.prepare(capacity(player, stack), player.level().getGameTime(), repair);
         if (repair && next != old) {
-            int restored = restoredHealth(old, next);
+            int restored = SwarmRules.restoredHealth(old, next);
             if (restored > 0 && !dev.hurtify.relicsaddon.power.DevicePower.drain(player, stack, restored * dev.hurtify.relicsaddon.power.DevicePower.HIVE_REPAIR_PER_HP)) {
                 next = old.prepare(capacity(player, stack), player.level().getGameTime(), false);
             }
@@ -86,13 +87,6 @@ public final class HiveController {
                             ? "moved to barrage from" : "left with no mode instead of", notice.mode().id(), notice.had(), notice.need());
         }
         return resolved;
-    }
-
-    /** HP regained by drones that already existed; drones added by a larger capacity arrive free. */
-    private static int restoredHealth(HiveStackState before, HiveStackState after) {
-        int sum = 0, shared = Math.min(before.units().size(), after.units().size());
-        for (int index = 0; index < shared; index++) sum += Math.max(0, after.units().get(index).hp() - before.units().get(index).hp());
-        return sum;
     }
 
     public static void onPlayerTick(PlayerTickEvent.Post event) {

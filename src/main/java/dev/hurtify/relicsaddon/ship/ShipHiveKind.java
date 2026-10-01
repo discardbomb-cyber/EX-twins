@@ -1,6 +1,6 @@
 package dev.hurtify.relicsaddon.ship;
 
-import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import java.util.Locale;
 import net.minecraft.util.StringRepresentable;
 

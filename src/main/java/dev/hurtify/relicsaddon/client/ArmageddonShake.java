@@ -1,6 +1,6 @@
 package dev.hurtify.relicsaddon.client;
 
-import dev.hurtify.relicsaddon.drone.Armageddon;
+import dev.hurtify.relicsaddon.domain.hive.Armageddon;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.ViewportEvent;

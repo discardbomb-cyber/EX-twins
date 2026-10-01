@@ -1,16 +1,18 @@
 package dev.hurtify.relicsaddon.client;
 
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
+
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
-import dev.hurtify.relicsaddon.relic.RelicRole;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.server.EquippedRelicSetResolver;
-import dev.hurtify.relicsaddon.shield.ShieldStackState;
-import dev.hurtify.relicsaddon.shield.ShieldField;
-import dev.hurtify.relicsaddon.shield.ShieldImpact;
-import dev.hurtify.relicsaddon.shield.ShieldImpactHistory;
+import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
+import dev.hurtify.relicsaddon.domain.shield.ShieldField;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpactHistory;
 import dev.hurtify.relicsaddon.shield.ShieldParameters;
 import java.util.ArrayList;
 import java.util.ArrayDeque;
@@ -138,13 +140,13 @@ public final class ShieldVisualRenderer {
         for (ShieldImpact impact : cache.fresh) {
             if (level.getGameTime() - impact.gameTime() > 3) continue;
             if (impact.isStrike()) {
-                dev.hurtify.relicsaddon.client.fx.ExFx.shieldStrike(level, center, radius, impact.normal(), impact.strike(), role, impact.absorbed());
-                EffectLights.flash(center.add(impact.normal().normalize().scale(radius)), 12, 1, 6);
+                dev.hurtify.relicsaddon.client.fx.ExFx.shieldStrike(level, center, radius, McVectors.toMc(impact.normal()), impact.strike(), role, impact.absorbed());
+                EffectLights.flash(center.add(McVectors.toMc(impact.normal()).normalize().scale(radius)), 12, 1, 6);
                 continue;
             }
-            Vec3 point = center.add(impact.normal().scale(impact.distance() >= 0 ? impact.distance() : radius));
-            if (impact.absorbed() > 0) dev.hurtify.relicsaddon.client.fx.ExFx.shieldAbsorb(level, point, impact.normal(), role, impact.absorbed());
-            if (impact.broken()) dev.hurtify.relicsaddon.client.fx.ExFx.shieldCellBreak(level, point, impact.normal(), role);
+            Vec3 point = center.add(McVectors.toMc(impact.normal()).scale(impact.distance() >= 0 ? impact.distance() : radius));
+            if (impact.absorbed() > 0) dev.hurtify.relicsaddon.client.fx.ExFx.shieldAbsorb(level, point, McVectors.toMc(impact.normal()), role, impact.absorbed());
+            if (impact.broken()) dev.hurtify.relicsaddon.client.fx.ExFx.shieldCellBreak(level, point, McVectors.toMc(impact.normal()), role);
         }
         if (state.totalIntegrity() == 0) {
             dev.hurtify.relicsaddon.client.fx.ExFx.shieldCollapse(level, center, radius, role);
@@ -295,7 +297,7 @@ public final class ShieldVisualRenderer {
             Matrix4f matrix, double originX, double originY, double originZ, Vec3 eyeDirection, double radius, double bufferRatio) {
         if (impact == null || impact.distance() < 0 || impact.distance() >= radius || time < impact.gameTime()
                 || time - impact.gameTime() >= ShieldResponse.IMPACT_TICKS) return;
-        Vec3 normal = impact.normal();
+        Vec3 normal = McVectors.toMc(impact.normal());
         Vec3 helper = Math.abs(normal.y) > .88D ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0);
         Vec3 u = normal.cross(helper).normalize();
         Vec3 v = normal.cross(u).normalize();

@@ -1,15 +1,17 @@
 package dev.hurtify.relicsaddon.server;
 
 import dev.hurtify.relicsaddon.RelicsAddon;
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.shield.ShieldField;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpactHistory;
+import dev.hurtify.relicsaddon.domain.shield.ShieldTopology;
+import dev.hurtify.relicsaddon.domain.shield.StrikeRules;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
-import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
-import dev.hurtify.relicsaddon.shield.ShieldField;
-import dev.hurtify.relicsaddon.shield.ShieldImpact;
-import dev.hurtify.relicsaddon.shield.ShieldImpactHistory;
 import dev.hurtify.relicsaddon.shield.ShieldParameters;
-import dev.hurtify.relicsaddon.shield.ShieldTopology;
 import dev.hurtify.relicsaddon.sound.RelicSounds;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -43,9 +45,9 @@ public final class ShieldStrike {
     private static final Map<Mob, Long> READY_AT = new WeakHashMap<>();
 
     public static ResourceKey<DamageType> damageType(RelicRole role) {
-        return switch (role) {
-            case MANA_SHIELD -> MANA_BURST;
-            case TWINS_SHIELD -> TWIN_SURGE;
+        return switch (StrikeRules.damageKind(role)) {
+            case SHIELD_MANA_BURST -> MANA_BURST;
+            case SHIELD_TWIN_SURGE -> TWIN_SURGE;
             default -> DISCHARGE;
         };
     }
@@ -93,7 +95,7 @@ public final class ShieldStrike {
     /** The strike shows on the shell with the flash, wave and traces of a hit, plus an arc out to the mob. */
     private static void record(Player owner, ItemStack shield, Vec3 normal, long now, float damage, float reach) {
         int panel = ShieldTopology.INSTANCE.cells()[ShieldController.selectCell(owner, normal)].panel();
-        ShieldImpact impact = ShieldImpact.strike(normal, now, panel, Math.max(1, damage), reach);
+        ShieldImpact impact = ShieldImpact.strike(McVectors.toDomain(normal), now, panel, Math.max(1, damage), reach);
         shield.set(ModDataComponents.SHIELD_IMPACT.get(), impact);
         shield.set(ModDataComponents.SHIELD_IMPACTS.get(),
                 shield.getOrDefault(ModDataComponents.SHIELD_IMPACTS.get(), ShieldImpactHistory.EMPTY).append(impact));

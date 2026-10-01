@@ -2,15 +2,15 @@ package dev.hurtify.relicsaddon.gametest.client;
 
 import dev.hurtify.relicsaddon.RelicsAddon;
 import dev.hurtify.relicsaddon.client.DeviceControlScreen;
-import dev.hurtify.relicsaddon.drone.AttackMode;
-import dev.hurtify.relicsaddon.drone.HiveSettings;
+import dev.hurtify.relicsaddon.domain.hive.AttackMode;
+import dev.hurtify.relicsaddon.domain.hive.HiveSettings;
 import dev.hurtify.relicsaddon.menu.DeviceControlMenu;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.registry.ModItems;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
-import dev.hurtify.relicsaddon.relic.DeviceProgression;
-import dev.hurtify.relicsaddon.relic.RelicRole;
+import dev.hurtify.relicsaddon.domain.device.DeviceProgression;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -528,9 +528,9 @@ public final class WorldScenarios {
         });
         Shot filming = ARMAGEDDON.get(current.name());
         int burnsOut = filming == null ? 0 : switch (current.hive()) {
-            case MANA_HIVE -> dev.hurtify.relicsaddon.drone.ManaArmageddon.IMPACT + dev.hurtify.relicsaddon.drone.ManaArmageddon.QUIET + 40;
-            case RF_HIVE -> dev.hurtify.relicsaddon.drone.RfArmageddon.RECOVER + 40;
-            default -> dev.hurtify.relicsaddon.drone.Armageddon.IMPACT + dev.hurtify.relicsaddon.drone.Armageddon.GONE + 40;
+            case MANA_HIVE -> dev.hurtify.relicsaddon.domain.hive.ManaArmageddon.IMPACT + dev.hurtify.relicsaddon.domain.hive.ManaArmageddon.QUIET + 40;
+            case RF_HIVE -> dev.hurtify.relicsaddon.domain.hive.RfArmageddon.RECOVER + 40;
+            default -> dev.hurtify.relicsaddon.domain.hive.Armageddon.IMPACT + dev.hurtify.relicsaddon.domain.hive.Armageddon.GONE + 40;
         };
         boolean burntOut = filming != null && minecraft.level != null && minecraft.level.getGameTime() - captureStart >= burnsOut - filming.headStart();
         if (frame >= current.frames() || burntOut) {

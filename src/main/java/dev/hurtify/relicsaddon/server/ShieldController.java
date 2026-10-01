@@ -1,17 +1,21 @@
 package dev.hurtify.relicsaddon.server;
 
 import dev.hurtify.relicsaddon.AddonConfig;
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
 
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
-import dev.hurtify.relicsaddon.relic.RelicRole;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
-import dev.hurtify.relicsaddon.shield.ShieldStackState;
-import dev.hurtify.relicsaddon.shield.ShieldImpact;
-import dev.hurtify.relicsaddon.shield.ShieldField;
-import dev.hurtify.relicsaddon.shield.ShieldTopology;
-import dev.hurtify.relicsaddon.shield.ShieldCellDefense;
+import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
+import dev.hurtify.relicsaddon.domain.shield.ShieldField;
+import dev.hurtify.relicsaddon.domain.shield.ShieldCellDefense;
+import dev.hurtify.relicsaddon.domain.shield.CellSelection;
+import dev.hurtify.relicsaddon.domain.shield.DamageFacts;
+import dev.hurtify.relicsaddon.domain.shield.DamagePassPolicy;
+import dev.hurtify.relicsaddon.domain.shield.HitImmunity;
 import dev.hurtify.relicsaddon.shield.ShieldParameters;
 import dev.hurtify.relicsaddon.sound.RelicSounds;
 import dev.hurtify.relicsaddon.relic.ShieldUpgrades;
@@ -41,8 +45,7 @@ public final class ShieldController {
     public static final TagKey<DamageType> PASSES_SHIELD = TagKey.create(Registries.DAMAGE_TYPE,
             ResourceLocation.fromNamespaceAndPath(dev.hurtify.relicsaddon.RelicsAddon.MOD_ID, "shield_passes"));
     /** Absorbed hits are cancelled outright, so vanilla hurt-immunity never starts; the field keeps its own. */
-    private static final int IMMUNITY_TICKS = 10;
-    private static final Map<LivingEntity, float[]> RECENT_HITS = new WeakHashMap<>();
+    private static final Map<LivingEntity, HitImmunity> RECENT_HITS = new WeakHashMap<>();
 
     public static void onIncomingDamage(LivingIncomingDamageEvent event) {
         LivingEntity victim = event.getEntity();
@@ -88,9 +91,12 @@ public final class ShieldController {
      */
     public static boolean passesField(DamageSource source) {
         Holder<DamageType> type = source.typeHolder();
-        if (AddonConfig.PASSING_DAMAGE.matches(type)) return true;
-        if (!type.is(PASSES_SHIELD)) return false;
-        return !AddonConfig.ABSORBED_DAMAGE.matches(type) || type.is(ShieldStrike.STRIKES);
+        return DamagePassPolicy.passesField(new DamageFacts() {
+            @Override public boolean passListed() { return AddonConfig.PASSING_DAMAGE.matches(type); }
+            @Override public boolean inPassTag() { return type.is(PASSES_SHIELD); }
+            @Override public boolean absorbListed() { return AddonConfig.ABSORBED_DAMAGE.matches(type); }
+            @Override public boolean strike() { return type.is(ShieldStrike.STRIKES); }
+        });
     }
 
     /**
@@ -99,14 +105,14 @@ public final class ShieldController {
      * fire, lava or cactus ticks do not drain it twenty times a second.
      */
     private static boolean withinImmunity(LivingIncomingDamageEvent event, LivingEntity victim) {
-        float[] last = RECENT_HITS.get(victim);
+        HitImmunity last = RECENT_HITS.get(victim);
         long now = victim.level().getGameTime();
-        if (last == null || now - (long) last[0] >= IMMUNITY_TICKS || now < (long) last[0]) return false;
-        if (event.getAmount() <= last[1]) {
+        if (last == null || !last.covers(now)) return false;
+        if (event.getAmount() <= last.absorbed()) {
             event.setCanceled(true);
             return true;
         }
-        event.setAmount(event.getAmount() - last[1]);
+        event.setAmount(event.getAmount() - last.absorbed());
         return false;
     }
 
@@ -115,10 +121,9 @@ public final class ShieldController {
         var source = event.getSource();
         ShieldEffectGuard.recordHit(victim, source.getEntity() != null ? source.getEntity() : source.getDirectEntity(),
                 absorbed, event.getAmount() - absorbed);
-        float[] last = RECENT_HITS.get(victim);
+        HitImmunity last = RECENT_HITS.get(victim);
         long now = victim.level().getGameTime();
-        float previous = last != null && now - (long) last[0] < IMMUNITY_TICKS && now >= (long) last[0] ? last[1] : 0;
-        RECENT_HITS.put(victim, new float[]{now, previous + absorbed});
+        RECENT_HITS.put(victim, HitImmunity.record(last, now, absorbed));
         if (absorbed >= event.getAmount()) event.setCanceled(true);
         else event.setAmount(event.getAmount() - absorbed);
     }
@@ -144,13 +149,13 @@ public final class ShieldController {
         ShieldCoverage.provoked(player, event.getSource().getEntity());
         ShieldStackState next = damage.apply(state, cell, absorbed, player.level().getGameTime());
         shield.set(ModDataComponents.SHIELD_STACK_STATE.get(), next);
-        ShieldImpact impact = ShieldImpact.of(direction, player.level().getGameTime(), cell, absorbed, state, next);
+        ShieldImpact impact = ShieldImpact.of(McVectors.toDomain(direction), player.level().getGameTime(), cell, absorbed, state, next);
         if (sourcePosition != null && direction.length() < ShieldParameters.radius(player, shield)) impact = impact.atDistance(direction.length());
         shield.set(ModDataComponents.SHIELD_IMPACT.get(), impact);
         shield.set(ModDataComponents.SHIELD_IMPACTS.get(), shield.getOrDefault(ModDataComponents.SHIELD_IMPACTS.get(),
-                dev.hurtify.relicsaddon.shield.ShieldImpactHistory.EMPTY).append(impact));
+                dev.hurtify.relicsaddon.domain.shield.ShieldImpactHistory.EMPTY).append(impact));
         RelicSounds.shield((net.minecraft.server.level.ServerLevel) player.level(), player.position().add(0, ShieldField.CENTER_Y, 0)
-                .add(impact.normal().scale(impact.distance() >= 0 ? impact.distance() : ShieldParameters.radius(player, shield))),
+                .add(McVectors.toMc(impact.normal()).scale(impact.distance() >= 0 ? impact.distance() : ShieldParameters.radius(player, shield))),
                 ((AutonomousRelicItem) shield.getItem()).role(), impact.broken(), next.totalIntegrity() == 0);
         RelicRuntime.awardAbsorption(player, shield, absorbed);
         DevicePower.drain(player, shield, Mth.ceil(absorbed * DevicePower.ABSORB_PER_HP));
@@ -225,9 +230,7 @@ public final class ShieldController {
     }
 
     public static int selectCell(Player player, Vec3 incoming) {
-        Vec3 forward = Vec3.directionFromRotation(0, player.getYRot());
-        return ShieldTopology.INSTANCE.nearest(-incoming.x * forward.z + incoming.z * forward.x,
-                incoming.y, incoming.x * forward.x + incoming.z * forward.z);
+        return CellSelection.select(player.getYRot(), McVectors.toDomain(incoming));
     }
 
     public static String formatDamage(float damage) {

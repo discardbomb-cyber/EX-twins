@@ -2,13 +2,16 @@ package dev.hurtify.relicsaddon.server;
 
 import dev.hurtify.relicsaddon.AddonConfig;
 import dev.hurtify.relicsaddon.RelicsAddon;
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
-import dev.hurtify.relicsaddon.relic.RelicRole;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
-import dev.hurtify.relicsaddon.shield.ShieldField;
-import dev.hurtify.relicsaddon.shield.ShieldImpact;
-import dev.hurtify.relicsaddon.shield.ShieldStackState;
-import dev.hurtify.relicsaddon.shield.ShieldCellDefense;
+import dev.hurtify.relicsaddon.domain.shield.ShieldField;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
+import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
+import dev.hurtify.relicsaddon.domain.shield.ShieldCellDefense;
+import dev.hurtify.relicsaddon.domain.shield.ProjectileFacts;
+import dev.hurtify.relicsaddon.domain.shield.ProjectilePolicy;
 import dev.hurtify.relicsaddon.shield.ShieldParameters;
 import dev.hurtify.relicsaddon.relic.ShieldUpgrades;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -16,7 +19,6 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.TagKey;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.player.Player;
@@ -43,14 +45,31 @@ public final class ShieldProjectileInterceptor {
      * The server's ignore list overrides everything; its intercept list adds types, tridents included.
      */
     public static boolean supported(Projectile projectile) {
-        if (projectile.isRemoved()) return false;
-        EntityType<?> type = projectile.getType();
-        if (AddonConfig.IGNORED_PROJECTILES.matches(BuiltInRegistries.ENTITY_TYPE, type)) return false;
-        // A no-physics arrow is a loyalty trident flying home, not an attack.
-        if (projectile instanceof AbstractArrow arrow && arrow.isNoPhysics()) return false;
-        if (AddonConfig.INTERCEPTED_PROJECTILES.matches(BuiltInRegistries.ENTITY_TYPE, type)) return true;
-        if (projectile instanceof ThrownTrident) return false;
-        return projectile instanceof AbstractArrow || type.is(INTERCEPTABLE);
+        return ProjectilePolicy.supported(facts(projectile));
+    }
+
+    /** What the field policy asks about a projectile, each fact read from it only when asked. */
+    private static ProjectileFacts facts(Projectile projectile) {
+        return new ProjectileFacts() {
+            @Override public boolean removed() { return projectile.isRemoved(); }
+            @Override public boolean ignoredListed() { return AddonConfig.IGNORED_PROJECTILES.matches(BuiltInRegistries.ENTITY_TYPE, projectile.getType()); }
+            // A no-physics arrow is a loyalty trident flying home, not an attack.
+            @Override public boolean noPhysicsArrow() { return projectile instanceof AbstractArrow arrow && arrow.isNoPhysics(); }
+            @Override public boolean interceptListed() { return AddonConfig.INTERCEPTED_PROJECTILES.matches(BuiltInRegistries.ENTITY_TYPE, projectile.getType()); }
+            @Override public boolean trident() { return projectile instanceof ThrownTrident; }
+            @Override public boolean arrow() { return projectile instanceof AbstractArrow; }
+            @Override public boolean inInterceptTag() { return projectile.getType().is(INTERCEPTABLE); }
+            @Override public boolean crit() { return projectile instanceof AbstractArrow arrow && arrow.isCritArrow(); }
+            @Override public double baseDamage() { return projectile instanceof AbstractArrow arrow ? arrow.getBaseDamage() : 0; }
+            @Override public double speed() { return projectile.getDeltaMovement().length(); }
+            @Override public CostClass costClass() {
+                EntityType<?> type = projectile.getType();
+                if (type == EntityType.FIREBALL || type == EntityType.DRAGON_FIREBALL || type == EntityType.WITHER_SKULL) return CostClass.HEAVY_8;
+                if (type == EntityType.SMALL_FIREBALL) return CostClass.SMALL_FIREBALL_5;
+                if (type == EntityType.SNOWBALL || type == EntityType.EGG || type == EntityType.LLAMA_SPIT) return CostClass.LIGHT_1;
+                return CostClass.OTHER_4; // Datapack opt-in mod bullets and shulker bullets use a fixed field-integrity cost.
+            }
+        };
     }
 
     public static boolean threatens(Projectile projectile, Player player) {
@@ -89,8 +108,8 @@ public final class ShieldProjectileInterceptor {
 
     public static ShieldField.Crossing crossing(Projectile projectile, Player player, double ticks, ItemStack shield) {
         if (shield.isEmpty()) return null;
-        return ShieldField.intercept(projectile.position().subtract(player.position().add(0, ShieldField.CENTER_Y, 0)),
-                projectile.getDeltaMovement(), ticks, ShieldParameters.radius(player, shield));
+        return ShieldField.intercept(McVectors.toDomain(projectile.position().subtract(player.position().add(0, ShieldField.CENTER_Y, 0))),
+                McVectors.toDomain(projectile.getDeltaMovement()), ticks, ShieldParameters.radius(player, shield));
     }
 
     public static boolean unobstructed(Projectile projectile, double ticks) {
@@ -111,8 +130,8 @@ public final class ShieldProjectileInterceptor {
         if (crossing == null || !unobstructed(projectile, crossing.time())) return false;
         ItemStack shield = equipped(player);
         if (shield.isEmpty()) return false;
-        ShieldStackState state = prepared(player, shield, crossing.normal());
-        int cell = ShieldController.selectCell(player, crossing.normal());
+        ShieldStackState state = prepared(player, shield, McVectors.toMc(crossing.normal()));
+        int cell = ShieldController.selectCell(player, McVectors.toMc(crossing.normal()));
         if (state.sharedBuffer() <= 0 && state.availableHp(cell, player.level().getGameTime()) <= 0) {
             projectile.getPersistentData().putBoolean(PASSED_FOR + player.getUUID(), true);
             return false;
@@ -130,7 +149,7 @@ public final class ShieldProjectileInterceptor {
         if (distance < ShieldParameters.radius(player, shield) - 1e-4) impact = impact.atDistance(distance);
         shield.set(ModDataComponents.SHIELD_IMPACT.get(), impact);
         shield.set(ModDataComponents.SHIELD_IMPACTS.get(), shield.getOrDefault(ModDataComponents.SHIELD_IMPACTS.get(),
-                dev.hurtify.relicsaddon.shield.ShieldImpactHistory.EMPTY).append(impact));
+                dev.hurtify.relicsaddon.domain.shield.ShieldImpactHistory.EMPTY).append(impact));
         dev.hurtify.relicsaddon.sound.RelicSounds.shield((ServerLevel) player.level(), point,
                 ((dev.hurtify.relicsaddon.relic.AutonomousRelicItem) shield.getItem()).role(), impact.broken(), next.totalIntegrity() == 0);
         if (absorbed > 0) {
@@ -163,16 +182,7 @@ public final class ShieldProjectileInterceptor {
     }
 
     public static int impactCost(Projectile projectile) {
-        if (projectile instanceof AbstractArrow arrow) {
-            double damage = arrow.getBaseDamage() * arrow.getDeltaMovement().length();
-            if (arrow.isCritArrow()) damage = Math.ceil(damage) * 1.5D + 1;
-            return Double.isFinite(damage) ? Math.clamp(Mth.ceil(damage), 1, 10000) : 10000;
-        }
-        EntityType<?> type = projectile.getType();
-        if (type == EntityType.FIREBALL || type == EntityType.DRAGON_FIREBALL || type == EntityType.WITHER_SKULL) return 8;
-        if (type == EntityType.SMALL_FIREBALL) return 5;
-        if (type == EntityType.SNOWBALL || type == EntityType.EGG || type == EntityType.LLAMA_SPIT) return 1;
-        return 4; // Datapack opt-in mod bullets and shulker bullets use a fixed field-integrity cost.
+        return ProjectilePolicy.impactCost(facts(projectile));
     }
 
     public static boolean alreadyAbsorbed(Projectile projectile, Player player) {

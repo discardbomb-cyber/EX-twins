@@ -1,6 +1,9 @@
 package dev.hurtify.relicsaddon.relic;
 
-import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.domain.device.HiveWearRule;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.device.WornSlot;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import net.minecraft.world.item.ItemStack;
 import top.theillusivec4.curios.api.CuriosApi;
 import top.theillusivec4.curios.api.SlotContext;
@@ -14,9 +17,9 @@ public abstract class HiveRelicItem extends AutonomousRelicItem implements ICuri
 
     /** Rejects a second hive in any curio slot; moving the worn hive between slots stays allowed. */
     @Override public boolean canEquip(SlotContext context, ItemStack stack) {
-        return CuriosApi.getCuriosInventory(context.entity()).map(handler -> handler.findCurios(worn -> worn.getItem() instanceof HiveRelicItem)
-                .stream().allMatch(result -> result.slotContext().identifier().equals(context.identifier())
-                        && result.slotContext().index() == context.index())).orElse(true);
+        return HiveWearRule.allows(CuriosApi.getCuriosInventory(context.entity()).map(handler -> handler.findCurios(worn -> worn.getItem() instanceof HiveRelicItem)
+                .stream().map(result -> new WornSlot(result.slotContext().identifier(), result.slotContext().index())).toList()),
+                context.identifier(), context.index());
     }
 
     public static final class Rf extends HiveRelicItem { public Rf(Properties p) { super(p); } @Override protected HiveType type() { return HiveType.RF; } }

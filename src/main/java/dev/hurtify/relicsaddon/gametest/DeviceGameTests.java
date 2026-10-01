@@ -2,15 +2,15 @@ package dev.hurtify.relicsaddon.gametest;
 
 import static dev.hurtify.relicsaddon.gametest.DeviceTestSupport.TEMPLATE;
 
+import dev.hurtify.relicsaddon.domain.device.DeviceProgression;
+import dev.hurtify.relicsaddon.domain.device.DeviceUpgrade;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.energy.DeviceEnergy;
 import dev.hurtify.relicsaddon.menu.DeviceControlMenu;
-import dev.hurtify.relicsaddon.power.DeviceEnergy;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.registry.ModItems;
-import dev.hurtify.relicsaddon.relic.DeviceProgression;
-import dev.hurtify.relicsaddon.relic.DeviceUpgrade;
 import dev.hurtify.relicsaddon.relic.HiveRelicItem;
-import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.server.HiveController;
 import net.minecraft.gametest.framework.GameTest;

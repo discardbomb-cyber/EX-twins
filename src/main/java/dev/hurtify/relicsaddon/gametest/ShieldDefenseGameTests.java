@@ -3,19 +3,20 @@ package dev.hurtify.relicsaddon.gametest;
 import static dev.hurtify.relicsaddon.gametest.DeviceTestSupport.ARENA;
 import static dev.hurtify.relicsaddon.gametest.DeviceTestSupport.TEMPLATE;
 
-import dev.hurtify.relicsaddon.power.DeviceEnergy;
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
+import dev.hurtify.relicsaddon.domain.energy.DeviceEnergy;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
-import dev.hurtify.relicsaddon.relic.RelicRole;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.server.ShieldBarrier;
 import dev.hurtify.relicsaddon.server.ShieldEffectGuard;
 import dev.hurtify.relicsaddon.server.ShieldStrike;
-import dev.hurtify.relicsaddon.shield.ShieldField;
-import dev.hurtify.relicsaddon.shield.ShieldImpact;
-import dev.hurtify.relicsaddon.shield.ShieldImpactHistory;
+import dev.hurtify.relicsaddon.domain.shield.ShieldField;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpactHistory;
 import dev.hurtify.relicsaddon.shield.ShieldParameters;
-import dev.hurtify.relicsaddon.shield.ShieldSettings;
+import dev.hurtify.relicsaddon.domain.shield.ShieldSettings;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceKey;
@@ -186,7 +187,7 @@ public final class ShieldDefenseGameTests {
         helper.assertTrue(charge - DevicePower.energy(shield).rf() == (1 + DevicePower.STRIKE) * DevicePower.FE_PER_POINT,
                 "Holding and striking are paid from the battery: " + charge + " -> " + DevicePower.energy(shield).rf());
         ShieldImpact last = shield.getOrDefault(ModDataComponents.SHIELD_IMPACTS.get(), ShieldImpactHistory.EMPTY).impacts().getLast();
-        helper.assertTrue(last.isStrike() && last.normal().dot(outward) > .95, "The strike shows on the shell facing the mob");
+        helper.assertTrue(last.isStrike() && last.normal().dot(McVectors.toDomain(outward)) > .95, "The strike shows on the shell facing the mob");
         helper.assertTrue(RelicRuntime.progression(shield).experience() > 0, "Striking earns device experience");
         DeviceTestSupport.close(helper, player.getHealth(), 20, "The wearer is untouched");
         helper.succeed();
@@ -329,7 +330,7 @@ public final class ShieldDefenseGameTests {
         helper.assertFalse(player.hurt(player.damageSources().mobAttack(husk), 4), "The field takes the whole blow");
         helper.assertTrue(player.getHealth() == health, "The wearer is untouched");
         dev.hurtify.relicsaddon.server.HiveCombatController.tick(player);
-        var combat = hive.getOrDefault(ModDataComponents.HIVE_COMBAT_STATE.get(), dev.hurtify.relicsaddon.drone.HiveCombatState.DEFAULT);
+        var combat = hive.getOrDefault(ModDataComponents.HIVE_COMBAT_STATE.get(), dev.hurtify.relicsaddon.domain.hive.HiveCombatState.DEFAULT);
         helper.assertTrue(combat.active() && combat.targetId() == husk.getId(), "A blow on the field sets the swarm on the attacker");
         helper.succeed();
     }

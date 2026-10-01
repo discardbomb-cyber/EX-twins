@@ -1,10 +1,10 @@
 package dev.hurtify.relicsaddon.client;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import dev.hurtify.relicsaddon.drone.HiveConstructs;
-import dev.hurtify.relicsaddon.drone.HiveFormation;
-import dev.hurtify.relicsaddon.drone.HiveShapes;
-import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.domain.hive.HiveConstructs;
+import dev.hurtify.relicsaddon.domain.hive.HiveFormation;
+import dev.hurtify.relicsaddon.domain.hive.HiveShapes;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import java.util.List;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
@@ -26,7 +26,7 @@ final class HiveConstructVisual {
     private static final int ORANGE = 0xFFB347, GOLD = 0xFFD27A, VOID = 0x05010A;
 
     /** Constructs seen lately, by the creature they hold: where, whose, how big and when last drawn. */
-    private record Held(Vec3 core, dev.hurtify.relicsaddon.drone.HiveType type, double room, double seen) { }
+    private record Held(Vec3 core, dev.hurtify.relicsaddon.domain.hive.HiveType type, double room, double seen) { }
     private static final java.util.Map<Integer, Held> HELD = new java.util.HashMap<>();
 
     /**
@@ -49,8 +49,8 @@ final class HiveConstructVisual {
     }
 
     static void render(HiveModeVisual.Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
-        double room = HiveFormation.enclosure(s.width(), s.height()), age = HiveFormation.constructAge(s.time(), s.cycleStart());
-        Vec3 middle = HiveFormation.core(s.target(), s.height());
+        double room = SwarmMath.enclosure(s.width(), s.height()), age = SwarmMath.constructAge(s.time(), s.cycleStart());
+        Vec3 middle = SwarmMath.core(s.target(), s.height());
         HELD.put(s.targets().getFirst().id(), new Held(middle, s.type(), room, s.time()));
         if (!GlowBrush.flat()) HiveLoopSounds.hum(s.targets().getFirst().id(), s.type(), middle, s.slots(), s.time());
         // It locks shut with a flash.
@@ -93,7 +93,7 @@ final class HiveConstructVisual {
     }
 
     private static double closing(HiveModeVisual.Scene s) {
-        return Math.clamp(HiveFormation.constructAge(s.time(), s.cycleStart()) / HiveConstructs.CLOSING, 0, 1);
+        return Math.clamp(SwarmMath.constructAge(s.time(), s.cycleStart()) / HiveConstructs.CLOSING, 0, 1);
     }
 
     // --- RF --------------------------------------------------------------------------------------------
@@ -206,7 +206,7 @@ final class HiveConstructVisual {
     private static void rift(HiveModeVisual.Scene s, Vec3[] drones, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
         int count = s.slots(), shards = HiveConstructs.shards(count);
         double time = s.time(), open = closing(s);
-        Vec3 core = HiveFormation.core(s.target(), s.height()).subtract(camera);
+        Vec3 core = SwarmMath.core(s.target(), s.height()).subtract(camera);
         int edge = GlowBrush.mix(color, 0xE7C6FF, .35);
         Vec3[] corners = SHARD;
         for (int shard = 0; shard < shards; shard++) {
@@ -264,9 +264,9 @@ final class HiveConstructVisual {
 
     /** Queues the rift's pull on the world round it: bent and darkened, the nearer the darker. */
     static void lens(HiveModeVisual.Scene s, Vec3 camera) {
-        double room = HiveFormation.enclosure(s.width(), s.height()), open = closing(s);
+        double room = SwarmMath.enclosure(s.width(), s.height()), open = closing(s);
         if (open <= 0) return;
-        Vec3 core = HiveFormation.core(s.target(), s.height()).subtract(camera);
+        Vec3 core = SwarmMath.core(s.target(), s.height()).subtract(camera);
         double horizon = room * .55 * open;
         BlackHoleLens.queue(core, horizon, room * (HiveConstructs.RIFT_DISTANCE + HiveConstructs.SHARD_SIZE) * 2.6);
     }

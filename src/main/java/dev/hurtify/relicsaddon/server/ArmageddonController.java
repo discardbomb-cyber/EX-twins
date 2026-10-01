@@ -1,19 +1,20 @@
 package dev.hurtify.relicsaddon.server;
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
 
 import dev.hurtify.relicsaddon.RelicsAddon;
-import dev.hurtify.relicsaddon.drone.Armageddon;
-import dev.hurtify.relicsaddon.drone.ArmageddonState;
-import dev.hurtify.relicsaddon.drone.ArmageddonTimeline;
-import dev.hurtify.relicsaddon.drone.HiveType;
-import dev.hurtify.relicsaddon.drone.ManaArmageddon;
-import dev.hurtify.relicsaddon.drone.RfArmageddon;
+import dev.hurtify.relicsaddon.domain.hive.Armageddon;
+import dev.hurtify.relicsaddon.domain.hive.ArmageddonState;
+import dev.hurtify.relicsaddon.domain.hive.ArmageddonTimeline;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
+import dev.hurtify.relicsaddon.domain.hive.ManaArmageddon;
+import dev.hurtify.relicsaddon.domain.hive.RfArmageddon;
 import dev.hurtify.relicsaddon.network.ArmageddonPayloads;
-import dev.hurtify.relicsaddon.power.DeviceEnergy;
+import dev.hurtify.relicsaddon.domain.energy.DeviceEnergy;
 import dev.hurtify.relicsaddon.power.DevicePower;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
-import dev.hurtify.relicsaddon.relic.DeviceProgression;
-import dev.hurtify.relicsaddon.relic.RelicRole;
+import dev.hurtify.relicsaddon.domain.device.DeviceProgression;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.sound.RelicSounds;
 import java.util.ArrayList;
@@ -230,29 +231,29 @@ public final class ArmageddonController {
         ItemStack shield = shield(owner, type);
         int shieldGives = shield.isEmpty() ? 0 : shieldGives(owner, shield, hive);
         ArmageddonTimeline timeline = ArmageddonTimeline.of(type);
-        ArmageddonState state = new ArmageddonState(type, now - Math.clamp(headStart, 0, timeline.impact() - 1), origin(type, eye, target), target, face, room,
+        ArmageddonState state = new ArmageddonState(type, now - Math.clamp(headStart, 0, timeline.impact() - 1), McVectors.toDomain(origin(type, eye, target)), McVectors.toDomain(target), ArmageddonState.Face.from3DDataValue(face.get3DDataValue()), room,
                 shieldGives > 0);
         hive.set(ModDataComponents.HIVE_ARMAGEDDON.get(), state);
         SHOTS.put(owner.getUUID(), new Shot(identity, owner, state, DevicePower.energy(hive), shieldGives));
-        RelicSounds.armageddon(owner.serverLevel(), state.origin(), type, RelicSounds.Cannon.CHARGE);
+        RelicSounds.armageddon(owner.serverLevel(), McVectors.toMc(state.origin()), type, RelicSounds.Cannon.CHARGE);
         return null;
     }
 
     /** Where {@code type}'s construct hangs for an owner whose eyes are at {@code eye}: the Twins cannon, the point between the Mana flowers, or the RF hologram. */
     private static Vec3 origin(HiveType type, Vec3 eye, Vec3 target) {
         return switch (type) {
-            case MANA -> ManaArmageddon.origin(eye, target);
-            case RF -> RfArmageddon.origin(eye, target);
-            case TWINS -> Armageddon.origin(eye, target);
+            case MANA -> McVectors.toMc(ManaArmageddon.origin(McVectors.toDomain(eye), McVectors.toDomain(target)));
+            case RF -> McVectors.toMc(RfArmageddon.origin(McVectors.toDomain(eye), McVectors.toDomain(target)));
+            case TWINS -> McVectors.toMc(Armageddon.origin(McVectors.toDomain(eye), McVectors.toDomain(target)));
         };
     }
 
     /** Where the shot leaves from: the Twins muzzle, the point between the Mana flowers, or before the RF hologram's nose. */
     private static Vec3 firedFrom(ArmageddonState state) {
         return switch (state.type()) {
-            case MANA -> state.origin();
-            case RF -> RfArmageddon.nose(state);
-            case TWINS -> Armageddon.muzzle(state);
+            case MANA -> McVectors.toMc(state.origin());
+            case RF -> McVectors.toMc(RfArmageddon.nose(state));
+            case TWINS -> McVectors.toMc(Armageddon.muzzle(state));
         };
     }
 
@@ -301,21 +302,21 @@ public final class ArmageddonController {
         }
         if (!shot.arrived && age >= timeline.arrive()) {
             shot.arrived = true;
-            RelicSounds.armageddon(level, shot.state.target(), type, RelicSounds.Cannon.ARRIVE);
-            if (!safe()) shot.crater = columns(shot.state.target(), timeline.carveRadius());
+            RelicSounds.armageddon(level, McVectors.toMc(shot.state.target()), type, RelicSounds.Cannon.ARRIVE);
+            if (!safe()) shot.crater = columns(McVectors.toMc(shot.state.target()), timeline.carveRadius());
         }
         if (shot.arrived && age < timeline.carvedUntil()) carve(level, shot, age);
         if (!shot.told && age >= timeline.told()) {
             shot.told = true;
-            ArmageddonPayloads.blast(level, type, shot.state.target(), shot.state.origin(), shot.state.face(), shot.state.room(), shot.state.startedAt() + timeline.impact());
+            ArmageddonPayloads.blast(level, type, McVectors.toMc(shot.state.target()), McVectors.toMc(shot.state.origin()), Direction.from3DDataValue(shot.state.face().get3DDataValue()), shot.state.room(), shot.state.startedAt() + timeline.impact());
         }
         if (!shot.landed && age >= timeline.impact()) {
             shot.landed = true;
-            detonate(level, timeline, shot.owner, shot.state.target(), shot.state.startedAt() + timeline.impact());
+            detonate(level, timeline, shot.owner, McVectors.toMc(shot.state.target()), shot.state.startedAt() + timeline.impact());
         }
         if (type == HiveType.TWINS && shot.landed && !safe()) bore(level, shot, age - timeline.impact());
         // A rim only rises round a crater in the ground; one in a ceiling or a wall is left as the dome cut it.
-        if (type == HiveType.RF && shot.landed && !safe() && shot.state.face() == Direction.UP) rim(level, shot, age - timeline.impact());
+        if (type == HiveType.RF && shot.landed && !safe() && shot.state.face() == ArmageddonState.Face.UP) rim(level, shot, age - timeline.impact());
     }
 
     /**
@@ -365,7 +366,7 @@ public final class ArmageddonController {
      * sets out afresh from the hive rather than finding itself back in the old fight.
      */
     private static void release(ItemStack hive) {
-        hive.set(ModDataComponents.HIVE_COMBAT_STATE.get(), dev.hurtify.relicsaddon.drone.HiveCombatState.DEFAULT);
+        hive.set(ModDataComponents.HIVE_COMBAT_STATE.get(), dev.hurtify.relicsaddon.domain.hive.HiveCombatState.DEFAULT);
     }
 
     private static void finish(ServerPlayer owner, ItemStack hive, Shot shot) {
@@ -400,7 +401,7 @@ public final class ArmageddonController {
      * has reached, so land standing over the target (or along a wall the ball struck) goes as the dome's front comes to it.
      */
     private static void carve(ServerLevel level, Shot shot, long age) {
-        Vec3 centre = shot.state.target();
+        Vec3 centre = McVectors.toMc(shot.state.target());
         double radius = shot.timeline.carveRadius(), reach = shot.timeline.carved(age), most = radius * radius, deep = shot.timeline.carveDepth();
         boolean front = shot.state.type() == HiveType.RF;
         int[] budget = {BITES, LOOKS};
@@ -503,7 +504,7 @@ public final class ArmageddonController {
     private static void bore(ServerLevel level, Shot shot, double sinceImpact) {
         double radius = Armageddon.beam(sinceImpact);
         if (radius <= 0) return;
-        Vec3 centre = shot.state.target();
+        Vec3 centre = McVectors.toMc(shot.state.target());
         if (shot.shaft == null) shot.shaft = columns(centre, Armageddon.BEAM);
         int floor = Math.max(level.getMinBuildHeight(), (int) Math.floor(centre.y - Armageddon.BORE_DEPTH));
         int budget = BORES, looks = LOOKS;
@@ -541,7 +542,7 @@ public final class ArmageddonController {
      */
     private static void rim(ServerLevel level, Shot shot, double sinceImpact) {
         if (sinceImpact < RfArmageddon.FLASH || shot.crater != null && shot.eaten < shot.crater.length) return;
-        Vec3 centre = shot.state.target();
+        Vec3 centre = McVectors.toMc(shot.state.target());
         if (shot.rim == null) shot.rim = columns(centre, RfArmageddon.rimReach(), RfArmageddon.DOME_RADIUS - .15 * RfArmageddon.RIM_WIDTH);
         int budget = BITES, looks = LOOKS, flags = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
         BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
@@ -623,7 +624,7 @@ public final class ArmageddonController {
         if (!hive.isEmpty() && shot.hive.equals(hive.get(ModDataComponents.INSTANCE_ID.get()))) hive.remove(ModDataComponents.HIVE_ARMAGEDDON.get());
         // A shot already fired flies on, feeds and bursts on time, where it was fired; one still charging falls silent.
         if (shot.fired) LOOSE.add(shot);
-        else RelicSounds.hushCharge(shot.level, shot.state.origin(), shot.state.type());
+        else RelicSounds.hushCharge(shot.level, McVectors.toMc(shot.state.origin()), shot.state.type());
     }
 
     /** The shot bursts: its front starts to sweep out. */

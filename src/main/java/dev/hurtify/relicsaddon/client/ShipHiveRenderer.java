@@ -2,7 +2,7 @@ package dev.hurtify.relicsaddon.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import dev.hurtify.relicsaddon.ship.AegisModule;
 import dev.hurtify.relicsaddon.ship.AegisShape;
 import dev.hurtify.relicsaddon.ship.EscortModule;

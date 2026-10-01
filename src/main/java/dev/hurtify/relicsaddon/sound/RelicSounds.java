@@ -1,8 +1,8 @@
 package dev.hurtify.relicsaddon.sound;
 
 import dev.hurtify.relicsaddon.RelicsAddon;
-import dev.hurtify.relicsaddon.drone.HiveType;
-import dev.hurtify.relicsaddon.relic.RelicRole;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;

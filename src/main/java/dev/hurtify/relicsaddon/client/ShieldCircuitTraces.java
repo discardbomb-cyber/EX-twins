@@ -1,8 +1,9 @@
 package dev.hurtify.relicsaddon.client;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import dev.hurtify.relicsaddon.shield.ShieldField;
-import dev.hurtify.relicsaddon.shield.ShieldImpact;
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
+import dev.hurtify.relicsaddon.domain.shield.ShieldField;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -40,7 +41,7 @@ final class ShieldCircuitTraces {
             Pattern pattern = PATTERNS.computeIfAbsent(seed(impact), ShieldCircuitTraces::generate);
             double reach = age * GROWTH;
             double fade = (age < 10 ? 1 : ShieldField.fade(age - 10, ShieldResponse.IMPACT_TICKS - 10)) * view;
-            Vec3 n = impact.normal();
+            Vec3 n = McVectors.toMc(impact.normal());
             Vec3 t1 = n.cross(Math.abs(n.y) > .9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize();
             Vec3 t2 = n.cross(t1).normalize();
             Frame frame = new Frame(n, t1, t2, x, y, z, radius);
@@ -66,7 +67,7 @@ final class ShieldCircuitTraces {
     }
 
     private static long seed(ShieldImpact impact) {
-        Vec3 n = impact.normal();
+        Vec3 n = McVectors.toMc(impact.normal());
         return impact.gameTime() * 0x9E3779B97F4A7C15L ^ Double.doubleToLongBits(n.x * 31 + n.y * 17 + n.z * 7);
     }
 

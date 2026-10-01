@@ -1,7 +1,7 @@
 package dev.hurtify.relicsaddon.client;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -53,7 +53,7 @@ public final class HiveJuice {
         if (IMPACTS.size() >= MAX_IMPACTS) IMPACTS.removeFirst();
         // A turned-back blow keeps its whole way, to the creature it falls on.
         Vec3 way = style == REFLECTED ? normal : normal.lengthSqr() < 1e-8 ? new Vec3(0, 1, 0) : normal.normalize();
-        IMPACTS.add(new Impact(at, way, type, style, time, strength, key, groundBelow(at), dev.hurtify.relicsaddon.drone.HiveShapes.axes(way)));
+        IMPACTS.add(new Impact(at, way, type, style, time, strength, key, groundBelow(at), SwarmMath.axes(way)));
     }
 
     /** The height of the ground up to five blocks below {@code at}, or NaN if there is none. */
@@ -160,9 +160,9 @@ public final class HiveJuice {
                 Vec3 axis = new Vec3(hash(hit.key, shard) - .5, hash(hit.key, shard + 1) - .5, hash(hit.key, shard + 2) - .5);
                 axis = axis.lengthSqr() < 1e-6 ? new Vec3(0, 1, 0) : axis.normalize();
                 double spin = age * .5;
-                Vec3 pa = at.add(middle).add(flown).add(dev.hurtify.relicsaddon.drone.HiveShapes.rotate(a.subtract(middle), axis, spin));
-                Vec3 pb = at.add(middle).add(flown).add(dev.hurtify.relicsaddon.drone.HiveShapes.rotate(b.subtract(middle), axis, spin));
-                Vec3 pd = at.add(middle).add(flown).add(dev.hurtify.relicsaddon.drone.HiveShapes.rotate(d.subtract(middle), axis, spin));
+                Vec3 pa = at.add(middle).add(flown).add(SwarmMath.rotate(a.subtract(middle), axis, spin));
+                Vec3 pb = at.add(middle).add(flown).add(SwarmMath.rotate(b.subtract(middle), axis, spin));
+                Vec3 pd = at.add(middle).add(flown).add(SwarmMath.rotate(d.subtract(middle), axis, spin));
                 GlowBrush.quad(fill, m, pa, pb, pd, pd, 0x3A0F66, 0x3A0F66, 0x3A0F66, 0x3A0F66, 150 * fade, 150 * fade, 150 * fade, 150 * fade);
                 GlowBrush.line(glow, m, pa, pb, .006, 0xE7C6FF, 220 * fade);
                 GlowBrush.line(glow, m, pb, pd, .006, 0xE7C6FF, 220 * fade);

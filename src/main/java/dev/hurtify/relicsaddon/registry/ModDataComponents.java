@@ -2,9 +2,12 @@ package dev.hurtify.relicsaddon.registry;
 
 import com.mojang.serialization.Codec;
 import dev.hurtify.relicsaddon.RelicsAddon;
-import dev.hurtify.relicsaddon.drone.DroneStackState;
-import dev.hurtify.relicsaddon.shield.ShieldStackState;
-import dev.hurtify.relicsaddon.shield.ShieldImpact;
+import dev.hurtify.relicsaddon.adapter.out.persistence.DeviceCodecs;
+import dev.hurtify.relicsaddon.adapter.out.persistence.HiveCodecs;
+import dev.hurtify.relicsaddon.adapter.out.persistence.LegacyDroneStackState;
+import dev.hurtify.relicsaddon.adapter.out.persistence.ShieldCodecs;
+import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
+import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.codec.ByteBufCodecs;
@@ -15,68 +18,68 @@ public final class ModDataComponents {
     public static final DeferredRegister.DataComponents DATA_COMPONENTS =
             DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, RelicsAddon.MOD_ID);
 
-    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.drone.HiveSettings>> HIVE_SETTINGS =
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.domain.hive.HiveSettings>> HIVE_SETTINGS =
             DATA_COMPONENTS.registerComponentType("hive_settings", builder -> builder
-                    .persistent(dev.hurtify.relicsaddon.drone.HiveSettings.CODEC)
-                    .networkSynchronized(dev.hurtify.relicsaddon.drone.HiveSettings.STREAM_CODEC));
+                    .persistent(HiveCodecs.SETTINGS)
+                    .networkSynchronized(HiveCodecs.SETTINGS_STREAM));
 
-    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.drone.HiveSupportState>> HIVE_SUPPORT_STATE =
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.domain.hive.HiveSupportState>> HIVE_SUPPORT_STATE =
             DATA_COMPONENTS.registerComponentType("hive_support_state", builder -> builder
-                    .networkSynchronized(dev.hurtify.relicsaddon.drone.HiveSupportState.STREAM_CODEC));
+                    .networkSynchronized(HiveCodecs.SUPPORT_STATE_STREAM));
 
-    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.drone.HiveCombatState>> HIVE_COMBAT_STATE =
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.domain.hive.HiveCombatState>> HIVE_COMBAT_STATE =
             DATA_COMPONENTS.registerComponentType("hive_combat_state", builder -> builder
-                    .networkSynchronized(dev.hurtify.relicsaddon.drone.HiveCombatState.STREAM_CODEC));
+                    .networkSynchronized(HiveCodecs.COMBAT_STATE_STREAM));
 
     /** A Twins hive's Armageddon under way: transient, like the combat state, and seen by every client near its owner. */
-    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.drone.ArmageddonState>> HIVE_ARMAGEDDON =
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.domain.hive.ArmageddonState>> HIVE_ARMAGEDDON =
             DATA_COMPONENTS.registerComponentType("hive_armageddon", builder -> builder
-                    .networkSynchronized(dev.hurtify.relicsaddon.drone.ArmageddonState.STREAM_CODEC));
+                    .networkSynchronized(HiveCodecs.ARMAGEDDON_STREAM));
 
-    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.shield.ShieldSettings>> SHIELD_SETTINGS =
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.domain.shield.ShieldSettings>> SHIELD_SETTINGS =
             DATA_COMPONENTS.registerComponentType("shield_settings", builder -> builder
-                    .persistent(dev.hurtify.relicsaddon.shield.ShieldSettings.CODEC)
-                    .networkSynchronized(dev.hurtify.relicsaddon.shield.ShieldSettings.STREAM_CODEC));
+                    .persistent(ShieldCodecs.SETTINGS)
+                    .networkSynchronized(ShieldCodecs.SETTINGS_STREAM));
 
-    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.drone.HiveStackState>> HIVE_STACK_STATE =
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.domain.hive.HiveStackState>> HIVE_STACK_STATE =
             DATA_COMPONENTS.registerComponentType("hive_stack_state", builder -> builder
-                    .persistent(dev.hurtify.relicsaddon.drone.HiveStackState.CODEC)
-                    .networkSynchronized(dev.hurtify.relicsaddon.drone.HiveStackState.STREAM_CODEC));
+                    .persistent(HiveCodecs.STACK_STATE)
+                    .networkSynchronized(HiveCodecs.STACK_STATE_STREAM));
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<String>> INSTANCE_ID =
             DATA_COMPONENTS.registerComponentType("instance_id", builder -> builder
                     .persistent(Codec.STRING)
                     .networkSynchronized(ByteBufCodecs.STRING_UTF8));
 
-    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.relic.DeviceProgression>> DEVICE_PROGRESSION =
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.domain.device.DeviceProgression>> DEVICE_PROGRESSION =
             DATA_COMPONENTS.registerComponentType("device_progression", builder -> builder
-                    .persistent(dev.hurtify.relicsaddon.relic.DeviceProgression.CODEC)
-                    .networkSynchronized(dev.hurtify.relicsaddon.relic.DeviceProgression.STREAM_CODEC));
+                    .persistent(DeviceCodecs.PROGRESSION)
+                    .networkSynchronized(DeviceCodecs.PROGRESSION_STREAM));
 
-    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.power.DeviceEnergy>> DEVICE_ENERGY =
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.domain.energy.DeviceEnergy>> DEVICE_ENERGY =
             DATA_COMPONENTS.registerComponentType("device_energy", builder -> builder
-                    .persistent(dev.hurtify.relicsaddon.power.DeviceEnergy.CODEC)
-                    .networkSynchronized(dev.hurtify.relicsaddon.power.DeviceEnergy.STREAM_CODEC));
+                    .persistent(DeviceCodecs.ENERGY)
+                    .networkSynchronized(DeviceCodecs.ENERGY_STREAM));
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ShieldStackState>> SHIELD_STACK_STATE =
             DATA_COMPONENTS.registerComponentType("shield_stack_state", builder -> builder
-                    .persistent(ShieldStackState.CODEC)
-                    .networkSynchronized(ShieldStackState.STREAM_CODEC));
+                    .persistent(ShieldCodecs.STACK_STATE)
+                    .networkSynchronized(ShieldCodecs.STACK_STATE_STREAM));
 
     // Retained only to decode existing stacks that still carry the pre-hive component.
-    public static final DeferredHolder<DataComponentType<?>, DataComponentType<DroneStackState>> DRONE_STACK_STATE =
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<LegacyDroneStackState>> DRONE_STACK_STATE =
             DATA_COMPONENTS.registerComponentType("drone_stack_state", builder -> builder
-                    .persistent(DroneStackState.CODEC)
-                    .networkSynchronized(DroneStackState.STREAM_CODEC));
+                    .persistent(LegacyDroneStackState.CODEC)
+                    .networkSynchronized(LegacyDroneStackState.STREAM_CODEC));
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ShieldImpact>> SHIELD_IMPACT =
             DATA_COMPONENTS.registerComponentType("shield_impact", builder -> builder
-                    .persistent(ShieldImpact.CODEC)
-                    .networkSynchronized(ShieldImpact.STREAM_CODEC));
+                    .persistent(ShieldCodecs.IMPACT)
+                    .networkSynchronized(ShieldCodecs.IMPACT_STREAM));
 
-    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.shield.ShieldImpactHistory>> SHIELD_IMPACTS =
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<dev.hurtify.relicsaddon.domain.shield.ShieldImpactHistory>> SHIELD_IMPACTS =
             DATA_COMPONENTS.registerComponentType("shield_impacts", builder -> builder
-                    .networkSynchronized(dev.hurtify.relicsaddon.shield.ShieldImpactHistory.STREAM_CODEC));
+                    .networkSynchronized(ShieldCodecs.IMPACT_HISTORY_STREAM));
 
     private ModDataComponents() {
     }

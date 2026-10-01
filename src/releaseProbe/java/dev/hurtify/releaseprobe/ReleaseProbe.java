@@ -36,7 +36,7 @@ public final class ReleaseProbe {
         if (stableTicks < 40 || captured || !(minecraft.screen instanceof TitleScreen)) return;
         captured = true;
         try {
-            Class<?> controller = Class.forName("dev.hurtify.relicsaddon.server.HiveCombatController");
+            Class<?> controller = Class.forName("dev.hurtify.relicsaddon.RelicsAddon");
             String location = controller.getProtectionDomain().getCodeSource().getLocation().toString();
             if (!location.contains(".jar")) throw new IllegalStateException("Not a release jar: " + location);
             LogUtils.getLogger().info("Packaged controller loaded from {}", location);

@@ -1,12 +1,13 @@
 package dev.hurtify.relicsaddon.client;
 
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
+import dev.hurtify.relicsaddon.domain.device.RelicRole;
+import dev.hurtify.relicsaddon.domain.shield.ShieldField;
+import dev.hurtify.relicsaddon.domain.shield.ShieldStackState;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
-import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.server.EquippedRelicSetResolver;
 import dev.hurtify.relicsaddon.server.ShieldController;
 import dev.hurtify.relicsaddon.server.ShieldProjectileInterceptor;
-import dev.hurtify.relicsaddon.shield.ShieldField;
-import dev.hurtify.relicsaddon.shield.ShieldStackState;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -40,10 +41,10 @@ public final class ShieldThreatTracker {
             for (Projectile projectile : projectiles) {
                 if (!ShieldProjectileInterceptor.threatens(projectile, player)) continue;
                 var crossing = ShieldProjectileInterceptor.crossing(projectile, player, ShieldField.PREVIEW_TICKS, shield);
-                if (crossing == null || (state.sharedBuffer() == 0 && state.cellHp(ShieldController.selectCell(player, crossing.normal())) == 0
+                if (crossing == null || (state.sharedBuffer() == 0 && state.cellHp(ShieldController.selectCell(player, McVectors.toMc(crossing.normal()))) == 0
                         && dev.hurtify.relicsaddon.relic.ShieldUpgrades.gathering(player, shield) == 0)
                         || !ShieldProjectileInterceptor.unobstructed(projectile, crossing.time())) continue;
-                incoming.add(new ShieldResponse.Threat(crossing.normal(), crossing.time()));
+                incoming.add(new ShieldResponse.Threat(McVectors.toMc(crossing.normal()), crossing.time()));
             }
             incoming.sort(Comparator.comparingDouble(ShieldResponse.Threat::ticks));
             if (!incoming.isEmpty()) THREATS.put(player.getUUID(), List.copyOf(incoming.subList(0, Math.min(8, incoming.size()))));

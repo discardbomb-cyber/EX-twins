@@ -1,11 +1,13 @@
 package dev.hurtify.relicsaddon.client;
 
+import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
+
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import dev.hurtify.relicsaddon.drone.AttackMode;
-import dev.hurtify.relicsaddon.drone.HiveFormation;
-import dev.hurtify.relicsaddon.drone.HiveSlots;
-import dev.hurtify.relicsaddon.drone.HiveTarget;
-import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.domain.hive.AttackMode;
+import dev.hurtify.relicsaddon.domain.hive.HiveFormation;
+import dev.hurtify.relicsaddon.domain.hive.HiveSlots;
+import dev.hurtify.relicsaddon.domain.hive.HiveTarget;
+import dev.hurtify.relicsaddon.domain.hive.HiveType;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,11 +34,24 @@ public final class HiveVisualEquivalenceCheck {
         stubMinecraft();
         GlowBrush.setPixelAngle(.0011);
         GlowBrushReference.setPixelAngle(.0011);
+        checkProjectileGeometry();
         long brush = compareBrush();
         long scenes = compareScenes();
         long blows = compareBlows();
         System.out.println("Hive visuals: brush identical over " + brush + " vertices, scenes over " + scenes + ", blows and shots over " + blows);
         measure();
+    }
+
+    private static void checkProjectileGeometry() {
+        // The Twins shot: a glass icosahedron, its twelve corners on its sphere, turning without coming apart.
+        for (double spin : new double[]{0, 1.3, 1e4}) {
+            for (int corner = 0; corner < 12; corner++) {
+                Vec3 at = HiveProjectiles.icosahedronCorner(corner, HiveProjectiles.RADIUS, spin);
+                require(Double.isFinite(at.x) && Double.isFinite(at.y) && Double.isFinite(at.z), "icosahedron corner is finite");
+                require(Math.abs(at.length() - HiveProjectiles.RADIUS) < 1e-9, "an icosahedron's corners lie on its sphere");
+            }
+            require(HiveProjectiles.icosahedronFaces().length == 20, "an icosahedron has twenty faces");
+        }
     }
 
     // --- the brush itself -----------------------------------------------------------------------------
@@ -95,16 +110,16 @@ public final class HiveVisualEquivalenceCheck {
         int groups = HiveSlots.groups(SLOTS, mode, type);
         int[] members = new int[groups];
         Vec3[] drones = new Vec3[SLOTS];
-        int engaged = HiveFormation.engaged(targets.size(), HiveSlots.figures(groups, mode, type));
+        int engaged = SwarmMath.engaged(targets.size(), HiveSlots.figures(groups, mode, type));
         for (int slot = 0; slot < SLOTS; slot++) {
             // A few places empty, as when their drones are away.
             if (slot % 23 == 7) continue;
-            Vec3 station = HiveFormation.engagedStation(mode, type, slot, SLOTS, OWNER, targets, previous, retargetedAt, time, CYCLE_START, INTERVAL);
-            Vec3 at = HiveFormation.deployed(OWNER, -90, station, slot, UNITS, type, time, COMBAT_START, TRAVEL);
+            Vec3 station = SwarmMath.engagedStation(mode, type, slot, SLOTS, OWNER, targets, previous, retargetedAt, time, CYCLE_START, INTERVAL);
+            Vec3 at = SwarmMath.deployed(OWNER, -90, station, slot, UNITS, type, time, COMBAT_START, TRAVEL);
             int group = HiveSlots.group(slot, groups);
             if (mode == AttackMode.DROPLET && type == HiveType.TWINS) {
                 HiveTarget target = targets.get(group % engaged);
-                if (HiveFormation.dropletHidden(type, HiveFormation.sortie(OWNER, targets.getFirst().feet(), target.feet(), target.height(), group, groups,
+                if (SwarmMath.dropletHidden(type, SwarmMath.sortie(OWNER, McVectors.toMc(targets.getFirst().feet()), McVectors.toMc(target.feet()), target.height(), group, groups,
                         time, CYCLE_START, INTERVAL))) continue;
             }
             members[group]++;
@@ -115,11 +130,11 @@ public final class HiveVisualEquivalenceCheck {
     }
 
     private static long compareScenes() {
-        List<HiveTarget> one = List.of(new HiveTarget(1, new Vec3(0, 64, 0), .6, 1.8));
-        List<HiveTarget> two = List.of(new HiveTarget(1, new Vec3(0, 64, 0), .6, 1.8), new HiveTarget(2, new Vec3(6, 64, -3), .9, 2.4));
-        List<HiveTarget> three = List.of(new HiveTarget(1, new Vec3(0, 64, 0), .6, 1.8), new HiveTarget(2, new Vec3(6, 64, -3), .9, 2.4),
-                new HiveTarget(3, new Vec3(-2, 65, 7), 1.4, .9));
-        List<HiveTarget> before = List.of(new HiveTarget(4, new Vec3(3, 64, 5), .6, 1.8));
+        List<HiveTarget> one = List.of(new HiveTarget(1, McVectors.toDomain(new Vec3(0, 64, 0)), .6, 1.8));
+        List<HiveTarget> two = List.of(new HiveTarget(1, McVectors.toDomain(new Vec3(0, 64, 0)), .6, 1.8), new HiveTarget(2, McVectors.toDomain(new Vec3(6, 64, -3)), .9, 2.4));
+        List<HiveTarget> three = List.of(new HiveTarget(1, McVectors.toDomain(new Vec3(0, 64, 0)), .6, 1.8), new HiveTarget(2, McVectors.toDomain(new Vec3(6, 64, -3)), .9, 2.4),
+                new HiveTarget(3, McVectors.toDomain(new Vec3(-2, 65, 7)), 1.4, .9));
+        List<HiveTarget> before = List.of(new HiveTarget(4, McVectors.toDomain(new Vec3(3, 64, 5)), .6, 1.8));
         record Lineup(List<HiveTarget> targets, List<HiveTarget> previous, double retargetedAt) { }
         List<Lineup> lineups = List.of(new Lineup(one, List.of(), -1), new Lineup(two, List.of(), -1), new Lineup(three, before, CYCLE_START + 3));
         // Through a strike cycle: waiting, flying out, the blow and the shot, the way home; and the construct closing and locked.
@@ -208,8 +223,8 @@ public final class HiveVisualEquivalenceCheck {
     // --- measurement ----------------------------------------------------------------------------------
 
     private static void measure() {
-        List<HiveTarget> three = List.of(new HiveTarget(1, new Vec3(0, 64, 0), .6, 1.8), new HiveTarget(2, new Vec3(6, 64, -3), .9, 2.4),
-                new HiveTarget(3, new Vec3(-2, 65, 7), 1.4, .9));
+        List<HiveTarget> three = List.of(new HiveTarget(1, McVectors.toDomain(new Vec3(0, 64, 0)), .6, 1.8), new HiveTarget(2, McVectors.toDomain(new Vec3(6, 64, -3)), .9, 2.4),
+                new HiveTarget(3, McVectors.toDomain(new Vec3(-2, 65, 7)), 1.4, .9));
         Matrix4f m = new Matrix4f();
         Vec3 camera = CAMERAS[0];
         record Frame(String name, double offset) { }
