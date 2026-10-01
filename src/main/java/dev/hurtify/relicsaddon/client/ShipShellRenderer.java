@@ -90,12 +90,11 @@ public final class ShipShellRenderer {
     }
 
     private static void seats(VertexConsumer lines, Matrix4f matrix, ShipShieldView view, ShipFrame frame, Vec3 camera, int color) {
-        List<Float> seats = view.seats(), drones = view.drones();
         for (int seat = 0; seat < view.seatCount(); seat++) {
-            Vec3 at = frame.toWorld(new Vec3(seats.get(seat * 3), seats.get(seat * 3 + 1), seats.get(seat * 3 + 2))).subtract(camera);
+            Vec3 at = frame.toWorld(view.seat(seat)).subtract(camera);
             cross(lines, matrix, at, .12, view.held(seat) ? 0xFFFFFF : color, view.held(seat) ? 255 : 120);
             if (seat < view.droneCount() && view.state(seat) != EmitterDrone.State.HOLDING) {
-                Vec3 drone = frame.toWorld(new Vec3(drones.get(seat * 3), drones.get(seat * 3 + 1), drones.get(seat * 3 + 2))).subtract(camera);
+                Vec3 drone = frame.toWorld(view.drone(seat)).subtract(camera);
                 cross(lines, matrix, drone, .3, 0xFFD060, 255);
             }
         }

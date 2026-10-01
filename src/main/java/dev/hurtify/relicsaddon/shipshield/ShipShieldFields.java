@@ -202,7 +202,7 @@ public final class ShipShieldFields {
         if (!(victim.level() instanceof ServerLevel level) || event.getAmount() <= 0) return;
         DamageSource source = event.getSource();
         Vec3 origin = source.getSourcePosition();
-        if (origin == null || source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) return;
+        if (origin == null || source.is(DamageTypeTags.BYPASSES_INVULNERABILITY) || dev.hurtify.relicsaddon.server.ShieldController.passesField(source)) return;
         long now = level.getGameTime();
         List<Field> fields = live(level, now);
         if (fields.isEmpty()) return;

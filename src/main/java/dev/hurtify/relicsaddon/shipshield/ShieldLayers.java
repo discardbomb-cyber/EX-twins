@@ -70,6 +70,8 @@ public final class ShieldLayers {
         int absorbed = 0, stripped = 0;
         if (seats == 0 || seat < 0 || seat >= seats) return new Strike(0, remaining, false, 0, drains);
         for (int layer = layers - 1; layer >= 0 && remaining > 0; layer--) {
+            // A drained patch is a hole in its layer until it mends: a blow through it meets the layer within.
+            if (integrity[layer][seat] == 0) continue;
             int taken = take(layer, seat, remaining, drains);
             remaining -= taken;
             absorbed += taken;

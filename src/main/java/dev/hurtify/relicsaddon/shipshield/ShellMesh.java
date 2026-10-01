@@ -21,7 +21,8 @@ public final class ShellMesh {
     /** Smoothing passes and how far each pass moves a vertex towards its neighbours' middle. */
     private static final int SMOOTH_PASSES = 3;
     private static final double SMOOTH = .5;
-    private static final int MAX_STEP = 8;
+    /** The coarsest grid: beyond this a mesh is no shape at all, so a very large structure may exceed its cell limit instead. */
+    private static final int MAX_STEP = 4;
 
     private final ShellField field;
     private final int step;
@@ -133,13 +134,13 @@ public final class ShellMesh {
     public static ShellMesh build(ShellField field, int cellLimit) {
         cellLimit = Math.max(64, cellLimit);
         if (field.isEmpty()) return new ShellMesh(field, 1, 0, 0, 0, new float[0], new int[0], new int[0][], new float[0], new AABB(0, 0, 0, 0, 0, 0));
-        for (int step = 1; step <= MAX_STEP; step++) {
+        int step = 1;
+        while (true) {
             ShellMesh mesh = trace(field, step);
-            if (mesh.quadCount() <= cellLimit || step == MAX_STEP) return mesh;
-            // Quads shrink with the square of the spacing; jump straight to a spacing that should fit.
-            step = Math.max(step, (int) Math.floor(step * Math.sqrt(mesh.quadCount() / (double) cellLimit)));
+            if (mesh.quadCount() <= cellLimit || step >= MAX_STEP) return mesh;
+            // Quads shrink with the square of the spacing; jump straight to a spacing that should fit, one step on at least.
+            step = Math.min(MAX_STEP, Math.max(step + 1, (int) Math.floor(step * Math.sqrt(mesh.quadCount() / (double) cellLimit))));
         }
-        throw new IllegalStateException("unreachable");
     }
 
     private static ShellMesh trace(ShellField field, int step) {
@@ -263,7 +264,9 @@ public final class ShellMesh {
         int[] quadArray = quads.toIntArray();
         int[][] neighbours = neighbours(vertices.length / 3, quadArray);
         smooth(vertices, neighbours);
-        settle(field, vertices, originX, originY, originZ);
+        settle(field, vertices, quadArray, neighbours, originX, originY, originZ);
+        // The field's sealed cavities are worked out here, off-thread, so the first hit test need not.
+        field.warm();
         float[] normals = normals(vertices, quadArray);
         return new ShellMesh(field, step, originX, originY, originZ, vertices, quadArray, neighbours, normals, boundsOf(vertices).move(originX, originY, originZ));
     }
@@ -306,20 +309,70 @@ public final class ShellMesh {
         }
     }
 
-    /** Sets every vertex exactly the offset away from the nearest block, along the way out from it. */
-    private static void settle(ShellField field, float[] vertices, int originX, int originY, int originZ) {
+    /**
+     * Sets every vertex the offset away from the nearest block, along the way out from it, then
+     * stands vertices further out wherever an edge's middle or a quad's middle between them sags
+     * nearer than the offset (a chord across a curve), until no facet comes nearer than the offset.
+     */
+    private static void settle(ShellField field, float[] vertices, int[] quads, int[][] neighbours, int originX, int originY, int originZ) {
         double offset = field.offset();
-        for (int vertex = 0; vertex < vertices.length; vertex += 3) {
-            double x = originX + (double) vertices[vertex], y = originY + (double) vertices[vertex + 1], z = originZ + (double) vertices[vertex + 2];
-            ShellField.Nearest near = field.nearest(x, y, z);
-            double dx = x - near.x(), dy = y - near.y(), dz = z - near.z();
+        int count = vertices.length / 3;
+        double[] near = new double[vertices.length], out = new double[vertices.length], want = new double[count];
+        for (int vertex = 0; vertex < count; vertex++) {
+            double x = originX + (double) vertices[vertex * 3], y = originY + (double) vertices[vertex * 3 + 1], z = originZ + (double) vertices[vertex * 3 + 2];
+            ShellField.Nearest nearest = field.nearest(x, y, z);
+            double dx = x - nearest.x(), dy = y - nearest.y(), dz = z - nearest.z();
             double length = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            if (length < 1e-6) { dx = 0; dy = 1; dz = 0; length = 1; }
-            // A float may land a hair short of the offset; the margin keeps every vertex at or beyond it.
-            double want = offset + 1e-3;
-            vertices[vertex] = (float) (near.x() + dx / length * want - originX);
-            vertices[vertex + 1] = (float) (near.y() + dy / length * want - originY);
-            vertices[vertex + 2] = (float) (near.z() + dz / length * want - originZ);
+            if (length < 1e-6) { dx = 0; dy = 0; dz = 0; length = 1; }
+            near[vertex * 3] = nearest.x(); near[vertex * 3 + 1] = nearest.y(); near[vertex * 3 + 2] = nearest.z();
+            out[vertex * 3] = dx / length; out[vertex * 3 + 1] = dy / length; out[vertex * 3 + 2] = dz / length;
+            want[vertex] = offset + 2e-3;
+        }
+        // A coarse grid may drop a vertex inside a block: it takes its neighbours' way out, and goes along it until clear.
+        for (int vertex = 0; vertex < count; vertex++) {
+            if (out[vertex * 3] != 0 || out[vertex * 3 + 1] != 0 || out[vertex * 3 + 2] != 0) continue;
+            double sx = 0, sy = 0, sz = 0;
+            for (int other : neighbours[vertex]) { sx += out[other * 3]; sy += out[other * 3 + 1]; sz += out[other * 3 + 2]; }
+            double length = Math.sqrt(sx * sx + sy * sy + sz * sz);
+            if (length < 1e-6) { sx = 0; sy = 1; sz = 0; length = 1; }
+            out[vertex * 3] = sx / length; out[vertex * 3 + 1] = sy / length; out[vertex * 3 + 2] = sz / length;
+            for (int step = 0; step < 64 && field.distance(near[vertex * 3] + out[vertex * 3] * want[vertex], near[vertex * 3 + 1] + out[vertex * 3 + 1] * want[vertex],
+                    near[vertex * 3 + 2] + out[vertex * 3 + 2] * want[vertex]) < offset; step++) {
+                want[vertex] += .5;
+            }
+        }
+        double[] at = new double[vertices.length];
+        for (int pass = 0; pass < 40; pass++) {
+            for (int vertex = 0; vertex < count; vertex++) for (int axis = 0; axis < 3; axis++) {
+                at[vertex * 3 + axis] = near[vertex * 3 + axis] + out[vertex * 3 + axis] * want[vertex];
+            }
+            boolean moved = false;
+            for (int vertex = 0; vertex < count; vertex++) {
+                for (int other : neighbours[vertex]) {
+                    if (other < vertex) continue;
+                    double deficit = offset + 1e-3 - field.distance((at[vertex * 3] + at[other * 3]) * .5, (at[vertex * 3 + 1] + at[other * 3 + 1]) * .5, (at[vertex * 3 + 2] + at[other * 3 + 2]) * .5);
+                    if (deficit > 0) {
+                        want[vertex] += deficit * .7;
+                        want[other] += deficit * .7;
+                        moved = true;
+                    }
+                }
+            }
+            for (int quad = 0; quad < quads.length; quad += 4) {
+                double mx = 0, my = 0, mz = 0;
+                for (int corner = 0; corner < 4; corner++) { mx += at[quads[quad + corner] * 3]; my += at[quads[quad + corner] * 3 + 1]; mz += at[quads[quad + corner] * 3 + 2]; }
+                double deficit = offset + 1e-3 - field.distance(mx * .25, my * .25, mz * .25);
+                if (deficit > 0) {
+                    for (int corner = 0; corner < 4; corner++) want[quads[quad + corner]] += deficit * .7;
+                    moved = true;
+                }
+            }
+            if (!moved) break;
+        }
+        for (int vertex = 0; vertex < count; vertex++) {
+            vertices[vertex * 3] = (float) (near[vertex * 3] + out[vertex * 3] * want[vertex] - originX);
+            vertices[vertex * 3 + 1] = (float) (near[vertex * 3 + 1] + out[vertex * 3 + 1] * want[vertex] - originY);
+            vertices[vertex * 3 + 2] = (float) (near[vertex * 3 + 2] + out[vertex * 3 + 2] * want[vertex] - originZ);
         }
     }
 

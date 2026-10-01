@@ -207,7 +207,11 @@ public final class NetworkCodecCheck {
             states.add(seat % 5);
         }
         for (int patch = 0; patch < 3 * 128; patch++) integrity.add(patch % 61);
-        var view = new dev.hurtify.relicsaddon.shipshield.ShipShieldView(true, 3, 3, 4096, 123_456_789L, 60, seats, drones, states, integrity);
+        var view = new dev.hurtify.relicsaddon.shipshield.ShipShieldView(true, 3, 3, 4096, 123_456_789L, 60, new net.minecraft.core.BlockPos(13_978_181, -58, -10_697_027), seats, drones, states, integrity);
+        int viewBytes = roundTrip(dev.hurtify.relicsaddon.shipshield.ShipShieldView.STREAM_CODEC, view, "ship shield view");
+        require(viewBytes < 128 * 3 * 4 * 2 + 128 * 3 * 2 + 64, "a 128-seat view is floats plus a byte or two a count, took " + viewBytes);
+        require(dev.hurtify.relicsaddon.shipshield.ShipShieldView.fromBytes(view.toBytes()).equals(view), "the view's bytes read back");
+        require(dev.hurtify.relicsaddon.shipshield.ShipShieldView.fromBytes(new byte[]{1, 2}).equals(dev.hurtify.relicsaddon.shipshield.ShipShieldView.NONE), "torn bytes read as no shield");
         require(decode(dev.hurtify.relicsaddon.shipshield.ShipShieldView.CODEC, encode(dev.hurtify.relicsaddon.shipshield.ShipShieldView.CODEC, view)).equals(view),
                 "a ship shield view round-trips through NBT");
         require(decode(dev.hurtify.relicsaddon.shipshield.ShipShieldView.CODEC, new CompoundTag()).equals(dev.hurtify.relicsaddon.shipshield.ShipShieldView.NONE),

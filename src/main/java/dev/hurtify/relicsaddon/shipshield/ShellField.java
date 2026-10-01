@@ -11,7 +11,9 @@ import net.minecraft.world.phys.Vec3;
  * structure. The shell is the boundary of that set, so "inside the shield" is a distance test
  * against the blocks themselves, with no mesh in the way, and a shot's way in is found by walking
  * its path until it is inside. Positions are in the structure's own coordinates (a ship's plot).
- * Pure: no level, no side; shared by the server (hits) and the client (drawing).
+ * Air sealed inside the structure further than the offset from any block (a cabin, a hold) is
+ * under the shield too: the shell is one outer surface. Pure: no level, no side; shared by the
+ * server (hits) and the client (drawing).
  */
 public final class ShellField {
     /** The nearest point of the structure to a point, and how far it is. */
@@ -25,6 +27,8 @@ public final class ShellField {
     private final double offset;
     private final int window;
     private final int minX, minY, minZ, maxX, maxY, maxZ;
+    /** Voxels within the block box that lie beyond the offset yet are sealed in by the structure; made on first use. */
+    private volatile java.util.BitSet enclosed;
 
     public ShellField(LongSet blocks, double offset) {
         this.blocks = new LongOpenHashSet(blocks);
@@ -81,8 +85,62 @@ public final class ShellField {
     public double distance(double x, double y, double z) { return nearest(x, y, z).distance(); }
     public double distance(Vec3 point) { return distance(point.x, point.y, point.z); }
 
-    /** Whether a point is under the shield (no further than the offset from the structure). */
-    public boolean inside(double x, double y, double z) { return distance(x, y, z) <= offset; }
+    /** Whether a point is under the shield: no further than the offset from the structure, or sealed inside it. */
+    public boolean inside(double x, double y, double z) { return distance(x, y, z) <= offset || enclosed(x, y, z); }
+
+    /** Works out the sealed cavities now (call off-thread; otherwise the first {@link #inside} does it). */
+    public void warm() { enclosedVoxels(); }
+
+    private boolean enclosed(double x, double y, double z) {
+        int vx = (int) Math.floor(x) - minX, vy = (int) Math.floor(y) - minY, vz = (int) Math.floor(z) - minZ;
+        int sx = maxX - minX + 1, sy = maxY - minY + 1, sz = maxZ - minZ + 1;
+        if (vx < 0 || vy < 0 || vz < 0 || vx >= sx || vy >= sy || vz >= sz) return false;
+        return enclosedVoxels().get((vx * sy + vy) * sz + vz);
+    }
+
+    /**
+     * Voxels of the block box beyond the offset that the outside cannot reach: flooded from a
+     * margin round the box through voxels whose middle is beyond the offset; what the flood misses
+     * is sealed in.
+     */
+    private java.util.BitSet enclosedVoxels() {
+        java.util.BitSet known = enclosed;
+        if (known != null) return known;
+        synchronized (this) {
+            if (enclosed != null) return enclosed;
+            int margin = window + 1;
+            int ox = minX - margin, oy = minY - margin, oz = minZ - margin;
+            int sx = maxX - minX + 1 + 2 * margin, sy = maxY - minY + 1 + 2 * margin, sz = maxZ - minZ + 1 + 2 * margin;
+            java.util.BitSet open = new java.util.BitSet(sx * sy * sz), reached = new java.util.BitSet(sx * sy * sz);
+            for (int i = 0; i < sx; i++) for (int j = 0; j < sy; j++) for (int k = 0; k < sz; k++) {
+                if (distance(ox + i + .5, oy + j + .5, oz + k + .5) > offset) open.set((i * sy + j) * sz + k);
+            }
+            java.util.ArrayDeque<Integer> queue = new java.util.ArrayDeque<>();
+            reached.set(0);
+            queue.add(0);
+            int[] strides = {sy * sz, sz, 1}, sizes = {sx, sy, sz};
+            while (!queue.isEmpty()) {
+                int at = queue.poll();
+                int[] here = {at / (sy * sz), at / sz % sy, at % sz};
+                for (int axis = 0; axis < 3; axis++) for (int sign = -1; sign <= 1; sign += 2) {
+                    int coordinate = here[axis] + sign;
+                    if (coordinate < 0 || coordinate >= sizes[axis]) continue;
+                    int next = at + sign * strides[axis];
+                    if (reached.get(next) || !open.get(next)) continue;
+                    reached.set(next);
+                    queue.add(next);
+                }
+            }
+            int bx = maxX - minX + 1, by = maxY - minY + 1, bz = maxZ - minZ + 1;
+            java.util.BitSet sealed = new java.util.BitSet(bx * by * bz);
+            for (int i = 0; i < bx; i++) for (int j = 0; j < by; j++) for (int k = 0; k < bz; k++) {
+                int index = ((i + margin) * sy + j + margin) * sz + k + margin;
+                if (open.get(index) && !reached.get(index)) sealed.set((i * by + j) * bz + k);
+            }
+            enclosed = sealed;
+            return sealed;
+        }
+    }
     public boolean inside(Vec3 point) { return inside(point.x, point.y, point.z); }
 
     /** The way out of the shield at a point: away from the nearest block (straight up when the point is inside a block). */

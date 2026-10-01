@@ -21,7 +21,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
@@ -92,7 +91,7 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
     // Client side: the generator's shield as last told, and the shell traced here from the same blocks.
     private ShipShieldView view = ShipShieldView.NONE;
     private List<ShellMesh> clientLayers = List.of();
-    private long clientKey, clientCheckedAt = Long.MIN_VALUE;
+    private long clientKey, clientCheckedAt = Long.MIN_VALUE / 4;
     private @Nullable CompletableFuture<List<ShellMesh>> clientPending;
     private long clientPendingKey;
 
@@ -539,9 +538,7 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
         }
         if (shield != null && tag.contains("shield", Tag.TAG_COMPOUND)) loadedShield = tag.getCompound("shield");
         if (role().isDroneDock() && tag.contains("repair", Tag.TAG_COMPOUND)) repair().load(tag.getCompound("repair"), registries);
-        if (tag.contains("view", Tag.TAG_COMPOUND)) {
-            view = ShipShieldView.CODEC.parse(NbtOps.INSTANCE, tag.getCompound("view")).result().orElse(ShipShieldView.NONE);
-        }
+        if (tag.contains("view", Tag.TAG_BYTE_ARRAY)) view = ShipShieldView.fromBytes(tag.getByteArray("view"));
     }
 
     /** The dock's repair work, made on first use; null on a generator. */
@@ -556,7 +553,7 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
         tag.remove("shield");
         tag.remove("repair");
         if (shield != null && level != null) {
-            ShipShieldView.CODEC.encodeStart(NbtOps.INSTANCE, shield.view(level.getGameTime())).result().ifPresent(view -> tag.put("view", view));
+            tag.putByteArray("view", shield.view(level.getGameTime()).toBytes());
         }
         return tag;
     }

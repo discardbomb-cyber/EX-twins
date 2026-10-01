@@ -131,6 +131,15 @@ public final class ShipShield {
             overloadedUntil = NEVER;
             dirty = true;
         }
+        if (integrity.seats() > 0 && integrity.max() != patchMax()) {
+            // The level moved within its layer band: every patch keeps its share of a larger (or smaller) whole.
+            ShieldLayers scaled = new ShieldLayers(integrity.layers(), integrity.seats(), patchMax());
+            for (int layer = 0; layer < integrity.layers(); layer++) for (int seat = 0; seat < integrity.seats(); seat++) {
+                scaled.set(layer, seat, (int) Math.round(integrity.integrity(layer, seat) * (double) scaled.max() / integrity.max()));
+            }
+            integrity = scaled;
+            dirty = true;
+        }
         boolean deploy = running && !overloaded(now);
         tickDrones(level, now, deploy);
         if (heldChanged) {
@@ -283,9 +292,16 @@ public final class ShipShield {
         if (deploy) {
             for (int seat = 0; seat < seats.length; seat++) {
                 if (seatTaken(seat)) continue;
-                ShipDeviceBlockEntity dock = dockWithSpare(level);
+                // The first dock with a spare drone that can pay for the flight; a dock out of charge keeps its drones.
+                ShipDeviceBlockEntity dock = null;
+                for (BlockPos pos : generator.docks()) {
+                    if (level.getBlockEntity(pos) instanceof ShipDeviceBlockEntity candidate && candidate.role().isDroneDock()
+                            && candidate.spareDrones() > 0 && DevicePower.drain(null, candidate.device(), flightCost)) {
+                        dock = candidate;
+                        break;
+                    }
+                }
                 if (dock == null) break;
-                if (!DevicePower.drain(null, dock.device(), flightCost)) break;
                 dock.sendDrone();
                 EmitterDrone drone = new EmitterDrone(seat, dock.getBlockPos(), dockPosition(dock.getBlockPos()));
                 drone.fly(seats[seat], false);
@@ -295,16 +311,18 @@ public final class ShipShield {
         }
         for (EmitterDrone drone : new ArrayList<>(drones)) {
             ShipDeviceBlockEntity dock = level.getBlockEntity(drone.dock) instanceof ShipDeviceBlockEntity entity && entity.role().isDroneDock() ? entity : null;
-            // A dock that is gone, or whose drones were taken out, takes its drones with it.
-            if (dock == null || dock.droneCount() < dock.dronesOut()) {
+            // A dock that is gone takes its drones with it; one whose drones were taken out loses those at home first.
+            if (dock == null || dock.droneCount() < ofDock(drone.dock) && (drone.away() || dock.droneCount() < awayFrom(drone.dock))) {
                 drones.remove(drone);
-                if (dock != null) dock.droneHome();
+                if (dock != null && !drone.away()) dock.droneHome();
                 heldChanged = true;
                 continue;
             }
             switch (drone.state()) {
                 case LAUNCHING, RETURNING -> {
-                    if (drone.tickFlight()) heldChanged = true;
+                    boolean landed = drone.tickFlight();
+                    if (landed) heldChanged = true;
+                    if (landed && drone.away()) dock.droneHome();
                     if (drone.holding() && !deploy) {
                         drone.fly(dockPosition(drone.dock), true);
                         heldChanged = true;
@@ -323,6 +341,7 @@ public final class ShipShield {
                         // Charging costs the dock a point a tick; an empty dock leaves the drone waiting.
                         if (DevicePower.drain(null, dock.device(), 1)) drone.recharge(1F / chargeTicks);
                     } else if (deploy && drone.seat < seats.length && DevicePower.drain(null, dock.device(), flightCost)) {
+                        dock.sendDrone();
                         drone.fly(seats[drone.seat], false);
                     }
                 }
@@ -330,17 +349,23 @@ public final class ShipShield {
         }
     }
 
-    private @Nullable ShipDeviceBlockEntity dockWithSpare(ServerLevel level) {
-        for (BlockPos pos : generator.docks()) {
-            if (level.getBlockEntity(pos) instanceof ShipDeviceBlockEntity dock && dock.role().isDroneDock() && dock.spareDrones() > 0) return dock;
-        }
-        return null;
+    /** Drones of this shield that belong to a dock, and how many of them are away from it. */
+    private int ofDock(BlockPos dock) {
+        int count = 0;
+        for (EmitterDrone drone : drones) if (drone.dock.equals(dock)) count++;
+        return count;
+    }
+
+    private int awayFrom(BlockPos dock) {
+        int count = 0;
+        for (EmitterDrone drone : drones) if (drone.dock.equals(dock) && !drone.away()) count++;
+        return count;
     }
 
     /** A drone leaves the shield for good (its seat is gone): back to its dock's count. */
     private void dismiss(EmitterDrone drone) {
         drones.remove(drone);
-        if (generator.getLevel() != null && generator.getLevel().getBlockEntity(drone.dock) instanceof ShipDeviceBlockEntity dock) dock.droneHome();
+        if (!drone.away() && generator.getLevel() != null && generator.getLevel().getBlockEntity(drone.dock) instanceof ShipDeviceBlockEntity dock) dock.droneHome();
         heldChanged = true;
     }
 
@@ -358,7 +383,7 @@ public final class ShipShield {
     /** The drones' claims on their docks given back (the generator block is gone). */
     public void release(ServerLevel level) {
         for (EmitterDrone drone : drones) {
-            if (level.getBlockEntity(drone.dock) instanceof ShipDeviceBlockEntity dock) dock.droneHome();
+            if (!drone.away() && level.getBlockEntity(drone.dock) instanceof ShipDeviceBlockEntity dock) dock.droneHome();
         }
         drones.clear();
         ShipShieldFields.remove(level, generator);
@@ -442,19 +467,20 @@ public final class ShipShield {
     // --- sync and saving ---------------------------------------------------------------------------
 
     public ShipShieldView view(long now) {
+        BlockPos origin = generator.getBlockPos();
         List<Float> seatList = new ArrayList<>(seats.length * 3);
-        for (Vec3 seat : seats) { seatList.add((float) seat.x); seatList.add((float) seat.y); seatList.add((float) seat.z); }
+        for (Vec3 seat : seats) { seatList.add((float) (seat.x - origin.getX())); seatList.add((float) (seat.y - origin.getY())); seatList.add((float) (seat.z - origin.getZ())); }
         List<Float> droneList = new ArrayList<>(seats.length * 3);
         List<Integer> states = new ArrayList<>(seats.length);
         for (int seat = 0; seat < seats.length; seat++) {
             EmitterDrone drone = drone(seat);
             Vec3 at = drone == null ? seats[seat] : drone.at();
-            droneList.add((float) at.x); droneList.add((float) at.y); droneList.add((float) at.z);
+            droneList.add((float) (at.x - origin.getX())); droneList.add((float) (at.y - origin.getY())); droneList.add((float) (at.z - origin.getZ()));
             states.add(drone == null ? EmitterDrone.State.DOCKED.ordinal() : drone.state().ordinal());
         }
         List<Integer> integrityList = new ArrayList<>(integrity.layers() * integrity.seats());
         for (int layer = 0; layer < integrity.layers(); layer++) for (int seat = 0; seat < integrity.seats(); seat++) integrityList.add(integrity.integrity(layer, seat));
-        return new ShipShieldView(up(now), offset, layerCount, cellLimit, overloaded(now) ? overloadedUntil : 0, integrity.max(), seatList, droneList, states, integrityList);
+        return new ShipShieldView(up(now), offset, layerCount, cellLimit, overloaded(now) ? overloadedUntil : 0, integrity.max(), origin, seatList, droneList, states, integrityList);
     }
 
     public void save(CompoundTag tag, long now) {
