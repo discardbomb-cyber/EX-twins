@@ -4,7 +4,9 @@ import static dev.hurtify.relicsaddon.gametest.DeviceTestSupport.TEMPLATE;
 
 import dev.hurtify.relicsaddon.registry.ModItems;
 import dev.hurtify.relicsaddon.registry.ShipBlocks;
+import dev.hurtify.relicsaddon.shipshield.EmitterDrone;
 import dev.hurtify.relicsaddon.shipshield.ShellMesh;
+import dev.hurtify.relicsaddon.shipshield.ShellPatches;
 import dev.hurtify.relicsaddon.shipshield.ShipDeviceBlockEntity;
 import dev.hurtify.relicsaddon.shipshield.ShipFamily;
 import dev.hurtify.relicsaddon.shipshield.ShipShield;
@@ -112,6 +114,62 @@ public final class ShipShieldGameTests {
                 "The hut is four blocks (generator, cobblestone, planks, chest), got " + (generator.structure() == null ? "none" : generator.structure().size()));
         helper.assertTrue(generator.stores().size() == 1, "The chest on the hut is a store");
         helper.succeed();
+    }
+
+    /** Eight drones for 64 blocks (five blocks: eight seats), but never more than the docks hold; drones out cannot be taken by hoppers. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 400)
+    public static void dronesSeatOnTheShellNoMoreThanTheDocksHold(GameTestHelper helper) {
+        ShipDeviceBlockEntity generator = shieldedRow(helper, ShipFamily.RF, 3);
+        ShipDeviceBlockEntity dock = device(helper, new BlockPos(1, 2, 2));
+        whenTraced(helper, generator, shield -> when(helper, () -> shield.heldSeats() == 3, () -> {
+            helper.assertTrue(shield.seatCount() == 8 && generator.state().dronesWanted() == 8, "Five blocks seat eight drones, got " + shield.seatCount());
+            helper.assertTrue(shield.drones().size() == 3, "Only the three docked drones are out, got " + shield.drones().size());
+            helper.assertTrue(dock.dronesOut() == 3 && dock.spareDrones() == 0, "The dock counts its three drones as out: " + dock.dronesOut() + "/" + dock.spareDrones());
+            var handler = helper.getLevel().getCapability(net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.BLOCK, helper.absolutePos(new BlockPos(1, 2, 2)), null);
+            helper.assertTrue(handler != null && handler.extractItem(0, 1, true).isEmpty(), "Hoppers cannot take drones that are out on the shell");
+            for (EmitterDrone drone : shield.drones()) {
+                helper.assertTrue(drone.holding(), "Drone " + drone.seat + " holds its seat");
+                double distance = shield.outer().field().distance(drone.at());
+                helper.assertTrue(Math.abs(distance - shield.outer().offset()) < .6, "Drone " + drone.seat + " sits on the shell, " + distance + " from the blocks");
+            }
+            ShellPatches patches = shield.patches();
+            int cells = 0;
+            for (int seat = 0; seat < 8; seat++) cells += patches.cells(seat);
+            helper.assertTrue(cells == shield.outer().quadCount(), "The three drones share the whole shell between them: " + cells + " of " + shield.outer().quadCount());
+            helper.assertTrue(patches.cells(3) == 0 && patches.cells(0) > 0, "Empty seats hold no cells");
+            // Five more drones (the dock holds eight) take the empty seats.
+            helper.assertTrue(dock.insertDrones(new ItemStack(ModItems.EMITTER_DRONES.get(ShipFamily.RF).get(), 10)) == 5, "The dock takes five more of ten");
+            when(helper, () -> shield.heldSeats() == 8, () -> {
+                helper.assertTrue(dock.dronesOut() == 8 && generator.state().dronesOut() == 8, "All eight are out: " + dock.dronesOut() + ", console " + generator.state().dronesOut());
+                helper.assertTrue(generator.state().notice().isEmpty(), "No notice once the seats are full: " + generator.state().notice());
+                helper.succeed();
+            });
+        }));
+    }
+
+    /** A drone on a critical charge leaves its seat to its neighbours, flies home, charges and comes back on its own. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 800)
+    public static void droneOnCriticalChargeFliesHomeAndComesBackCharged(GameTestHelper helper) {
+        ShipDeviceBlockEntity generator = shieldedRow(helper, ShipFamily.MANA, 8);
+        whenTraced(helper, generator, shield -> when(helper, () -> shield.heldSeats() == 8, () -> {
+            EmitterDrone drone = shield.drone(2);
+            helper.assertTrue(drone != null && drone.holding(), "Seat 2 is held");
+            int cellsBefore = shield.patches().cells(2);
+            drone.setCharge(EmitterDrone.CRITICAL_CHARGE - .01F);
+            when(helper, () -> drone.state() == EmitterDrone.State.CHARGING, () -> {
+                helper.assertTrue(shield.heldSeats() == 7, "Seven seats are held while it charges");
+                helper.assertTrue(shield.patches().cells(2) == 0 && cellsBefore > 0, "Its patch went to its neighbours");
+                int total = 0;
+                for (int seat = 0; seat < 8; seat++) total += shield.patches().cells(seat);
+                helper.assertTrue(total == shield.outer().quadCount(), "The shell is still whole between seven drones");
+                helper.assertTrue(drone.at().distanceTo(Vec3.atCenterOf(helper.absolutePos(new BlockPos(1, 2, 2)))) < 1.5, "It is at the dock: " + drone.at());
+                when(helper, () -> drone.holding(), () -> {
+                    helper.assertTrue(drone.charge() >= EmitterDrone.READY_CHARGE, "It came back charged: " + drone.charge());
+                    helper.assertTrue(shield.heldSeats() == 8 && shield.patches().cells(2) > 0, "It holds its seat again");
+                    helper.succeed();
+                });
+            });
+        }));
     }
 
     private ShipShieldGameTests() {
