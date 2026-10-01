@@ -973,7 +973,8 @@ function synthesize(name, family, seconds) {
       // The lance burning: a dark hum of detuned saws breathing under a sizzle and the crackle of what it burns,
       // with a whine riding on top.
       const breath = osc(n, .5).map(x => .8 + .2 * x);
-      const hum = osc(n, 55, "saw").map((x, i) => x + osc(n, 55.5, "saw")[i] + .5 * osc(n, 110.5, "saw")[i]);
+      const low = osc(n, 55, "saw"), beat = osc(n, 55.5, "saw"), octave = osc(n, 110.5, "saw");
+      const hum = low.map((x, i) => x + beat[i] + .5 * octave[i]);
       v.add(mul(lowpass(hum, 850), breath), .3);
       v.add(bandpass(v.noise(), 3400, 3).map((x, i) => x * (.7 + .3 * Math.sin(TAU * 7 * i / RATE))), .16);
       v.add(highpass(crackle(v, () => 900, .0008), 2200), .22);

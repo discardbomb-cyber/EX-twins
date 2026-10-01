@@ -102,7 +102,10 @@ public final class AegisFields {
         List<Field> fields = live(level, now);
         if (fields.isEmpty()) return;
         Entity owner = projectile.getOwner();
-        if (owner instanceof net.minecraft.world.entity.player.Player && !level.getServer().isPvpAllowed()) return;
+        // With PvP off a player's arrow cannot hurt anyone inside, so it is let through for nothing; but what bursts
+        // (a fireball sent back, a cannon shell) is stopped whoever fired it, or it would burst inside the shield.
+        if (owner instanceof net.minecraft.world.entity.player.Player && !level.getServer().isPvpAllowed()
+                && !(projectile instanceof net.minecraft.world.entity.projectile.AbstractHurtingProjectile) && cannon(projectile.getClass()) == 0) return;
         Vec3 from = projectile.position(), motion = projectile.getDeltaMovement();
         List<Crossing> crossings = null;
         for (Field field : fields) {

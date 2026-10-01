@@ -69,6 +69,16 @@ export JAVA_HOME="/c/Program Files/Eclipse Adoptium/jdk-21.0.12.8-hotspot"
   hit traces `ShieldCircuitTraces`. Inside-the-shell views must stay faint (`ShieldSurfaceLighting.INSIDE`).
 - Photon effects: `client/fx/ExFx` (+ `ExFxLibrary`, `PointEffectExecutor`), built in code,
   overridable by `assets/relics_addon/fx/<name>.fx`.
+- Ship hives (blocks, `ship/`): `ShipHiveBlock`/`ShipHiveBlockEntity` (owner, FE `Battery`, switch,
+  module; `save/load` = what lasts, `saveSync/loadSync` = runtime state sent in `getUpdateTag` only),
+  modules `LanceModule` (turret, `LanceShape`), `AegisModule` (+ `AegisShape` ellipsoid, `AegisFields`
+  = interception/absorption/explosion handlers), `EscortModule` (wings); shared `ShipBrain` (threat
+  board, grudges, claims) and `ShipAllies` (sworn/friendly/threat); `ShipFrame` = where the hive really
+  is (Sable pose via Sable Companion, bundled); `ShipRays` = clips with Sable hits carried out of the
+  plot. Window `menu/ShipHiveMenu` + `client/ShipHiveScreen`; drawing `client/ShipHiveRenderer`
+  (world space, `CLIENT_LOADED` registry), beam loop `client/ShipBeamSound`. Tests `ShipHiveGameTests`
+  (each in its own batch; hives removed at test end), film `runShipScenarioClient` (Sable jar in
+  `run-ship/mods`; assembles a ship with `/sable assemble area`, turns it with `/sable teleport <uuid> x y z yaw pitch`).
 - Dynamic lights (optional LambDynamicLights): renderers report `EffectLights.glow` (per frame) and
   `EffectLights.flash` (per event); it merges and caps them (24). Only `client/light` touches LDL
   types; LDL loads `DynamicLightsBridge` through the `yumi:entrypoints` mod property. Client config
@@ -91,6 +101,18 @@ export JAVA_HOME="/c/Program Files/Eclipse Adoptium/jdk-21.0.12.8-hotspot"
   MDG's per-run `additionalRuntimeClasspath`: that makes it a boot-layer library and FML skips it
   ("already located earlier", visible only with DEBUG logs). LambDynamicLights also needs
   `net.minecraft.mappings=mojmap` plus `bundling=external`, or Gradle picks its shadowed `-dev.jar`.
+- **Sable (Create Aeronautics)**: a ship's blocks live in a far "plot"; `level.clip` also hits ship
+  hulls but returns the hit IN PLOT COORDINATES - carry it out with
+  `SableCompanion.projectOutOfSubLevel` before comparing distances or querying entities (a world-to-plot
+  AABB is millions of blocks). Poses are mutable (copy with `new Pose3d(pose)`); velocities are in
+  blocks per second. A menu's `stillValid` must measure to the hive's world position. Sable selectors
+  (`@l` latest) need a player source; name ships by UUID from the server.
+- **Veil** (bundled in Sable) re-prints every core shader through glsl-processor 0.2.3, which drops
+  the semicolon after a lone `x++;` statement - write `x += 1;` (for-loop headers are fine).
+  Check a shader offline: parse and print it with glsl-processor, or look for "Couldn't compile
+  dynamic" in a Sable client's log.
+- GameTest structures stay in the level after their tests: anything that acts on its own (a ship
+  hive) must be removed when its test ends, or it fights later tests nearby.
 - Shell/Windows: PowerShell `Remove-Item` with wildcards in TEMP is blocked - write to a new folder.
   No Python/ffmpeg on the machine; use Node.js for scripts and WinRT for video.
   Clone into short paths (`C:/dev/...`) - the scratch path is too long for git.

@@ -121,7 +121,8 @@ public final class EscortModule implements ShipModule {
                         if (hive.draw(REFILL * energyPerPoint())) wing.charge = Math.min(FULL, wing.charge + REFILL);
                         else unpowered = true;
                     }
-                    if (on && wing.charge >= FULL * 6 / 10 && to(wing, Phase.LAUNCH, now)) {
+                    // A hive standing out beyond the leash (at the end of a very long ship) keeps its wings home.
+                    if (on && wing.charge >= FULL * 6 / 10 && dock.distanceTo(middle) < leash && to(wing, Phase.LAUNCH, now)) {
                         RelicSounds.ship(level, dock, RelicSounds.Ship.ESCORT_LAUNCH, 1, 1 + index * .12F);
                     }
                 }
@@ -154,6 +155,7 @@ public final class EscortModule implements ShipModule {
                     if (wing.position.distanceToSqr(dock.add(frame.velocity())) < .8 * .8) to(wing, Phase.DOCKED, now);
                 }
             }
+            if (wing.phase != Phase.DOCKED && wing.phase != Phase.RETURN) hold(wing, middle, leash, frame.velocity());
             wing.positionAt = now;
             changed |= wing.phase != before || wing.targetId != targetBefore;
         }
@@ -219,6 +221,21 @@ public final class EscortModule implements ShipModule {
             mark.hurt(ShipDamage.source(level, ShipDamage.ESCORT, hive, wing.position), arcDamage() * .35F);
             hive.changed();
         }
+    }
+
+    /**
+     * Keeps a wing on its leash whatever its momentum: past it, the wing is set back on it and loses the part of its
+     * motion (as seen from the ship) that carried it outwards.
+     */
+    private static void hold(Wing wing, Vec3 middle, double leash, Vec3 carried) {
+        Vec3 out = wing.position.subtract(middle);
+        double length = out.length();
+        if (length <= leash || length < 1e-6) return;
+        Vec3 way = out.scale(1 / length);
+        wing.position = middle.add(way.scale(leash));
+        Vec3 relative = wing.velocity.subtract(carried);
+        double outward = relative.dot(way);
+        if (outward > 0) wing.velocity = wing.velocity.subtract(way.scale(outward));
     }
 
     /** {@code goal}, drawn in to within {@code leash} of the ship's middle. */

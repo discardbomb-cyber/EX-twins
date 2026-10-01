@@ -13,11 +13,12 @@ import net.minecraft.world.phys.Vec3;
 /** A lance's beam, heard for as long as it burns: it swells in, follows the turret with its ship and fades out. */
 final class ShipBeamSound extends AbstractTickableSoundInstance {
     private static final float SWELL = .25F, FADE = .2F;
-    private final ShipHiveBlockEntity hive;
+    /** Held loosely, so a sound left behind never keeps a removed hive (or its level) alive. */
+    private final java.lang.ref.WeakReference<ShipHiveBlockEntity> hive;
 
     ShipBeamSound(ShipHiveBlockEntity hive) {
         super(RelicSounds.SHIP_LANCE_BEAM.get(), SoundSource.BLOCKS, SoundInstance.createUnseededRandom());
-        this.hive = hive;
+        this.hive = new java.lang.ref.WeakReference<>(hive);
         looping = true;
         delay = 0;
         volume = .05F;
@@ -26,7 +27,8 @@ final class ShipBeamSound extends AbstractTickableSoundInstance {
 
     @Override
     public void tick() {
-        boolean burning = !hive.isRemoved() && hive.module() instanceof LanceModule lance && lance.firing();
+        ShipHiveBlockEntity hive = this.hive.get();
+        boolean burning = hive != null && !hive.isRemoved() && hive.module() instanceof LanceModule lance && lance.firing();
         volume = burning ? Math.min(1, volume + SWELL) : volume - FADE;
         if (volume <= 0) {
             stop();
@@ -37,6 +39,8 @@ final class ShipBeamSound extends AbstractTickableSoundInstance {
 
     /** The sound stands at the turret's middle, wherever the ship has taken it. */
     private void follow() {
+        ShipHiveBlockEntity hive = this.hive.get();
+        if (hive == null) return;
         ShipFrame frame = ShipFrame.drawn(hive, 0);
         Vec3 at = LanceShape.mount(frame.centre(), frame.turn(hive.normal()).normalize());
         x = at.x;

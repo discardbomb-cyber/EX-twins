@@ -44,19 +44,27 @@ public final class AegisModule implements ShipModule {
     // Server only.
     private long hitAt = NEVER;
     private boolean unpowered;
+    /** Ticks in a row the hive could not pay its upkeep: a short brownout does not drop a standing shield. */
+    private int starved;
+    private static final int BROWNOUT = 20;
 
     @Override
     public void tick(ShipHiveBlockEntity hive, ServerLevel level, ShipFrame frame, ShipBrain brain, long now) {
         int bucket = charge * 10 / FULL;
         boolean changed = hits.removeIf(hit -> now - hit.at() > HIT_TICKS || hit.at() > now);
-        if (down && now - downAt >= REBOOT) {
+        // A broken shield comes back up with a part of its charge, paid for from the battery like the rest.
+        if (down && now - downAt >= REBOOT && hive.draw(REBOOT_CHARGE * (regenCost() / REGEN))) {
             down = false;
             charge = REBOOT_CHARGE;
             changed = true;
         }
         boolean on = hive.switchedOn(level);
-        boolean up = on && !down && hive.draw(upkeep());
-        unpowered = on && !down && !up;
+        boolean powered = on && !down && hive.draw(upkeep());
+        unpowered = on && !down && !powered;
+        starved = powered ? 0 : starved + 1;
+        // The charge fills while the hive is powered; the shield stands while it has charge, through a short brownout.
+        if (powered && now - hitAt >= REGEN_DELAY && charge < FULL && hive.draw(regenCost())) charge = Math.min(FULL, charge + REGEN);
+        boolean up = on && !down && charge > 0 && (powered || raised && starved < BROWNOUT);
         if (up != raised) {
             raised = up;
             changedAt = now;
@@ -64,7 +72,6 @@ public final class AegisModule implements ShipModule {
             if (up) RelicSounds.ship(level, frame.middle(), RelicSounds.Ship.AEGIS_RAISE, 1.5F, 1);
         }
         if (raised) {
-            if (now - hitAt >= REGEN_DELAY && charge < FULL && hive.draw(regenCost())) charge = Math.min(FULL, charge + REGEN);
             AegisShape shape = AegisShape.of(frame, hive.getBlockPos());
             AegisFields.put(level, hive, this, frame, shape, brain, now);
             if (now % 10 == 0) changed |= steer(level, frame, shape, brain, now);
@@ -98,7 +105,7 @@ public final class AegisModule implements ShipModule {
      * or, when it is more than is left, it breaks the shield and gets through. False when the shield is not up.
      */
     public boolean absorb(ShipHiveBlockEntity hive, Vec3 unit, float cost, long now) {
-        if (!raised || down) return false;
+        if (!raised || down || hive.isRemoved()) return false;
         Vec3 where = unit.lengthSqr() < 1e-9 ? new Vec3(0, 1, 0) : unit.normalize();
         hitAt = now;
         boolean holds = cost <= charge;
@@ -125,6 +132,11 @@ public final class AegisModule implements ShipModule {
 
     private static int regenCost() {
         return REGEN * (AddonConfig.SPEC.isLoaded() ? AddonConfig.AEGIS_ENERGY_PER_POINT.get() : 150);
+    }
+
+    @Override
+    public void stop(ShipHiveBlockEntity hive) {
+        raised = false;
     }
 
     @Override
