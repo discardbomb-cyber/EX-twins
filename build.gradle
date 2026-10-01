@@ -275,6 +275,21 @@ tasks.named('check') {
     dependsOn 'verifyEffectLightSources'
     dependsOn 'verifyReleaseContents'
     dependsOn 'verifyObjCompact'
+    dependsOn 'verifyPartModels'
+    dependsOn 'verifyTwinsShieldLayers'
+}
+
+tasks.register('verifyTwinsShieldLayers', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.hurtify.relicsaddon.client.TwinsShieldLayerAnimationCheck'
+}
+
+// The animated relic parts are looked up by tabulated ids and tabulated pose bases: nothing parsed or allocated per frame.
+tasks.register('verifyPartModels', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.client.RelicPartModelsCheck'
 }
 
 // The OBJ models ship deduplicated (tools/compact_obj.mjs): no repeated v/vt/vn records, every face index in range.

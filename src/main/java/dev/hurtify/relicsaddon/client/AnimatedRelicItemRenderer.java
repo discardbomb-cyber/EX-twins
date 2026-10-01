@@ -2,7 +2,6 @@ package dev.hurtify.relicsaddon.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import dev.hurtify.relicsaddon.RelicsAddon;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
 import dev.hurtify.relicsaddon.relic.RelicRole;
 import net.minecraft.Util;
@@ -13,7 +12,6 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.resources.model.ModelResourceLocation;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.api.distmarker.Dist;
@@ -23,8 +21,11 @@ import org.joml.Quaternionf;
 
 @OnlyIn(Dist.CLIENT)
 public final class AnimatedRelicItemRenderer extends BlockEntityWithoutLevelRenderer {
-    private static final String BODY = "body";
-    private static final String CORE = "core";
+    /**
+     * Rotation scratch: {@link PoseStack#mulPose} copies the quaternion into the matrices and keeps
+     * no reference, and items are only ever rendered on the render thread.
+     */
+    private static final Quaternionf ROTATION = new Quaternionf();
 
     private AnimatedRelicItemRenderer() {
         super(Minecraft.getInstance().getBlockEntityRenderDispatcher(), Minecraft.getInstance().getEntityModels());
@@ -35,15 +36,9 @@ public final class AnimatedRelicItemRenderer extends BlockEntityWithoutLevelRend
     }
 
     public static void registerAdditionalModels(ModelEvent.RegisterAdditional event) {
-        for (RelicRole role : RelicRole.shields()) {
-            registerParts(event, role);
+        for (RelicRole role : RelicRole.values()) {
+            for (ModelResourceLocation id : RelicPartModels.all(role)) event.register(id);
         }
-        for (RelicRole role : RelicRole.drones()) {
-            registerParts(event, role);
-            event.register(ModelResourceLocation.standalone(partId(role, "swarm")));
-            event.register(ModelResourceLocation.standalone(partId(role, "dense")));
-        }
-        for (RelicRole role : RelicRole.hives()) registerParts(event, role);
     }
 
     @Override
@@ -62,17 +57,17 @@ public final class AnimatedRelicItemRenderer extends BlockEntityWithoutLevelRend
             poseStack.pushPose();
             if (role == RelicRole.TWINS_HIVE) applyTwinsHiveLayer(poseStack, 0, time);
             else applyTwinsShieldLayer(poseStack, 0, time);
-            renderPart(role, BODY, stack, poseStack, buffers, light, overlay);
+            renderPart(RelicPartModels.body(role), stack, poseStack, buffers, light, overlay);
             poseStack.popPose();
         } else {
-            renderPart(role, BODY, stack, poseStack, buffers, light, overlay);
+            renderPart(RelicPartModels.body(role), stack, poseStack, buffers, light, overlay);
         }
 
         poseStack.pushPose();
         if (role == RelicRole.TWINS_HIVE) applyTwinsHiveLayer(poseStack, 1, time);
         else if (role == RelicRole.TWINS_SHIELD) applyTwinsShieldLayer(poseStack, 1, time);
         else aroundCenter(poseStack, 0.0F, 0.0F, 1.0F, RelicAnimationPose.coreDegrees(time));
-        renderPart(role, CORE, stack, poseStack, buffers, light, overlay);
+        renderPart(RelicPartModels.core(role), stack, poseStack, buffers, light, overlay);
         poseStack.popPose();
 
         renderShells(role, stack, poseStack, buffers, light, overlay, time);
@@ -80,27 +75,27 @@ public final class AnimatedRelicItemRenderer extends BlockEntityWithoutLevelRend
             poseStack.pushPose();
             if (role == RelicRole.TWINS_HIVE) applyTwinsHiveLayer(poseStack, 2, time);
             else applyTwinsShieldLayer(poseStack, 2, time);
-            renderPart(role, "fx", stack, poseStack, buffers, light, overlay);
+            renderPart(RelicPartModels.fx(role), stack, poseStack, buffers, light, overlay);
             poseStack.popPose();
-        } else renderPart(role, "fx", stack, poseStack, buffers, light, overlay);
+        } else renderPart(RelicPartModels.fx(role), stack, poseStack, buffers, light, overlay);
         poseStack.popPose();
     }
 
     private static void renderShells(RelicRole role, ItemStack stack, PoseStack poseStack, MultiBufferSource buffers, int light, int overlay, double time) {
-        int shells = shellCount(role);
+        int shells = RelicPartModels.shellCount(role);
         for (int index = 0; index < shells; index++) {
             poseStack.pushPose();
             switch (role) {
                 case RF_DRONE -> animateRfWing(poseStack, index, time);
                 case MANA_SHIELD -> animateManaShell(poseStack, index, shells, time);
                 case MANA_DRONE -> animateManaDroneShell(poseStack, index, shells, time);
-                case TWINS_SHIELD -> animateTwinsShieldArc(poseStack, index, time);
+                case TWINS_SHIELD -> animateTwinsFacet(poseStack, index, time, true);
                 case TWINS_DRONE -> animateTwinsFacet(poseStack, index, time, false);
-                case RF_HIVE, MANA_HIVE, TWINS_HIVE -> animateHiveShell(poseStack, role, index, time);
+                case RF_HIVE, MANA_HIVE, TWINS_HIVE -> animateHiveShell(poseStack, role, shells, index, time);
                 default -> {
                 }
             }
-            renderPart(role, "shell_" + index, stack, poseStack, buffers, light, overlay);
+            renderPart(RelicPartModels.shell(role, index), stack, poseStack, buffers, light, overlay);
             poseStack.popPose();
         }
     }
@@ -111,28 +106,30 @@ public final class AnimatedRelicItemRenderer extends BlockEntityWithoutLevelRend
         float pivotY = (float) (0.5D + Math.sin(angle) * 3.15D / 16.0D);
         float flex = RelicAnimationPose.rfWingFlexDegrees(time, index);
         poseStack.translate(pivotX, pivotY, 0.5F);
-        poseStack.mulPose(new Quaternionf().rotationAxis((float) Math.toRadians(flex), (float) -Math.sin(angle), (float) Math.cos(angle), 0.0F));
+        poseStack.mulPose(ROTATION.rotationAxis((float) Math.toRadians(flex), (float) -Math.sin(angle), (float) Math.cos(angle), 0.0F));
         poseStack.translate(-pivotX, -pivotY, -0.5F);
     }
 
-    private static void animateHiveShell(PoseStack poses, RelicRole role, int index, double time) {
-        var pose = HiveShellPose.sample(shellCount(role), index, time);
-        poses.translate(pose.x() * pose.offset(), pose.y() * pose.offset(), pose.z() * pose.offset());
+    private static void animateHiveShell(PoseStack poses, RelicRole role, int shells, int index, double time) {
+        double[] axis = HiveShellPose.axis(shells, index);
+        double x = axis[0], y = axis[1], z = axis[2], offset = HiveShellPose.opening(shells, index, time);
+        float tilt = HiveShellPose.tilt(shells, index, time);
+        poses.translate(x * offset, y * offset, z * offset);
         if (role == RelicRole.TWINS_HIVE) {
-            aroundCenter(poses, (float) pose.x(), (float) pose.y(), (float) pose.z(), pose.tilt());
-            aroundCenter(poses, (float) pose.x(), (float) pose.y(), (float) pose.z(), pose.spin());
+            aroundCenter(poses, (float) x, (float) y, (float) z, tilt);
+            aroundCenter(poses, (float) x, (float) y, (float) z, HiveShellPose.spin(shells, index, time));
         }
-        else aroundCenter(poses, (float) -pose.y(), (float) pose.x(), 0, pose.tilt());
+        else aroundCenter(poses, (float) -y, (float) x, 0, tilt);
     }
 
     private static void applyTwinsHiveLayer(PoseStack poses, int layer, double time) {
-        HiveShellPose.LayerPose pose = HiveShellPose.twinsLayer(layer, time);
-        aroundCenter(poses, pose.axisX(), pose.axisY(), pose.axisZ(), pose.degrees());
+        float[] axis = HiveShellPose.twinsLayerAxis(layer);
+        aroundCenter(poses, axis[0], axis[1], axis[2], HiveShellPose.twinsLayerDegrees(layer, time));
     }
 
     private static void applyTwinsShieldLayer(PoseStack poses, int layer, double time) {
-        TwinsShieldLayerPose.Layer pose = TwinsShieldLayerPose.layer(layer, time);
-        aroundCenter(poses, pose.axisX(), pose.axisY(), pose.axisZ(), pose.degrees());
+        float[] axis = TwinsShieldLayerPose.axis(layer);
+        aroundCenter(poses, axis[0], axis[1], axis[2], TwinsShieldLayerPose.degrees(layer, time));
     }
 
     public void renderSwarm(RelicRole role, PoseStack poses, MultiBufferSource buffers, boolean detailed) {
@@ -142,7 +139,7 @@ public final class AnimatedRelicItemRenderer extends BlockEntityWithoutLevelRend
     public void renderSwarm(RelicRole role, PoseStack poses, MultiBufferSource buffers, boolean detailed, boolean dense) {
         if (detailed) renderRole(role, ItemStack.EMPTY, poses, buffers,
                 net.minecraft.client.renderer.LightTexture.FULL_BRIGHT, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
-        else renderPart(role, dense ? "dense" : "swarm", ItemStack.EMPTY, poses, buffers, net.minecraft.client.renderer.LightTexture.FULL_BRIGHT,
+        else renderPart(RelicPartModels.swarm(role, dense), ItemStack.EMPTY, poses, buffers, net.minecraft.client.renderer.LightTexture.FULL_BRIGHT,
                 net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
     }
 
@@ -154,24 +151,25 @@ public final class AnimatedRelicItemRenderer extends BlockEntityWithoutLevelRend
                 RelicAnimationPose.manaTiltDegrees(time, index));
     }
 
+    /**
+     * One facet of the Twins drone armour or one arc of the Twins shield: the constant basis is
+     * read from the table, the clock is sampled once. The shield arc additionally spins around
+     * its radial axis after the breathing twist.
+     */
     private static void animateTwinsFacet(PoseStack poseStack, int index, double time, boolean shield) {
-        TwinsFacetPose.Pose pose = TwinsFacetPose.sample(time, index, shield);
-        TwinsFacetPose.Point normal = pose.normal(), pivot = pose.pivot(), tangent = pose.tangent();
-        poseStack.translate(normal.x() * pose.offset(), normal.y() * pose.offset(), normal.z() * pose.offset());
+        TwinsFacetPose.Basis basis = TwinsFacetPose.basis(index);
+        TwinsFacetPose.Point normal = basis.normal(), pivot = basis.pivot(shield), tangent = basis.tangent();
+        double offset = TwinsFacetPose.offset(time, index, shield);
+        poseStack.translate(normal.x() * offset, normal.y() * offset, normal.z() * offset);
         poseStack.translate(.5D + pivot.x(), .5D + pivot.y(), .5D + pivot.z());
-        poseStack.mulPose(new Quaternionf().rotationAxis((float) Math.toRadians(pose.tilt()),
+        poseStack.mulPose(ROTATION.rotationAxis((float) Math.toRadians(TwinsFacetPose.tilt(time, index)),
                 (float) tangent.x(), (float) tangent.y(), (float) tangent.z()));
-        poseStack.mulPose(new Quaternionf().rotationAxis((float) Math.toRadians(pose.twist()),
+        poseStack.mulPose(ROTATION.rotationAxis((float) Math.toRadians(TwinsFacetPose.twist(time, index, shield)),
                 (float) normal.x(), (float) normal.y(), (float) normal.z()));
         poseStack.translate(-.5D - pivot.x(), -.5D - pivot.y(), -.5D - pivot.z());
-    }
-
-    private static void animateTwinsShieldArc(PoseStack poseStack, int index, double time) {
-        animateTwinsFacet(poseStack, index, time, true);
-        TwinsFacetPose.Pose pose = TwinsFacetPose.sample(time, index, true);
-        TwinsFacetPose.Point normal = pose.normal(), pivot = pose.pivot();
+        if (!shield) return;
         poseStack.translate(.5D + pivot.x(), .5D + pivot.y(), .5D + pivot.z());
-        poseStack.mulPose(new Quaternionf().rotationAxis((float) Math.toRadians(TwinsShieldLayerPose.shellSpin(index, time)),
+        poseStack.mulPose(ROTATION.rotationAxis((float) Math.toRadians(TwinsShieldLayerPose.shellSpin(index, time)),
                 (float) normal.x(), (float) normal.y(), (float) normal.z()));
         poseStack.translate(-.5D - pivot.x(), -.5D - pivot.y(), -.5D - pivot.z());
     }
@@ -191,14 +189,14 @@ public final class AnimatedRelicItemRenderer extends BlockEntityWithoutLevelRend
         if (!Float.isFinite(axisLength) || axisLength < 1.0E-5F || !Float.isFinite(degrees)) return;
         float wrappedDegrees = degrees % 360.0F;
         poseStack.translate(0.5F, 0.5F, 0.5F);
-        poseStack.mulPose(new Quaternionf().rotationAxis((float) Math.toRadians(wrappedDegrees),
+        poseStack.mulPose(ROTATION.rotationAxis((float) Math.toRadians(wrappedDegrees),
                 axisX / axisLength, axisY / axisLength, axisZ / axisLength));
         poseStack.translate(-0.5F, -0.5F, -0.5F);
     }
 
-    private static void renderPart(RelicRole role, String part, ItemStack stack, PoseStack poseStack, MultiBufferSource buffers, int light, int overlay) {
+    private static void renderPart(ModelResourceLocation id, ItemStack stack, PoseStack poseStack, MultiBufferSource buffers, int light, int overlay) {
         Minecraft minecraft = Minecraft.getInstance();
-        BakedModel model = minecraft.getModelManager().getModel(ModelResourceLocation.standalone(partId(role, part)));
+        BakedModel model = minecraft.getModelManager().getModel(id);
         ItemRenderer itemRenderer = minecraft.getItemRenderer();
         for (BakedModel renderPass : model.getRenderPasses(stack, false)) {
             for (RenderType renderType : renderPass.getRenderTypes(stack, false)) {
@@ -206,31 +204,6 @@ public final class AnimatedRelicItemRenderer extends BlockEntityWithoutLevelRend
                 itemRenderer.renderModelLists(renderPass, stack, light, overlay, poseStack, consumer);
             }
         }
-    }
-
-    private static void registerParts(ModelEvent.RegisterAdditional event, RelicRole role) {
-        event.register(ModelResourceLocation.standalone(partId(role, BODY)));
-        event.register(ModelResourceLocation.standalone(partId(role, CORE)));
-        event.register(ModelResourceLocation.standalone(partId(role, "fx")));
-        for (int index = 0; index < shellCount(role); index++) {
-            event.register(ModelResourceLocation.standalone(partId(role, "shell_" + index)));
-        }
-    }
-
-    private static ResourceLocation partId(RelicRole role, String part) {
-        return ResourceLocation.fromNamespaceAndPath(RelicsAddon.MOD_ID, "item/animated/" + role.itemId() + "_" + part);
-    }
-
-    private static int shellCount(RelicRole role) {
-        return switch (role) {
-            case RF_DRONE, MANA_SHIELD -> 4;
-            case RF_HIVE -> 4;
-            case MANA_HIVE -> 6;
-            case TWINS_HIVE -> 12;
-            case MANA_DRONE -> 6;
-            case TWINS_SHIELD, TWINS_DRONE -> TwinsFacetPose.COUNT;
-            default -> 0;
-        };
     }
 
     private static double animationTime() {
