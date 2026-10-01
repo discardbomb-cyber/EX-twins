@@ -275,7 +275,7 @@ tasks.named('check') {
 def goldenRecord = providers.gradleProperty('goldenRecord').isPresent()
 def goldenDir = file('src/test/resources/golden')
 // Architecture limits per stage come from section 11; the task prepends the main classes and the source root.
-def architectureArgs = ['--max-legacy', '32', '--min-domain', '24', '--min-application', '0', '--min-adapter', '5']
+def architectureArgs = ['--max-legacy', '32', '--min-domain', '56', '--min-application', '0', '--min-adapter', '5']
 
 tasks.register('verifyArchitecture', JavaExec) {
     dependsOn tasks.named('classes'), tasks.named('testClasses')
