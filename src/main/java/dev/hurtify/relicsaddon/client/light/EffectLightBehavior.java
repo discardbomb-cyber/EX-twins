@@ -29,6 +29,8 @@ final class EffectLightBehavior implements DynamicLightBehavior {
     }
 
     void aim(EffectLights.Light light) {
+        Shape now = aimed;
+        if (now.x() == light.x() && now.y() == light.y() && now.z() == light.z() && now.luminance() == light.luminance() && now.radius() == light.radius()) return;
         aimed = Shape.of(light);
     }
 
