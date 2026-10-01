@@ -152,6 +152,7 @@ public final class HiveVisualRenderer {
         HiveConstructVisual.sweep(time);
         RfArmageddonVisual.scorches(time, camera, fill, matrix);
         if (EffectLights.enabled()) scenes.forEach(HiveModeVisual::light);
+        HiveModeVisual.endFrame();
         // Horizons go in solid and write depth before any light, so nothing behind a black hole shows
         // through it; then space bends round blasts, and the glass and the light are laid over it.
         ArmageddonVisual.blasts(time, camera, glow, matrix);

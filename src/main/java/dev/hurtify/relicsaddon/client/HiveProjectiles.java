@@ -102,13 +102,24 @@ final class HiveProjectiles {
         ICO_EDGES = edges.toArray(int[][]::new);
     }
 
+    private static final Vec3 Y_AXIS = new Vec3(0, 1, 0), X_AXIS = new Vec3(1, 0, 0);
+
     /** A corner of an icosahedron of {@code radius} turned by {@code spin}; for tests and shards. */
     static Vec3 icosahedronCorner(int corner, double radius, double spin) {
-        Vec3 p = HiveShapes.rotate(ICO[Math.floorMod(corner, 12)], new Vec3(0, 1, 0), spin);
-        return HiveShapes.rotate(p, new Vec3(1, 0, 0), spin * .6).scale(radius);
+        Vec3 p = HiveShapes.rotate(ICO[Math.floorMod(corner, 12)], Y_AXIS, spin);
+        return HiveShapes.rotate(p, X_AXIS, spin * .6).scale(radius);
+    }
+
+    /** All twelve corners of that icosahedron, into {@code into}. */
+    static Vec3[] icosahedronCorners(double radius, double spin, Vec3[] into) {
+        for (int corner = 0; corner < 12; corner++) into[corner] = icosahedronCorner(corner, radius, spin);
+        return into;
     }
 
     static int[][] icosahedronFaces() { return ICO_FACES; }
+
+    /** The corners of the icosahedron being drawn and of its inner reflection, worked out once per figure. */
+    private static final Vec3[] OUTER = new Vec3[12], INNER = new Vec3[12];
 
     /**
      * The Twins glass icosahedron: dark violet faces, bright edges, and the edges of an inner reflection turned
@@ -116,19 +127,24 @@ final class HiveProjectiles {
      */
     static void icosahedron(VertexConsumer glow, VertexConsumer fill, Matrix4f m, Vec3 at, double radius, double spin, double alpha) {
         int violet = 0xB151FF, bright = 0xE7C6FF;
+        Vec3[] outer = icosahedronCorners(radius, spin, OUTER), inner = icosahedronCorners(radius * .55, -spin * 1.3, INNER);
         for (int[] face : ICO_FACES) {
-            Vec3 a = at.add(icosahedronCorner(face[0], radius, spin)), b = at.add(icosahedronCorner(face[1], radius, spin)),
-                    c = at.add(icosahedronCorner(face[2], radius, spin));
-            Vec3 normal = b.subtract(a).cross(c.subtract(a));
-            double edgeOn = normal.lengthSqr() < 1e-14 ? 0 : 1 - Math.abs(normal.normalize().dot(GlowBrush.view(a)));
+            Vec3 oa = outer[face[0]], ob = outer[face[1]], oc = outer[face[2]];
+            double ax = at.x + oa.x, ay = at.y + oa.y, az = at.z + oa.z;
+            double bx = at.x + ob.x, by = at.y + ob.y, bz = at.z + ob.z;
+            double cx = at.x + oc.x, cy = at.y + oc.y, cz = at.z + oc.z;
+            double px = bx - ax, py = by - ay, pz = bz - az, qx = cx - ax, qy = cy - ay, qz = cz - az;
+            double nx = py * qz - pz * qy, ny = pz * qx - px * qz, nz = px * qy - py * qx;
+            double edgeOn = nx * nx + ny * ny + nz * nz < 1e-14 ? 0 : 1 - Math.abs(GlowBrush.facing(nx, ny, nz, ax, ay, az));
             int tint = GlowBrush.mix(0x12031F, violet, .25 + .6 * edgeOn);
             double body = (120 + 90 * edgeOn) * alpha;
-            GlowBrush.quad(fill, m, a, b, c, c, tint, tint, tint, tint, body, body, body, body);
+            GlowBrush.quad(fill, m, ax, ay, az, bx, by, bz, cx, cy, cz, cx, cy, cz, tint, tint, tint, tint, body, body, body, body);
         }
         for (int[] edge : ICO_EDGES) {
-            GlowBrush.line(glow, m, at.add(icosahedronCorner(edge[0], radius, spin)), at.add(icosahedronCorner(edge[1], radius, spin)), .008, bright, 230 * alpha);
-            GlowBrush.line(glow, m, at.add(icosahedronCorner(edge[0], radius * .55, -spin * 1.3)), at.add(icosahedronCorner(edge[1], radius * .55, -spin * 1.3)),
-                    .005, violet, 150 * alpha);
+            Vec3 a = outer[edge[0]], b = outer[edge[1]];
+            GlowBrush.line(glow, m, at.x + a.x, at.y + a.y, at.z + a.z, at.x + b.x, at.y + b.y, at.z + b.z, .008, bright, 230 * alpha);
+            a = inner[edge[0]]; b = inner[edge[1]];
+            GlowBrush.line(glow, m, at.x + a.x, at.y + a.y, at.z + a.z, at.x + b.x, at.y + b.y, at.z + b.z, .005, violet, 150 * alpha);
         }
     }
 
