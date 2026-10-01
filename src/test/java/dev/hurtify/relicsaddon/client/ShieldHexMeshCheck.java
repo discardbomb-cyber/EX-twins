@@ -63,8 +63,24 @@ public final class ShieldHexMeshCheck {
             drawn[cell.gameplay()] = true;
         }
         require(pentagons == 12, "exactly twelve pentagons, got " + pentagons);
+        // Shared corners: each numbered once, met by exactly three cells, at the very same coordinates.
+        int[] met = new int[ShieldHoneycomb.CORNER_COUNT];
+        float[] at = new float[ShieldHoneycomb.CORNER_COUNT * 3];
+        for (ShieldHoneycomb.Cell cell : honeycomb) {
+            require(cell.corners().length * 3 == cell.perimeter().length, "one shared index per corner");
+            for (int k = 0; k < cell.corners().length; k++) {
+                int corner = cell.corners()[k];
+                for (int axis = 0; axis < 3; axis++) {
+                    if (met[corner] == 0) at[corner * 3 + axis] = cell.perimeter()[k * 3 + axis];
+                    else require(at[corner * 3 + axis] == cell.perimeter()[k * 3 + axis], "shared corner " + corner + " differs between cells");
+                }
+                met[corner]++;
+            }
+        }
+        for (int corner = 0; corner < met.length; corner++) require(met[corner] == 3, "corner " + corner + " met by " + met[corner] + " cells, not three");
+        require(met.length == 2 * honeycomb.size() - 4, "a closed honeycomb has 2n-4 corners, got " + met.length);
         for (int cell = 0; cell < drawn.length; cell++) require(drawn[cell], "gameplay cell " + cell + " is never drawn, so its hole would not show");
-        System.out.println("Honeycomb: " + honeycomb.size() + " even cells, every one of " + drawn.length + " gameplay cells drawn");
+        System.out.println("Honeycomb: " + honeycomb.size() + " even cells sharing " + met.length + " corners, every one of " + drawn.length + " gameplay cells drawn");
         Path output = Path.of(args[0]);
         Files.createDirectories(output.getParent());
         Files.writeString(output, new GsonBuilder().setPrettyPrinting().create().toJson(report));

@@ -2,9 +2,12 @@ package dev.hurtify.relicsaddon.server;
 
 import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.AddonConfig;
+import dev.hurtify.relicsaddon.drone.AttackMode;
+import dev.hurtify.relicsaddon.drone.HiveFigures;
 import dev.hurtify.relicsaddon.drone.HiveSettings;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
 import dev.hurtify.relicsaddon.drone.HiveSupportState;
+import dev.hurtify.relicsaddon.drone.HiveType;
 import dev.hurtify.relicsaddon.registry.ModDataComponents;
 import dev.hurtify.relicsaddon.relic.AutonomousRelicItem;
 import dev.hurtify.relicsaddon.relic.HiveUpgrades;
@@ -27,23 +30,52 @@ public final class HiveTaskController {
                 .orElse(ItemStack.EMPTY);
     }
 
-    public static boolean configure(Player owner, boolean charm, int slot, String identity, int healers) {
-        if (owner.level().isClientSide() || !owner.isAlive() || owner.isSpectator() || !EquippedRelicSetResolver.isRealPlayer(owner)) return false;
+    /** The hive in the owner's slot, if it is the one the console was opened for; empty otherwise. */
+    private static ItemStack hive(Player owner, boolean charm, int slot, String identity) {
+        if (owner.level().isClientSide() || !owner.isAlive() || owner.isSpectator() || !EquippedRelicSetResolver.isRealPlayer(owner)) return ItemStack.EMPTY;
         ItemStack stack = locate(owner, charm, slot);
         if (!(stack.getItem() instanceof AutonomousRelicItem item) || !item.role().isHive() || identity.isEmpty()
-                || !identity.equals(stack.get(ModDataComponents.INSTANCE_ID.get())) || healers < 0 || healers > HiveController.capacity(owner, stack)) return false;
-        stack.set(ModDataComponents.HIVE_SETTINGS.get(), settings(stack).withHealers(healers));
+                || !identity.equals(stack.get(ModDataComponents.INSTANCE_ID.get()))) return ItemStack.EMPTY;
+        return stack;
+    }
+
+    /**
+     * Sets the hive's orders to {@code next}, if they are allowed: no mode with fewer drones than its figure
+     * has corners (other than none), and healers and modes together within the hive's capacity. Whatever the
+     * client sent, nothing else is ever written.
+     */
+    public static boolean configure(Player owner, boolean charm, int slot, String identity, HiveSettings next) {
+        ItemStack stack = hive(owner, charm, slot, identity);
+        if (stack.isEmpty() || next == null) return false;
+        HiveType type = HiveType.of(((AutonomousRelicItem) stack.getItem()).role());
+        int capacity = HiveController.capacity(owner, stack);
+        if (next.pending() || next.healers() + next.assigned() > capacity) return false;
+        for (AttackMode mode : AttackMode.values()) if (!HiveFigures.allowed(type, mode, next.allocated(mode))) return false;
+        stack.set(ModDataComponents.HIVE_SETTINGS.get(), next);
         return true;
     }
 
-    /** Switches how the hive's fighters attack; a swarm in combat regroups for the new mode. */
-    public static boolean configureMode(Player owner, boolean charm, int slot, String identity, dev.hurtify.relicsaddon.drone.AttackMode mode) {
-        if (owner.level().isClientSide() || !owner.isAlive() || owner.isSpectator() || !EquippedRelicSetResolver.isRealPlayer(owner) || mode == null) return false;
-        ItemStack stack = locate(owner, charm, slot);
-        if (!(stack.getItem() instanceof AutonomousRelicItem item) || !item.role().isHive() || identity.isEmpty()
-                || !identity.equals(stack.get(ModDataComponents.INSTANCE_ID.get()))) return false;
-        stack.set(ModDataComponents.HIVE_SETTINGS.get(), settings(stack).withMode(mode));
-        return true;
+    /** Moves drones between the healers and the free drones. */
+    public static boolean configureHealers(Player owner, boolean charm, int slot, String identity, int healers) {
+        ItemStack stack = hive(owner, charm, slot, identity);
+        if (stack.isEmpty() || healers < 0) return false;
+        return configure(owner, charm, slot, identity, HiveController.normalize(owner, stack).withHealers(healers));
+    }
+
+    /** Gives {@code mode} {@code count} drones, taken from or returned to the free ones. */
+    public static boolean configureMode(Player owner, boolean charm, int slot, String identity, AttackMode mode, int count) {
+        ItemStack stack = hive(owner, charm, slot, identity);
+        if (stack.isEmpty() || mode == null || count < 0) return false;
+        return configure(owner, charm, slot, identity, HiveController.normalize(owner, stack).with(mode, count));
+    }
+
+    /** Every fighter into {@code mode}, the others off: how a hive fought before the modes could be mixed. */
+    public static boolean configureAllInto(Player owner, boolean charm, int slot, String identity, AttackMode mode) {
+        ItemStack stack = hive(owner, charm, slot, identity);
+        if (stack.isEmpty() || mode == null) return false;
+        HiveSettings current = HiveController.normalize(owner, stack);
+        int fighters = current.fighters(HiveController.capacity(owner, stack));
+        return configure(owner, charm, slot, identity, new HiveSettings(current.healers(), 0, 0, 0).with(mode, fighters));
     }
 
     /** All hives share the owner's per-second budget, so three amulets cannot triple the healing cap. */
@@ -60,7 +92,7 @@ public final class HiveTaskController {
             if (!active || now % 20 != 0 || budget <= 0) continue;
             var units = new ArrayList<>(state.units());
             boolean changed = false;
-            int first = settings.fighters(units.size()), deployed = dev.hurtify.relicsaddon.drone.HiveSlots.healerSlots(units.size(), settings);
+            int first = settings.fighters(units.size()), deployed = Math.min(settings.healerCount(units.size()), HiveType.MAX_DEPLOYED);
             for (int index = first; index < first + deployed && budget > 0; index++) {
                 var unit = units.get(index);
                 if (!unit.attackReady(now)) continue;

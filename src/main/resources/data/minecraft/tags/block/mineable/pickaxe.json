@@ -6,6 +6,9 @@
     "relics_addon:mana_ship_shield_generator",
     "relics_addon:mana_drone_dock",
     "relics_addon:twins_ship_shield_generator",
-    "relics_addon:twins_drone_dock"
+    "relics_addon:twins_drone_dock",
+    "relics_addon:aegis_hive",
+    "relics_addon:escort_hive",
+    "relics_addon:lance_hive"
   ]
 }

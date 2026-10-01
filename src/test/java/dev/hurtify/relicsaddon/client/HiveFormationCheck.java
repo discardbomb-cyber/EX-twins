@@ -3,6 +3,7 @@ package dev.hurtify.relicsaddon.client;
 import dev.hurtify.relicsaddon.drone.Armageddon;
 import dev.hurtify.relicsaddon.drone.ArmageddonState;
 import dev.hurtify.relicsaddon.drone.AttackMode;
+import dev.hurtify.relicsaddon.drone.HiveFlightPlan;
 import dev.hurtify.relicsaddon.drone.HiveFormation;
 import dev.hurtify.relicsaddon.drone.HiveSettings;
 import dev.hurtify.relicsaddon.drone.HiveSlots;
@@ -61,11 +62,7 @@ public final class HiveFormationCheck {
             for (int slot = 0; slot < slots; slot++) {
                 // RF rings stay round the target, whose hold lifts it clear of the ground.
                 // Every construct stays round its creature, whose hold lifts it clear of the ground.
-                Vec3 held = target.add(0, switch (type) {
-                    case RF -> HiveFormation.ringLift(.6, height, false);
-                    case TWINS -> HiveFormation.twinsLift(.6, height);
-                    case MANA -> HiveFormation.wardLift(.6, height);
-                }, 0);
+                Vec3 held = target.add(0, HiveFormation.constructLift(type, .6, height), 0);
                 Vec3 at = HiveFormation.station(AttackMode.CONTAINMENT, type, slot, slots, owner, held, .6, height, 777.5, 100, 60);
                 require(at.y >= target.y + .1, type + " containment dips into the ground: " + (at.y - target.y) + " (height " + height + ")");
             }
@@ -76,7 +73,7 @@ public final class HiveFormationCheck {
         List<HiveTarget> foes = List.of(new HiveTarget(1, target, 1.1, 1.9), new HiveTarget(2, target.add(9, 0, 3), .6, 1.8),
                 new HiveTarget(3, target.add(-6, 1, -8), .9, 2.6));
         for (AttackMode mode : AttackMode.values()) for (HiveType type : HiveType.values()) for (int slots : new int[]{2, 12, 100, 250}) {
-            int groups = HiveSlots.groups(slots, mode), engaged = HiveFormation.engaged(foes.size(), groups);
+            int groups = HiveSlots.groups(slots, mode, type), engaged = HiveFormation.engaged(foes.size(), HiveSlots.figures(groups, mode, type));
             for (int slot = 0; slot < slots; slot++) {
                 Vec3 at = HiveFormation.station(mode, type, slot, slots, owner, foes, 555.5, 100, 60);
                 requireFinite(at, "multi-target station");
@@ -97,7 +94,7 @@ public final class HiveFormationCheck {
                 total += localSlots;
             }
             require(total == slots, "every place belongs to exactly one target");
-            require(engaged == Math.min(foes.size(), groups), "one target per strike group at most");
+            require(engaged == Math.min(foes.size(), HiveSlots.figures(groups, mode, type)), "one target per figure at most");
             // A single target in a list is laid out exactly as before.
             for (int slot = 0; slot < slots; slot += Math.max(1, slots / 20)) {
                 Vec3 alone = HiveFormation.station(mode, type, slot, slots, owner, List.of(foes.getFirst()), 321.25, 100, 60);
@@ -197,33 +194,55 @@ public final class HiveFormationCheck {
         }
 
         // Lanes: a hit drone hands its place to the next one at once, and a repaired one waits in reserve.
-        HiveSettings settings = HiveSettings.DEFAULT;
+        HiveFlightPlan plan = HiveFlightPlan.of(HiveType.RF, HiveType.MAX_DRONES, HiveSettings.DEFAULT);
+        HiveFlightPlan.Wing wing = plan.wing(AttackMode.BARRAGE);
         List<HiveStackState.Unit> units = new ArrayList<>();
         for (int index = 0; index < HiveType.MAX_DRONES; index++) units.add(HiveStackState.Unit.fresh());
-        int slots = HiveSlots.fighterSlots(units.size(), settings), fighters = settings.fighters(units.size());
-        require(slots == HiveType.MAX_DEPLOYED, "at most 250 drones fly");
-        require(HiveSlots.occupant(units, 7, slots, fighters, 1000) == 7, "a place starts with the first drone of its lane");
+        int slots = wing.slots();
+        require(plan.slots() == HiveType.MAX_DEPLOYED && slots == HiveType.MAX_DEPLOYED, "at most 250 drones fly");
+        require(wing.occupants(units, 1000)[7] == 7, "a place starts with the first drone of its lane");
         units.set(7, units.get(7).hit(1, 1000, 1200));
-        require(HiveSlots.occupant(units, 7, slots, fighters, 1000) == 7 + slots, "the lane's next drone takes over at once");
-        require(HiveSlots.since(units, 7, slots, fighters, 7 + slots, 1000) == 1000, "the replacement set off when the first was hit");
-        require(HiveSlots.occupant(units, 7, slots, fighters, 1300) == 7 + slots, "a repaired drone does not bump its replacement");
+        require(wing.occupants(units, 1000)[7] == 7 + slots, "the lane's next drone takes over at once");
+        require(wing.since(units, 7, 7 + slots, 1000) == 1000, "the replacement set off when the first was hit");
+        require(wing.occupants(units, 1300)[7] == 7 + slots, "a repaired drone does not bump its replacement");
         units.set(7 + slots, units.get(7 + slots).hit(3, 1400, 1600));
-        require(HiveSlots.occupant(units, 7, slots, fighters, 1400) == 7 + 2 * slots, "the lane keeps rotating");
-        require(HiveSlots.groups(250) == 16 && HiveSlots.groups(12) == 2 && HiveSlots.groups(1) == 1, "two to sixteen strike groups");
-        require(HiveSlots.groups(12, AttackMode.BARRAGE) == 3 && HiveSlots.groups(3, AttackMode.BARRAGE) == 3
-                && HiveSlots.groups(2, AttackMode.BARRAGE) == 2 && HiveSlots.groups(250, AttackMode.BARRAGE) == 16
-                && HiveSlots.groups(12, AttackMode.DROPLET) == 2, "barrage clumps make at least a triangle");
-        for (int few = 3; few < 40; few++) {
-            int barrage = HiveSlots.groups(few, AttackMode.BARRAGE), total = 0;
-            for (int group = 0; group < barrage; group++) {
-                require(HiveSlots.groupSize(group, few, barrage) > 0, "every barrage clump has a drone (" + few + " drones)");
-                total += HiveSlots.groupSize(group, few, barrage);
+        require(wing.occupants(units, 1400)[7] == 7 + 2 * slots, "the lane keeps rotating");
+        // A lane that has run dry takes a spare drone of its wing rather than leave its place empty: 234 healers
+        // leave 16 places, so a Droplet of 66 has lanes of four or five drones.
+        HiveFlightPlan.Wing droplet = HiveFlightPlan.of(HiveType.RF, 300, new HiveSettings(234, 66, 0, 0)).wing(AttackMode.DROPLET);
+        require(droplet.slots() == 16 && droplet.pool() == 66, "234 healers leave the Droplet 16 places (" + droplet.slots() + ")");
+        List<HiveStackState.Unit> dry = new ArrayList<>(java.util.Collections.nCopies(300, HiveStackState.Unit.fresh()));
+        for (int unit = 0; unit < 66; unit += 16) dry.set(unit, dry.get(unit).hit(1, 10, 500));
+        require(droplet.occupant(dry, 0, 20) < 0 && droplet.occupants(dry, 20)[0] >= 16 && droplet.ready(dry, 20),
+                "a dry lane borrows a spare drone, so the wing keeps its figure");
+        for (HiveType type : HiveType.values()) for (AttackMode mode : AttackMode.values()) {
+            int minimum = dev.hurtify.relicsaddon.drone.HiveFigures.minimum(type, mode);
+            for (int flying = minimum; flying <= HiveType.MAX_DEPLOYED; flying++) {
+                int groups = HiveSlots.groups(flying, mode, type), sum = 0;
+                require(groups >= 1 && groups <= 16, "one to sixteen strike groups");
+                for (int group = 0; group < groups; group++) {
+                    int size = HiveSlots.groupSize(group, flying, groups);
+                    require(size >= (mode == AttackMode.BARRAGE ? 1 : minimum), mode + " " + type + " group " + group + " of " + flying
+                            + " is too small for its figure: " + size);
+                    sum += size;
+                }
+                require(sum == flying, "every drone belongs to one group");
+                if (mode == AttackMode.BARRAGE) require(groups >= minimum && groups % minimum == 0, type + " barrage clumps make whole patterns: "
+                        + groups + " of " + flying);
             }
-            require(total == few, "every drone belongs to one clump");
         }
         int total = 0;
         for (int group = 0; group < 16; group++) total += HiveSlots.groupSize(group, 250, 16);
         require(total == 250, "every place belongs to exactly one group");
+        // The Twins shot: a glass icosahedron, its twelve corners on its sphere, turning without coming apart.
+        for (double spin : new double[]{0, 1.3, 1e4}) {
+            for (int corner = 0; corner < 12; corner++) {
+                Vec3 at = HiveProjectiles.icosahedronCorner(corner, HiveProjectiles.RADIUS, spin);
+                requireFinite(at, "icosahedron corner");
+                require(Math.abs(at.length() - HiveProjectiles.RADIUS) < 1e-9, "an icosahedron's corners lie on its sphere");
+            }
+            require(HiveProjectiles.icosahedronFaces().length == 20, "an icosahedron has twenty faces");
+        }
         armageddon();
         manaArmageddon();
         rfArmageddon();
@@ -354,8 +373,10 @@ public final class HiveFormationCheck {
             double lift = RfArmageddon.lift(room);
             require(out.subtract(normal.scale(out.dot(normal))).length() < 1e-9 && Math.abs(out.dot(normal) - lift) < 1e-9
                     && lift >= RfArmageddon.LEAST_HOVER && lift <= RfArmageddon.HOVER_HEIGHT, "the ball hangs straight out from the " + face + " face");
-            require(room < RfArmageddon.LEAST_HOVER + RfArmageddon.BALL_HOVER + 1 || lift + RfArmageddon.BALL_HOVER < room,
-                    "where there is room for it, the whole ball hangs clear of what is in front of the face");
+            double whole = RfArmageddon.ballRadius(shot, RfArmageddon.ARRIVE);
+            require(Math.abs(whole - Math.max(RfArmageddon.BALL_CHARGED, RfArmageddon.BALL_HOVER * RfArmageddon.fit(room))) < 1e-9 && lift >= whole - 1e-9,
+                    "the ball grows only as big as fits, and never hangs so near the face that it cuts into it");
+            require(room < 2 * RfArmageddon.LEAST_HOVER + 1 || lift + whole < room, "where there is room for it, the whole ball hangs clear of what is in front of the face");
             require(RfArmageddon.ball(shot, RfArmageddon.ARRIVE).distanceTo(hover) < 1e-9 && RfArmageddon.ball(shot, RfArmageddon.IMPACT).distanceTo(target) < 1e-9,
                     "the ball hangs out from the face and meets it at the target");
             for (double age = RfArmageddon.DESCEND; age < RfArmageddon.IMPACT; age += 1) {

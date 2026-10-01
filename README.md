@@ -12,6 +12,8 @@ The showcase above is rendered in-game by the capture galleries: shield impacts 
 
 Install `EX-twins-1.0.0-beta.1.jar` on both the client and server alongside Curios, Photon, LDLib2 and KilaGraph (Photon 2.2.7+, LDLib2 2.2.40+). This is a beta release; back up existing worlds before upgrading. Devices run on built-in batteries; Botania, Ars Nouveau and Iron's Spells are optional mana sources.
 
+Optional: with [Create Aeronautics](https://modrinth.com/mod/create-aeronautics) (Sable) the ship hives ride and defend its ships; without it they defend a base where they stand. Sable Companion is bundled; nothing else is needed.
+
 Optional, client only: with [LambDynamicLights](https://modrinth.com/mod/lambdynamiclights) 4.8.11+ installed, the mod's effects light up the world around them: a visible shield (brighter for a moment after each hit), swarm strike groups, barrage charges while they build and in flight, blasts, the containment constructs, the Twins black hole, and the Armageddons (the Mana flowers, streams, sphere, seal and column among them). Nearby lights are merged and capped at 24 sources so chunk relighting stays cheap; the light is colourless. Client config `lights.dynamic` turns it off. Without LambDynamicLights nothing changes.
 
 ## Build From Source
@@ -28,6 +30,7 @@ Run `./gradlew build` on Linux/macOS or `.\gradlew.bat build` on Windows. The re
 - `relics_addon:rf_hive` -> Curios `charm`
 - `relics_addon:mana_hive` -> Curios `charm`
 - `relics_addon:twins_hive` -> Curios `charm`
+- `relics_addon:lance_hive`, `relics_addon:aegis_hive`, `relics_addon:escort_hive` -> blocks (ship hives)
 The RF, Mana, and Ex-Twins labels are style identities. Shields operate without external energy.
 Standalone drone item IDs are no longer registered. Hives deploy their existing models as typed defensive swarms; old `rf_drone`, `mana_drone`, and `twins_drone` stacks are unsupported and will not be converted.
 
@@ -76,6 +79,9 @@ Devices are built from the mod's own parts rather than raw vanilla items (all us
 | RF Drone Frame (x2) | iron, copper, redstone, circuit | RF Hive (six frames) |
 | Mana Drone Shell (x2) | gold nuggets, amethyst shards, circuit | Mana Hive (six shells) |
 | Twins Drone Plate (x2) | obsidian, amethyst shards, circuit | Twins Hive (four plates, both cells and an end crystal) |
+| Lance Ship Hive | three Twins drone plates, a circuit, an energy cell, four iron blocks | built into a ship |
+| Aegis Ship Hive | six Mana drone shells, a Mana shield core, two circuits | built into a ship |
+| Escort Ship Hive | four RF drone frames, a circuit, an energy cell, three iron blocks | built into a ship |
 
 Recipes unlock in the recipe book once you hold the key part. Icons are drawn by `tools/draw_component_icons.mjs`.
 
@@ -106,26 +112,60 @@ RF hives have four silver mechanical bay doors, Mana has six ivory/gold shells, 
 
 Ten levels grow the swarm from 100 to 2000 drones. At most 250 fly at once; the rest wait in the hive as replacements. Only one hive can be equipped (Curios rejects a second one), and only one operates.
 
-- The flying drones are split into 2 to 16 strike groups. Pick one of three attack modes in the console's Swarm tab:
-  - **Droplet.** Each group forms one big figure in a fan behind and above its owner: a Mana drop, an RF tesseract turning through the fourth dimension, or Ex-Twins hexagons with lightning arcing between them. In turn, each figure flies at the target like a projectile, strikes it whole and knocks it back, then flies home to re-form. Ex-Twins figures bend space as they fly.
-  - **Barrage.** Each group packs into a dense, glowing clump around the target, and the clumps draw the family's pattern: an RF crown, a Mana star, Ex-Twins octagons. A ball of lightning charges inside each clump. When it fires, it passes through walls and bursts on the target in a lightning blast that warps the space around it. Now and then a few drones hop to a neighbouring clump. Ex-Twins clumps are octagons that crackle with lightning and shed violet smoke.
-  - **Containment.** Every family stuns what it holds:
-    - RF seals the target in three slim tori of hexagons, turning like the rings of a Dyson swarm, that zap it and swallow its shots. Each torus is a particle collider: two beams race round inside it in opposite directions and burst where their bunches meet.
-    - Mana builds a ward of three rhombi and two rings. Drones keep a reflection buffer charged, and the ward turns blows back on the attacker.
-    - Ex-Twins swallows the target in a black hole with a violet accretion disk, ringed by three denser purple collider tori, and lifts it into the air until the tori clear the ground. The black hole bends the world behind it and darkens it the nearer it gets.
+- Share the drones between three attack modes in the console's Swarm tab (see [Sharing the drones](#sharing-the-drones)). The modes fight at once, each with its own drones:
+  - **Droplet.** Its drones form figures, as many whole ones as they make (one to sixteen), in a fan behind and above its owner. The drones are the figures' corners, and the lines between them run from drone to drone. In turn, each figure strikes its target whole and knocks it back:
+    - RF, a tesseract ram: the tesseract turns through the fourth dimension, closes into a solid cube as it winds up, rams into the target with a clang of metal, then flies apart in a fan of its drones and gathers again on the way home.
+    - Mana, a rain of drops: each figure is a faceted glass drop that climbs high over the target and falls on it from above, one after another, splashing into glass spray and rings spreading over the ground like ripples on water.
+    - Ex-Twins, a rift jump: each figure of hexagons, with lightning leaping between them, dives into a tear in space behind its owner and bursts out of another by the target, and goes home the same way.
+  - **Barrage.** Its drones pack into glowing clumps of about sixteen around the target, and each target's clumps draw the family's pattern: an RF crown, a Mana star, Ex-Twins octagons. A shot charges in each clump. When it fires, it passes through walls and bursts on the target, warping the space around it. Now and then a few drones hop to a neighbouring clump, and lightning leaps between clumps.
+    - RF clumps are small crowns of drones tumbling over every axis. Their shot is a ring of lightning a quarter of a block across: a spark, then a bright ring round a dark middle, then a ring in branching bolts. It trails small bolts and bursts in discharges every way.
+    - Mana clumps charge glowing balls, as before.
+    - Ex-Twins clumps are octagons that crackle with lightning and shed violet smoke. Their shot is a violet glass icosahedron that turns faster in flight and shatters into shards of glass.
+  - **Containment.** Each construct holds one creature, so a mode with drones for several constructs holds several. Every family stuns what it holds:
+    - RF shuts the target in a Faraday cage: a geodesic sphere whose drones are its joints and whose conductors carry blue and orange currents, closing from the ground up like petals. It zaps its prisoner, and the shots the prisoner fires strike the cage and run off it into the ground as lightning.
+    - Mana closes a lotus over the target: tiers of glass petals rising from the ground into a bud. Drones keep a reflection buffer charged (golden motes run up the petals' edges), and a blow into the lotus flies back at the attacker as golden sparks.
+    - Ex-Twins cracks space round the target: hexagonal shards of it circle on their own axes, with the void and its stars behind them and circuit traces along their edges, and the target hangs in the crack, lifted into the air. The world round the rift bends and darkens.
+    - A construct locks shut with a flash and a sound, and bursts into its drones with sparks when it lets go. A heads-up circle turns on the ground under what it holds.
     - Every construct is sized from the creature it holds: its inside clears the hitbox by a fifth of its size on every side.
     - Players and bosses cannot be held.
+- Every blow has its wind-up, its flight and its landing, and something lingers for a moment after: a heads-up aim circle closes on the ground under the target before the blow, drones in flight leave thin trails, and a blow lands as a white-hot core, a shock ring through the air and over the ground, a spray of many small sparks (RF throws falling drops of metal), and a scorched ring, ripples or smoke and cracks. Blows within 16 blocks nudge the camera. All of it is geometry in the world. The client config's `hive.effects` (`low`, `normal`, `high`) sets how much is drawn and `hive.shake` how hard the camera is nudged.
+- Every attack sounds in layers, synthesized for this mod: a wind-up, the rush of a figure in flight (following it, rising and falling as it passes), a blow with a low end in a few variants, and what rings on after. Each strike group's blow is its own step of a pentatonic scale, so a swarm's blows play an arpeggio. Constructs lock shut with a sound of their own and hum while they hold. Listeners far off hear only a dull boom.
 - Swarm blows land as the swarm's own damage type, which may knock the target back. Containment zaps never knock it about.
-- The hive fights within 128 blocks of its owner by default. It takes on every creature that attacks its owner at once: whoever the owner fights, whoever strikes the owner or their shield, and every mob that has the owner as its target, up to one per strike group. The strike groups are shared out evenly among them. A target stays engaged until it dies, leaves that range, becomes allied or changes dimension, or the hive is switched off. When one falls, its drones fly straight on to the others from where they are instead of going home first.
+- The hive fights within 128 blocks of its owner by default. It takes on every creature that attacks its owner at once: whoever the owner fights, whoever strikes the owner or their shield, and every mob that has the owner as its target, up to 16. Containment holds the first ones, one per construct. Droplet and Barrage take on the rest first and then the held ones, one figure or pattern each at least, so the modes may strike the same creature. A target stays engaged until it dies, leaves that range, becomes allied or changes dimension, or the hive is switched off. When one falls, its drones fly straight on to the others from where they are instead of going home first.
 - Each drone has 3 HP. Targets in reach swing at nearby drones, and explosions damage them too. A hit drone flies home for repair, and the next drone in its lane launches at once to take its place. A repaired drone waits in reserve.
 - Drones pour out of the hive along their own curved paths and stream back when a task ends. Healers ring their owner's chest.
-- Open the console with `H`, select a hive and use the Swarm tab to set the attack mode and to move drones between fighters and healers (±1 / ±10). Assignments persist on the item. Healers restore only their owner and never attack. Healing is capped at 4 HP/second by default, which the server can configure.
+- Open the console with `H` and select a hive. The Swarm tab shares its drones between the modes and the healers. Assignments persist on the item. Healers restore only their owner and never attack. Healing is capped at 4 HP/second by default, which the server can configure.
 - Each hive has three upgrades: combat damage, healing strength, and repair/reconstruction. They never raise the 2000-drone cap or the healing limit.
 - Drones do not absorb damage for their owner; protection is the shield's job. Hives only attack and heal.
 - Drone hits use their own damage type: the owner gets the kill credit, but hundreds of hits never knock the target around.
 - Drones cannot target or damage their wearer, teammates or allied pets. They have no attackable projectile entities of their own, so swarms never damage each other. Creative/spectator players and disallowed PvP targets are excluded.
 - Swarms contain no server-side drone entities or pathfinding. The item stores a compact drone array, and the network sends about one byte per resting drone. Flight is deterministic and computed identically on server and client, so blows land exactly where the shapes are drawn. Distant drones render as glowing points, and the renderer culls by frustum and distance.
 - Hives are not a substitute for the shield's melee/explosion protection. Every family has original synthesized attack/impact and summon/dismiss sounds, shields have absorption, cell-break, collapse and ripple sounds, and the console has its own feedback sounds (`tools/build_combat_sounds.mjs`). Playback is spatially rate-limited to avoid hundreds of simultaneous voices.
+
+### Sharing the drones
+
+The Swarm tab has a row for each mode and one for the healers. A row shows how many drones it has, its minimum, how many of them fly, and a slider. The free drones, given to no one, are counted at the top. For example, 64 drones in Droplet, 120 in Barrage and 72 in Containment fight at once.
+
+![The Swarm tab: drones shared between the three modes and the healers](docs/console-swarm-shared.png)
+
+- **Minimum.** Drones stand on the corners of their mode's figure, so a mode has either no drones (it is off) or at least one per corner of one figure:
+
+  | Family | Droplet | Barrage | Containment |
+  | --- | --- | --- | --- |
+  | RF | 16: a tesseract's corners | 4: a crown (every other point raised) | 12: the Faraday cage's icosahedron |
+  | Mana | 14: a drop's tip, two rings of 6 and its back | 6: a star | 19: a lotus's base and six petals of three corners |
+  | Ex-Twins | 18: three hexagons | 8: an octagon | 24: four hexagonal shards of the rift |
+
+  Drones beyond the corners stand on finer points of the figures: the middles of the tesseract's faces, cells and edges, the drop's skin, smaller hexagons inside the Twins ones, finer geodesic spheres of the cage, more tiers of lotus petals, more rift shards.
+- **Sliders.** Drag a mode's slider to give it drones or take them back to the free ones. It stops only on whole figures: 0, 16, 32, 48… for the RF tesseract, 0, 8, 16… for the Mana ward, with a tick at each. The lighter part of the track is as far as the free drones reach. A mode whose figure the free drones cannot build is greyed out, and hovering it says why ("Needs at least 18 drones: its figure has 18 corners"). The healers' slider moves one drone at a time, to and from the free drones. **All** puts every fighter into that mode and switches the others off, as a hive fought before the modes could be mixed. The server checks the same rules and refuses anything else, whatever the client sends.
+
+  ![A mode the free drones cannot build is greyed out, with the reason](docs/console-swarm-refused.png)
+- **In the air.** At most 250 drones fly. Healers take their places first; the modes share the rest in proportion to their drones. A mode whose share is smaller than its minimum does not fly at all, and its places go to the others. Its row shows this ahead of time: "flying 0: no room".
+
+  ![A Mana droplet of 14 squeezed out of the air by 1986 drones in Barrage](docs/console-swarm-no-room.png)
+- **Losses.** A hit drone flies home and the next one in its lane takes its place; a lane that has run dry takes a spare drone of its mode. When a mode has no spare left and fewer drones in the air than one figure, it goes home instead of hanging as a broken figure. Once repairs give it enough again, it flies back into the fight by itself.
+- **Smaller hive.** If a hive holds fewer drones than it has given out (after loading or a change of level), healers keep theirs first, then Droplet, Barrage and Containment in turn. A mode left short of its minimum is switched off and its drones are freed. The last line of the Swarm tab says which mode and why, and the server log says so too.
+- **Old saves.** A hive saved when every fighter used one mode puts them all in that mode. If they are too few for its figure, they go to Barrage, and if they are too few even for that, they stay free. The Swarm tab says so.
 
 ### Armageddon
 
@@ -192,14 +232,30 @@ RF Armageddon is the ultimate of a level 10 RF hive. When its RF battery is full
 
   The panels are the charge bar. They unfold smoothly as the charge fills, a servo labouring under them and their gears ticking over, until they stand in a full cross at a full charge. Their cells light row by row from the body out, and blue sparks run in along the grid to the body. The charge takes a minute and drains the hive's RF battery. A worn RF shield feeds it too, along a crackling link (a Twins or Mana shield does not), but never gives up the charge its own field needs.
 - **Ball.** A ball grows before the nose as the panels open, from a point to about 6 blocks across. It has a near-black navy core in a bright electric rim, with lightning crawling over it and short discharges leaping to it from the nose's needles. Atomic orbits ring it, each with a bright electron. There are three at first and five by a full charge, and they spin faster as it fills.
-- **Flight.** The panels snap shut, the hologram scatters back into the swarm, and the ball leaves. It flies slow and heavy, ringed by an escort of drones in three tori, and swells as it goes. Thick jagged bolts leap from its rim to whatever they can reach within about 48 blocks (the ground, a wall, a ceiling), throwing sparks and leaving scorch marks; with nothing in reach, a bolt lashes out into the air and dies there. The ball stops out from the face it was aimed at and hangs there: 26 blocks over the ground, under a ceiling or before a wall, nearer where there is less room. Its bolts come faster, its orbits close in on it, and the world turns grey: only the ball's rim, its lightning and the dome after it keep their colour.
+- **Flight.** The panels snap shut, the hologram scatters back into the swarm, and the ball leaves. It flies slow and heavy, ringed by an escort of drones in three tori, and swells as it goes. Thick jagged bolts leap from its rim to whatever they can reach within about 48 blocks (the ground, a wall, a ceiling), throwing sparks and leaving scorch marks; when none of the ways a bolt tries finds anything in reach, it lashes out into the air and dies there. The ball stops out from the face it was aimed at and hangs there: 26 blocks over the ground, under a ceiling or before a wall, nearer (and smaller) where there is less room. Its bolts come faster, its orbits close in on it, and the world turns grey: only the ball's rim, its lightning and the dome after it keep their colour.
 - **Dome.** The ball comes in to that face (down into the ground, up into a ceiling, sideways into a wall) and becomes a dome of ice-blue glass standing out of it, with lightning inside and blocks floating out in its haze. Over three seconds it swells to 88 blocks across and heats to white, and its edge cuts a bowl into the face.
 - **Atomic flash.** The orbits blaze out and a white flash floods everything. For a few seconds the world is pure black silhouettes on white, clouds included. A shock front runs out to 256 blocks, with rays raking the land behind it. Then the colour comes back over a round crater. In the ground its rim is pushed up round the edge, steep inside and sloping away outside; a crater in a ceiling or a wall is left as the dome cut it. Debris falls from the sky for a few seconds. A blue glow fades slowly at the crater's heart, and small discharges run over its floor. Then the drones come home.
 
-  The dome's edge, and then the shock front, strike each creature as they pass it: 2000 at the heart, falling to 20 at the edge. All of it is drawn in the world. With a shader pack (Iris or Oculus) in use, simpler stand-ins are drawn and the world is not greyed.
+  The blast strikes each creature as its front passes it (first the dome's reach, then the shock front's, a sphere round the point the ball met, whatever face that was): 2000 at the heart, falling to 20 at the edge. All of it is drawn in the world. With a shader pack (Iris or Oculus) in use, simpler stand-ins are drawn and the world is not greyed.
 
   The blast's length is one number, `RfArmageddon.BLAST_SECONDS` (40 seconds from the flash). The sound generator reads it, the crater's glow fades by it, and `verifyArmageddonSounds` checks that each RF sound lasts exactly as long as the stage it scores. The ball's flight is heard from where the ball is, with a crack for every bolt it strikes.
-- **Targets, aftermath and safe mode** work as for the other Armageddons. With `armageddon.safeMode`, no blocks are broken and no crater is dug. A rim of the land's own blocks stands round the edge only while the blast lasts, then sinks back. The real rim only rises from plain ground (earth, stone, sand and the like, the `relics_addon:crater_rim` block tag), only into open air, and only where the owner could build.
+- **Targets, aftermath and safe mode** work as for the other Armageddons. With `armageddon.safeMode`, no blocks are broken and no crater is dug. Round a crater in the ground a rim of the land's own blocks stands only while the blast lasts, then sinks back. The real rim only rises from plain ground (earth, stone, sand and the like, the `relics_addon:crater_rim` block tag), only into open air, and only where the owner could build.
+
+## Ship Hives
+
+Three blocks to build into a [Create Aeronautics](https://modrinth.com/mod/create-aeronautics) ship (or a base on the ground) whose drones, each about a block across, fight on their own. Each kind works its drones in a different number at once and wears one family's drone model.
+
+| Block | Drones | Worked | What they do |
+| --- | --- | --- | --- |
+| Lance Ship Hive (Ex-Twins drones) | 3 | all three as one turret | A continuous beam on the worst threat in sight: 3 damage four times a second, 100 FE a tick. The turret swings onto its mark before it burns, overheats after 8 seconds and must cool right down (4 seconds). It only ever burns a threat: with anyone else first in its line of fire it holds and looks for another mark. |
+| Aegis Ship Hive (Mana drones) | 6 | one by one, each holding its piece of the shield | A shield round the whole ship, an ellipsoid fitted to its hull (a dome of 8 blocks round a hive on the ground). It stops shots flying in (arrows, fireballs, Create Big Cannons' shells and autocannon rounds), takes blows from outside meant for the crew, and keeps explosions outside off what it covers, each for some of its charge (a full shield holds 400; a big cannon shell costs 40). The charge comes back from FE once nothing has struck it for three seconds; a blow bigger than what is left breaks the shield for five seconds. The drones lean towards the ship's threats. 30 FE a tick while it stands. |
+| Escort Ship Hive (RF drones) | 4 | two by two | Two wings, each a linked pair with a small swarm of its own. They patrol round the ship, go after threats within their leash (40 blocks from the ship's middle; each wing its own when it can), circle them, strike with the arc between their two drones and their swarm's dives, and fly home to refill from FE when they run low or the hive is switched off. |
+
+- Set a hive against the outside of the hull: its drones launch from the lit face. A right click opens its window (what it is doing, its battery, the lance's heat, the shield's charge or the wings' charges and whereabouts, and its switch); a sneak and a right click switch it at once. A redstone signal grounds it. It takes FE through any cable from any side (a 400 kFE battery). A hive newly set down fills its shield or its wings from its battery before they fight.
+- The hives of one ship share one mind: a board of the threats round the ship, rescanned twice a second, and grudges (half a minute) against whoever hurts the crew or the hull. They spread over the threats instead of piling onto one, and weigh a creature's allegiance again just before they strike. The owners, their teams and their pets are never fired on; players and peaceful creatures riding the ship are friendly until they hurt the crew; a monster that climbs aboard is still a monster. Other players are only fought once they hurt the crew or the ship, with PvP on (or always, with the server's `ship.targetPlayers`).
+- A block on a Sable ship lives in the ship's far-off plot. Each hive works out where its ship really is from Sable's pose, so the turret, the shield and the wings ride the ship however it moves and turns, and sight lines meet terrain and ships' hulls alike. Without Sable the hives simply stand where they are.
+- Server config: `ship.targetRange`, `ship.targetPlayers`, `ship.lanceDamage`, `ship.lanceEnergyPerTick`, `ship.aegisUpkeep`, `ship.aegisEnergyPerPoint`, `ship.escortLeash`, `ship.escortDamage`.
+- `runShipScenarioClient` films the hives on a real Sable ship: copy Sable's jar into `run-ship/mods` first. Sable brings Veil, which rewrites core shaders; the mod's shaders are written so Veil's GLSL processor keeps them intact.
 
 ## Verification
 
@@ -222,6 +278,8 @@ Use `/relics_addon shield_status` for read-only diagnosis of your equipped shiel
 Inventory icons render the animated 3D models. Hives have closed inner hulls, articulated armor, recessed docking ports and distinct RF, Mana and violet-black Ex-Twins materials. The deployed swarm uses separate low-detail 3D models at high populations.
 
 The `tools/` directory includes the current mesh generators, ability-card drawings and resource validators. Python tools require the packages listed in `tools/requirements.txt`; the hive card generator uses Node.js standard modules. Ready-to-use assets are included, so regenerating them is not required to build the mod.
+
+The shipped OBJ models are compacted: `tools/compact_obj.mjs` drops repeated `v`/`vt`/`vn` records and renumbers the faces, which leaves the baked mesh identical and the files about a third of their size. The Node generators (`build_mana_shield_mesh.mjs`, `generate_swarm_lod.mjs`) write through it; after running a Python generator (`build_rf_meshes.py`, `build_hive_meshes.py`, `build_arcane_meshes.py`, `generate_dense_swarm_lod.py`) run `node tools/compact_obj.mjs` over the models. `node tools/compact_obj.mjs --check before.obj after.obj` proves two files bake to the same faces, and `./gradlew check` (`verifyObjCompact`, plain Java, no Node needed) fails on a model with repeated records or an index out of range.
 
 `./gradlew runReleaseCheckClient` verifies the packaged release from `run-release-check/mods`, captures the ordinary title screen and exits. It does not load the main source-set classes or any preview screens. The separate startup probe is never packaged in the addon. Keep development clients in a separate checkout while recompiling: a running development client can fail to load a class if its compiler output changes during startup.
 

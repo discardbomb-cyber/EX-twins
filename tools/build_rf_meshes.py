@@ -61,6 +61,10 @@ class Mesh:
         self.faces.append((self.group, material, p, normals))
 
     def export(self, item, scale):
+        # Writes one v/vn record per face corner, so shared corners repeat. After generating (this
+        # also covers build_hive_meshes, build_arcane_meshes and generate_dense_swarm_lod, which
+        # export through here), run `node tools/compact_obj.mjs` to drop the duplicates losslessly;
+        # `./gradlew check` (verifyObjCompact) fails on a model that still has them.
         vertices, normals, faces = [], [], []
         last_group = last_material = None
         group_order = {name: i for i, name in enumerate(dict.fromkeys(f[0] for f in self.faces))}

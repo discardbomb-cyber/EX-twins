@@ -565,5 +565,264 @@
         "name": "relics_addon:combat/hive_ward_reflect"
       }
     ]
+  },
+  "hive.rf_ram_windup": {
+    "subtitle": "subtitles.relics_addon.hive_rf_ram_windup",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_rf_ram_windup"
+      }
+    ]
+  },
+  "hive.rf_ram_impact": {
+    "subtitle": "subtitles.relics_addon.hive_rf_ram_impact",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_rf_ram_impact_1"
+      },
+      {
+        "name": "relics_addon:combat/hive_rf_ram_impact_2"
+      },
+      {
+        "name": "relics_addon:combat/hive_rf_ram_impact_3"
+      }
+    ]
+  },
+  "hive.mana_drop_fall": {
+    "subtitle": "subtitles.relics_addon.hive_mana_drop_fall",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_mana_drop_fall"
+      }
+    ]
+  },
+  "hive.mana_drop_splash": {
+    "subtitle": "subtitles.relics_addon.hive_mana_drop_splash",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_mana_drop_splash_1"
+      },
+      {
+        "name": "relics_addon:combat/hive_mana_drop_splash_2"
+      },
+      {
+        "name": "relics_addon:combat/hive_mana_drop_splash_3"
+      }
+    ]
+  },
+  "hive.twins_rift_open": {
+    "subtitle": "subtitles.relics_addon.hive_twins_rift_open",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_twins_rift_open"
+      }
+    ]
+  },
+  "hive.rf_ring_burst": {
+    "subtitle": "subtitles.relics_addon.hive_rf_ring_burst",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_rf_ring_burst_1"
+      },
+      {
+        "name": "relics_addon:combat/hive_rf_ring_burst_2"
+      }
+    ]
+  },
+  "hive.twins_glass_shatter": {
+    "subtitle": "subtitles.relics_addon.hive_twins_glass_shatter",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_twins_glass_shatter_1"
+      },
+      {
+        "name": "relics_addon:combat/hive_twins_glass_shatter_2"
+      }
+    ]
+  },
+  "hive.rf_cage_lock": {
+    "subtitle": "subtitles.relics_addon.hive_rf_cage_lock",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_rf_cage_lock"
+      }
+    ]
+  },
+  "hive.mana_lotus_lock": {
+    "subtitle": "subtitles.relics_addon.hive_mana_lotus_lock",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_mana_lotus_lock"
+      }
+    ]
+  },
+  "hive.twins_rift_lock": {
+    "subtitle": "subtitles.relics_addon.hive_twins_rift_lock",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_twins_rift_lock"
+      }
+    ]
+  },
+  "hive.rf_release": {
+    "subtitle": "subtitles.relics_addon.hive_rf_release",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_rf_release"
+      }
+    ]
+  },
+  "hive.mana_release": {
+    "subtitle": "subtitles.relics_addon.hive_mana_release",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_mana_release"
+      }
+    ]
+  },
+  "hive.twins_release": {
+    "subtitle": "subtitles.relics_addon.hive_twins_release",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_twins_release"
+      }
+    ]
+  },
+  "hive.rf_ground_bolt": {
+    "subtitle": "subtitles.relics_addon.hive_rf_ground_bolt",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_rf_ground_bolt"
+      }
+    ]
+  },
+  "hive.rf_cage_hum": {
+    "subtitle": "subtitles.relics_addon.hive_rf_cage_hum",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_rf_cage_hum"
+      }
+    ]
+  },
+  "hive.mana_lotus_hum": {
+    "subtitle": "subtitles.relics_addon.hive_mana_lotus_hum",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_mana_lotus_hum"
+      }
+    ]
+  },
+  "hive.twins_rift_hum": {
+    "subtitle": "subtitles.relics_addon.hive_twins_rift_hum",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_twins_rift_hum"
+      }
+    ]
+  },
+  "hive.rf_flight": {
+    "subtitle": "subtitles.relics_addon.hive_rf_flight",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_rf_flight"
+      }
+    ]
+  },
+  "hive.mana_flight": {
+    "subtitle": "subtitles.relics_addon.hive_mana_flight",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_mana_flight"
+      }
+    ]
+  },
+  "hive.twins_flight": {
+    "subtitle": "subtitles.relics_addon.hive_twins_flight",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_twins_flight"
+      }
+    ]
+  },
+  "hive.far_boom": {
+    "subtitle": "subtitles.relics_addon.hive_far_boom",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/hive_far_boom_1"
+      },
+      {
+        "name": "relics_addon:combat/hive_far_boom_2"
+      }
+    ]
+  },
+  "ship.lance_beam": {
+    "subtitle": "subtitles.relics_addon.ship_lance_beam",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/ship_lance_beam"
+      }
+    ]
+  },
+  "ship.lance_ignite": {
+    "subtitle": "subtitles.relics_addon.ship_lance_ignite",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/ship_lance_ignite"
+      }
+    ]
+  },
+  "ship.lance_overheat": {
+    "subtitle": "subtitles.relics_addon.ship_lance_overheat",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/ship_lance_overheat"
+      }
+    ]
+  },
+  "ship.aegis_block": {
+    "subtitle": "subtitles.relics_addon.ship_aegis_block",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/ship_aegis_block_1"
+      },
+      {
+        "name": "relics_addon:combat/ship_aegis_block_2"
+      }
+    ]
+  },
+  "ship.aegis_break": {
+    "subtitle": "subtitles.relics_addon.ship_aegis_break",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/ship_aegis_break"
+      }
+    ]
+  },
+  "ship.aegis_raise": {
+    "subtitle": "subtitles.relics_addon.ship_aegis_raise",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/ship_aegis_raise"
+      }
+    ]
+  },
+  "ship.escort_arc": {
+    "subtitle": "subtitles.relics_addon.ship_escort_arc",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/ship_escort_arc_1"
+      },
+      {
+        "name": "relics_addon:combat/ship_escort_arc_2"
+      }
+    ]
+  },
+  "ship.escort_launch": {
+    "subtitle": "subtitles.relics_addon.ship_escort_launch",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/ship_escort_launch"
+      }
+    ]
   }
 }

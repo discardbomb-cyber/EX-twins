@@ -135,6 +135,16 @@ neoForge {
             systemProperty 'relics_addon.worldScenario', providers.gradleProperty('scenario').getOrElse('all')
         }
 
+        // Ship hive scenes on a real Sable ship: run-ship/mods holds Sable's jar (copied from the Gradle cache), so
+        // only these runs load it.
+        shipScenarioClient {
+            client()
+            gameDirectory = file('run-ship')
+            programArgument '--quickPlaySingleplayer'
+            programArgument 'Scenario'
+            systemProperty 'relics_addon.worldScenario', providers.gradleProperty('scenario').getOrElse('ship-sable')
+        }
+
         featureGifClient {
             client()
             gameDirectory = file('run-feature-gif')
@@ -333,15 +343,28 @@ tasks.named('check') {
     dependsOn 'verifyTwinsFacets'
     dependsOn 'verifyShieldImpact'
     dependsOn 'verifyShieldRipple'
+    dependsOn 'verifyShieldShell'
     dependsOn 'verifyDevicePower'
     dependsOn 'verifyNetworkCodecs'
     dependsOn 'verifyRegistryFilter'
     dependsOn 'verifyHiveFormation'
+    dependsOn 'verifyHiveAllocation'
+    dependsOn 'verifyHiveConstructs'
     dependsOn 'verifyArmageddonSounds'
     dependsOn 'verifyHiveLayers'
     dependsOn 'verifyEffectLights'
     dependsOn 'verifyEffectLightSources'
     dependsOn 'verifyReleaseContents'
+    dependsOn 'verifyObjCompact'
+}
+
+// The OBJ models ship deduplicated (tools/compact_obj.mjs): no repeated v/vt/vn records, every face index in range.
+tasks.register('verifyObjCompact', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.hurtify.relicsaddon.client.ObjCompactionCheck'
+    workingDir = projectDir
+    args file('src/main/resources/assets/relics_addon/models').absolutePath
 }
 
 tasks.register('verifyEffectLights', JavaExec) {
@@ -393,10 +416,30 @@ tasks.register('verifyShieldRipple', JavaExec) {
     mainClass = 'dev.hurtify.relicsaddon.client.ShieldRippleCheck'
 }
 
+tasks.register('verifyShieldShell', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.client.ShieldShellEquivalenceCheck'
+}
+
 tasks.register('verifyDevicePower', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
     mainClass = 'dev.hurtify.relicsaddon.power.DevicePowerCheck'
+}
+
+// Each attack mode's minimum is its figure's corner count; the places in the air add up; the console never asks for a forbidden allocation.
+tasks.register('verifyHiveAllocation', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.drone.HiveAllocationCheck'
+}
+
+// The new figures: geodesic cages, lotus and rift bounded at every stage, the tesseract's cube, the droplet paths.
+tasks.register('verifyHiveConstructs', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.drone.HiveConstructsCheck'
 }
 
 tasks.register('verifyNetworkCodecs', JavaExec) {

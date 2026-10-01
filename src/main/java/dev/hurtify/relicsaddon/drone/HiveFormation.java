@@ -168,6 +168,43 @@ public final class HiveFormation {
         return IMPACT + Math.min(3, .1 * interval) / Math.max(1, interval);
     }
 
+    /** Ticks a figure winds up before it launches: the RF tesseract closes into a cube. */
+    public static final double WINDUP_TICKS = 8;
+
+    /**
+     * Droplet: how wound up a group's figure is, 0 to 1: rising over the {@link #WINDUP_TICKS} before it
+     * launches, whole in flight, and easing off again on its way home.
+     */
+    public static double windup(Vec3 owner, Vec3 fanTarget, Vec3 strike, double strikeHeight, int group, int groups,
+            double time, double cycleStart, int interval) {
+        interval = Math.max(1, interval);
+        double phase = groupPhase(time, cycleStart, interval, group, groups);
+        if (phase < 0) return 0;
+        Vec3 home = muster(owner, fanTarget, group, groups, time), core = core(strike, strikeHeight);
+        double flight = flightTicks(home.distanceTo(core), interval) / interval, launch = IMPACT - flight;
+        if (phase < launch) return Math.clamp(1 - (launch - phase) * interval / WINDUP_TICKS, 0, 1);
+        double release = release(interval);
+        if (phase < release) return 1;
+        return Math.clamp(1 - (phase - release) / (1 - release) * 3, 0, 1);
+    }
+
+    /**
+     * Droplet: whether a group's figure is between the rifts of its jump (Twins only), out of sight: it dives
+     * into a rift behind its owner and comes out of another by the target, and back the same way.
+     */
+    public static boolean dropletHidden(HiveType type, double sortie) {
+        return type == HiveType.TWINS && (sortie > RIFT_IN && sortie < RIFT_OUT || sortie > 2 - RIFT_OUT && sortie < 2 - RIFT_IN);
+    }
+
+    /** Where in its flight out a Twins figure enters the first rift and comes out of the second. */
+    public static final double RIFT_IN = .3, RIFT_OUT = .55;
+
+    /**
+     * Twins: the rifts on a figure's path, where it vanishes and where it comes out: going in, one by its place in
+     * the fan behind its owner and one by the target; coming home, the same the other way round.
+     */
+    public static final double[] RIFT_MARKS = {RIFT_IN, RIFT_OUT, 2 - RIFT_OUT, 2 - RIFT_IN};
+
     /** Droplet: centre of a group's figure at {@code time}: in the fan, flying at the target, or flying home. */
     public static Vec3 dropletCentre(Vec3 owner, Vec3 target, double targetHeight, int group, int groups,
             double time, double cycleStart, int interval) {
@@ -177,8 +214,26 @@ public final class HiveFormation {
     /** As above for a figure whose fan faces {@code fanTarget} while it strikes {@code strike}. */
     public static Vec3 dropletCentre(Vec3 owner, Vec3 fanTarget, Vec3 strike, double strikeHeight, int group, int groups,
             double time, double cycleStart, int interval) {
+        return dropletCentre(HiveType.RF, owner, fanTarget, strike, strikeHeight, group, groups, time, cycleStart, interval);
+    }
+
+    /**
+     * As above for a figure of {@code type}. RF rams straight in over a shallow arc. A Mana drop climbs high over
+     * its target and falls on it from above, like rain, and bursts back up after it lands. A Twins figure dives
+     * into a rift behind its owner, comes out of another by the target and strikes, and goes home the same way.
+     */
+    public static Vec3 dropletCentre(HiveType type, Vec3 owner, Vec3 fanTarget, Vec3 strike, double strikeHeight, int group, int groups,
+            double time, double cycleStart, int interval) {
         Vec3 home = muster(owner, fanTarget, group, groups, time), core = core(strike, strikeHeight);
         double sortie = sortie(owner, fanTarget, strike, strikeHeight, group, groups, time, cycleStart, interval);
+        if (sortie <= 0) return home;
+        // A Twins figure keeps the same path as RF's; the client only hides it between the rifts on that path.
+        if (type == HiveType.MANA) return rainPath(home, core, sortie, group);
+        return arcPath(home, core, sortie, group);
+    }
+
+    /** RF's flight (and the Twins figure's, rifts or not): in over a shallow arc, home on a wider one swung out to the side. */
+    public static Vec3 arcPath(Vec3 home, Vec3 core, double sortie, int group) {
         if (sortie <= 0) return home;
         double distance = home.distanceTo(core);
         if (sortie <= 1) {
@@ -191,6 +246,28 @@ public final class HiveFormation {
         Vec3 across = new Vec3(-(core.z - home.z), 0, core.x - home.x);
         across = across.lengthSqr() < 1e-6 ? Vec3.ZERO : across.normalize().scale(group % 2 == 0 ? 1 : -1);
         return core.lerp(home, eased).add(0, swing * .6, 0).add(across.scale(swing));
+    }
+
+    /** Mana: up over the target, then straight down on it gathering speed; after it lands, a burst back up and home. */
+    private static Vec3 rainPath(Vec3 home, Vec3 core, double sortie, int group) {
+        double height = 5.5 + 1.8 * ((group * 0.6180339887) % 1);
+        Vec3 apex = core.add(Math.cos(group * 2.4) * .6, height, Math.sin(group * 2.4) * .6);
+        if (sortie <= 1) {
+            double climb = .62;
+            if (sortie < climb) {
+                double t = sortie / climb, eased = t * t * (3 - 2 * t);
+                return home.lerp(apex, eased).add(0, Math.sin(Math.PI * t) * 1.2, 0);
+            }
+            double t = (sortie - climb) / (1 - climb);
+            return apex.lerp(core, t * t);
+        }
+        double s = sortie - 1;
+        if (s < .4) {
+            double t = s / .4;
+            return core.lerp(apex.add(0, -1.5, 0), 1 - (1 - t) * (1 - t));
+        }
+        double t = (s - .4) / .6, eased = t * t * (3 - 2 * t);
+        return apex.add(0, -1.5, 0).lerp(home, eased);
     }
 
     /** Size of a droplet figure for a group of {@code members}. */
@@ -214,7 +291,7 @@ public final class HiveFormation {
         return core.add(switch (type) {
             case RF -> {
                 double angle = group * Math.PI * 2 / groups + time * .004;
-                double lift = groups > 3 && group % 2 == 1 ? .75 : 0;
+                double lift = groups >= CROWN_POINTS && group % 2 == 1 ? .75 : 0;
                 yield new Vec3(Math.cos(angle) * reach, 1.3 + lift, Math.sin(angle) * reach);
             }
             case MANA -> {
@@ -224,12 +301,24 @@ public final class HiveFormation {
                 yield new Vec3(Math.cos(angle) * r, inner ? 2.3 : .8, Math.sin(angle) * r);
             }
             case TWINS -> {
-                int ring = group / 8, index = group % 8, inRing = Math.min(8, groups - ring * 8);
-                double angle = index * Math.PI * 2 / inRing + (ring % 2 == 0 ? 1 : -1) * time * .005 + ring * Math.PI / 8;
+                int ring = group / OCTAGON, index = group % OCTAGON, inRing = Math.min(OCTAGON, groups - ring * OCTAGON);
+                double angle = index * Math.PI * 2 / inRing + (ring % 2 == 0 ? 1 : -1) * time * .005 + ring * Math.PI / OCTAGON;
                 double r = reach * (1 - .28 * ring);
                 yield new Vec3(Math.cos(angle) * r, 1.0 + 1.5 * ring, Math.sin(angle) * r);
             }
         });
+    }
+
+    /** Clumps a pattern needs to be itself: an RF crown raises every other point of four or more, a Mana star closes its outer ring from six, a Twins octagon has eight. */
+    public static final int CROWN_POINTS = 4, STAR_POINTS = 6, OCTAGON = 8;
+
+    /** The corners of a family's barrage pattern: the fewest clumps, one drone each at least, that make it. */
+    public static int patternCorners(HiveType type) {
+        return switch (type) {
+            case RF -> CROWN_POINTS;
+            case MANA -> STAR_POINTS;
+            case TWINS -> OCTAGON;
+        };
     }
 
     /** The pattern's lines, as pairs of groups: the crown's ring, the star's zigzag and outer ring, the octagons and the struts between them. */
@@ -239,7 +328,7 @@ public final class HiveFormation {
         switch (type) {
             case RF, MANA -> {
                 for (int group = 0; group < (groups == 2 ? 1 : groups); group++) links.add(new int[]{group, (group + 1) % groups});
-                if (type == HiveType.MANA && groups >= 6) {
+                if (type == HiveType.MANA && groups >= STAR_POINTS) {
                     int outer = (groups + 1) / 2;
                     for (int k = 0; k < outer; k++) {
                         int a = 2 * k, b = 2 * ((k + 1) % outer);
@@ -248,12 +337,12 @@ public final class HiveFormation {
                 }
             }
             case TWINS -> {
-                for (int ring = 0; ring * 8 < groups; ring++) {
-                    int size = Math.min(8, groups - ring * 8);
+                for (int ring = 0; ring * OCTAGON < groups; ring++) {
+                    int size = Math.min(OCTAGON, groups - ring * OCTAGON);
                     for (int index = 0; index < (size == 2 ? 1 : size); index++) {
-                        if (size > 1) links.add(new int[]{ring * 8 + index, ring * 8 + (index + 1) % size});
+                        if (size > 1) links.add(new int[]{ring * OCTAGON + index, ring * OCTAGON + (index + 1) % size});
                     }
-                    if (ring > 0) for (int index = 0; index < size; index++) links.add(new int[]{(ring - 1) * 8 + index, ring * 8 + index});
+                    if (ring > 0) for (int index = 0; index < size; index++) links.add(new int[]{(ring - 1) * OCTAGON + index, ring * OCTAGON + index});
                 }
             }
         }
@@ -272,16 +361,30 @@ public final class HiveFormation {
      */
     public static Vec3 station(AttackMode mode, HiveType type, int slot, int slots, Vec3 owner, Vec3 target, double targetWidth,
             double targetHeight, double time, double cycleStart, int interval) {
-        return stationIn(mode, type, slot, slots, HiveSlots.groups(Math.max(1, slots), mode), owner, target, targetWidth, targetHeight,
+        return stationIn(mode, type, slot, slots, HiveSlots.groups(Math.max(1, slots), mode, type), owner, target, targetWidth, targetHeight,
                 time, cycleStart, interval);
     }
 
     /** Ticks drones take to fly from their old places to their new ones when the swarm changes targets. */
     public static final int RETARGET_TICKS = 20;
 
-    /** How many of {@code targets} creatures the swarm engages: one strike group each at least. */
-    public static int engaged(int targets, int groups) {
-        return Math.max(1, Math.min(targets, Math.max(1, groups)));
+    /**
+     * The creatures a wing of {@code mode} takes on, in its own order, when the containment wing holds the
+     * first {@code held}: containment those, one per construct; Droplet and Barrage the ones not held first,
+     * then the held ones, so creatures beyond the constructs fall to them.
+     */
+    public static <T> List<T> wingTargets(AttackMode mode, List<T> targets, int held) {
+        held = Math.clamp(held, 0, targets.size());
+        if (mode == AttackMode.CONTAINMENT) return held == 0 ? targets : targets.subList(0, held);
+        if (held == 0 || held == targets.size()) return targets;
+        List<T> order = new ArrayList<>(targets.subList(held, targets.size()));
+        order.addAll(targets.subList(0, held));
+        return order;
+    }
+
+    /** How many of {@code targets} creatures a wing that makes {@code figures} figures ({@link HiveSlots#figures}) engages: one figure each at least. */
+    public static int engaged(int targets, int figures) {
+        return Math.max(1, Math.min(targets, Math.max(1, figures)));
     }
 
     /**
@@ -295,7 +398,7 @@ public final class HiveFormation {
         if (targets.isEmpty()) return owner;
         slots = Math.max(1, slots);
         slot = Math.clamp(slot, 0, slots - 1);
-        int groups = HiveSlots.groups(slots, mode), engaged = engaged(targets.size(), groups);
+        int groups = HiveSlots.groups(slots, mode, type), engaged = engaged(targets.size(), HiveSlots.figures(groups, mode, type));
         int group = HiveSlots.group(slot, groups), member = HiveSlots.member(slot, groups), index = group % engaged;
         HiveTarget target = targets.get(index);
         if (mode == AttackMode.DROPLET) {
@@ -319,8 +422,8 @@ public final class HiveFormation {
         double progress = (time - retargetedAt) / RETARGET_TICKS;
         if (previous.isEmpty() || targets.isEmpty() || !(progress >= 0 && progress < 1)) return now;
         slots = Math.max(1, slots);
-        int groups = HiveSlots.groups(slots, mode), group = HiveSlots.group(Math.clamp(slot, 0, slots - 1), groups);
-        int engaged = engaged(targets.size(), groups), before = engaged(previous.size(), groups);
+        int groups = HiveSlots.groups(slots, mode, type), group = HiveSlots.group(Math.clamp(slot, 0, slots - 1), groups);
+        int figures = HiveSlots.figures(groups, mode, type), engaged = engaged(targets.size(), figures), before = engaged(previous.size(), figures);
         boolean unchanged = engaged == before && targets.get(group % engaged).id() == previous.get(group % before).id()
                 && (mode != AttackMode.DROPLET || targets.getFirst().id() == previous.getFirst().id());
         if (unchanged) return now;
@@ -331,11 +434,25 @@ public final class HiveFormation {
     private static Vec3 dropletStation(HiveType type, int group, int groups, int member, int members, Vec3 owner, Vec3 fanTarget,
             Vec3 strike, double strikeHeight, double time, double cycleStart, int interval) {
         strikeHeight = saneSize(strikeHeight, 1.8);
-        Vec3 centre = dropletCentre(owner, fanTarget, strike, strikeHeight, group, groups, time, cycleStart, interval);
-        Vec3 facing = core(strike, strikeHeight).subtract(muster(owner, fanTarget, group, groups, time));
+        Vec3 centre = dropletCentre(type, owner, fanTarget, strike, strikeHeight, group, groups, time, cycleStart, interval);
+        Vec3 home = muster(owner, fanTarget, group, groups, time), core = core(strike, strikeHeight);
+        // A falling drop points down; everything else faces the target from its place in the fan.
+        Vec3 facing = type == HiveType.MANA ? new Vec3(0, -1, 0).lerp(core.subtract(home).normalize(), .15) : core.subtract(home);
         double size = shapeSize(members);
         return centre.add(switch (type) {
-            case RF -> HiveShapes.tesseract(member, members, time + group * 17, size);
+            case RF -> {
+                // The tesseract closes into a cube as it winds up and rams; after the blow it flies apart in a
+                // fan of its drones, which gather back into it on the way home.
+                double sortie = sortie(owner, fanTarget, strike, strikeHeight, group, groups, time, cycleStart, interval);
+                double collapse = windup(owner, fanTarget, strike, strikeHeight, group, groups, time, cycleStart, interval);
+                Vec3 at = HiveShapes.tesseract(member, members, time + group * 17, size * (1 - .2 * collapse), collapse);
+                if (sortie > 1 && sortie < 2) {
+                    double apart = Math.sin(Math.PI * Math.min(1, (sortie - 1) * 1.6));
+                    Vec3 out = at.lengthSqr() < 1e-8 ? new Vec3(0, 1, 0) : at.normalize();
+                    at = at.add(out.scale(apart * (1.6 + .8 * ((member * 0.618) % 1))));
+                }
+                yield at;
+            }
             case MANA -> HiveShapes.droplet(member, members, time, facing, size);
             case TWINS -> HiveShapes.hexagons(member, members, time + group * 11, facing, size);
         });
@@ -354,16 +471,7 @@ public final class HiveFormation {
         int members = HiveSlots.groupSize(group, slots, groups);
         Vec3 core = core(target, targetHeight);
         return switch (mode) {
-            case DROPLET -> {
-                Vec3 centre = dropletCentre(owner, target, targetHeight, group, groups, time, cycleStart, interval);
-                Vec3 facing = core.subtract(muster(owner, target, group, groups, time));
-                double size = shapeSize(members);
-                yield centre.add(switch (type) {
-                    case RF -> HiveShapes.tesseract(member, members, time + group * 17, size);
-                    case MANA -> HiveShapes.droplet(member, members, time, facing, size);
-                    case TWINS -> HiveShapes.hexagons(member, members, time + group * 11, facing, size);
-                });
-            }
+            case DROPLET -> dropletStation(type, group, groups, member, members, owner, target, target, targetHeight, time, cycleStart, interval);
             case BARRAGE -> {
                 // A few drones hop to the next clump every eight seconds, gliding over for a second.
                 int home = group;
@@ -383,11 +491,14 @@ public final class HiveFormation {
                 }
                 yield at;
             }
-            case CONTAINMENT -> containmentCentre(type, target, targetWidth, targetHeight, slots).add(switch (type) {
-                case RF -> HiveShapes.dysonRing(slot, slots, time, ringsRadius(targetWidth, targetHeight, false), false);
-                case MANA -> HiveShapes.ward(slot, slots, time, wardScale(targetWidth, targetHeight));
-                case TWINS -> HiveShapes.dysonRing(slot, slots, time, ringsRadius(targetWidth, targetHeight, true), true);
-            });
+            case CONTAINMENT -> {
+                double room = enclosure(targetWidth, targetHeight), age = constructAge(time, cycleStart);
+                yield containmentCentre(type, target, targetWidth, targetHeight, slots).add(switch (type) {
+                    case RF -> HiveConstructs.cage(slot, slots, age, time, room);
+                    case MANA -> HiveConstructs.lotus(slot, slots, age, time, room);
+                    case TWINS -> HiveConstructs.rift(slot, slots, age, time, room);
+                });
+            }
         };
     }
 
@@ -422,13 +533,32 @@ public final class HiveFormation {
     }
 
     /** How far a hold lifts its target so the tori round it clear the ground: the outer torus, its tube and the drones on it. */
+    /**
+     * Ticks since a containment construct began to close round its creature: from a few ticks before its
+     * drones arrive ({@code cycleStart}, the end of their flight out), so it is half shut as they get there.
+     */
+    public static double constructAge(double time, double cycleStart) {
+        return safeTime(time) - cycleStart + HiveConstructs.CLOSING * .35;
+    }
+
+    /** How far a hold lifts its target so the construct round it clears the ground, the Twins rift four blocks at least. */
+    public static double constructLift(HiveType type, double targetWidth, double targetHeight) {
+        double room = enclosure(targetWidth, targetHeight), reach = switch (type) {
+            case RF -> HiveConstructs.cageReach(room);
+            case MANA -> HiveConstructs.lotusReach(room);
+            case TWINS -> HiveConstructs.riftReach(room);
+        };
+        double lift = Math.max(0, reach + .15 - saneSize(targetHeight, 1.8) * .55);
+        return type == HiveType.TWINS ? Math.max(4, lift) : lift;
+    }
+
     public static double ringLift(double targetWidth, double targetHeight, boolean dense) {
         double radius = ringsRadius(targetWidth, targetHeight, dense), reach = radius + HiveShapes.ringTube(2, radius, dense) * 1.15;
         return Math.max(0, reach + .15 - saneSize(targetHeight, 1.8) * .55);
     }
 
     /** Twins lift their target at least four blocks, or as far as their tori round the black hole need. */
-    public static double twinsLift(double targetWidth, double targetHeight) { return Math.max(4, ringLift(targetWidth, targetHeight, true)); }
+    public static double twinsLift(double targetWidth, double targetHeight) { return constructLift(HiveType.TWINS, targetWidth, targetHeight); }
 
     /** The Mana ward's scale: the rhombi's edges, its innermost lines (.9 of the scale from its middle), run round the enclosure. */
     public static double wardScale(double targetWidth, double targetHeight) {

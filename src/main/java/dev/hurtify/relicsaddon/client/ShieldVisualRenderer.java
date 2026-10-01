@@ -275,7 +275,7 @@ public final class ShieldVisualRenderer {
             if (state.gathering(time)) activity = Math.max(activity, .6);
             // The shell is always faintly there; combat brings it to full strength.
             presence = Math.max(idle, activity);
-            ShieldShellVisual.render(role, consumer, new ShieldShellVisual.Frame(matrix, originX, originY, originZ, radius, forwardX, forwardZ,
+            ShieldShellVisual.render(role, consumer, ShieldGlow.consumer(), new ShieldShellVisual.Frame(matrix, originX, originY, originZ, radius, forwardX, forwardZ,
                     eyeDirection, world), state, impacts, threats, time, presence, low);
             ShieldGlow.halo(matrix, role, originX, originY, originZ, radius, activity, impacts, time, eyeDirection, low);
             if (role == RelicRole.TWINS_SHIELD) {

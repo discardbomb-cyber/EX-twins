@@ -26,6 +26,14 @@ public final class AddonClientConfig {
                     "Needs LambDynamicLights; without it this does nothing.")
             .define("lights.dynamic", true);
 
+    public static final ModConfigSpec.EnumValue<HiveJuice.Detail> HIVE_EFFECTS = BUILDER
+            .comment("How much the swarm's attacks show: aim circles, trails, sparks, shock rings and what lingers after a blow.",
+                    "low is about as they were before; high throws more sparks and lets them linger longer.")
+            .defineEnum("hive.effects", HiveJuice.Detail.NORMAL);
+    public static final ModConfigSpec.DoubleValue HIVE_SHAKE = BUILDER
+            .comment("How hard a swarm's blows within 16 blocks nudge the camera. 0 turns it off.")
+            .defineInRange("hive.shake", .6, 0.0, 2.0);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     static double idleOpacity() {
@@ -42,6 +50,14 @@ public final class AddonClientConfig {
 
     static double refractionStrength() {
         return SPEC.isLoaded() ? SHIELD_REFRACTION_STRENGTH.get() : 1.0;
+    }
+
+    static HiveJuice.Detail hiveEffects() {
+        return SPEC.isLoaded() ? HIVE_EFFECTS.get() : HiveJuice.Detail.NORMAL;
+    }
+
+    static double hiveShake() {
+        return SPEC.isLoaded() ? HIVE_SHAKE.get() : .6;
     }
 
     static boolean dynamicLights() {

@@ -18,6 +18,9 @@ public final class ModMenus {
                 return new DeviceControlMenu(id, inventory, charm, slot, buffer.readBoolean() ? buffer.readBlockPos() : null);
             }));
 
+    public static final DeferredHolder<MenuType<?>, MenuType<dev.hurtify.relicsaddon.menu.ShipHiveMenu>> SHIP_HIVE = MENUS.register("ship_hive",
+            () -> IMenuTypeExtension.create(dev.hurtify.relicsaddon.menu.ShipHiveMenu::new));
+
     private ModMenus() {
     }
 }

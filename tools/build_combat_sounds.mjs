@@ -108,6 +108,22 @@ const SPECS = [
   ["hive_twins_lightning_blast", "lightning_blast:twins", 1.2],
   ["hive_rf_seal", "containment:rf", .8], ["hive_mana_ward", "containment:mana", 1.1], ["hive_twins_rift", "containment:twins", 1.3],
   ["hive_ward_reflect", "ward_reflect", .45],
+  // The attacks' layers: a wind-up, a flight (a loop that follows the figure), a blow with a low end in a few
+  // variants, and the tail; the constructs locking shut, humming (loops) and coming apart; a far boom heard in
+  // place of a blow's near crack.
+  ["hive_rf_ram_windup", "ram_windup:rf", .42],
+  ["hive_rf_ram_impact_1", "ram_impact:rf", .95], ["hive_rf_ram_impact_2", "ram_impact:rf", .95], ["hive_rf_ram_impact_3", "ram_impact:rf", .95],
+  ["hive_mana_drop_fall", "drop_fall:mana", .75],
+  ["hive_mana_drop_splash_1", "drop_splash:mana", 1.15], ["hive_mana_drop_splash_2", "drop_splash:mana", 1.15], ["hive_mana_drop_splash_3", "drop_splash:mana", 1.15],
+  ["hive_twins_rift_open", "rift_open:twins", .7],
+  ["hive_rf_ring_burst_1", "ring_burst:rf", .7], ["hive_rf_ring_burst_2", "ring_burst:rf", .7],
+  ["hive_twins_glass_shatter_1", "glass_shatter:twins", .85], ["hive_twins_glass_shatter_2", "glass_shatter:twins", .85],
+  ["hive_rf_cage_lock", "construct_lock:rf", .85], ["hive_mana_lotus_lock", "construct_lock:mana", 1.25], ["hive_twins_rift_lock", "construct_lock:twins", 1.15],
+  ["hive_rf_release", "construct_release:rf", .6], ["hive_mana_release", "construct_release:mana", .8], ["hive_twins_release", "construct_release:twins", .75],
+  ["hive_rf_ground_bolt", "ground_bolt:rf", .55],
+  ["hive_rf_cage_hum", "hum_loop:rf", 2.0], ["hive_mana_lotus_hum", "hum_loop:mana", 2.0], ["hive_twins_rift_hum", "hum_loop:twins", 2.0],
+  ["hive_rf_flight", "flight_loop:rf", 1.0], ["hive_mana_flight", "flight_loop:mana", 1.0], ["hive_twins_flight", "flight_loop:twins", 1.0],
+  ["hive_far_boom_1", "far_boom", 1.4], ["hive_far_boom_2", "far_boom", 1.4],
   ["ui_toggle", "ui_toggle", .20], ["ui_upgrade", "ui_upgrade", .55],
   // Armageddon: the cannon charging (it lasts exactly until the shot), the shot, and the blast.
   ["hive_armageddon_charge", "armageddon_charge:twins", 60.0], ["hive_armageddon_fire", "armageddon_fire:twins", 1.2],
@@ -128,7 +144,16 @@ const SPECS = [
   ["hive_rf_armageddon_flight", "rf_armageddon_flight:rf", (RF.IMPACT - RF.FIRE) / 20],
   ["hive_rf_armageddon_dome", "rf_armageddon_dome:rf", RF.DOME / 20],
   ["hive_rf_armageddon_blast", "rf_armageddon_blast:rf", RF.BLAST_SECONDS],
+  // Ship hives: the lance's beam (a seamless loop, played for as long as it burns), its ignition and its overheating;
+  // the aegis taking a blow, breaking and rising; an escort wing's arc and its take-off.
+  ["ship_lance_beam", "lance_beam:twins", 2.0], ["ship_lance_ignite", "lance_ignite:twins", .6], ["ship_lance_overheat", "lance_overheat:twins", 1.6],
+  ["ship_aegis_block_1", "aegis_block:mana", .45], ["ship_aegis_block_2", "aegis_block:mana", .5],
+  ["ship_aegis_break", "shield_collapse:mana", 1.4], ["ship_aegis_raise", "aegis_raise:mana", .9],
+  ["ship_escort_arc_1", "escort_arc:rf", .35], ["ship_escort_arc_2", "escort_arc:rf", .4], ["ship_escort_launch", "escort_launch:rf", .7],
 ];
+
+/** Sounds played over and over while something lasts: made to loop without a seam. */
+const LOOPS = new Set(["lance_beam"]);
 
 // Base pitch per family: RF is metallic and bright, Mana glassy and high, Twins dark and low.
 const PALETTE = {
@@ -291,7 +316,14 @@ function reverb(buffer, mix = .25, size = 1) {
   return buffer.map((v, i) => v * (1 - mix) + wet[i] * mix);
 }
 
+/** How much longer than it plays a loop is made, so its end can be laid over its start without a seam. */
+const LOOP_OVERLAP = .3;
+
 function synthesize(name, family, seconds) {
+  // A loop is made a little longer, and its tail laid over its head, so its end runs straight on into its start.
+  const looped = family.includes("_loop") || LOOPS.has(family.split(":")[0]);
+  const played = seconds;
+  if (looped) seconds += LOOP_OVERLAP;
   const v = new Voice(seconds, name);
   const n = v.n;
   const variant = /_2$/.test(name) ? 1 : 0;
@@ -477,6 +509,133 @@ function synthesize(name, family, seconds) {
         v.add(mul(bandpass(v.noise(), (t, x) => 200 + 1600 * (1 - x), 3), env(n, seconds * .7, .2)), .4);
       }
       space = .4;
+      break;
+    }
+    case "ram_windup": {
+      // The tesseract closing into a cube: a servo whine rushing up, two ratchet clicks and a hard lock.
+      v.add(mul(lowpass(osc(n, (t, x) => (220 + 900 * x * x) * detune, "saw"), 2600), env(n, .03, seconds * .6)), .3);
+      [.09, .21].forEach(at => v.add(mul(bell(Math.round(.06 * RATE), 2300 * detune, [1, 2.4, 3.9], .012), env(Math.round(.06 * RATE), .0005, .01)), .45, at));
+      v.add(mul(highpass(v.noise(Math.round(.05 * RATE)), 1500), env(Math.round(.05 * RATE), .0005, .008)), .7, .33);
+      v.add(mul(osc(Math.round(.09 * RATE), t => 160 * Math.exp(-t * 30) + 60), env(Math.round(.09 * RATE), .001, .03)), .6, .33);
+      break;
+    }
+    case "ram_impact": {
+      // A cube of metal rammed home: a clang of inharmonic metal over a low thud, then sparks.
+      v.add(bell(n, 360 * detune * (1 + (v.random() - .5) * .08), [1, 2.41, 3.87, 5.62, 7.31], .32), .5);
+      v.add(mul(osc(n, t => 64 * Math.exp(-t * 10) + 34), env(n, .002, .22)), .95);
+      v.add(mul(highpass(v.noise(), 2000), env(n, .0008, .018)), .6);
+      v.add(highpass(crackle(v, (t, x) => 3200 * Math.exp(-x * 4), .001), 2600), .35);
+      space = .18;
+      break;
+    }
+    case "drop_fall": {
+      // A drop of glass falling: a whistle bending down as it gathers speed.
+      v.add(mul(osc(n, (t, x) => (2600 * Math.exp(-x * 1.2) + 600) * detune), env(n, .06, seconds * .8)), .22);
+      v.add(mul(bandpass(v.noise(), (t, x) => 2800 * Math.exp(-x * 1.1) + 500, 7), env(n, .08, seconds * .8)), .45);
+      space = .25;
+      break;
+    }
+    case "drop_splash": {
+      // It lands like water and glass at once: a splash, a spray of glassy grains, a low bloom, and ripples ringing out.
+      v.add(mul(bandpass(v.noise(), t => 2400 * Math.exp(-t * 5) + 600, 1.6), env(n, .002, .12)), .7);
+      for (let g = 0; g < 22; g++) v.add(bell(Math.round(.1 * RATE), (1700 + v.random() * 2400) * detune, [1, 2.76], .025), .07, .01 + v.random() * .35);
+      v.add(mul(osc(n, t => 95 * Math.exp(-t * 6) + 48), env(n, .004, .25)), .55);
+      [1, 1.5, 2].forEach((step, k) => v.add(bell(n, p.pitch * .5 * step * detune, [1, 2.76, 5.4], .35), .12, .15 + k * .14));
+      space = .38;
+      break;
+    }
+    case "rift_open": {
+      // Space tearing open: a breath drawn in backwards, a dark hum under it, a crack as it gives.
+      v.add(mul(bandpass(v.noise(), (t, x) => 300 + 2300 * x, 2.5), env(n, seconds * .8, .06)), .6);
+      v.add(mul(osc(n, (t, x) => 46 + 20 * x), env(n, seconds * .5, .12)), .5);
+      v.add(mul(highpass(v.noise(Math.round(.06 * RATE)), 1200), env(Math.round(.06 * RATE), .0005, .012)), .7, seconds * .82);
+      space = .3;
+      break;
+    }
+    case "ring_burst": {
+      // A ring of lightning bursting: a white crack, a zap falling away, sparks.
+      v.add(mul(highpass(v.noise(), 1800), env(n, .0006, .025)), .85);
+      v.add(mul(fm(n, t => 3200 * Math.exp(-t * 12) + 180, 1.41, 3.5, .08), env(n, .001, .12)), .4);
+      v.add(highpass(crackle(v, (t, x) => 4200 * Math.exp(-x * 5), .0009), 2200), .45);
+      v.add(mul(osc(n, t => 90 * Math.exp(-t * 14) + 45), env(n, .002, .1)), .45);
+      break;
+    }
+    case "glass_shatter": {
+      // A glass icosahedron flying apart: a hard knock, then a shower of glass grains, bright and scattered.
+      v.add(mul(highpass(v.noise(), 3000), env(n, .0005, .02)), .6);
+      v.add(mul(osc(n, t => 120 * Math.exp(-t * 12) + 60), env(n, .002, .08)), .5);
+      for (let g = 0; g < 46; g++) {
+        const length = Math.round((.04 + v.random() * .08) * RATE);
+        v.add(bell(length, (2000 + v.random() * 4500) * detune, [1, 2.76, 5.4], .018 + v.random() * .03), .05 + v.random() * .06, .005 + Math.pow(v.random(), 1.6) * .4);
+      }
+      space = .25;
+      break;
+    }
+    case "construct_lock": {
+      // A construct locking shut round what it holds.
+      if (flavor === "rf") {
+        v.add(mul(osc(n, t => 110 * Math.exp(-t * 16) + 42), env(n, .002, .18)), .9);
+        v.add(bell(n, 260 * detune, [1, 2.41, 3.87], .12), .35);
+        [.0, .05].forEach(at => v.add(mul(highpass(v.noise(Math.round(.03 * RATE)), 2500), env(Math.round(.03 * RATE), .0004, .006)), .6, at));
+        v.add(mul(lowpass(osc(n, 120 * detune, "square"), 1400), env(n, .25, .3).map((x, i) => x * Math.min(1, i / (RATE * .1)))), .2);
+      } else if (flavor === "mana") {
+        [1, 1.25, 1.5, 2].forEach((step, k) => v.add(bell(n, 660 * step * detune, [1, 2.76, 5.4], .5), .18, k * .07));
+        v.add(mul(bandpass(v.noise(), 6000, 6), env(n, .08, .35)), .15);
+        v.add(mul(osc(n, t => 130 * Math.exp(-t * 5) + 70), env(n, .003, .2)), .3);
+        space = .45;
+      } else {
+        v.add(mul(osc(n, (t, x) => 90 * Math.exp(-x * 2.5) + 26), env(n, .01, .45)), .8);
+        v.add(mul(bandpass(v.noise(), (t, x) => 900 * Math.exp(-x * 2) + 150, 2), env(n, .004, .3)), .5);
+        v.add(mul(highpass(v.noise(Math.round(.05 * RATE)), 1500), env(Math.round(.05 * RATE), .0005, .01)), .6);
+        space = .35;
+      }
+      break;
+    }
+    case "construct_release": {
+      // A construct coming apart into its drones: a crackling scatter over a tone falling away.
+      v.add(highpass(crackle(v, (t, x) => 5000 * Math.exp(-x * 3.5), .0011), 1800), .6);
+      v.add(mul(fm(n, (t, x) => p.pitch * .5 * (1 - .6 * x) * detune, p.ratio, p.index * .5, .2), env(n, .004, seconds * .4)), .3);
+      if (flavor === "mana") for (let g = 0; g < 12; g++) v.add(bell(Math.round(.12 * RATE), p.pitch * (.7 + v.random()), [1, 2.76], .04), .08, v.random() * .4);
+      if (flavor === "twins") v.add(mul(osc(n, (t, x) => 60 - 30 * x), env(n, .01, .25)), .5);
+      space = .3;
+      break;
+    }
+    case "ground_bolt": {
+      // A caught shot running off the cage into the ground: a crack, a zap down, a thud.
+      v.add(mul(highpass(v.noise(), 1600), env(n, .0006, .03)), .8);
+      v.add(mul(fm(n, t => 2400 * Math.exp(-t * 9) + 120, 1.41, 3, .1), env(n, .001, .1)), .35);
+      v.add(mul(osc(n, t => 70 * Math.exp(-t * 8) + 38), env(n, .02, .14)), .6, .03);
+      v.add(highpass(crackle(v, (t, x) => 3000 * (1 - x), .001), 2400), .35);
+      break;
+    }
+    case "hum_loop": {
+      // A construct holding, steady so it can loop: the cage's mains hum and sparks, the lotus's glass choir, the rift's beating void.
+      if (flavor === "rf") {
+        v.add(lowpass(osc(n, 60, "square"), 700), .25);
+        v.add(osc(n, 120), .12);
+        v.add(highpass(crackle(v, () => 90, .0012), 2400), .35);
+      } else if (flavor === "mana") {
+        [1, 1.5, 2, 3].forEach((step, k) => v.add(osc(n, t => 330 * step * (1 + .003 * Math.sin(t * TAU * (.7 + k * .3)))), .1 / (1 + k * .3)));
+        v.add(bandpass(v.noise(), 4200, 8), .05);
+      } else {
+        v.add(osc(n, 38), .35);
+        v.add(osc(n, 57.5), .25);
+        v.add(bandpass(v.noise(), t => 350 + 180 * Math.sin(t * TAU * .8), 3), .25);
+      }
+      break;
+    }
+    case "flight_loop": {
+      // A figure rushing through the air, steady so it can loop: rushing air and the family's own tone in it.
+      v.add(bandpass(v.noise(), 900, 1.8), .5);
+      if (flavor === "rf") v.add(fm(n, 440, 1.41, 1.2, 100), .08);
+      else if (flavor === "mana") v.add(osc(n, t => 1320 * (1 + .01 * Math.sin(t * TAU * 5))), .06);
+      else v.add(osc(n, 110), .18);
+      break;
+    }
+    case "far_boom": {
+      // A blow heard from far off: only the low end reaches, a dull boom rolling away.
+      v.add(mul(lowpass(lowpass(v.noise(), 160), 160), env(n, .03, .45)), 1.4);
+      v.add(mul(osc(n, t => 42 * detune + 12 * Math.exp(-t * 4)), env(n, .02, .4)), .6);
       break;
     }
     case "ward_reflect": {
@@ -958,11 +1117,82 @@ function synthesize(name, family, seconds) {
       space = 0;
       break;
     }
+    case "lance_beam": {
+      // The lance burning: a dark hum of detuned saws breathing under a sizzle and the crackle of what it burns,
+      // with a whine riding on top.
+      const breath = osc(n, .5).map(x => .8 + .2 * x);
+      const low = osc(n, 55, "saw"), beat = osc(n, 55.5, "saw"), octave = osc(n, 110.5, "saw");
+      const hum = low.map((x, i) => x + beat[i] + .5 * octave[i]);
+      v.add(mul(lowpass(hum, 850), breath), .3);
+      v.add(bandpass(v.noise(), 3400, 3).map((x, i) => x * (.7 + .3 * Math.sin(TAU * 7 * i / RATE))), .16);
+      v.add(highpass(crackle(v, () => 900, .0008), 2200), .22);
+      v.add(fm(n, t => 440 * (1 + .01 * Math.sin(TAU * 5 * t)), 1.5, 1.2, 1e9), .07);
+      space = .1;
+      break;
+    }
+    case "lance_ignite": {
+      // Three beams meeting in one: a whine rushing up, then a thump and a hiss as the lance leaps out.
+      v.add(mul(fm(n, (t, x) => p.pitch * (1 + 2 * Math.min(1, x / .55)) * detune, p.ratio, p.index * .6, .5), env(n, .25, .1)), .35);
+      v.add(mul(osc(n, t => 120 * Math.exp(-Math.max(0, t - .3) * 16) + 45), env(n, .3, .12)), .6);
+      v.add(mul(highpass(v.noise(), 2500), env(n, .31, .09)), .35);
+      v.add(highpass(crackle(v, (t, x) => 3000 * Math.max(0, x - .45), .001), 2000), .35);
+      space = .25;
+      break;
+    }
+    case "lance_overheat": {
+      // Spent: a hiss of steam venting, metal ticking as it cools, and a low groan.
+      v.add(mul(highpass(v.noise(), 1800), env(n, .03, .55)), .5);
+      v.add(mul(bandpass(v.noise(), (t, x) => 5200 - 2600 * x, 2), env(n, .02, .4)), .3);
+      for (let k = 0; k < 7; k++) v.add(bell(Math.round(.1 * RATE), 1900 + v.random() * 1500, [1, 2.76], .02), .12, .25 + k * .17 + v.random() * .05);
+      v.add(mul(osc(n, (t, x) => 70 - 25 * x), env(n, .05, .6)), .4);
+      space = .2;
+      break;
+    }
+    case "aegis_block": {
+      // The ship's shield taking a blow: a heavy thud through the hull and the shield ringing like struck glass.
+      v.add(mul(osc(n, t => 150 * Math.exp(-t * 16) + 48), env(n, .001, .08)), .75);
+      v.add(mul(fm(n, p.pitch * .75 * detune, p.ratio, p.index * 1.2, .06), env(n, .001, .14)), .32);
+      v.add(bell(n, p.pitch * .5 * detune, [1, 2.76, 5.4, 8.93], .2), .22);
+      v.add(mul(bandpass(v.noise(), t => 3800 * Math.exp(-t * 8) + 600, 2), env(n, .001, .05)), .35);
+      space = .35;
+      break;
+    }
+    case "aegis_raise": {
+      // The shield going up: a rising glassy chord and a swell of air.
+      [1, 1.25, 1.5, 2].forEach((step, k) => v.add(mul(fm(n, (t, x) => p.pitch * .5 * step * (.85 + .15 * x) * detune, 3.5, .8, .4), env(n, .12 + k * .08, .3)), .16, k * .07));
+      v.add(mul(bandpass(v.noise(), (t, x) => 400 + 3000 * x, 5), env(n, seconds * .6, .15)), .25);
+      space = .45;
+      break;
+    }
+    case "escort_arc": {
+      // The arc between a wing's two drones lashing out: a white crack, a falling zap and spitting sparks.
+      v.add(mul(highpass(v.noise(), 2000), env(n, .0006, .025)), .7);
+      v.add(mul(fm(n, t => 3000 * detune * Math.exp(-t * 16) + 300, 1.41, 3.4, .05), env(n, .002, .08)), .45);
+      v.add(highpass(crackle(v, (t, x) => 5000 * (1 - x) ** 2, .0009), 1600), .55);
+      v.add(mul(osc(n, t => 90 * Math.exp(-t * 20) + 40), env(n, .001, .06)), .45);
+      space = .12;
+      break;
+    }
+    case "escort_launch": {
+      // A wing taking off: a whoosh rising past, and a whine that climbs with it.
+      v.add(mul(bandpass(v.noise(), (t, x) => 300 + 2500 * Math.sin(Math.PI * x * .8), 3), env(n, .15, .25)), .5);
+      v.add(mul(fm(n, (t, x) => p.pitch * (.5 + .6 * x) * detune, p.ratio, p.index * .5, .3), env(n, .1, .2)), .22);
+      space = .2;
+      break;
+    }
     default:
       throw new Error(`Unhandled family ${family}`);
   }
 
   let out = space > 0 ? reverb(v.out, space, flavor === "twins" ? 1.2 : 1) : v.out;
+  // A loop has its overlap laid back over its start, so its end runs on into its start without a seam.
+  if (looped) {
+    const length = Math.round(played * RATE), overlap = n - length;
+    const joined = new Float64Array(length);
+    for (let i = 0; i < length; i++) joined[i] = out[i];
+    for (let i = 0; i < overlap; i++) { const w = i / overlap; joined[i] = out[i] * w + out[length + i] * (1 - w); }
+    out = joined;
+  }
   // Zero DC, normalise below full scale, and force click-free edges.
   const mean = out.reduce((a, b) => a + b, 0) / out.length;
   out = out.map(x => x - mean);
@@ -990,6 +1220,7 @@ function synthesize(name, family, seconds) {
   }
   // Vorbis overshoots a limited signal a little, so a loud sound still keeps some headroom.
   const gain = peak ? (loud ? .9 : .8) / peak : 0;
+  if (looped) return Float32Array.from(out, x => x * gain);
   const fade = Math.min(Math.round(RATE * .012), Math.floor(n / 3));
   return Float32Array.from(out, (x, i) => x * gain * Math.min(1, i / fade, (n - 1 - i) / fade));
 }
