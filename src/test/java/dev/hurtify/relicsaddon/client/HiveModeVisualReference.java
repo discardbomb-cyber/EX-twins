@@ -7,6 +7,7 @@ import dev.hurtify.relicsaddon.drone.HiveShapes;
 import dev.hurtify.relicsaddon.drone.HiveSlots;
 import dev.hurtify.relicsaddon.drone.HiveTarget;
 import dev.hurtify.relicsaddon.drone.HiveType;
+import dev.hurtify.relicsaddon.client.HiveModeVisual.Scene;
 import java.util.List;
 import java.util.Random;
 import net.minecraft.world.phys.Vec3;
@@ -27,24 +28,7 @@ import org.joml.Matrix4f;
  * </ul>
  * Positions are world space; {@code camera} is subtracted here.
  */
-public final class HiveModeVisual {
-    /**
-     * What one swarm looks like this frame. {@code drones[slot]} is null for an empty place. Strike group
-     * g attacks {@code targets[g % n]}. {@code timing} maps a group to the swarm-wide group whose clock it
-     * keeps (null: itself) and {@code timingGroups} is the swarm's group count, so a part of the scene
-     * cut out round one target still charges and strikes in step with the server.
-     */
-    public record Scene(AttackMode mode, HiveType type, int slots, int groups, int[] members, Vec3[] drones, Vec3 owner, List<HiveTarget> targets,
-                 double time, double cycleStart, int interval, boolean formed, int[] timing, int timingGroups) {
-        /** The first (or, in a part, the only) target's feet, width and height. */
-        public Vec3 target() { return targets.getFirst().feet(); }
-        public double width() { return targets.getFirst().width(); }
-        public double height() { return targets.getFirst().height(); }
-        public int engaged() { return HiveFormation.engaged(targets.size(), HiveSlots.figures(groups, mode, type)); }
-        public HiveTarget targetOf(int group) { return targets.get(group % engaged()); }
-        public int timingGroup(int group) { return timing == null ? group : timing[group]; }
-    }
-
+final class HiveModeVisualReference {
     public static void render(Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m) {
         int color = color(s.type());
         switch (s.mode()) {
@@ -56,10 +40,10 @@ public final class HiveModeVisual {
                 if (!s.formed()) return;
                 for (int index = 0; index < s.engaged(); index++) {
                     Scene part = part(s, index);
-                    HiveConstructVisual.render(part, camera, glow, fill, m, color);
+                    HiveConstructVisualReference.render(part, camera, glow, fill, m, color);
                     // A heads-up circle turns slowly on the ground under what is held.
                     if (HiveJuice.detail() != HiveJuice.Detail.LOW) {
-                        HiveJuice.aim(part.target(), Math.max(1.2, HiveFormation.enclosure(part.width(), part.height()) * 1.3), .5, s.time(), color, accent(s.type()),
+                        HiveJuiceReference.aim(part.target(), Math.max(1.2, HiveFormation.enclosure(part.width(), part.height()) * 1.3), .5, s.time(), color, accent(s.type()),
                                 camera, glow, m);
                     }
                 }
@@ -88,46 +72,6 @@ public final class HiveModeVisual {
         }
         return new Scene(s.mode(), s.type(), slots, groups, members, drones, s.owner(), List.of(s.targets().get(index)), s.time(),
                 s.cycleStart(), s.interval(), s.formed(), timing, s.timingGroups());
-    }
-
-    /**
-     * The light these constructs cast on the world ({@link EffectLights}): each strike group's shape,
-     * each charge while it builds, the containment construct and the Twins black hole's disk. Only the
-     * world renderer calls this; gallery scenes have no world to light.
-     */
-    public static void light(Scene s) {
-        switch (s.mode()) {
-            case DROPLET -> {
-                for (int group = 0; group < s.groups(); group++) {
-                    if (s.members()[group] == 0) continue;
-                    EffectLights.glow(dropletCentre(s, group, s.time()), 7 + 6 * heat(s, group), HiveFormation.shapeSize(s.members()[group]));
-                }
-            }
-            case BARRAGE -> {
-                for (int index = 0; index < s.engaged(); index++) {
-                    Scene part = part(s, index);
-                    for (int group = 0; group < part.groups(); group++) {
-                        if (part.members()[group] == 0) continue;
-                        // Every clump glows a little; its charge brightens it as it builds.
-                        double charge = charge(part, group);
-                        Vec3 centre = HiveFormation.clusterCentre(part.type(), part.target(), part.width(), part.height(), group, part.groups(), part.time());
-                        EffectLights.glow(centre, 4 + 10 * charge, HiveFormation.clumpRadius(part.members()[group]));
-                    }
-                }
-            }
-            case CONTAINMENT -> {
-                if (!s.formed()) return;
-                for (int index = 0; index < s.engaged(); index++) {
-                    Scene part = part(s, index);
-                    Vec3 core = HiveFormation.core(part.target(), part.height());
-                    EffectLights.glow(core, part.type() == HiveType.TWINS ? 8 : 10, HiveFormation.enclosure(part.width(), part.height()) * 1.3);
-                }
-            }
-        }
-    }
-
-    /** The frame is drawn: what was worked out once for it (the parts of each scene) is let go. */
-    public static void endFrame() {
     }
 
     public static int color(HiveType type) {
@@ -167,14 +111,14 @@ public final class HiveModeVisual {
     private static final double AIM_TICKS = 10;
 
     private static void droplets(Scene s, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, int color) {
-        long owner = GlowBrush.flat() ? 0 : ownerKey(s);
+        long owner = GlowBrushReference.flat() ? 0 : ownerKey(s);
         for (int group = 0; group < s.groups(); group++) {
             if (s.members()[group] == 0) continue;
             HiveTarget target = s.targetOf(group);
             Vec3 core = HiveFormation.core(target.feet(), target.height());
             double coming = until(s, group, HiveFormation.IMPACT);
             if (coming <= AIM_TICKS && HiveJuice.detail() != HiveJuice.Detail.LOW) {
-                HiveJuice.aim(target.feet(), Math.max(1, target.width() * 1.6), 1 - coming / AIM_TICKS, s.time() + group * 13, color, accent(s.type()), camera, glow, m);
+                HiveJuiceReference.aim(target.feet(), Math.max(1, target.width() * 1.6), 1 - coming / AIM_TICKS, s.time() + group * 13, color, accent(s.type()), camera, glow, m);
             }
             Vec3 home = HiveFormation.muster(s.owner(), s.target(), group, s.groups(), s.time());
             Vec3 centre = dropletCentre(s, group, s.time());
@@ -190,12 +134,12 @@ public final class HiveModeVisual {
             };
             if (s.type() == HiveType.TWINS) rifts(s, group, home, core, sortie, camera, glow, fill, m, color);
             if (HiveFormation.dropletHidden(s.type(), sortie)) continue;
-            if (sortie > 0 && sortie < 2 && !GlowBrush.flat()) HiveLoopSounds.flying(owner << 8 | (long) s.type().ordinal() << 5 | group, s.type(), centre, s.time());
+            if (sortie > 0 && sortie < 2 && !GlowBrushReference.flat()) HiveLoopSounds.flying(owner << 8 | (long) s.type().ordinal() << 5 | group, s.type(), centre, s.time());
             Vec3[] axes = HiveShapes.axes(facing);
             double size = HiveFormation.shapeSize(s.members()[group]);
             Vec3 c = centre.subtract(camera);
             // The figure's place in the fan: a faint ring it forms up in, brighter while it waits there.
-            GlowBrush.circle(glow, m, home.subtract(camera), axes[1], axes[2], size * 1.9, 40, .012, color, sortie <= 0 ? 60 : 22);
+            GlowBrushReference.circle(glow, m, home.subtract(camera), axes[1], axes[2], size * 1.9, 40, .012, color, sortie <= 0 ? 60 : 22);
             // A streak behind a figure on the move.
             // (None where it came out of a rift a moment ago, and never longer than a few blocks.)
             double earlier = HiveFormation.sortie(s.owner(), s.target(), target.feet(), target.height(), group, s.groups(), s.time() - 1.5, s.cycleStart(), s.interval());
@@ -205,7 +149,7 @@ public final class HiveModeVisual {
                     Vec3 back = before.subtract(c).scale(2.2);
                     if (back.length() > 2.5) back = back.normalize().scale(2.5);
                     Vec3 tail = c.add(back);
-                    GlowBrush.line(glow, m, c, tail, size * .45, .01, color, color, 110 * heat, 0);
+                    GlowBrushReference.line(glow, m, c, tail, size * .45, .01, color, color, 110 * heat, 0);
                 }
             }
             switch (s.type()) {
@@ -214,13 +158,13 @@ public final class HiveModeVisual {
                     double whole = sortie > 1 && sortie < 2 ? 1 - Math.sin(Math.PI * Math.min(1, (sortie - 1) * 1.6)) : 1;
                     for (int[] edge : HiveShapes.TESSERACT_EDGES) {
                         Vec3 a = drone.apply(edge[0]), b = drone.apply(edge[1]);
-                        if (a != null && b != null) GlowBrush.beam(glow, m, a, b, .022, color, (80 + 140 * heat) * whole);
+                        if (a != null && b != null) GlowBrushReference.beam(glow, m, a, b, .022, color, (80 + 140 * heat) * whole);
                     }
                     for (int corner = 0; corner < HiveShapes.TESSERACT_CORNERS; corner++) {
                         Vec3 at = drone.apply(corner);
-                        if (at != null) GlowBrush.dot(glow, m, at, .08, 0xD8FCFF, 120 + 100 * heat);
+                        if (at != null) GlowBrushReference.dot(glow, m, at, .08, 0xD8FCFF, 120 + 100 * heat);
                     }
-                    GlowBrush.dot(glow, m, c, size * 1.5, color, 25 + 45 * heat);
+                    GlowBrushReference.dot(glow, m, c, size * 1.5, color, 25 + 45 * heat);
                 }
                 case MANA -> dropletFacets(drone, fill, glow, m, c, color, heat);
                 case TWINS -> {
@@ -232,7 +176,7 @@ public final class HiveModeVisual {
                         for (int side = 0; side < 6; side++) {
                             Vec3 a = drone.apply(ring + side * rings), b = drone.apply(ring + (side + 1) % 6 * rings);
                             if (a != null) { sum = sum.add(a); seen++; }
-                            if (a != null && b != null) GlowBrush.beam(glow, m, a, b, .018, color, 90 + 120 * heat);
+                            if (a != null && b != null) GlowBrushReference.beam(glow, m, a, b, .018, color, 90 + 120 * heat);
                         }
                         centres[ring] = seen == 0 ? c : sum.scale(1.0 / seen);
                     }
@@ -241,12 +185,12 @@ public final class HiveModeVisual {
                     for (int ring = 0; ring < rings; ring++) {
                         long seed = flicker * 31 + group * 7919L + ring;
                         if (new Random(seed).nextDouble() < .6) {
-                            GlowBrush.lightning(glow, m, centres[ring], centres[(ring + 1) % rings], seed, 5, .18, .012, 0xE7C6FF, 170 * heat + 40);
+                            GlowBrushReference.lightning(glow, m, centres[ring], centres[(ring + 1) % rings], seed, 5, .18, .012, 0xE7C6FF, 170 * heat + 40);
                         }
                     }
-                    GlowBrush.dot(glow, m, c, size * (.5 + .15 * Math.sin(s.time() * .9)), color, 60 + 120 * heat);
+                    GlowBrushReference.dot(glow, m, c, size * (.5 + .15 * Math.sin(s.time() * .9)), color, 60 + 120 * heat);
                     // Space bends round a figure in flight.
-                    if (flying && !GlowBrush.flat()) ShieldRefraction.queueLens(c.x, c.y, c.z, size * .4, size * 2.2, .8 * heat);
+                    if (flying && !GlowBrushReference.flat()) ShieldRefraction.queueLens(c.x, c.y, c.z, size * .4, size * 2.2, .8 * heat);
                 }
             }
             if (sortie <= 0 && HiveJuice.detail() != HiveJuice.Detail.LOW) idle(s, group, drone, glow, m, color);
@@ -271,12 +215,12 @@ public final class HiveModeVisual {
         Vec3 a = drone.apply(from), b = drone.apply(to);
         if (a != null && b != null) {
             double run = time / 8 - step;
-            GlowBrush.dot(glow, m, a.lerp(b, run), .06, GlowBrush.mix(color, 0xFFFFFF, .5), 200 * Math.sin(Math.PI * run));
+            GlowBrushReference.dot(glow, m, a.lerp(b, run), .06, GlowBrushReference.mix(color, 0xFFFFFF, .5), 200 * Math.sin(Math.PI * run));
         }
         long beat = (long) Math.floor(time / 40);
         if (time - beat * 40 < 5) {
             Vec3 p = drone.apply((int) Math.floorMod(beat * 5 + group, corners)), q = drone.apply((int) Math.floorMod(beat * 5 + group + corners / 2, corners));
-            if (p != null && q != null) GlowBrush.lightning(glow, m, p, q, beat * 131 + group, 5, .2, .008, GlowBrush.mix(color, 0xFFFFFF, .4), 170);
+            if (p != null && q != null) GlowBrushReference.lightning(glow, m, p, q, beat * 131 + group, 5, .2, .008, GlowBrushReference.mix(color, 0xFFFFFF, .4), 170);
         }
     }
 
@@ -329,18 +273,18 @@ public final class HiveModeVisual {
             left[k] = at.add(0, y, 0).add(side.scale(-width + jag));
             right[k] = at.add(0, y, 0).add(side.scale(width + jag * .6));
         }
-        int edge = GlowBrush.mix(color, 0xE7C6FF, .4);
+        int edge = GlowBrushReference.mix(color, 0xE7C6FF, .4);
         for (int k = 0; k < points - 1; k++) {
-            GlowBrush.quad(fill, m, left[k], left[k + 1], right[k + 1], right[k], 0x05010A, 0x05010A, 0x05010A, 0x05010A, 235 * open, 235 * open, 235 * open, 235 * open);
-            GlowBrush.beam(glow, m, left[k], left[k + 1], .02, edge, 200 * open);
-            GlowBrush.beam(glow, m, right[k], right[k + 1], .02, edge, 200 * open);
+            GlowBrushReference.quad(fill, m, left[k], left[k + 1], right[k + 1], right[k], 0x05010A, 0x05010A, 0x05010A, 0x05010A, 235 * open, 235 * open, 235 * open, 235 * open);
+            GlowBrushReference.beam(glow, m, left[k], left[k + 1], .02, edge, 200 * open);
+            GlowBrushReference.beam(glow, m, right[k], right[k + 1], .02, edge, 200 * open);
         }
         for (int star = 0; star < 7; star++) {
             double t = .15 + .7 * hashOf(seed * 7 + star, 11), u = hashOf(seed * 7 + star, 12) - .5;
             Vec3 point = left[0].lerp(left[points - 1], t).lerp(right[0].lerp(right[points - 1], t), .5 + u * .6);
-            GlowBrush.dot(glow, m, point, .025, 0xFFFFFF, 190 * open * (.6 + .4 * Math.sin(time * .4 + star)));
+            GlowBrushReference.dot(glow, m, point, .025, 0xFFFFFF, 190 * open * (.6 + .4 * Math.sin(time * .4 + star)));
         }
-        if (!GlowBrush.flat()) ShieldRefraction.queueLens(at.x, at.y, at.z, height * .15 * open, height * .9, .9 * open);
+        if (!GlowBrushReference.flat()) ShieldRefraction.queueLens(at.x, at.y, at.z, height * .15 * open, height * .9, .9 * open);
     }
 
     private static double hashOf(int seed, int salt) {
@@ -369,13 +313,13 @@ public final class HiveModeVisual {
             Vec3 a = drone.apply(face[0]), b = drone.apply(face[1]), d = drone.apply(face[2]);
             if (a == null || b == null || d == null) continue;
             Vec3 normal = b.subtract(a).cross(d.subtract(a));
-            double edgeOn = normal.lengthSqr() < 1e-12 ? 0 : 1 - Math.abs(normal.normalize().dot(GlowBrush.view(a.add(b).add(d).scale(1 / 3.0))));
-            int tint = GlowBrush.mix(0x0B5E62, color, .3 + .6 * edgeOn);
+            double edgeOn = normal.lengthSqr() < 1e-12 ? 0 : 1 - Math.abs(normal.normalize().dot(GlowBrushReference.view(a.add(b).add(d).scale(1 / 3.0))));
+            int tint = GlowBrushReference.mix(0x0B5E62, color, .3 + .6 * edgeOn);
             double alpha = 16 + 70 * edgeOn * edgeOn + 30 * heat;
-            GlowBrush.quad(fill, m, a, b, d, d, tint, tint, tint, tint, alpha, alpha, alpha, alpha);
-            GlowBrush.line(glow, m, a, b, .012, GlowBrush.mix(color, 0xFFFFFF, .5), 70 + 90 * heat);
+            GlowBrushReference.quad(fill, m, a, b, d, d, tint, tint, tint, tint, alpha, alpha, alpha, alpha);
+            GlowBrushReference.line(glow, m, a, b, .012, GlowBrushReference.mix(color, 0xFFFFFF, .5), 70 + 90 * heat);
         }
-        GlowBrush.dot(glow, m, c, .25, color, 30 + 60 * heat);
+        GlowBrushReference.dot(glow, m, c, .25, color, 30 + 60 * heat);
     }
 
     // --- barrage ---------------------------------------------------------------------------------
@@ -385,7 +329,7 @@ public final class HiveModeVisual {
         double soonest = Double.MAX_VALUE;
         for (int group = 0; group < groups; group++) if (s.members()[group] > 0) soonest = Math.min(soonest, until(s, group, HiveFormation.FIRE));
         if (soonest <= AIM_TICKS && HiveJuice.detail() != HiveJuice.Detail.LOW && s.type() != HiveType.MANA) {
-            HiveJuice.aim(s.target(), Math.max(1, s.width() * 1.6), 1 - soonest / AIM_TICKS, s.time(), color, accent(s.type()), camera, glow, m);
+            HiveJuiceReference.aim(s.target(), Math.max(1, s.width() * 1.6), 1 - soonest / AIM_TICKS, s.time(), color, accent(s.type()), camera, glow, m);
         }
         Vec3 core = HiveFormation.core(s.target(), s.height()).subtract(camera);
         Vec3[] centres = new Vec3[groups];
@@ -395,21 +339,21 @@ public final class HiveModeVisual {
             charges[group] = charge(s, group);
         }
         // The pattern the clumps make, with pulses of light running along its lines.
-        int light = GlowBrush.mix(color, 0xFFFFFF, .45);
+        int light = GlowBrushReference.mix(color, 0xFFFFFF, .45);
         for (int[] link : HiveFormation.clusterLinks(s.type(), groups)) {
             int a = link[0], b = link[1];
             if (s.members()[a] == 0 || s.members()[b] == 0) continue;
             double charge = (charges[a] + charges[b]) / 2;
-            GlowBrush.beam(glow, m, centres[a], centres[b], .022, color, 45 + 85 * charge);
+            GlowBrushReference.beam(glow, m, centres[a], centres[b], .022, color, 45 + 85 * charge);
             double run = (s.time() * .025 + a * .37 + b * .11) % 1;
-            GlowBrush.dot(glow, m, centres[a].lerp(centres[b], run), .1, light, 150 * Math.sin(Math.PI * run));
+            GlowBrushReference.dot(glow, m, centres[a].lerp(centres[b], run), .1, light, 150 * Math.sin(Math.PI * run));
         }
         for (int group = 0; group < groups; group++) {
             if (s.members()[group] == 0) continue;
             Vec3 centre = centres[group];
             double charge = charges[group], radius = HiveFormation.clumpRadius(s.members()[group]);
             // A soft halo so a clump reads from far off, then its charge glowing through the drones.
-            GlowBrush.dot(glow, m, centre, radius * 2.8, color, 28 + 52 * charge);
+            GlowBrushReference.dot(glow, m, centre, radius * 2.8, color, 28 + 52 * charge);
             if (s.type() == HiveType.MANA) {
                 chargeOrb(glow, m, centre, Math.max(.1, charge), radius * .8, group, s.time(), color);
                 continue;
@@ -423,7 +367,7 @@ public final class HiveModeVisual {
             if (links.length > 0 && s.time() - beat * 24 < 4) {
                 int[] link = links[(int) Math.floorMod(beat * 7, links.length)];
                 if (s.members()[link[0]] > 0 && s.members()[link[1]] > 0) {
-                    GlowBrush.lightning(glow, m, centres[link[0]], centres[link[1]], beat * 53, 7, .12, .01, GlowBrush.mix(color, 0xFFFFFF, .5), 200);
+                    GlowBrushReference.lightning(glow, m, centres[link[0]], centres[link[1]], beat * 53, 7, .12, .01, GlowBrushReference.mix(color, 0xFFFFFF, .5), 200);
                 }
             }
         }
@@ -448,17 +392,17 @@ public final class HiveModeVisual {
             Vec3 a = corners[corner], b = corners[(corner + 1) % ring];
             // A corner hopping to another clump takes its lines with it only as far as its own clump.
             if (a == null || b == null || a.distanceTo(centre) > reach || b.distanceTo(centre) > reach) continue;
-            GlowBrush.beam(glow, m, a, b, .014, color, 70 + 90 * charge);
+            GlowBrushReference.beam(glow, m, a, b, .014, color, 70 + 90 * charge);
             if (s.type() == HiveType.TWINS && charge > .15 && hashOf((int) flicker * 131 + group * 17, corner) < .5 * charge + .1) {
-                GlowBrush.lightning(glow, m, a, b, flicker * 131 + group * 17L + corner, 3, .25, .01, 0xE7C6FF, 210 * charge);
+                GlowBrushReference.lightning(glow, m, a, b, flicker * 131 + group * 17L + corner, 3, .25, .01, 0xE7C6FF, 210 * charge);
             }
             // Thin discharges from the corners into the charge.
             if (charge > .2 && a.lengthSqr() < 32 * 32 && hashOf((int) flicker * 7 + group, corner + 40) < .35) {
-                GlowBrush.lightning(glow, m, a, centre, flicker * 17 + group * 5L + corner, 3, .2, .005, GlowBrush.mix(color, 0xFFFFFF, .5), 150 * charge);
+                GlowBrushReference.lightning(glow, m, a, centre, flicker * 17 + group * 5L + corner, 3, .2, .005, GlowBrushReference.mix(color, 0xFFFFFF, .5), 150 * charge);
             }
         }
-        if (s.type() == HiveType.RF) HiveProjectiles.ring(glow, m, centre, core.subtract(centre), Math.max(.05, charge), s.time(), group * 977L + 13);
-        else HiveProjectiles.icosahedron(glow, fill, m, centre, HiveProjectiles.RADIUS * (.35 + .65 * charge), s.time() * .06 + group, .4 + .6 * charge);
+        if (s.type() == HiveType.RF) HiveProjectilesReference.ring(glow, m, centre, core.subtract(centre), Math.max(.05, charge), s.time(), group * 977L + 13);
+        else HiveProjectilesReference.icosahedron(glow, fill, m, centre, HiveProjectilesReference.RADIUS * (.35 + .65 * charge), s.time() * .06 + group, .4 + .6 * charge);
     }
 
     /** A barrage clump's charge, 0 to 1: it builds until the clump fires, then collapses within a few ticks. */
@@ -474,8 +418,8 @@ public final class HiveModeVisual {
      */
     private static void chargeOrb(VertexConsumer glow, Matrix4f m, Vec3 centre, double charge, double size, int group, double time, int color) {
         double radius = size * (.2 + .8 * charge);
-        GlowBrush.dot(glow, m, centre, radius * 2.4, color, 40 + 90 * charge);
-        GlowBrush.dot(glow, m, centre, radius * 1.1, GlowBrush.mix(color, 0xFFFFFF, .5), 120 + 120 * charge);
+        GlowBrushReference.dot(glow, m, centre, radius * 2.4, color, 40 + 90 * charge);
+        GlowBrushReference.dot(glow, m, centre, radius * 1.1, GlowBrushReference.mix(color, 0xFFFFFF, .5), 120 + 120 * charge);
         Random random = new Random(group * 977L + 13);
         double spin = time * .05;
         for (int trace = 0; trace < 9; trace++) {
@@ -485,10 +429,10 @@ public final class HiveModeVisual {
                 if (random.nextBoolean()) lat += (random.nextBoolean() ? 1 : -1) * .35;
                 else lon += (random.nextBoolean() ? 1 : -1) * .45;
                 Vec3 next = orbPoint(centre, radius, lat, lon + spin);
-                GlowBrush.line(glow, m, previous, next, radius * .045, GlowBrush.mix(color, 0xFFFFFF, .3), 150 * charge);
+                GlowBrushReference.line(glow, m, previous, next, radius * .045, GlowBrushReference.mix(color, 0xFFFFFF, .3), 150 * charge);
                 previous = next;
             }
-            GlowBrush.dot(glow, m, previous, radius * .12, 0xFFFFFF, 180 * charge);
+            GlowBrushReference.dot(glow, m, previous, radius * .12, 0xFFFFFF, 180 * charge);
         }
     }
 
@@ -498,15 +442,6 @@ public final class HiveModeVisual {
 
     // --- containment -----------------------------------------------------------------------------
 
-    /**
-     * Queues the pull of each Twins rift on the world round it. The renderer draws it before the drones and
-     * the light, which stay unbent over it.
-     */
-    public static void lenses(Scene s, Vec3 camera) {
-        if (s.mode() != AttackMode.CONTAINMENT || s.type() != HiveType.TWINS || !s.formed() || GlowBrush.flat()) return;
-        for (int index = 0; index < s.engaged(); index++) HiveConstructVisual.lens(part(s, index), camera);
-    }
-
-    private HiveModeVisual() {
+    private HiveModeVisualReference() {
     }
 }

@@ -375,6 +375,13 @@ tasks.register('verifyShieldRipple', JavaExec) {
     mainClass = 'dev.hurtify.relicsaddon.client.ShieldRippleCheck'
 }
 
+// The swarm's light after the geometry reuse emits the very vertices the kept reference code does, scene for scene.
+tasks.register('verifyHiveVisuals', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.client.HiveVisualEquivalenceCheck'
+}
+
 tasks.register('verifyShieldShell', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
