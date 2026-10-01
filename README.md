@@ -1,297 +1,265 @@
 # EX-twins
 
-Expandable autonomous shields and combat hives for Minecraft 1.21.1, NeoForge and Curios. Progression and upgrades are built into this mod; Relics is not required. Effects use [Photon](https://github.com/Low-Drag-MC/Photon).
+Автономные щиты и боевые ульи-рои для Minecraft 1.21.1 (NeoForge, Curios). Уровни и улучшения встроены в мод, Relics не нужен. Эффекты сделаны на [Photon](https://github.com/Low-Drag-MC/Photon) и геометрией прямо в мире.
 
-![Hives and swarms: deployment, combat and belt recall](docs/images/hives-and-swarms.gif)
+![Щит: попадания по сотам и бегущая волна](docs/images/preview-shield.gif)
 
-![EX-twins showcase: glass honeycomb shield, strikes, and the hive's droplet, barrage and containment modes](docs/images/ex-twins-showcase.gif)
+Все превью ниже сняты в игре сценариями мода (`runWorldScenarioClient`), это не монтаж.
 
-The showcase above is rendered in-game by the capture galleries: shield impacts on the honeycomb, then a 750-drone hive deploying 250 drones in each attack mode. The droplet figures fly from the fan behind their owner (the coloured outline) to the target (the grey outline). It is not a live-world battle recording, and the GIF has no audio. The older [46.5-second showcase](https://github.com/discardbomb-cyber/EX-twins/releases/download/v1.0.0-beta.1/EX-twins-showcase.gif) is still attached to the 1.0.0-beta.1 release.
-
-## Installation
-
-Install `EX-twins-1.0.0-beta.1.jar` on both the client and server alongside Curios, Photon, LDLib2 and KilaGraph (Photon 2.2.7+, LDLib2 2.2.40+). This is a beta release; back up existing worlds before upgrading. Devices run on built-in batteries; Botania, Ars Nouveau and Iron's Spells are optional mana sources.
-
-Optional: with [Create Aeronautics](https://modrinth.com/mod/create-aeronautics) (Sable) the ship hives ride and defend its ships; without it they defend a base where they stand. Sable Companion is bundled; nothing else is needed.
-
-Optional, client only: with [LambDynamicLights](https://modrinth.com/mod/lambdynamiclights) 4.8.11+ installed, the mod's effects light up the world around them: a visible shield (brighter for a moment after each hit), swarm strike groups, barrage charges while they build and in flight, blasts, the containment constructs, the Twins black hole, and the Armageddons (the Mana flowers, streams, sphere, seal and column among them). Nearby lights are merged and capped at 24 sources so chunk relighting stays cheap; the light is colourless. Client config `lights.dynamic` turns it off. Without LambDynamicLights nothing changes.
-
-## Build From Source
-
-Use Java 21 and the included Gradle wrapper. Curios, Photon, LDLib2 and KilaGraph are resolved from their Maven repositories (`maven.theillusivec4.top`, `maven.firstdark.dev/snapshots`); nothing has to be placed in `libs/`. LambDynamicLights (`maven.gegy.dev`) is only compiled against; the development clients load it, while `runGameTestServer` and `runReleaseCheckClient` run without it.
-
-Run `./gradlew build` on Linux/macOS or `.\gradlew.bat build` on Windows. The result is `build/libs/EX-twins-1.0.0-beta.1.jar`. The first build requires internet access for Gradle and NeoForge artifacts.
-
-## Items
-
-- `relics_addon:rf_shield` -> Curios `charm`
-- `relics_addon:mana_shield` -> Curios `charm`
-- `relics_addon:twins_shield` -> Curios `charm`
-- `relics_addon:rf_hive` -> Curios `charm`
-- `relics_addon:mana_hive` -> Curios `charm`
-- `relics_addon:twins_hive` -> Curios `charm`
-- `relics_addon:lance_hive`, `relics_addon:aegis_hive`, `relics_addon:escort_hive` -> blocks (ship hives)
-The RF, Mana, and Ex-Twins labels are style identities. Shields operate without external energy.
-Standalone drone item IDs are no longer registered. Hives deploy their existing models as typed defensive swarms; old `rf_drone`, `mana_drone`, and `twins_drone` stacks are unsupported and will not be converted.
-
-## Playable Build
-
-Version `1.0.0-beta.1` targets Minecraft 1.21.1, Java 21 and NeoForge 21.1.212.
-The three shields and three hives use the charm (Amulet) slot. Slot count remains controlled by the modpack. Each has a recipe and recipe-book unlock.
-Press `H` (rebindable in Controls) or hold Shift over a device to open its console: a holographic window with Overview (power switch, level, integrity, charge and the device's main stats), Batteries, Upgrades and, on hives, Swarm tabs. Labels shrink to fit their buttons; anything still cut short shows in full when hovered. Using a held device also toggles it.
-Each of the six items stores its own experience, levels, upgrade points and upgrade ranks in its item data. Combat awards bounded experience; each new level grants one upgrade point.
-
-- Shields have a shared 504 HP buffer, upgraded to 5000 HP over ten protection levels, plus 420 independent cells with 12 HP each. Incoming damage spends the buffer first, then local HP; empty regions become real holes when the buffer is exhausted. Total maximum at full progression: 10040 HP. Upgrading, toggling and changing settings do not refill HP.
-- The shell hits back: an aggressive mob touching it is thrown clear and takes the shield's own damage, 3-7 RF discharge (softened by armour), 2.5-6 Mana burst or 4-9 Twins surge (both through armour) from level 0 to 10. One mob is struck at most once a second; each strike costs 6 battery points. Neutral mobs such as endermen and zombified piglins are only struck once they attack the wearer. Server config: `shield.strikeDamage`, `shield.strikeKnockback`, `shield.strikeCooldownTicks`.
-- RF and Twins shells are a honeycomb of the 420 gameplay cells: flat glass panes joined by bright seams, with a sheen that follows the light; damaged RF cells warm through yellow to red, Twins cells dim, and a broken cell is a hole. Mana is one seamless teal dome. A shield is invisible until it is struck (client config `shield.idleOpacity` can keep it faintly visible).
-- After 40 quiet ticks, type-specific repair restores damaged cells before refilling the shared buffer. New topology and neighbors are cached once, not rebuilt during combat.
-- Shield radius starts at 2 blocks and unlocks up to 12 with protection upgrades. Choose the actual radius with `/relics_addon shield_radius <radius>`. Server config can impose a lower ceiling. RF plates have deterministic radial relief. Mana forms a smooth turquoise glass hemisphere facing the incoming projectile, with a luminous rim and traveling waves. Twins combines a continuous violet-black membrane, raised honeycomb segments and suspended violet motes. Hits on the Mana and Twins shields send a travelling wave across the shell: the surface bends into a crest and trough, and a refraction band on the wave front distorts the world behind it (client config `shield.refraction`, disabled automatically under Iris/Oculus shader packs).
-- Every impact brightens its region and launches an expanding wave across the visible field. Up to twelve recent impacts are retained, including hits during the same server tick; later waves do not reset earlier animation. Mana hemispheres clip to the incoming side and merge without double opacity. Idle fields remain invisible. Supported hostile projectiles born inside the shield are intercepted immediately beside the projectile; friendly shots are excluded.
-- `/relics_addon shield_coverage owner|allies|all` controls protection of creatures inside the sphere. The default is the owner, teams and tamed allies; `all` explicitly includes other living creatures. Melee and explosion protection use the covering owner's HP and incoming direction. These commands require no operator privilege and never change another player's item.
-- Unknown mod bullets require the `relics_addon:shield_interceptable_projectiles` entity-type tag or the `shield.interceptedProjectiles` server config list; hitscan weapons need an adapter. Unless listed there, tridents and utility pearls/potions are not removed.
-- Server config lists tune what the field stops. All are empty by default; entries are registry ids or `#tags`, read once per config load or reload, and a malformed or unknown entry is logged as a warning and matches nothing.
-  - `shield.passingDamageTypes`: damage types that always reach the wearer, on top of the `relics_addon:shield_passes` damage-type tag (starvation, drowning, suffocation, the void and similar), e.g. `["minecraft:fall", "#minecraft:is_fire"]`.
-  - `shield.absorbedDamageTypes`: damage types the field absorbs although `shield_passes` lets them through, e.g. `["minecraft:drown"]`. `shield.passingDamageTypes` wins over it, and shield strikes and swarm blows always pass.
-  - `shield.interceptedProjectiles`: entity types the field stops in flight besides arrows and the tag above, e.g. `["minecraft:snowball"]`. Tridents, pearls and potions listed here are stopped too.
-  - `shield.ignoredProjectiles`: entity types the field never stops in flight, overriding every other rule. Their hits are still absorbed at the wearer unless their damage type passes the field.
-  - `shield.keptEffects`: harmful effects the field never cuts off or trims when an attacker applies them, e.g. `["minecraft:poison"]`.
-- Eligible damage first spends common buffer HP, then the struck cell and the configured neighbor share. There is no baseline percentage leak. Any excess after this protection is exhausted reaches the wearer immediately; later hits through that hole pass until repair or gathering. Other intact cells continue protecting.
-- Explosion protection spends the common buffer first and then local HP on the explosion side. Terrain destruction and knockback remain vanilla behavior.
-- Upgrades are bought in the console's Upgrades tab with points earned from levels (one point per rank, three ranks each). Each shield and hive uses its own illustrated 22x31 upgrade cards; inventory item views remain 3D.
-- Distribution: RF 25-45% from relic level 2, Mana 20-35% from level 3, Ex-Twins 35-50% from level 2. Each has three upgrade levels and uses the same two-neighbor HP-conserving mechanic.
-- Gathering: RF 1-2 cells from level 4; Mana 1-3 from level 2; no Ex-Twins gathering. Travel remains 10 ticks with a 40-tick cooldown. Moving cells cannot protect until arrival, retain HP and leave donor holes.
-- Restoration unlocks at relic levels 5/4/3 for RF/Mana/Twins and upgrades passive recovery to 2/3/2 HP per repair step. Twins additionally unlocks barrier stabilization at level 4, reducing the post-hit recovery pause from 40 to 16 ticks. Neither upgrade raises the 5000 HP buffer limit or refills protection on purchase.
-- Ex-Twins retains subtle arcane seals beneath its raised segments. On a confirmed absorption, violet circuit-board traces grow out from the hit point across the shell, forking and ending in pads, with a signal pulse running along them. Every shield also gets an additive glow that flares at hits and along the wave crest.
-- The hit-time damage fallback respects vanilla shield-bypass tags. Fake players, spectators and disabled slots do not operate the relics.
-- The main shield ability keeps fixed full absorption while upgrading buffer capacity and radius. Distribution/gathering remain separate upgrades. Successful combat and absorption award bounded experience; idle time and repair do not.
-- Shield inventory and world views reuse the same animated 3D models.
-
-## Crafting
-
-Devices are built from the mod's own parts rather than raw vanilla items (all use vanilla materials, so any pack can craft them):
-
-| Part | Made from | Goes into |
+| Капля | Обстрел | Сдерживание |
 | --- | --- | --- |
-| Resonant Circuit (x2) | gold nuggets, redstone, quartz, copper ingot | every part and device |
-| Energy Cell | copper, iron, redstone block, circuit | RF and Twins devices (RF battery) |
-| Mana Cell | amethyst shards, gold, lapis block, circuit | Mana and Twins devices (mana battery) |
-| RF / Mana / Twins Shield Core | a vanilla shield, iron and diamond / gold, amethyst block and diamond / crying obsidian, echo shards and diamond, plus circuits | the matching shield |
-| RF Drone Frame (x2) | iron, copper, redstone, circuit | RF Hive (six frames) |
-| Mana Drone Shell (x2) | gold nuggets, amethyst shards, circuit | Mana Hive (six shells) |
-| Twins Drone Plate (x2) | obsidian, amethyst shards, circuit | Twins Hive (four plates, both cells and an end crystal) |
-| Lance Ship Hive | three Twins drone plates, a circuit, an energy cell, four iron blocks | built into a ship |
-| Aegis Ship Hive | six Mana drone shells, a Mana shield core, two circuits | built into a ship |
-| Escort Ship Hive | four RF drone frames, a circuit, an energy cell, three iron blocks | built into a ship |
+| ![Капля: RF-тессеракт, мана-капли, разрыв Ex-Twins](docs/images/preview-droplet.gif) | ![Обстрел: сгустки дронов и их выстрелы](docs/images/preview-barrage.gif) | ![Сдерживание: клетка Фарадея, лотос, разлом](docs/images/preview-containment.gif) |
 
-Recipes unlock in the recipe book once you hold the key part. Icons are drawn by `tools/draw_component_icons.mjs`.
+| Армагеддон | Мана-Армагеддон | RF-Армагеддон |
+| --- | --- | --- |
+| ![Армагеддон Ex-Twins: чёрная дыра и сверхновая](docs/images/preview-armageddon-twins.gif) | ![Мана-Армагеддон: два цветка и столб света](docs/images/preview-armageddon-mana.gif) | ![RF-Армагеддон: голограмма дрона, шар и купол](docs/images/preview-armageddon-rf.gif) |
 
-## Batteries
+![Корабельные ульи на корабле Create Aeronautics](docs/images/preview-ship-hives.gif)
 
-Every device has built-in batteries: RF shields and hives an RF battery, Mana devices a mana battery, and Twins devices both. A switched-on device only works while one of its switched-on batteries holds charge; the console monitor shows NO POWER otherwise. New devices ship fully charged, and capacity grows with the device level (25 000 to 100 000 points; one point is 10 FE).
+## Установка
 
-- Upkeep: 20 points per second for a running shield, 20 plus one per ten drones for a hive. Absorbing damage costs 10 points per HP, shield repair 2 per HP, each drone shot 3, healing 5 per HP and drone repair 1 per HP. Twins split every cost between their two batteries and fall back to whichever still has charge. Creative players pay nothing.
-- The RF battery is a Forge Energy item: any FE charger (Mekanism, Thermal, Flux Networks and similar) can fill it, and a charged FE item placed in the console's charge slot pours its energy in. Machines cannot drain it.
-- The mana battery refills twice a second while the device is on. Its source is chosen in the console: Auto (magic mods first, then experience), Magic (Botania mana items such as tablets and rings, the player's own Ars Nouveau or Iron's Spells mana) or Experience. Player mana keeps a 25% reserve for spellcasting. All rates are server config (`power.*`), and `power.requireBatteries = false` makes devices free.
-- Each battery has its own on/off switch in the console's Batteries tab.
+Положите `EX-twins-1.0.0-beta.1.jar` и на клиент, и на сервер. Это бета: перед обновлением делайте копию мира.
 
-Hover a device in any inventory screen (including the Curios screen) and hold Shift to open its console; any click cancels the hold, so shift-clicking still moves the item.
+Обязательно:
 
-Photon (with LDLib2 and KilaGraph) is required for particle effects.
+| Мод | Версия |
+| --- | --- |
+| NeoForge | 21.1.252 или новее (этого требует LDLib2) |
+| Curios | 9.3.1 или новее (проверено на 9.5.1) |
+| Photon | 2.2.7 или новее |
+| LDLib2 | 2.2.41 или новее |
+| KilaGraph | 21.1.0.15 |
 
-## Combat Hives
+По желанию:
 
-Each type has its own 22x31 upgrade cards and animated 3D hive amulet. Equip it in a charm slot and switch it on. Only one hive can be worn at a time. The deployed defenders reuse the existing RF/Mana/Ex-Twins drone models.
+- [LambDynamicLights](https://modrinth.com/mod/lambdynamiclights) 4.8.11+ (только клиент): щиты, удары роя, конструкции сдерживания и Армагеддоны освещают мир вокруг. Близкие источники сливаются, всего не больше 24, чтобы пересчёт света оставался дешёвым. Выключается клиентской настройкой `lights.dynamic`.
+- [Create Aeronautics](https://modrinth.com/mod/create-aeronautics) (Sable): корабельные ульи ездят на кораблях и защищают их. Sable Companion уже внутри мода. Без Aeronautics ульи защищают место, где стоят.
+- Botania, Ars Nouveau, Iron's Spells: источники маны для мана-батарей. Без них батареи заряжаются опытом игрока.
 
-RF hives have four silver mechanical bay doors, Mana has six ivory/gold shells, and Ex-Twins has twelve black pentagonal plates with violet circuit inlays. Inventory icons render these same animated OBJ models. Generator: `tools/build_hive_meshes.py`.
+## Предметы
 
-| Type | Drones: level 0 -> 10 | Flying at once | HP per drone | Repair delay -> upgraded | Blow damage -> upgraded |
+| Предмет | ID | Куда |
+| --- | --- | --- |
+| RF-щит, Mana-щит, Ex-Twins щит | `relics_addon:rf_shield`, `mana_shield`, `twins_shield` | слот Curios «Амулет» (`charm`) |
+| RF-улей, Mana-улей, Улей Ex-Twins | `relics_addon:rf_hive`, `mana_hive`, `twins_hive` | слот `charm`, носить можно только один улей |
+| Корабельные ульи «Копьё», «Эгида», «Эскорт» | `relics_addon:lance_hive`, `aegis_hive`, `escort_hive` | блоки, ставятся на корабль или на землю |
+
+RF, Mana и Ex-Twins — это три семейства со своим видом, звуком и характером. Каждый предмет хранит свой опыт, уровень, очки и улучшения у себя в данных. Бой даёт опыт (с ограничением в минуту, `progression.maxExperiencePerMinute`), каждый новый уровень даёт очко улучшения. Уровней десять.
+
+## Управление
+
+- `H` — открыть консоль устройства. Удерживайте Shift, наведя курсор на устройство в любом инвентаре (и в окне Curios), — откроется его консоль. Любой щелчок отменяет удержание, так что Shift-щелчок по-прежнему переносит предмет.
+- `G` — Армагеддон (у улья 10-го уровня с полной батареей).
+- Использование устройства в руке включает и выключает его.
+- Клавиши меняются в настройках управления.
+
+Консоль — голографическое окно с вкладками **Обзор** (выключатель, уровень, целостность, заряд, главные характеристики), **Батареи**, **Улучшения** и у ульев **Рой**. Надписи сжимаются по ширине кнопки, а обрезанное видно целиком при наведении.
+
+## Щиты
+
+- **Прочность.** Общий запас 504 ОЗ, который улучшения защиты поднимают до 5000, плюс 420 отдельных ячеек по 12 ОЗ. Урон сначала тратит общий запас, потом ячейку в месте удара. Когда запас кончился, разбитые ячейки становятся настоящими дырами, и следующие удары через них проходят до ремонта. Всего на максимуме 10 040 ОЗ. Улучшение, переключение и настройки ОЗ не восполняют.
+- **Вид.** RF и Ex-Twins — соты из тех самых 420 ячеек: плоские стёкла со светящимися швами и бликом по свету. Повреждённые RF-ячейки накаляются от жёлтого к красному, ячейки Ex-Twins тускнеют. Mana — цельный бирюзовый купол, повёрнутый к летящему снаряду. Щит невидим, пока по нему не ударят (`shield.idleOpacity` оставит его еле видимым).
+- **Волна.** Удар по щиту Mana или Ex-Twins гонит по оболочке волну с гребнем и впадиной, а полоса преломления на её фронте искажает мир за щитом (`shield.refraction`, `shield.rippleStrength`, `shield.refractionStrength`; под шейдерпаками Iris/Oculus преломление выключается само). У Ex-Twins от точки удара по оболочке ещё растут фиолетовые дорожки печатной платы с бегущим по ним сигналом.
+- **Ответный удар.** Агрессивного моба, коснувшегося оболочки, отбрасывает, и он получает урон щита: RF-разряд 3–7 (смягчается бронёй), Mana-вспышка 2,5–6 или удар Ex-Twins 4–9 (обе сквозь броню), от 0 до 10 уровня. Один моб — не чаще раза в секунду, удар стоит 6 очков батареи. Нейтральных мобов (эндермены, зомби-пиглины) щит бьёт только после того, как они нападут.
+- **Радиус** от 2 до 12 блоков, открывается улучшениями. Выбор: `/relics_addon shield_radius <радиус>`. Сервер может ограничить потолок (`shield.maxRadius`).
+- **Кого защищает:** `/relics_addon shield_coverage owner|allies|all` — только хозяина; хозяина, команду и прирученных; или всех живых внутри. По умолчанию — `allies`. Команды не требуют прав оператора и чужие предметы не трогают.
+- **Снаряды.** Враждебные стрелы и снаряды, влетевшие в щит, перехватываются у самой оболочки; свои выстрелы проходят. Чужие пули из модов нужно добавить в тег `relics_addon:shield_interceptable_projectiles` или в `shield.interceptedProjectiles`; оружие мгновенного попадания (hitscan) требует адаптера. Трезубцы, жемчуг и зелья по умолчанию не останавливаются.
+- **Взрывы и ближний бой** тратят общий запас, потом ячейки со стороны удара. Разрушение блоков и отбрасывание остаются ванильными.
+- **Ремонт.** После 40 тихих тиков щит чинит повреждённые ячейки, потом общий запас.
+- `/relics_addon shield_status` — диагностика надетых щитов (включён ли, активен ли слот, ОЗ). Ничего не меняет.
+
+### Улучшения щитов
+
+Покупаются во вкладке «Улучшения» за очки, по три ранга.
+
+- **Распределение** — часть урона по ячейке уходит двум соседям: RF 25–45% с уровня 2, Mana 20–35% с уровня 3, Ex-Twins 35–50% с уровня 2.
+- **Сбор** — целые ячейки переползают закрывать дыры: RF 1–2 с уровня 4, Mana 1–3 с уровня 2, у Ex-Twins нет. Путь 10 тиков, перезарядка 40. В пути ячейка не защищает, а на старом месте остаётся дыра.
+- **Восстановление** — с уровней 5/4/3 (RF/Mana/Ex-Twins), ремонт 2/3/2 ОЗ за шаг.
+- **Стабилизация** (только Ex-Twins, с уровня 4) — пауза перед ремонтом после удара 16 тиков вместо 40.
+
+### Что пропускает щит
+
+Списки в серверном конфиге, по умолчанию пустые. Элементы — id реестра или `#теги`; неверная запись пишется в лог предупреждением и ничего не совпадает.
+
+- `shield.passingDamageTypes` — типы урона, которые всегда доходят до носителя, вдобавок к тегу `relics_addon:shield_passes` (голод, утопление, удушье, пустота). Например `["minecraft:fall", "#minecraft:is_fire"]`.
+- `shield.absorbedDamageTypes` — типы урона, которые щит поглощает, хотя `shield_passes` их пропускает. `passingDamageTypes` сильнее.
+- `shield.interceptedProjectiles` — что ещё сбивать в полёте, например `["minecraft:snowball"]`.
+- `shield.ignoredProjectiles` — что никогда не сбивать в полёте (попадание по носителю всё равно поглощается).
+- `shield.keptEffects` — вредные эффекты, которые щит не срезает, например `["minecraft:poison"]`.
+
+## Батареи
+
+У каждого устройства встроенные батареи: у RF — RF-батарея, у Mana — мана-батарея, у Ex-Twins — обе. Включённое устройство работает, пока в одной из его включённых батарей есть заряд; иначе на мониторе консоли «НЕТ ПИТАНИЯ». Новые устройства заряжены полностью, ёмкость растёт с уровнем: 25 000–100 000 очков (очко = 10 FE).
+
+- **Расход:** работающий щит 20 очков в секунду, улей 20 плюс одно на каждые 10 дронов. Поглощённый урон 10 за ОЗ, ремонт щита 2 за ОЗ, выстрел дрона 3, лечение 5 за ОЗ, ремонт дрона 1 за ОЗ. Ex-Twins делит каждый расход между двумя батареями. В творческом режиме бесплатно.
+- **RF-батарея** — предмет Forge Energy: её заряжает любое FE-зарядное устройство (Mekanism, Thermal, Flux Networks…), а заряженный FE-предмет в слоте зарядки консоли переливает энергию в неё. Машины её не опустошают.
+- **Мана-батарея** заряжается дважды в секунду, пока устройство включено. Источник выбирается в консоли: «Авто» (сначала магия, потом опыт), «Магия» (предметы маны Botania, мана игрока Ars Nouveau или Iron's Spells, с запасом 25% на заклинания) или «Опыт».
+- У каждой батареи свой выключатель во вкладке «Батареи».
+- Все ставки — серверный конфиг `power.*`; `power.requireBatteries = false` делает устройства бесплатными.
+
+## Ульи
+
+Наденьте улей в слот амулета и включите. Носить можно только один (Curios не даст второй). У RF-улья четыре серебряные створки, у Mana — шесть створок слоновой кости с золотом, у Ex-Twins — двенадцать чёрных пятиугольных пластин с фиолетовой инкрустацией.
+
+| Семейство | Дронов, уровень 0 → 10 | В воздухе | ОЗ дрона | Ремонт → с улучшением | Урон удара → с улучшением |
 | --- | --- | --- | --- | --- | --- |
-| RF | 100 -> 2000 | up to 250 | 3 | 4 -> 2 seconds | 2 -> 3 |
-| Mana | 100 -> 2000 | up to 250 | 3 | 2.5 -> 1 second | 2 -> 3 |
-| Ex-Twins | 100 -> 2000 | up to 250 | 3 | 6 -> 3 seconds | 3 -> 4 |
+| RF | 100 → 2000 | до 250 | 3 | 4 → 2 с | 2 → 3 |
+| Mana | 100 → 2000 | до 250 | 3 | 2,5 → 1 с | 2 → 3 |
+| Ex-Twins | 100 → 2000 | до 250 | 3 | 6 → 3 с | 3 → 4 |
 
-Ten levels grow the swarm from 100 to 2000 drones. At most 250 fly at once; the rest wait in the hive as replacements. Only one hive can be equipped (Curios rejects a second one), and only one operates.
+### Три режима
 
-- Share the drones between three attack modes in the console's Swarm tab (see [Sharing the drones](#sharing-the-drones)). The modes fight at once, each with its own drones:
-  - **Droplet.** Its drones form figures, as many whole ones as they make (one to sixteen), in a fan behind and above its owner. The drones are the figures' corners, and the lines between them run from drone to drone. In turn, each figure strikes its target whole and knocks it back:
-    - RF, a tesseract ram: the tesseract turns through the fourth dimension, closes into a solid cube as it winds up, rams into the target with a clang of metal, then flies apart in a fan of its drones and gathers again on the way home.
-    - Mana, a rain of drops: each figure is a faceted glass drop that climbs high over the target and falls on it from above, one after another, splashing into glass spray and rings spreading over the ground like ripples on water.
-    - Ex-Twins, a rift jump: each figure of hexagons, with lightning leaping between them, dives into a tear in space behind its owner and bursts out of another by the target, and goes home the same way.
-  - **Barrage.** Its drones pack into glowing clumps of about sixteen around the target, and each target's clumps draw the family's pattern: an RF crown, a Mana star, Ex-Twins octagons. A shot charges in each clump. When it fires, it passes through walls and bursts on the target, warping the space around it. Now and then a few drones hop to a neighbouring clump, and lightning leaps between clumps.
-    - RF clumps are small crowns of drones tumbling over every axis. Their shot is a ring of lightning a quarter of a block across: a spark, then a bright ring round a dark middle, then a ring in branching bolts. It trails small bolts and bursts in discharges every way.
-    - Mana clumps charge glowing balls, as before.
-    - Ex-Twins clumps are octagons that crackle with lightning and shed violet smoke. Their shot is a violet glass icosahedron that turns faster in flight and shatters into shards of glass.
-  - **Containment.** Each construct holds one creature, so a mode with drones for several constructs holds several. Every family stuns what it holds:
-    - RF shuts the target in a Faraday cage: a geodesic sphere whose drones are its joints and whose conductors carry blue and orange currents, closing from the ground up like petals. It zaps its prisoner, and the shots the prisoner fires strike the cage and run off it into the ground as lightning.
-    - Mana closes a lotus over the target: tiers of glass petals rising from the ground into a bud. Drones keep a reflection buffer charged (golden motes run up the petals' edges), and a blow into the lotus flies back at the attacker as golden sparks.
-    - Ex-Twins cracks space round the target: hexagonal shards of it circle on their own axes, with the void and its stars behind them and circuit traces along their edges, and the target hangs in the crack, lifted into the air. The world round the rift bends and darkens.
-    - A construct locks shut with a flash and a sound, and bursts into its drones with sparks when it lets go. A heads-up circle turns on the ground under what it holds.
-    - Every construct is sized from the creature it holds: its inside clears the hitbox by a fifth of its size on every side.
-    - Players and bosses cannot be held.
-- Every blow has its wind-up, its flight and its landing, and something lingers for a moment after: a heads-up aim circle closes on the ground under the target before the blow, drones in flight leave thin trails, and a blow lands as a white-hot core, a shock ring through the air and over the ground, a spray of many small sparks (RF throws falling drops of metal), and a scorched ring, ripples or smoke and cracks. Blows within 16 blocks nudge the camera. All of it is geometry in the world. The client config's `hive.effects` (`low`, `normal`, `high`) sets how much is drawn and `hive.shake` how hard the camera is nudged.
-- Every attack sounds in layers, synthesized for this mod: a wind-up, the rush of a figure in flight (following it, rising and falling as it passes), a blow with a low end in a few variants, and what rings on after. Each strike group's blow is its own step of a pentatonic scale, so a swarm's blows play an arpeggio. Constructs lock shut with a sound of their own and hum while they hold. Listeners far off hear only a dull boom.
-- Swarm blows land as the swarm's own damage type, which may knock the target back. Containment zaps never knock it about.
-- The hive fights within 128 blocks of its owner by default. It takes on every creature that attacks its owner at once: whoever the owner fights, whoever strikes the owner or their shield, and every mob that has the owner as its target, up to 16. Containment holds the first ones, one per construct. Droplet and Barrage take on the rest first and then the held ones, one figure or pattern each at least, so the modes may strike the same creature. A target stays engaged until it dies, leaves that range, becomes allied or changes dimension, or the hive is switched off. When one falls, its drones fly straight on to the others from where they are instead of going home first.
-- Each drone has 3 HP. Targets in reach swing at nearby drones, and explosions damage them too. A hit drone flies home for repair, and the next drone in its lane launches at once to take its place. A repaired drone waits in reserve.
-- Drones pour out of the hive along their own curved paths and stream back when a task ends. Healers ring their owner's chest.
-- Open the console with `H` and select a hive. The Swarm tab shares its drones between the modes and the healers. Assignments persist on the item. Healers restore only their owner and never attack. Healing is capped at 4 HP/second by default, which the server can configure.
-- Each hive has three upgrades: combat damage, healing strength, and repair/reconstruction. They never raise the 2000-drone cap or the healing limit.
-- Drones do not absorb damage for their owner; protection is the shield's job. Hives only attack and heal.
-- Drone hits use their own damage type: the owner gets the kill credit, but hundreds of hits never knock the target around.
-- Drones cannot target or damage their wearer, teammates or allied pets. They have no attackable projectile entities of their own, so swarms never damage each other. Creative/spectator players and disallowed PvP targets are excluded.
-- Swarms contain no server-side drone entities or pathfinding. The item stores a compact drone array, and the network sends about one byte per resting drone. Flight is deterministic and computed identically on server and client, so blows land exactly where the shapes are drawn. Distant drones render as glowing points, and the renderer culls by frustum and distance.
-- Hives are not a substitute for the shield's melee/explosion protection. Every family has original synthesized attack/impact and summon/dismiss sounds, shields have absorption, cell-break, collapse and ripple sounds, and the console has its own feedback sounds (`tools/build_combat_sounds.mjs`). Playback is spatially rate-limited to avoid hundreds of simultaneous voices.
+Дроны делятся между режимами во вкладке «Рой», и режимы сражаются одновременно, каждый своими дронами.
 
-### Sharing the drones
+- **Капля.** Дроны встают углами фигур (от одной до шестнадцати), веером за спиной хозяина, и фигуры по очереди бьют цель целиком, отбрасывая её.
+  - RF — таран-тессеракт: вращается через четвёртое измерение, на замахе схлопывается в куб, с лязгом врезается в цель и разлетается веером дронов.
+  - Mana — дождь капель: гранёные стеклянные капли взмывают над целью и падают на неё одна за другой, разбиваясь в брызги и круги по земле.
+  - Ex-Twins — прыжок через разлом: фигура из шестиугольников с молниями между ними ныряет в разрыв пространства у хозяина и вырывается из другого у цели.
+- **Обстрел.** Дроны собираются вокруг цели в светящиеся сгустки примерно по шестнадцать, и сгустки одной цели рисуют узор семейства: корона RF, звезда Mana, восьмиугольники Ex-Twins. В каждом сгустке копится выстрел; он проходит сквозь стены и взрывается на цели, искажая пространство.
+  - RF стреляет кольцом молнии, которое рассыпается разрядами во все стороны.
+  - Mana — светящимися шарами.
+  - Ex-Twins — фиолетовым стеклянным икосаэдром, который разбивается на осколки.
+- **Сдерживание.** Каждая конструкция держит одно существо и оглушает его. Игроков и боссов держать нельзя.
+  - RF запирает цель в клетку Фарадея: геодезическую сферу, которая смыкается снизу вверх, как лепестки, бьёт пленника током и уводит его выстрелы в землю молнией.
+  - Mana закрывает цель лотосом из стеклянных лепестков; удар по лотосу возвращается в атакующего золотыми искрами.
+  - Ex-Twins раскалывает пространство вокруг цели: шестиугольные осколки с пустотой и звёздами за ними кружат вокруг, а цель висит в трещине.
 
-The Swarm tab has a row for each mode and one for the healers. A row shows how many drones it has, its minimum, how many of them fly, and a slider. The free drones, given to no one, are counted at the top. For example, 64 drones in Droplet, 120 in Barrage and 72 in Containment fight at once.
+Каждый удар — замах, полёт и попадание: прицельный круг на земле, следы дронов, раскалённое ядро, ударное кольцо, искры, выжженный след. Звуки синтезированы для мода и идут слоями (замах, шум летящей фигуры, удар, отзвук); удары разных групп роя звучат ступенями пентатоники. Сколько эффектов рисовать и как сильно трясти камеру — клиентские `hive.effects` (`low`, `normal`, `high`) и `hive.shake`.
 
-![The Swarm tab: drones shared between the three modes and the healers](docs/console-swarm-shared.png)
+### Цели и бой
 
-- **Minimum.** Drones stand on the corners of their mode's figure, so a mode has either no drones (it is off) or at least one per corner of one figure:
+- Рой сражается в пределах 128 блоков от хозяина (`hive.targetRange`, `hive.pursuitRange`). Он берётся за всех, кто нападает на хозяина: кого хозяин бьёт, кто бьёт хозяина или его щит и каждого моба, нацеленного на хозяина, — до 16 сразу.
+- Когда цель падает, дроны летят к следующей прямо оттуда, где были.
+- У дрона 3 ОЗ. Подбитый дрон летит домой на ремонт, а его место сразу занимает следующий.
+- Дроны не трогают хозяина, его команду и питомцев, игроков в творческом режиме и тех, по кому PvP запрещён. Убийство засчитывается хозяину.
+- Лекари кружат у груди хозяина и лечат только его, не больше 4 ОЗ в секунду (`hive.maxHealingPerSecond`).
+- Дроны не принимают урон за хозяина — это работа щита.
+- На сервере нет сущностей-дронов и поиска пути: предмет хранит компактный массив дронов, а полёт детерминирован и одинаково считается на сервере и клиенте, поэтому удары приходятся ровно туда, где нарисованы фигуры.
+- У каждого улья три улучшения: урон, сила лечения и ремонт дронов.
 
-  | Family | Droplet | Barrage | Containment |
+### Распределение дронов
+
+Во вкладке «Рой» есть строка для каждого режима и для лекарей: сколько дронов, минимум, сколько из них в воздухе, ползунок. Сверху — свободные дроны.
+
+![Вкладка «Рой»: дроны поделены между тремя режимами и лекарями](docs/console-swarm-shared.png)
+
+- **Минимум.** Дроны стоят в углах фигуры, поэтому режим либо выключен, либо получает хотя бы одну фигуру:
+
+  | Семейство | Капля | Обстрел | Сдерживание |
   | --- | --- | --- | --- |
-  | RF | 16: a tesseract's corners | 4: a crown (every other point raised) | 12: the Faraday cage's icosahedron |
-  | Mana | 14: a drop's tip, two rings of 6 and its back | 6: a star | 19: a lotus's base and six petals of three corners |
-  | Ex-Twins | 18: three hexagons | 8: an octagon | 24: four hexagonal shards of the rift |
+  | RF | 16 (углы тессеракта) | 4 (корона) | 12 (икосаэдр клетки) |
+  | Mana | 14 (капля) | 6 (звезда) | 19 (лотос) |
+  | Ex-Twins | 18 (три шестиугольника) | 8 (восьмиугольник) | 24 (четыре осколка разлома) |
 
-  Drones beyond the corners stand on finer points of the figures: the middles of the tesseract's faces, cells and edges, the drop's skin, smaller hexagons inside the Twins ones, finer geodesic spheres of the cage, more tiers of lotus petals, more rift shards.
-- **Sliders.** Drag a mode's slider to give it drones or take them back to the free ones. It stops only on whole figures: 0, 16, 32, 48… for the RF tesseract, 0, 8, 16… for the Mana ward, with a tick at each. The lighter part of the track is as far as the free drones reach. A mode whose figure the free drones cannot build is greyed out, and hovering it says why ("Needs at least 18 drones: its figure has 18 corners"). The healers' slider moves one drone at a time, to and from the free drones. **All** puts every fighter into that mode and switches the others off, as a hive fought before the modes could be mixed. The server checks the same rules and refuses anything else, whatever the client sends.
+- **Ползунки** останавливаются только на целых фигурах. Режим, на фигуру которого свободных дронов не хватает, серый, а подсказка объясняет почему. **Все** отдаёт всех бойцов одному режиму. Сервер проверяет те же правила и отклоняет всё остальное.
 
-  ![A mode the free drones cannot build is greyed out, with the reason](docs/console-swarm-refused.png)
-- **In the air.** At most 250 drones fly. Healers take their places first; the modes share the rest in proportion to their drones. A mode whose share is smaller than its minimum does not fly at all, and its places go to the others. Its row shows this ahead of time: "flying 0: no room".
+  ![Режим, на который не хватает дронов, затенён и объясняет причину](docs/console-swarm-refused.png)
 
-  ![A Mana droplet of 14 squeezed out of the air by 1986 drones in Barrage](docs/console-swarm-no-room.png)
-- **Losses.** A hit drone flies home and the next one in its lane takes its place; a lane that has run dry takes a spare drone of its mode. When a mode has no spare left and fewer drones in the air than one figure, it goes home instead of hanging as a broken figure. Once repairs give it enough again, it flies back into the fight by itself.
-- **Smaller hive.** If a hive holds fewer drones than it has given out (after loading or a change of level), healers keep theirs first, then Droplet, Barrage and Containment in turn. A mode left short of its minimum is switched off and its drones are freed. The last line of the Swarm tab says which mode and why, and the server log says so too.
-- **Old saves.** A hive saved when every fighter used one mode puts them all in that mode. If they are too few for its figure, they go to Barrage, and if they are too few even for that, they stay free. The Swarm tab says so.
+- **В воздухе** не больше 250 дронов. Сначала места получают лекари, остальное режимы делят пропорционально. Режиму, чья доля меньше минимума, места нет — строка заранее пишет «в воздухе 0: нет места».
 
-### Armageddon
+  ![Капля Mana на 14 дронов вытеснена из воздуха 1986 дронами обстрела](docs/console-swarm-no-room.png)
 
-Armageddon is the ultimate of a level 10 Ex-Twins hive (a level 10 Mana hive has its own, [Mana Armageddon](#mana-armageddon), and so does a level 10 RF hive, [RF Armageddon](#rf-armageddon)). When both of the hive's batteries are full (98% or more), press `G` (rebindable) to open the confirmation window. It aims at the point you look at, up to 256 blocks away. The window shows the distance, the blast radius, the charge time and what a worn Ex-Twins shield will add.
+- **Потери.** Когда у режима не осталось запасных и в воздухе меньше одной фигуры, он улетает домой, а после ремонта возвращается в бой сам.
 
-- **Charge.** The whole swarm flies up into a cannon over its owner's head:
-  - a core;
-  - a two-layer barrel of hexagons;
-  - four double rings that light one after another;
-  - a gyroscope of six hoops.
+## Армагеддоны
 
-  The charge takes a minute and drains the hive's battery. A worn Ex-Twins shield feeds it too, but never gives up the charge its own field needs.
-- **Shot.** In the last seconds the hoops re-form into a flared funnel of hexagons. The cannon fires a ball of white light, held closed by three violet tori of drones. It reaches the target a second later.
-- **Black hole.** As the ball touches its target it opens into a black hole 15 blocks across that bends the world round it hard. The tori break away and their drones fly off. The black hole then collapses into the point it touched over three seconds, beating like a pulsar. Meanwhile it tears up every block within 90 blocks and drags creatures in.
-- **Supernova.** Then it bursts in stages:
-  - a white flash fills the air, and everything nearby stands dark red against it while rocks fly;
-  - a ball of light forms and sweeps out over the land to 256 blocks as a wave of glowing haze, bending the world at its front;
-  - the ball is crushed back in;
-  - a beam of energy erupts to the zenith and widens to 128 blocks across, boring the land out as it does;
-  - inside the beam, black smoke writhes and balls of it rise at each deep pop;
-  - the beam narrows to a thread and goes out in an orange dusk.
+Ульта улья 10-го уровня. Когда батарея улья заполнена (98% и больше), `G` открывает окно подтверждения: расстояние, радиус, время заряда и что добавит надетый щит своего семейства. Цель — точка, куда вы смотрите, до 256 блоков. Заряд длится минуту и опустошает батарею; надетый щит того же семейства подпитывает его, но не отдаёт заряд, нужный его собственному полю.
 
-  The ball of light strikes each creature as it sweeps over it. Damage is 2000 at the heart and falls to 20 at the edge. All of it is drawn in the world, not laid over the screen, and it plays in time with its sound, about 30 seconds.
-- **Targets.** It strikes mobs, and players who are not allied with the owner if the server allows PvP. It never strikes the owner, their teammates or their pets. The owner gets the kill credit.
-- **Aftermath.** The escort drones come home once the smoke settles. The hive keeps only the charge the shield gave it.
-- **Safe mode.** Servers can turn on `armageddon.safeMode` in the server config. The black hole and the blast still strike creatures, but no blocks are broken.
+Урон — 2000 в центре и до 20 на краю. Армагеддон бьёт мобов и игроков, не союзных хозяину, если на сервере включено PvP; хозяина, его команду и питомцев не трогает. С `armageddon.safeMode` блоки не ломаются и кратеры не роются.
 
-### Mana Armageddon
+- **Армагеддон (Ex-Twins).** Рой собирается над головой в пушку из гексагонального ствола, колец и гироскопа. Выстрел — шар белого света в трёх фиолетовых торах из дронов. У цели он раскрывается чёрной дырой в 15 блоков, которая вырывает блоки в радиусе 90 и затягивает существ, сжимается, пульсируя, и взрывается сверхновой: вспышка, волна светящейся дымки до 256 блоков, столб энергии в зенит шириной до 128 блоков и оранжевые сумерки. Около 30 секунд.
+- **Мана-Армагеддон.** Над плечами раскрываются два цветка — бирюзовый и золотой — с печатями и кольцами рун, которые пишутся по одной. Цветки выпускают два потока, сходящиеся на цели, и земля в 90 блоках закручивается вихрем камней. Там, где потоки встретились, загорается маленькое солнце в сфере рун; сфера трескается, и купол света проходит до 256 блоков, а со дна печати растёт столб света в 96 блоков шириной. Около 40 секунд.
+- **RF-Армагеддон.** Рой строит голограмму дрона-ретранслятора в 13 блоков; её четыре панели раскрываются по мере заряда. Перед носом растёт шар с тёмным ядром, молниями и орбитами электронов. Шар медленно летит, бьёт молниями во всё в 48 блоках, зависает перед поверхностью, в которую целились, и мир сереет. Затем он становится куполом ледяного стекла в 88 блоков, атомная вспышка обращает мир в чёрные силуэты на белом, ударный фронт уходит на 256 блоков, остаётся круглый кратер с вывороченным краем. Около 40 секунд.
 
-Mana Armageddon is the ultimate of a level 10 Mana hive. When its battery is full (98% or more), press `G` to open the confirmation window. It aims at the point you look at, up to 256 blocks away. The window shows the distance, what the vortex and the blast will reach, the charge time, how long the blast lasts and what a worn Mana shield will add.
+Всё нарисовано в мире, а не поверх экрана. Под шейдерпаками Iris/Oculus рисуются упрощённые замены.
 
-- **Charge.** The swarm spirals into two flowers over its owner's shoulders, about 3 blocks to either side of the view with an empty gap between them. The turquoise flower is on the left and the gold one on the right, and both face the target.
-  - Each flower has four rounded petals in an X. They fill from the heart out with drones and twinkling sparks, round a heart that swells with the charge.
-  - Behind each flower is a seal: a double ring round a belt of runes, a seven-pointed star, and a ring at the core.
-  - Round each flower, a gyroscope of three rune rings leans its own way.
-  - Between the flowers, over the owner's head, hangs the central seal. Its left half is turquoise and its right half gold, with a rhombus in the middle, small rhombi down the seam, a sun and a crescent moon.
+## Корабельные ульи
 
-  The runes are written one by one, clockwise, with a spark at the pen, one ring after another. The last ring fills as the charge does, and each ring starts to turn once it is full. The charge takes a minute and drains the hive's battery. A worn Mana shield feeds it too (a Twins shield does not), but never gives up the charge its own field needs. The runes are our own script, drawn by `tools/draw_rune_atlas.mjs`.
-- **Streams.** Each flower looses a stream, escorted by a ribbon of drones spiralling round it. The turquoise stream is dense and writhing, with scales at its edge; the gold one is a dazzling beam glinting in every colour. They arc out to either side and meet head-on at the target. Sparks and flakes fly, the ground shakes, and the land within 90 blocks is torn up into a vortex of swirling stones.
-- **Sphere.** The flowers close. A small sun ignites where the streams met, inside a translucent sphere of runes that stands on a seal of blue rings. The seal lies on the ground itself, following slopes, steps and the crater under it.
-  - The sphere's runes are written in a running wave. A wide band of runes turns round its equator against a thin band at an angle, and a glowing seam runs down its middle.
-  - The fog inside it glows turquoise and gold round the sun.
-  - The sun grows and presses from inside. The runes whiten, light cracks through them, and the sphere shatters into rune shards.
-- **Blast.** The blast unfolds in stages:
-  - a thin flash cuts across the land;
-  - a ring of stones and burning runes runs out along the ground round a dark core;
-  - a dome of light sweeps out over the land to 256 blocks;
-  - a column of light rises from the seal and grows for as long as the blast is heard (on each client from the moment it begins to hear it), about 40 seconds, with runes rising up its wall and haze swirling up inside it;
-  - at its widest (96 blocks across) the column dissolves into white light. A pale crescent moon hangs in the white sky, and turquoise and gold sparks fall in the silence. Then the drones come home.
+Три блока для корабля [Create Aeronautics](https://modrinth.com/mod/create-aeronautics) или базы на земле. Их дроны размером примерно с блок сражаются сами.
 
-  The dome of light strikes each creature as it sweeps over it, as the Twins blast does: 2000 at the heart, falling to 20 at the edge. The column is light only. All of it is drawn in the world, not laid over the screen. With a shader pack (Iris or Oculus) in use, simpler stand-ins are drawn instead.
+| Блок | Дронов | Что делают |
+| --- | --- | --- |
+| «Копьё» (дроны Ex-Twins) | 3, одной турелью | Непрерывный луч по самой опасной цели в поле зрения: 3 урона четыре раза в секунду, 100 FE за тик. Через 8 секунд перегревается и остывает 4 секунды. Если на линии огня кто-то другой, не стреляет. |
+| «Эгида» (дроны Mana) | 6, каждый держит свой кусок | Щит вокруг всего корабля — эллипсоид по корпусу (на земле купол в 8 блоков). Останавливает стрелы, огненные шары и снаряды Create Big Cannons, принимает удары, предназначенные экипажу, и гасит взрывы снаружи. Полный щит держит 400 (снаряд большой пушки стоит 40). Восстанавливается от FE через 3 секунды без попаданий; слишком сильный удар ломает щит на 5 секунд. 30 FE за тик. |
+| «Эскорт» (дроны RF) | 4, двумя крыльями | Два крыла, каждое — связанная пара со своим маленьким роем. Патрулируют вокруг корабля, догоняют угрозы в пределах 40 блоков, бьют дугой между двумя дронами и пикированием роя, возвращаются подзарядиться. |
 
-  The blast's length is one number, `ManaArmageddon.BLAST_SECONDS`. The sound generator reads it, the column grows by it, and `verifyArmageddonSounds` checks that the charge, collision, sphere and blast sounds last exactly as long as the stages they score.
-- **Targets, aftermath and safe mode** work as for the Twins Armageddon. The blast never strikes the owner, their teammates or their pets, and the owner gets the kill credit. The hive keeps only the charge the shield gave it. With `armageddon.safeMode`, the vortex tears up no blocks.
+- Ставьте улей снаружи корпуса: дроны вылетают со светящейся грани. Правый щелчок открывает окно улья, Shift + правый щелчок включает и выключает его сразу. Сигнал редстоуна сажает дронов. Энергия — FE по любому кабелю с любой стороны, батарея на 400 kFE.
+- Ульи одного корабля думают вместе: общая доска угроз (обновляется дважды в секунду) и полминуты обиды на тех, кто ранил экипаж или корпус. Хозяева, их команды и питомцы под огонь не попадают; другие игроки — только после того, как ранят экипаж или корабль, при включённом PvP (или всегда, с `ship.targetPlayers`).
+- Ульи следят за настоящим положением корабля Sable, так что турель, щит и крылья едут с кораблём, как бы он ни поворачивал.
+- Настройки сервера: `ship.targetRange`, `ship.targetPlayers`, `ship.lanceDamage`, `ship.lanceEnergyPerTick`, `ship.aegisUpkeep`, `ship.aegisEnergyPerPoint`, `ship.escortLeash`, `ship.escortDamage`.
 
-### RF Armageddon
+## Крафт
 
-RF Armageddon is the ultimate of a level 10 RF hive. When its RF battery is full (98% or more), press `G` to open the confirmation window. It aims at the point you look at, up to 256 blocks away. The window shows how far off the ball will strike, the crater it leaves, the blast radius, the charge time, how long the blast lasts and what a worn RF shield will add.
+Устройства собираются из собственных деталей мода, а детали — из ванильных материалов, так что крафт работает в любой сборке. Рецепты открываются в книге рецептов, когда у вас есть ключевая деталь.
 
-- **Charge.** The swarm flies in to the axis over its owner's head and builds a hologram of the relay drone, 13 blocks long, with its nose towards the target. The body goes up from the stern to the nose. Its drones sit on the frame's points and lines, joined by blue lines of light, with a scanline sweeping along them and a flicker running through.
-  - The body is a cylinder with three copper belts, a cap behind and a cone in front.
-  - Bundles of needle antennas stick out at the nose and the stern. The stern's are tipped with blinking redstone beacons.
-  - Four long panels lie folded along the body. Each is a frame of drones with a grid of cells.
+| Деталь | Из чего | Куда идёт |
+| --- | --- | --- |
+| Резонансная схема (×2) | золотые самородки, редстоун, кварц, медный слиток | во все детали и устройства |
+| Энергоячейка | медь, железо, блок редстоуна, схема | RF- и Ex-Twins-устройства |
+| Мана-ячейка | осколки аметиста, золото, блок лазурита, схема | Mana- и Ex-Twins-устройства |
+| Ядро щита RF / Mana / Ex-Twins | ванильный щит и железо с алмазом / золото, блок аметиста и алмаз / плачущий обсидиан, эхо-осколки и алмаз, плюс схемы | свой щит |
+| Каркас RF-дрона (×2) | железо, медь, редстоун, схема | RF-улей (шесть каркасов) |
+| Оболочка мана-дрона (×2) | золотые самородки, осколки аметиста, схема | Mana-улей (шесть оболочек) |
+| Пластина дрона Ex-Twins (×2) | обсидиан, осколки аметиста, схема | Улей Ex-Twins (четыре пластины, обе ячейки и кристалл Края) |
+| «Копьё» | три пластины Ex-Twins, схема, энергоячейка, четыре железных блока | корабль |
+| «Эгида» | шесть оболочек мана-дронов, ядро Mana-щита, две схемы | корабль |
+| «Эскорт» | четыре каркаса RF-дронов, схема, энергоячейка, три железных блока | корабль |
 
-  The panels are the charge bar. They unfold smoothly as the charge fills, a servo labouring under them and their gears ticking over, until they stand in a full cross at a full charge. Their cells light row by row from the body out, and blue sparks run in along the grid to the body. The charge takes a minute and drains the hive's RF battery. A worn RF shield feeds it too, along a crackling link (a Twins or Mana shield does not), but never gives up the charge its own field needs.
-- **Ball.** A ball grows before the nose as the panels open, from a point to about 6 blocks across. It has a near-black navy core in a bright electric rim, with lightning crawling over it and short discharges leaping to it from the nose's needles. Atomic orbits ring it, each with a bright electron. There are three at first and five by a full charge, and they spin faster as it fills.
-- **Flight.** The panels snap shut, the hologram scatters back into the swarm, and the ball leaves. It flies slow and heavy, ringed by an escort of drones in three tori, and swells as it goes. Thick jagged bolts leap from its rim to whatever they can reach within about 48 blocks (the ground, a wall, a ceiling), throwing sparks and leaving scorch marks; when none of the ways a bolt tries finds anything in reach, it lashes out into the air and dies there. The ball stops out from the face it was aimed at and hangs there: 26 blocks over the ground, under a ceiling or before a wall, nearer (and smaller) where there is less room. Its bolts come faster, its orbits close in on it, and the world turns grey: only the ball's rim, its lightning and the dome after it keep their colour.
-- **Dome.** The ball comes in to that face (down into the ground, up into a ceiling, sideways into a wall) and becomes a dome of ice-blue glass standing out of it, with lightning inside and blocks floating out in its haze. Over three seconds it swells to 88 blocks across and heats to white, and its edge cuts a bowl into the face.
-- **Atomic flash.** The orbits blaze out and a white flash floods everything. For a few seconds the world is pure black silhouettes on white, clouds included. A shock front runs out to 256 blocks, with rays raking the land behind it. Then the colour comes back over a round crater. In the ground its rim is pushed up round the edge, steep inside and sloping away outside; a crater in a ceiling or a wall is left as the dome cut it. Debris falls from the sky for a few seconds. A blue glow fades slowly at the crater's heart, and small discharges run over its floor. Then the drones come home.
+## Настройки
 
-  The blast strikes each creature as its front passes it (first the dome's reach, then the shock front's, a sphere round the point the ball met, whatever face that was): 2000 at the heart, falling to 20 at the edge. All of it is drawn in the world. With a shader pack (Iris or Oculus) in use, simpler stand-ins are drawn and the world is not greyed.
+**Сервер** (`config/relics_addon-server.toml` в мире):
 
-  The blast's length is one number, `RfArmageddon.BLAST_SECONDS` (40 seconds from the flash). The sound generator reads it, the crater's glow fades by it, and `verifyArmageddonSounds` checks that each RF sound lasts exactly as long as the stage it scores. The ball's flight is heard from where the ball is, with a crack for every bolt it strikes.
-- **Targets, aftermath and safe mode** work as for the other Armageddons. With `armageddon.safeMode`, no blocks are broken and no crater is dug. Round a crater in the ground a rim of the land's own blocks stands only while the blast lasts, then sinks back. The real rim only rises from plain ground (earth, stone, sand and the like, the `relics_addon:crater_rim` block tag), only into open air, and only where the owner could build.
+| Ключ | Что задаёт |
+| --- | --- |
+| `shield.maxRadius` | потолок радиуса щита |
+| `shield.strikeDamage`, `shield.strikeKnockback`, `shield.strikeCooldownTicks` | ответный удар щита |
+| `shield.passingDamageTypes`, `shield.absorbedDamageTypes`, `shield.interceptedProjectiles`, `shield.ignoredProjectiles`, `shield.keptEffects` | что пропускает щит (см. выше) |
+| `hive.targetRange`, `hive.pursuitRange` | дальность боя роя |
+| `hive.strikeEfficiency`, `hive.maxHealingPerSecond` | сила ударов и лечения |
+| `power.requireBatteries`, `power.experiencePointValue`, `power.experienceReserveLevels`, `power.playerManaValue`, `power.playerManaReserve`, `power.botaniaManaPerPoint` | батареи и источники маны |
+| `armageddon.safeMode` | Армагеддоны не ломают блоки |
+| `progression.maxExperiencePerMinute` | предел опыта в минуту |
+| `ship.*` | корабельные ульи |
 
-## Ship Hives
+**Клиент:** `shield.refraction`, `shield.rippleStrength`, `shield.refractionStrength`, `shield.idleOpacity`, `lights.dynamic`, `hive.effects`, `hive.shake`.
 
-Three blocks to build into a [Create Aeronautics](https://modrinth.com/mod/create-aeronautics) ship (or a base on the ground) whose drones, each about a block across, fight on their own. Each kind works its drones in a different number at once and wears one family's drone model.
+**Команды** (без прав оператора): `/relics_addon shield_radius <r>`, `/relics_addon shield_coverage owner|allies|all`, `/relics_addon shield_status`.
 
-| Block | Drones | Worked | What they do |
-| --- | --- | --- | --- |
-| Lance Ship Hive (Ex-Twins drones) | 3 | all three as one turret | A continuous beam on the worst threat in sight: 3 damage four times a second, 100 FE a tick. The turret swings onto its mark before it burns, overheats after 8 seconds and must cool right down (4 seconds). It only ever burns a threat: with anyone else first in its line of fire it holds and looks for another mark. |
-| Aegis Ship Hive (Mana drones) | 6 | one by one, each holding its piece of the shield | A shield round the whole ship, an ellipsoid fitted to its hull (a dome of 8 blocks round a hive on the ground). It stops shots flying in (arrows, fireballs, Create Big Cannons' shells and autocannon rounds), takes blows from outside meant for the crew, and keeps explosions outside off what it covers, each for some of its charge (a full shield holds 400; a big cannon shell costs 40). The charge comes back from FE once nothing has struck it for three seconds; a blow bigger than what is left breaks the shield for five seconds. The drones lean towards the ship's threats. 30 FE a tick while it stands. |
-| Escort Ship Hive (RF drones) | 4 | two by two | Two wings, each a linked pair with a small swarm of its own. They patrol round the ship, go after threats within their leash (40 blocks from the ship's middle; each wing its own when it can), circle them, strike with the arc between their two drones and their swarm's dives, and fly home to refill from FE when they run low or the hive is switched off. |
+## Совместимость
 
-- Set a hive against the outside of the hull: its drones launch from the lit face. A right click opens its window (what it is doing, its battery, the lance's heat, the shield's charge or the wings' charges and whereabouts, and its switch); a sneak and a right click switch it at once. A redstone signal grounds it. It takes FE through any cable from any side (a 400 kFE battery). A hive newly set down fills its shield or its wings from its battery before they fight.
-- The hives of one ship share one mind: a board of the threats round the ship, rescanned twice a second, and grudges (half a minute) against whoever hurts the crew or the hull. They spread over the threats instead of piling onto one, and weigh a creature's allegiance again just before they strike. The owners, their teams and their pets are never fired on; players and peaceful creatures riding the ship are friendly until they hurt the crew; a monster that climbs aboard is still a monster. Other players are only fought once they hurt the crew or the ship, with PvP on (or always, with the server's `ship.targetPlayers`).
-- A block on a Sable ship lives in the ship's far-off plot. Each hive works out where its ship really is from Sable's pose, so the turret, the shield and the wings ride the ship however it moves and turns, and sight lines meet terrain and ships' hulls alike. Without Sable the hives simply stand where they are.
-- Server config: `ship.targetRange`, `ship.targetPlayers`, `ship.lanceDamage`, `ship.lanceEnergyPerTick`, `ship.aegisUpkeep`, `ship.aegisEnergyPerPoint`, `ship.escortLeash`, `ship.escortDamage`.
-- `runShipScenarioClient` films the hives on a real Sable ship: copy Sable's jar into `run-ship/mods` first. Sable brings Veil, which rewrites core shaders; the mod's shaders are written so Veil's GLSL processor keeps them intact.
+- **Шейдерпаки (Iris/Oculus):** преломление щита выключается, Армагеддоны рисуют упрощённые замены, RF-Армагеддон не обесцвечивает мир.
+- **Sable / Veil:** Veil переписывает шейдеры ядра; шейдеры мода написаны так, чтобы его GLSL-обработчик их не ломал.
+- **Create Big Cannons:** «Эгида» останавливает снаряды больших пушек и автопушек.
+- **Энергия:** RF-батареи и корабельные ульи принимают FE от любых модов.
 
-## Verification
+## Для разработчиков
 
-```powershell
-$env:GRADLE_USER_HOME = "$env:USERPROFILE/.gradle"
-.\gradlew.bat --offline build
-.\gradlew.bat --offline runGameTestServer
-.\gradlew.bat --offline runVisualTestClient
+Нужны Java 21 и встроенный Gradle wrapper. Зависимости берутся из Maven (`maven.theillusivec4.top`, `maven.firstdark.dev/snapshots`, `maven.gegy.dev`), в `libs/` ничего класть не нужно.
+
+```bash
+./gradlew build              # сборка, проверки verify* и проверка содержимого релизного jar
+./gradlew runGameTestServer  # GameTest'ы в отдельном мире run-gametest
+./gradlew runClient          # клиент для разработки
 ```
 
-`build` runs mesh, mechanical-animation, orbit and effect-light checks. GameTests use the separate `run-gametest` world.
-The interactive test client uses `run-visual` and opens the normal Minecraft main menu, without a startup preview. Separate `runShieldCaptureClient`, `runResearchCaptureClient`, `runUiCaptureClient` and `runHiveCaptureClient` automations capture renderer/resources and exit. `runStartupCheckClient` captures the normal main menu and exits.
-These runs use isolated development directories. Development tests and the model gallery are excluded from the release JAR.
+Результат — `build/libs/EX-twins-1.0.0-beta.1.jar`. `runReleaseCheckClient` проверяет упакованный релиз из `run-release-check/mods`. Тесты, сценарии съёмки и галерея моделей в релизный jar не попадают.
 
-Existing customized config files are not automatically overwritten. Relics ability templates and extended configs are no longer read. Shield HP and hive state remain on the item; devices begin using the standalone progression component when they next enter an inventory.
-Use `/relics_addon shield_status` for read-only diagnosis of your equipped shields: disabled state, slot activity, shield priority and HP. This command does not unlock or repair anything.
+**Съёмка.** `./gradlew runWorldScenarioClient -Pscenario=juice-rf-droplet,armageddon-close` снимает сцены в живом мире в `run-scenario/screenshots`: кадры `scenario-<сцена>-NNN.png`, игровое время кадров `.ticks` и журнал звуков `.sounds` (каждый звук с громкостью, высотой, местом и положением камеры, а звуки, следующие за источником, — каждый тик). `runShipScenarioClient` снимает корабельные ульи на настоящем корабле Sable (сначала положите jar Sable в `run-ship/mods`).
 
-## Models And Assets
+Инструменты в `tools/` (Node.js, сначала `cd tools && npm install`):
 
-Inventory icons render the animated 3D models. Hives have closed inner hulls, articulated armor, recessed docking ports and distinct RF, Mana and violet-black Ex-Twins materials. The deployed swarm uses separate low-detail 3D models at high populations.
+- `mix_scenario_audio.mjs --take <сцена> … --out film.wav --frames dir` — сводит звуковую дорожку снятых сцен по их журналам (линейное затухание Minecraft с расстоянием, панорама по взгляду камеры) и раскладывает кадры на одну шкалу для видео.
+- `build_showcase_gif.mjs --out файл.gif --width 560 --segment "кадры-*.png:шаг:задержка_мс"` — GIF-превью из кадров, как в этом README.
+- `build_combat_sounds.mjs` — синтезированные звуки (`--validate` проверяет их).
+- `build_mana_shield_mesh.mjs`, `draw_component_icons.mjs`, `draw_rune_atlas.mjs`, `compact_obj.mjs` — модели, иконки, руны и сжатие OBJ (`./gradlew check` ловит несжатую модель).
 
-The `tools/` directory includes the current mesh generators, ability-card drawings and resource validators. Python tools require the packages listed in `tools/requirements.txt`; the hive card generator uses Node.js standard modules. Ready-to-use assets are included, so regenerating them is not required to build the mod.
+## Ограничения беты
 
-The shipped OBJ models are compacted: `tools/compact_obj.mjs` drops repeated `v`/`vt`/`vn` records and renumbers the faces, which leaves the baked mesh identical and the files about a third of their size. The Node generators (`build_mana_shield_mesh.mjs`, `generate_swarm_lod.mjs`) write through it; after running a Python generator (`build_rf_meshes.py`, `build_hive_meshes.py`, `build_arcane_meshes.py`, `generate_dense_swarm_lod.py`) run `node tools/compact_obj.mjs` over the models. `node tools/compact_obj.mjs --check before.obj after.obj` proves two files bake to the same faces, and `./gradlew check` (`verifyObjCompact`, plain Java, no Node needed) fails on a model with repeated records or an index out of range.
+- Это не гарантия совместимости с любой сборкой, мультиплеером или шейдерпаком.
+- Снаряды других модов нужно добавлять тегом или конфигом, hitscan-оружию нужен адаптер; трезубцы и бросаемые предметы не перехватываются.
+- Предметы дронов из ранних прототипов не восстанавливаются.
+- Подписи-подсказки сдерживания в переводах ещё описывают старый вид конструкций.
 
-`./gradlew runReleaseCheckClient` verifies the packaged release from `run-release-check/mods`, captures the ordinary title screen and exits. It does not load the main source-set classes or any preview screens. The separate startup probe is never packaged in the addon. Keep development clients in a separate checkout while recompiling: a running development client can fail to load a class if its compiler output changes during startup.
+## Лицензия
 
-To rebuild `docs/images/ex-twins-showcase.gif`, run `runFeatureGifClient` (shield frames) and `runHiveGifClient` (swarm frames), then `cd tools && npm install && node build_showcase_gif.mjs --segment "../run-feature-gif/screenshots/relics-shield-gif-*.png:2:80" --segment "../run-hive-gif/screenshots/relics-hive-gif-*.png:1:64"`. The older release GIF came from `runFeatureGifClient` plus `runUiCaptureClient` through `python tools/assemble_feature_preview.py run-feature-gif/screenshots run-ui-capture/screenshots outputs/EX-twins-showcase.gif --font /path/to/a-cyrillic-font.ttf`. Recording is opt-in and never runs in a release client.
-
-## Beta Limitations
-
-- This is not a certification of full-modpack, multiplayer or shader-pack compatibility.
-- Generic mod projectiles need the documented entity-tag integration; hitscan weapons need an adapter. Tridents and utility throws are not intercepted.
-- The 750-model visual budget is shared across visible players; server-side helpers remain active when their models are culled.
-- Drone item IDs from early prototypes are not restored. A legacy data-component decoder is retained for old stack data.
-
-## License
-
-All Rights Reserved, as specified in the mod metadata. Dependencies retain their respective licenses.
+All Rights Reserved, как указано в метаданных мода. У зависимостей свои лицензии.
