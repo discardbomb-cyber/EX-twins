@@ -754,5 +754,75 @@
         "name": "relics_addon:combat/hive_far_boom_2"
       }
     ]
+  },
+  "ship.lance_beam": {
+    "subtitle": "subtitles.relics_addon.ship_lance_beam",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/ship_lance_beam"
+      }
+    ]
+  },
+  "ship.lance_ignite": {
+    "subtitle": "subtitles.relics_addon.ship_lance_ignite",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/ship_lance_ignite"
+      }
+    ]
+  },
+  "ship.lance_overheat": {
+    "subtitle": "subtitles.relics_addon.ship_lance_overheat",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/ship_lance_overheat"
+      }
+    ]
+  },
+  "ship.aegis_block": {
+    "subtitle": "subtitles.relics_addon.ship_aegis_block",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/ship_aegis_block_1"
+      },
+      {
+        "name": "relics_addon:combat/ship_aegis_block_2"
+      }
+    ]
+  },
+  "ship.aegis_break": {
+    "subtitle": "subtitles.relics_addon.ship_aegis_break",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/ship_aegis_break"
+      }
+    ]
+  },
+  "ship.aegis_raise": {
+    "subtitle": "subtitles.relics_addon.ship_aegis_raise",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/ship_aegis_raise"
+      }
+    ]
+  },
+  "ship.escort_arc": {
+    "subtitle": "subtitles.relics_addon.ship_escort_arc",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/ship_escort_arc_1"
+      },
+      {
+        "name": "relics_addon:combat/ship_escort_arc_2"
+      }
+    ]
+  },
+  "ship.escort_launch": {
+    "subtitle": "subtitles.relics_addon.ship_escort_launch",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/ship_escort_launch"
+      }
+    ]
   }
 }

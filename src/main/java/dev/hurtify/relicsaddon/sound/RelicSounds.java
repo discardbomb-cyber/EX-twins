@@ -142,6 +142,32 @@ public final class RelicSounds {
     }
 
     /** Call from the mod constructor: {@code RelicSounds.register(modEventBus)}. */
+    /** The ship hives' sounds; the lance's beam is a loop a client plays for as long as the beam burns. */
+    public static final DeferredHolder<SoundEvent, SoundEvent> SHIP_LANCE_BEAM = sound("ship.lance_beam");
+    private static final DeferredHolder<SoundEvent, SoundEvent> SHIP_LANCE_IGNITE = sound("ship.lance_ignite");
+    private static final DeferredHolder<SoundEvent, SoundEvent> SHIP_LANCE_OVERHEAT = sound("ship.lance_overheat");
+    private static final DeferredHolder<SoundEvent, SoundEvent> SHIP_AEGIS_BLOCK = sound("ship.aegis_block");
+    private static final DeferredHolder<SoundEvent, SoundEvent> SHIP_AEGIS_BREAK = sound("ship.aegis_break");
+    private static final DeferredHolder<SoundEvent, SoundEvent> SHIP_AEGIS_RAISE = sound("ship.aegis_raise");
+    private static final DeferredHolder<SoundEvent, SoundEvent> SHIP_ESCORT_ARC = sound("ship.escort_arc");
+    private static final DeferredHolder<SoundEvent, SoundEvent> SHIP_ESCORT_LAUNCH = sound("ship.escort_launch");
+
+    public enum Ship { LANCE_IGNITE, LANCE_OVERHEAT, AEGIS_BLOCK, AEGIS_BREAK, AEGIS_RAISE, ESCORT_ARC, ESCORT_LAUNCH }
+
+    /** A ship hive's sound at a point of the world (where the ship really is, not its plot). */
+    public static void ship(ServerLevel level, Vec3 at, Ship sound, float volume, float pitch) {
+        DeferredHolder<SoundEvent, SoundEvent> event = switch (sound) {
+            case LANCE_IGNITE -> SHIP_LANCE_IGNITE;
+            case LANCE_OVERHEAT -> SHIP_LANCE_OVERHEAT;
+            case AEGIS_BLOCK -> SHIP_AEGIS_BLOCK;
+            case AEGIS_BREAK -> SHIP_AEGIS_BREAK;
+            case AEGIS_RAISE -> SHIP_AEGIS_RAISE;
+            case ESCORT_ARC -> SHIP_ESCORT_ARC;
+            case ESCORT_LAUNCH -> SHIP_ESCORT_LAUNCH;
+        };
+        level.playSound(null, at.x, at.y, at.z, event.get(), SoundSource.BLOCKS, volume, pitch);
+    }
+
     public static void register(IEventBus modEventBus) {
         SOUNDS.register(modEventBus);
         NeoForge.EVENT_BUS.addListener(RelicSounds::onServerStopped);

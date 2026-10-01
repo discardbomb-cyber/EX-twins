@@ -204,6 +204,28 @@ public final class WorldScenarios {
             // Aimed straight at a stone wall 88 blocks off: the ball hangs before it and flies into it.
             new Scene("rf-armageddon-wall", RelicRole.RF_HIVE, 10, AttackMode.DROPLET, RelicRole.RF_SHIELD,
                     List.of(new Vec3(-8, 0, -80)), false, new Vec3(64, 14, -52), new Vec3(0, 14, -84), 200, 420, -1),
+            // A lance hive on a small deck three blocks up burns two husks in turn, until it overheats and cools.
+            new Scene("ship-lance", null, 0, null, null, List.of(new Vec3(-6, 0, -16), new Vec3(6, 0, -19)), false,
+                    new Vec3(13, 8, 1), new Vec3(0, 4, -9), 30, 150, -1),
+            // The turret close up: the three drones rising off the face, joining their beams at the focus.
+            new Scene("ship-lance-close", null, 0, null, null, List.of(new Vec3(-3, 0, -16)), false,
+                    new Vec3(3.5, 7.5, -0.5), new Vec3(0, 6, -4), 10, 100, -1),
+            // An aegis hive on its deck: crossbowmen outside its dome shoot at the owner inside, and the shield stops the bolts.
+            new Scene("ship-aegis", null, 0, null, null, List.of(new Vec3(-5, 0, -17), new Vec3(7, 0, -16)), true,
+                    new Vec3(17, 9, 9), new Vec3(0, 3, -6), 40, 150, -1),
+            // The aegis and a lance on one deck: the shield takes the bolts while the lance burns the crossbowmen.
+            new Scene("ship-duo", null, 0, null, null, List.of(new Vec3(-5, 0, -17), new Vec3(7, 0, -16)), true,
+                    new Vec3(17, 9, 9), new Vec3(0, 3, -6), 40, 150, -1),
+            // A real Sable ship (run with shipScenarioClient): a small deck carrying all three ship hives, assembled into a
+            // ship, held still in the air and turned; skeletons below shoot at the owner on its deck.
+            new Scene("ship-sable", null, 0, null, null, List.of(new Vec3(-9, 0, -16), new Vec3(9, 0, -17), new Vec3(0, 0, -21)), true,
+                    new Vec3(21, 15, 8), new Vec3(0, 7, -9), 60, 200, -1, "minecraft:skeleton"),
+            // The same ship from close by, level with its deck.
+            new Scene("ship-sable-close", null, 0, null, null, List.of(new Vec3(-9, 0, -16), new Vec3(9, 0, -17), new Vec3(0, 0, -21)), true,
+                    new Vec3(10, 9.5, -1), new Vec3(0, 7.5, -8), 60, 160, -1, "minecraft:skeleton"),
+            // An escort hive's window, open over its deck while its wings fly.
+            new Scene("ship-window", null, 0, null, null, List.of(new Vec3(-4, 0, -14)), false,
+                    new Vec3(6, 7, 2), new Vec3(0, 4, -5), 60, 30, -1),
             // A slower, level 3 hive keeps its figures in the fan longer, close to the camera.
             new Scene("drone-closeup", RelicRole.RF_HIVE, 3, AttackMode.DROPLET, null,
                     List.of(new Vec3(0, 0, -26)), false, new Vec3(2.5, 3.6, -2.2), new Vec3(0, 3.8, 3), 60, 50, -1),
@@ -263,6 +285,23 @@ public final class WorldScenarios {
     /** When the current take started, in game time: an Armageddon take ends when its blast has burnt out. */
     private static double captureStart;
 
+    /** A ship hive set on a deck for a scene: its kind, where it stands (from the stage) and the face it launches from. */
+    private record Mount(dev.hurtify.relicsaddon.ship.ShipHiveKind kind, Vec3 offset, net.minecraft.core.Direction facing) { }
+    private static final java.util.Map<String, List<Mount>> SHIPS = java.util.Map.of(
+            "ship-lance", List.of(new Mount(dev.hurtify.relicsaddon.ship.ShipHiveKind.LANCE, new Vec3(0, 3, -4), net.minecraft.core.Direction.UP)),
+            "ship-lance-close", List.of(new Mount(dev.hurtify.relicsaddon.ship.ShipHiveKind.LANCE, new Vec3(0, 3, -4), net.minecraft.core.Direction.UP)),
+            "ship-aegis", List.of(new Mount(dev.hurtify.relicsaddon.ship.ShipHiveKind.AEGIS, new Vec3(0, 3, -4), net.minecraft.core.Direction.UP)),
+            "ship-window", List.of(new Mount(dev.hurtify.relicsaddon.ship.ShipHiveKind.ESCORT, new Vec3(0, 3, -4), net.minecraft.core.Direction.UP)),
+            "ship-duo", List.of(new Mount(dev.hurtify.relicsaddon.ship.ShipHiveKind.AEGIS, new Vec3(-2, 3, -4), net.minecraft.core.Direction.UP),
+                    new Mount(dev.hurtify.relicsaddon.ship.ShipHiveKind.LANCE, new Vec3(2, 3, -4), net.minecraft.core.Direction.UP)));
+    /** Scenes played on a Sable ship: its deck and hives are built, then assembled into a ship, which is held and turned. */
+    private static final java.util.Set<String> SABLE = java.util.Set.of("ship-sable", "ship-sable-close");
+    /** The Sable ship the current scene assembled, if any, and where to find it just after its assembly. */
+    private static java.util.UUID shipId;
+    private static dev.ryanhcode.sable.companion.math.BoundingBox3d shipBox;
+    /** Blocks a scene put up (decks and hives), taken down with it. */
+    private static final List<net.minecraft.core.BlockPos> BUILT = new ArrayList<>();
+
     /** Scenes filmed against a chequered wall behind the black hole, so that its lens shows. */
     private static final java.util.Set<String> BACKDROP = java.util.Set.of("containment-twins", "containment-twins-close", "containment-twins-golem");
 
@@ -312,6 +351,7 @@ public final class WorldScenarios {
                     warmFps += minecraft.getFps();
                     warmFrames++;
                 }
+                if (ticks == 5 && SABLE.contains(plan.get(scene).name())) onServer(minecraft, WorldScenarios::turnShip);
                 if (++ticks >= plan.get(scene).warmTicks()) {
                     phase = Phase.CAPTURE;
                     ticks = 0;
@@ -345,10 +385,13 @@ public final class WorldScenarios {
                     return;
                 }
                 attachCamera(minecraft);
-                // A key pressed into the game window must not open a screen over the shot.
-                if (minecraft.screen != null) minecraft.setScreen(null);
+                // A key pressed into the game window must not open a screen over the shot (but a scene of a window keeps its own).
+                if (minecraft.screen != null && !plan.get(scene).name().equals("ship-window")) minecraft.setScreen(null);
                 Shot shot = ARMAGEDDON.get(plan.get(scene).name());
                 if (++ticks % (shot == null ? plan.get(scene).name().startsWith("juice-") ? 1 : 2 : shot.cadence()) == 0) due = true;
+                if (ticks % 40 == 0 && plan.get(scene).name().startsWith("ship-")) onServer(minecraft, level -> {
+                    for (String line : dev.hurtify.relicsaddon.ship.ShipBrain.report()) RelicsAddon.LOGGER.info("World scenario {}: {}", plan.get(scene).name(), line);
+                });
             }
             case TEARDOWN -> {
                 if (++ticks >= 10) next(minecraft);
@@ -404,7 +447,7 @@ public final class WorldScenarios {
             if (!FOES.isEmpty() && level.getEntity(FOES.getFirst()) instanceof net.minecraft.world.entity.LivingEntity foe) foe.kill();
         });
         Shot filming = ARMAGEDDON.get(current.name());
-        int burnsOut = switch (current.hive()) {
+        int burnsOut = filming == null ? 0 : switch (current.hive()) {
             case MANA_HIVE -> dev.hurtify.relicsaddon.drone.ManaArmageddon.IMPACT + dev.hurtify.relicsaddon.drone.ManaArmageddon.QUIET + 40;
             case RF_HIVE -> dev.hurtify.relicsaddon.drone.RfArmageddon.RECOVER + 40;
             default -> dev.hurtify.relicsaddon.drone.Armageddon.IMPACT + dev.hurtify.relicsaddon.drone.Armageddon.GONE + 40;
@@ -500,17 +543,45 @@ public final class WorldScenarios {
         var curios = CuriosApi.getCuriosInventory(player).orElseThrow();
         var charms = curios.getStacksHandler(RelicRole.EQUIPMENT_SLOT).orElseThrow().getStacks();
         for (int slot = 0; slot < charms.getSlots(); slot++) charms.setStackInSlot(slot, ItemStack.EMPTY);
-        ItemStack hive = device(scene.hive(), scene.hiveLevel(), scene.mode());
-        if (scene.console() != null) hive.set(ModDataComponents.HIVE_SETTINGS.get(), scene.console().orders());
-        curios.setEquippedCurio(RelicRole.EQUIPMENT_SLOT, 0, hive);
+        if (scene.hive() != null) {
+            ItemStack hive = device(scene.hive(), scene.hiveLevel(), scene.mode());
+            if (scene.console() != null) hive.set(ModDataComponents.HIVE_SETTINGS.get(), scene.console().orders());
+            curios.setEquippedCurio(RelicRole.EQUIPMENT_SLOT, 0, hive);
+        }
+        for (Mount mount : SHIPS.getOrDefault(scene.name(), List.of())) {
+            // A small iron deck with the hive in its middle, set into it.
+            net.minecraft.core.BlockPos at = net.minecraft.core.BlockPos.containing(stage.add(mount.offset()));
+            for (int dx = -2; dx <= 2; dx++) for (int dz = -2; dz <= 2; dz++) {
+                net.minecraft.core.BlockPos deck = at.offset(dx, 0, dz);
+                level.setBlock(deck, net.minecraft.world.level.block.Blocks.IRON_BLOCK.defaultBlockState(), 3);
+                BUILT.add(deck);
+            }
+            level.setBlock(at, dev.hurtify.relicsaddon.registry.ModBlocks.SHIP_HIVES.get(mount.kind()).get().defaultBlockState()
+                    .setValue(dev.hurtify.relicsaddon.ship.ShipHiveBlock.FACING, mount.facing()), 3);
+            if (level.getBlockEntity(at) instanceof dev.hurtify.relicsaddon.ship.ShipHiveBlockEntity hive) {
+                prime(hive, player);
+            }
+        }
         if (scene.shield() != null) curios.setEquippedCurio(RelicRole.EQUIPMENT_SLOT, 1, device(scene.shield(), 0, null));
+
+        if (SABLE.contains(scene.name())) sableShip(level, player);
+        if (scene.name().equals("ship-window") && level.getBlockEntity(net.minecraft.core.BlockPos.containing(stage.add(0, 3, -4)))
+                instanceof dev.hurtify.relicsaddon.ship.ShipHiveBlockEntity hive) {
+            dev.hurtify.relicsaddon.menu.ShipHiveMenu.open(player, hive);
+        }
 
         FOES.clear();
         for (Vec3 offset : scene.foes()) {
-            net.minecraft.world.entity.Mob husk = scene.foesFight() ? EntityType.PILLAGER.create(level)
+            net.minecraft.world.entity.Mob husk = scene.foesFight() && !scene.foeType().equals("minecraft:husk")
+                    ? EntityType.byString(scene.foeType()).map(type -> type.create(level)).orElse(null) instanceof net.minecraft.world.entity.Mob mob ? mob : null
+                    : scene.foesFight() ? EntityType.PILLAGER.create(level)
                     : EntityType.byString(scene.foeType()).map(type -> type.create(level)).orElse(null) instanceof net.minecraft.world.entity.Mob mob ? mob : null;
             if (husk == null) continue;
-            if (scene.foesFight()) husk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(net.minecraft.world.item.Items.CROSSBOW));
+            if (scene.foesFight() && husk instanceof net.minecraft.world.entity.monster.AbstractSkeleton) {
+                husk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(net.minecraft.world.item.Items.BOW));
+                // A helmet keeps them from burning in the evening sun.
+                husk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(net.minecraft.world.item.Items.LEATHER_HELMET));
+            } else if (scene.foesFight()) husk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(net.minecraft.world.item.Items.CROSSBOW));
             Vec3 at = stage.add(offset);
             husk.moveTo(at.x, level.getHeight(Heightmap.Types.MOTION_BLOCKING, (int) Math.floor(at.x), (int) Math.floor(at.z)), at.z, 0, 0);
             husk.setPersistenceRequired();
@@ -560,13 +631,88 @@ public final class WorldScenarios {
         return stack;
     }
 
+    /**
+     * Builds a small ship over the stage (an iron deck 7 by 11 with a rail, a lance hive at the bow, an aegis hive
+     * amidships and an escort hive at the stern), turns it into a Sable ship, stops Sable's physics so it hangs where
+     * it is, turns it a little in yaw and pitch, and puts the owner on its deck.
+     */
+    private static void sableShip(ServerLevel level, ServerPlayer player) {
+        net.minecraft.core.BlockPos base = net.minecraft.core.BlockPos.containing(stage);
+        var iron = net.minecraft.world.level.block.Blocks.IRON_BLOCK.defaultBlockState();
+        var rail = net.minecraft.world.level.block.Blocks.POLISHED_ANDESITE.defaultBlockState();
+        for (int x = -3; x <= 3; x++) for (int z = -13; z <= -3; z++) {
+            level.setBlock(base.offset(x, 6, z), iron, 3);
+            if (Math.abs(x) == 3 || z == -13 || z == -3) level.setBlock(base.offset(x, 7, z), rail, 3);
+        }
+        for (Mount mount : List.of(new Mount(dev.hurtify.relicsaddon.ship.ShipHiveKind.LANCE, new Vec3(0, 7, -11), net.minecraft.core.Direction.UP),
+                new Mount(dev.hurtify.relicsaddon.ship.ShipHiveKind.AEGIS, new Vec3(0, 7, -8), net.minecraft.core.Direction.UP),
+                new Mount(dev.hurtify.relicsaddon.ship.ShipHiveKind.ESCORT, new Vec3(0, 7, -5), net.minecraft.core.Direction.UP))) {
+            net.minecraft.core.BlockPos at = base.offset((int) mount.offset().x, (int) mount.offset().y, (int) mount.offset().z);
+            level.setBlock(at, dev.hurtify.relicsaddon.registry.ModBlocks.SHIP_HIVES.get(mount.kind()).get().defaultBlockState()
+                    .setValue(dev.hurtify.relicsaddon.ship.ShipHiveBlock.FACING, mount.facing()), 3);
+            if (level.getBlockEntity(at) instanceof dev.hurtify.relicsaddon.ship.ShipHiveBlockEntity hive) {
+                prime(hive, player);
+            }
+        }
+        net.minecraft.core.BlockPos from = base.offset(-3, 6, -13), to = base.offset(3, 7, -3);
+        Vec3 middle = stage.add(.5, 7, -7.5);
+        command(level, "sable assemble area " + from.getX() + " " + from.getY() + " " + from.getZ() + " " + to.getX() + " " + to.getY() + " " + to.getZ());
+        command(level, "sable paused true");
+        shipId = null;
+        shipBox = new dev.ryanhcode.sable.companion.math.BoundingBox3d(from.getX(), from.getY(), from.getZ(), to.getX() + 1, to.getY() + 1, to.getZ() + 1);
+        player.teleportTo(level, stage.x, stage.y + 9, stage.z - 7, 180, 10);
+    }
+
+    /**
+     * A few ticks after it was assembled (Sable takes the new ship in at the end of a tick), the ship is found where its
+     * blocks stood and turned by its id, and the owner is put back on its deck.
+     */
+    private static void turnShip(ServerLevel level) {
+        if (shipBox == null) return;
+        for (var ship : dev.ryanhcode.sable.companion.SableCompanion.INSTANCE.getAllIntersecting(level, shipBox)) shipId = ship.getUniqueId();
+        shipBox = null;
+        if (shipId == null) {
+            RelicsAddon.LOGGER.warn("World scenario: no ship was assembled");
+            return;
+        }
+        Vec3 middle = stage.add(.5, 4, -7.5);
+        command(level, String.format(Locale.ROOT, "sable teleport %s %.2f %.2f %.2f 25 8", shipId, middle.x, middle.y, middle.z));
+        owner(level).teleportTo(level, stage.x, stage.y + 7, stage.z - 7, 180, 10);
+    }
+
+    /** A hive as if it had stood a while: owned by the player, its battery full, its shield or wings charged. */
+    private static void prime(dev.hurtify.relicsaddon.ship.ShipHiveBlockEntity hive, ServerPlayer player) {
+        hive.claim(player);
+        while (hive.energy().receiveEnergy(Integer.MAX_VALUE, false) > 0) {
+            // A tick's worth of input at a time.
+        }
+        var tag = hive.saveCustomOnly(player.level().registryAccess());
+        tag.getCompound("Module").putInt("Charge", dev.hurtify.relicsaddon.ship.AegisModule.FULL);
+        tag.getCompound("Module").putIntArray("Charges", new int[]{dev.hurtify.relicsaddon.ship.EscortModule.FULL, dev.hurtify.relicsaddon.ship.EscortModule.FULL});
+        hive.loadCustomOnly(tag, player.level().registryAccess());
+    }
+
+    /** Runs a command as the server, its answer in the log. */
+    private static void command(ServerLevel level, String line) {
+        var source = level.getServer().createCommandSourceStack().withLevel(level).withPosition(stage).withPermission(4);
+        RelicsAddon.LOGGER.info("World scenario: /{}", line);
+        level.getServer().getCommands().performPrefixedCommand(source, line);
+    }
+
     private static void teardown(ServerLevel level) {
+        if (scene >= 0 && scene < plan.size() && SABLE.contains(plan.get(scene).name())) {
+            if (shipId != null) command(level, "sable remove " + shipId);
+            shipId = null;
+            command(level, "sable paused false");
+        }
         if (wasSafe != null) {
             dev.hurtify.relicsaddon.AddonConfig.ARMAGEDDON_SAFE.set(wasSafe);
             wasSafe = null;
         }
         level.getServer().tickRateManager().setTickRate(20);
         clear(level);
+        for (net.minecraft.core.BlockPos at : BUILT) level.setBlock(at, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+        BUILT.clear();
         backdrop(level, false);
         ServerPlayer player = owner(level);
         CuriosApi.getCuriosInventory(player).ifPresent(curios -> curios.getStacksHandler(RelicRole.EQUIPMENT_SLOT).ifPresent(handler -> {

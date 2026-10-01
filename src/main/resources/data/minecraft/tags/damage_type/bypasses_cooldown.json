@@ -1,0 +1,7 @@
+{
+  "replace": false,
+  "values": [
+    "relics_addon:ship_lance",
+    "relics_addon:ship_escort"
+  ]
+}

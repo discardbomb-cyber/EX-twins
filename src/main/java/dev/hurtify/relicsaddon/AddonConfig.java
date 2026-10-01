@@ -32,6 +32,14 @@ public final class AddonConfig {
     public static final ModConfigSpec.DoubleValue PLAYER_MANA_RESERVE;
     public static final ModConfigSpec.IntValue BOTANIA_MANA_PER_POINT;
     public static final ModConfigSpec.IntValue XP_PER_MINUTE;
+    public static final ModConfigSpec.DoubleValue SHIP_RANGE;
+    public static final ModConfigSpec.BooleanValue SHIP_TARGET_PLAYERS;
+    public static final ModConfigSpec.DoubleValue LANCE_DAMAGE;
+    public static final ModConfigSpec.IntValue LANCE_ENERGY;
+    public static final ModConfigSpec.IntValue AEGIS_UPKEEP;
+    public static final ModConfigSpec.IntValue AEGIS_ENERGY_PER_POINT;
+    public static final ModConfigSpec.DoubleValue ESCORT_LEASH;
+    public static final ModConfigSpec.DoubleValue ESCORT_DAMAGE;
     /** Cached matchers over the shield lists above. */
     public static final RegistryFilter<DamageType> PASSING_DAMAGE;
     public static final RegistryFilter<DamageType> ABSORBED_DAMAGE;
@@ -91,6 +99,23 @@ public final class AddonConfig {
                 .defineInRange("power.botaniaManaPerPoint", 10, 1, 10000);
         XP_PER_MINUTE = builder.comment("Most device experience one shield or hive can earn per minute of combat.")
                 .defineInRange("progression.maxExperiencePerMinute", 30, 1, 100000);
+        SHIP_RANGE = builder.comment("Blocks round a ship (or round a hive off a ship) within which its hives take on threats.")
+                .defineInRange("ship.targetRange", 48.0, 8.0, 128.0);
+        SHIP_TARGET_PLAYERS = builder.comment("When true, ship hives also fire on players outside the owner's team who have not attacked the ship.",
+                        "Players who hurt the ship's crew are always fought back while PvP is on.")
+                .define("ship.targetPlayers", false);
+        LANCE_DAMAGE = builder.comment("Damage a lance hive's beam deals every quarter of a second.")
+                .defineInRange("ship.lanceDamage", 3.0, 0.0, 100.0);
+        LANCE_ENERGY = builder.comment("FE a lance hive draws each tick its beam burns.")
+                .defineInRange("ship.lanceEnergyPerTick", 100, 0, 100000);
+        AEGIS_UPKEEP = builder.comment("FE an aegis hive draws each tick its shield stands.")
+                .defineInRange("ship.aegisUpkeep", 30, 0, 100000);
+        AEGIS_ENERGY_PER_POINT = builder.comment("FE an aegis hive spends to win back one point of its shield's charge (a full shield holds 400).")
+                .defineInRange("ship.aegisEnergyPerPoint", 150, 0, 100000);
+        ESCORT_LEASH = builder.comment("Farthest an escort hive's wings chase a threat from their ship's middle, in blocks.")
+                .defineInRange("ship.escortLeash", 40.0, 8.0, 128.0);
+        ESCORT_DAMAGE = builder.comment("Damage of an escort wing's arc; its little drones' dives deal a third of it.")
+                .defineInRange("ship.escortDamage", 4.0, 0.0, 100.0);
         SPEC = builder.build();
         PASSING_DAMAGE = new RegistryFilter<>(SPEC, Registries.DAMAGE_TYPE, SHIELD_PASSING_DAMAGE_TYPES);
         ABSORBED_DAMAGE = new RegistryFilter<>(SPEC, Registries.DAMAGE_TYPE, SHIELD_ABSORBED_DAMAGE_TYPES);

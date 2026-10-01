@@ -93,6 +93,12 @@ public final class GlowBrush {
 
     /** A jagged bolt from {@code a} to {@code b}: the same {@code seed} gives the same shape, so bolts flicker only when re-seeded. */
     public static void lightning(VertexConsumer c, Matrix4f m, Vec3 a, Vec3 b, long seed, int segments, double jag, double width, int color, double alpha) {
+        lightning(c, m, a, b, seed, segments, jag, width, color, alpha, point -> false);
+    }
+
+    /** The same bolt, leaving out the stretches {@code hidden} says are out of sight (behind something drawn solid before it). */
+    public static void lightning(VertexConsumer c, Matrix4f m, Vec3 a, Vec3 b, long seed, int segments, double jag, double width, int color, double alpha,
+            java.util.function.Predicate<Vec3> hidden) {
         Random random = new Random(seed);
         Vec3 span = b.subtract(a);
         double length = span.length();
@@ -107,7 +113,7 @@ public final class GlowBrush {
                 double angle = random.nextDouble() * Math.PI * 2, offset = jag * length * (.3 + .7 * random.nextDouble());
                 point = point.add(side.scale(Math.cos(angle) * offset)).add(lift.scale(Math.sin(angle) * offset));
             }
-            beam(c, m, previous, point, width, color, alpha);
+            if (!hidden.test(previous.add(point).scale(.5))) beam(c, m, previous, point, width, color, alpha);
             previous = point;
         }
     }

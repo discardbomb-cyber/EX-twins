@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "FCF",
+    "FEF",
+    "III"
+  ],
+  "key": {
+    "F": {
+      "item": "relics_addon:rf_drone_frame"
+    },
+    "C": {
+      "item": "relics_addon:resonant_circuit"
+    },
+    "E": {
+      "item": "relics_addon:energy_cell"
+    },
+    "I": {
+      "item": "minecraft:iron_block"
+    }
+  },
+  "result": {
+    "id": "relics_addon:escort_hive",
+    "count": 1
+  }
+}
