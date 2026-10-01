@@ -8,7 +8,7 @@ sources and jars listed below; anything not checked is marked UNVERIFIED.
 
 | Mod | Version | Mod id(s) | Gradle coordinate | Repository |
 | --- | --- | --- | --- | --- |
-| Sable | 2.0.5+mc1.21.1 | `sable` (nests `sablecompanion` 1.6.0, `veil` 4.3.2, the Rapier natives) | `maven.modrinth:sable:2.0.5+mc1.21.1` | `https://api.modrinth.com/maven` |
+| Sable | 2.0.5 | `sable` (nests `sablecompanion` 1.6.0, `veil` 4.3.2, the Rapier natives) | `dev.ryanhcode.sable:sable-neoforge-1.21.1:2.0.5` (compile), `maven.modrinth:sable:2.0.5+mc1.21.1` (the complete jar, for the dev run) | `https://maven.ryanhcode.dev/releases`, Modrinth |
 | Sable Companion | 1.6.0 | `sablecompanion` | `dev.ryanhcode.sable-companion:sable-companion-common-1.21.1:1.6.0` | `https://maven.ryanhcode.dev/releases` |
 | Create | 6.0.10-280 | `create` (nests `flywheel` 1.0.6, `ponder` 1.0.82, Registrate) | `com.simibubi.create:create-1.21.1:6.0.10-280` | `https://maven.createmod.net` |
 | Create Aeronautics | 1.3.2+mc1.21.1 | `aeronautics_bundled` (nests `aeronautics`, `simulated`, `offroad`) | `maven.modrinth:create-aeronautics:1.3.2+mc1.21.1` | Modrinth |
@@ -27,8 +27,11 @@ Companion and the Aeronautics code are MIT; Aeronautics assets are all rights re
 
 ## Build setup (`build.gradle`)
 
-- `compileOnly` on Sable Companion, Sable, Create, Create Big Cannons and the CC: Tweaked API.
-  Only `dev.hurtify.relicsaddon.compat.aeronautics` refers to their types.
+- Sable Companion is bundled (`jarJar(implementation(...))`, the same lines as the ship hives on
+  `feature/standalone-gui-photon`): it is a no-op without Sable, so common code may call it
+  (`ShipStructures.worldPosition` projects a plot position into the world for reach checks).
+- `compileOnly` on Sable, Create, Create Big Cannons and the CC: Tweaked API. Only
+  `dev.hurtify.relicsaddon.compat.aeronautics` refers to Sable's own types.
 - The `aeronauticsRuntime` configuration holds the runtime jars; the `aeronauticsClient` run
   (`./gradlew runAeronauticsClient`, game directory `run-aeronautics`) adds it to the run task's
   `classpathProvider`. It must be the JVM classpath and never MDG's per-run
@@ -56,13 +59,11 @@ Sable Companion 1.6.0 (sablecompanion)   Veil 4.3.2 (veil)
 The Rapier natives load without any extra setup (Sable unpacks them itself). There are no
 mod-loading errors. Two things in the log deserve attention:
 
-- Veil recompiles every vanilla-style core shader through its own GLSL front end and fails on
-  three of ours: `relics_addon:armageddon_volume`, `armageddon_blast` and `mana_shell`
-  (`'}' : syntax error` after Veil's transformation; the shaders compile fine under plain
-  NeoForge). Veil logs "Failed to recompile vanilla shader" and keeps the original program, so
-  the effects still render, but this is UNVERIFIED in a world with Sable. Worth a look in the
-  effects stage: the common construct in all three is a global fixed-size array
-  (`float layerAt[MAX_LAYERS];`) declared with a `const int`.
+- Veil recompiles every vanilla-style core shader through glsl-processor, which prints a lone
+  `x++;` without its semicolon, so three of ours failed (`armageddon_volume`, `armageddon_blast`,
+  `mana_shell`; "Failed to recompile vanilla shader", the original program is kept). The ship
+  hives branch (`8d5441e`, "Keep the effect shaders readable by Veil") already rewrites them with
+  `x += 1;`; new shaders must not use `++`/`--` as a statement.
 - Sable prints a warning that it replaces light storage and shaders when Flywheel is present;
   Create is loaded, so it is. Nothing broke at the title screen.
 
@@ -167,6 +168,8 @@ use the first three behind `neoforge:mod_loaded create`, with `*_basic` recipes 
 
 ## How the mod uses all this now
 
+- A block on an airship has plot coordinates; `DeviceControlMenu.stillValid` and the owner's mana
+  range measure to `ShipStructures.worldPosition` (Sable Companion's `projectOutOfSubLevel`).
 - `shipshield.ShipStructures.locate` asks the airship locator first (bound by name from
   `compat.aeronautics.AeronauticsStructures` when the `sable` mod is loaded) and falls back to a
   flood fill of the connected solid blocks around the device (6-neighbourhood, config

@@ -6,6 +6,7 @@ import dev.hurtify.relicsaddon.registry.ShipBlocks;
 import dev.hurtify.relicsaddon.relic.RelicRole;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -79,14 +80,10 @@ public final class ShipDeviceBlock extends BaseEntityBlock {
         int taken = device.insertDrones(stack);
         if (taken > 0) {
             stack.shrink(taken);
-            player.displayClientMessage(Component(device), true);
+            player.displayClientMessage(Component.translatable("message.relics_addon.dock_loaded", device.droneCount(), device.droneCapacity()), true);
             return ItemInteractionResult.CONSUME;
         }
         return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
-    }
-
-    private static net.minecraft.network.chat.Component Component(ShipDeviceBlockEntity device) {
-        return net.minecraft.network.chat.Component.translatable("message.relics_addon.dock_loaded", device.droneCount(), device.droneCapacity());
     }
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {

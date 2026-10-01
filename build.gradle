@@ -211,13 +211,16 @@ repositories {
         url = "https://maven.gegy.dev/releases/"
         content { includeGroup "dev.lambdaurora.lambdynamiclights" }
     }
-    // Sable Companion (the safe, loader-neutral half of Sable's API).
     maven {
         name = "RyanHCode"
         url = "https://maven.ryanhcode.dev/releases"
-        content { includeGroupByRegex 'dev\\.ryanhcode.*' }
+        content {
+            includeGroup "dev.ryanhcode.sable-companion"
+            includeGroup "dev.ryanhcode.sable"
+        }
     }
-    // Sable, Create Aeronautics (bundled jar), Create Big Cannons and Ritchie's Projectile Lib.
+    // Sable's complete jar (Veil and the Rapier natives nested), Create Aeronautics (bundled jar), Create Big Cannons
+    // and Ritchie's Projectile Lib, for the aeronauticsClient run.
     maven {
         name = "Modrinth"
         url = "https://api.modrinth.com/maven"
@@ -260,14 +263,19 @@ dependencies {
         transitive = false
     }
 
-    // Airship compatibility (compat/aeronautics), compiled against but never required at runtime.
-    compileOnly("dev.ryanhcode.sable-companion:sable-companion-common-1.21.1:${sable_companion_version}") { transitive = false }
-    compileOnly("maven.modrinth:sable:${sable_version}") { transitive = false }
+    // Ships of Create Aeronautics are Sable physics bodies. Sable's companion library (MIT) finds the ship a block is on and
+    // where that ship is: bundled, and a harmless no-op where Sable is not installed.
+    jarJar(implementation("dev.ryanhcode.sable-companion:sable-companion-common-1.21.1:[${sable_companion_version},)")) {
+        version { prefer sable_companion_version }
+    }
+    // Sable itself only to compile the few calls made when it is installed (a ship's exact bounds).
+    compileOnly("dev.ryanhcode.sable:sable-neoforge-1.21.1:${sable_version}") { transitive = false }
+    // The rest of the airship compatibility (compat/aeronautics), compiled against but never required at runtime.
     compileOnly("com.simibubi.create:create-1.21.1:${create_version}") { transitive = false }
     compileOnly("maven.modrinth:create-big-cannons:${cbc_version}") { transitive = false }
     compileOnly("cc.tweaked:cc-tweaked-1.21.1-forge-api:${cct_version}") { transitive = false }
     // The Sable jar nests Sable Companion, Veil and the Rapier natives; Create nests Flywheel, Ponder and Registrate.
-    aeronauticsRuntime("maven.modrinth:sable:${sable_version}") { transitive = false }
+    aeronauticsRuntime("maven.modrinth:sable:${sable_version}+mc1.21.1") { transitive = false }
     aeronauticsRuntime("com.simibubi.create:create-1.21.1:${create_version}") { transitive = false }
     aeronauticsRuntime("maven.modrinth:create-aeronautics:${aeronautics_version}") { transitive = false }
     aeronauticsRuntime("maven.modrinth:create-big-cannons:${cbc_version}") { transitive = false }

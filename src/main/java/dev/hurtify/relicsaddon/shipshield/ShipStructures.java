@@ -70,6 +70,8 @@ public final class ShipStructures {
         int radius = AddonConfig.SPEC.isLoaded() ? AddonConfig.SHIP_STATIC_RADIUS.get() : 32;
         int limit = blockLimit();
         LongSet seen = new LongOpenHashSet();
+        java.util.List<BlockPos> entities = new java.util.ArrayList<>();
+        if (level.getBlockEntity(anchor) != null) entities.add(anchor.immutable());
         LongArrayFIFOQueue queue = new LongArrayFIFOQueue();
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
         boolean truncated = false;
@@ -87,9 +89,19 @@ public final class ShipStructures {
                 if (!level.isLoaded(cursor.set(x, y, z)) || !solid(level.getBlockState(cursor))) continue;
                 seen.add(next);
                 queue.enqueue(next);
+                if (level.getBlockEntity(cursor) != null) entities.add(cursor.immutable());
             }
         }
-        return new ShipStructure("static", anchor, seen, truncated);
+        return new ShipStructure("static", anchor, seen, entities, truncated);
+    }
+
+    /**
+     * Where a point of a structure is in the world: a block on an airship sits in the ship's plot far
+     * away, so distances to players go through this. Sable Companion is bundled and answers with the
+     * point itself where there is no Sable or no ship.
+     */
+    public static net.minecraft.world.phys.Vec3 worldPosition(net.minecraft.world.level.Level level, net.minecraft.world.phys.Vec3 position) {
+        return dev.ryanhcode.sable.companion.SableCompanion.INSTANCE.projectOutOfSubLevel(level, (net.minecraft.core.Position) position);
     }
 
     /** Most blocks any structure scan counts (config {@code shipShield.maxStructureBlocks}). */

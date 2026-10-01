@@ -126,7 +126,8 @@ public final class DeviceControlMenu extends AbstractContainerMenu {
 
     @Override public boolean stillValid(Player player) {
         if (!player.isAlive() || player.isSpectator() || !deviceValid()) return false;
-        return block == null || player.distanceToSqr(block.getCenter()) <= BLOCK_REACH_SQUARED;
+        // A block on an airship lies in the ship's plot: measure to where the ship really is.
+        return block == null || player.distanceToSqr(dev.hurtify.relicsaddon.shipshield.ShipStructures.worldPosition(player.level(), block.getCenter())) <= BLOCK_REACH_SQUARED;
     }
 
     @Override public boolean clickMenuButton(Player player, int id) {

@@ -192,9 +192,9 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
         ShipFamily family = family();
         RelicRole role = role();
         int[] docked = {0, 0};
-        structure.forEach(pos -> {
+        for (BlockPos pos : structure.blockEntities()) {
             BlockEntity entity = world.getBlockEntity(pos);
-            if (entity == null || pos.equals(worldPosition)) return;
+            if (entity == null || pos.equals(worldPosition)) continue;
             if (entity instanceof ShipDeviceBlockEntity other) {
                 if (other.role().isDroneDock() && other.family() == family && role.isShipGenerator()) {
                     docks.add(pos.immutable());
@@ -202,10 +202,10 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
                     docked[1] += other.droneCapacity();
                 }
                 if (other.role().isShipGenerator() && other.family() == family && role.isDroneDock() && (generator == null || other.enabled())) generator = pos.immutable();
-                return;
+                continue;
             }
             if (world.getCapability(Capabilities.ItemHandler.BLOCK, pos, null) != null) stores.add(pos.immutable());
-        });
+        }
         ShipDeviceState state = state().withStructure(structure.size(), docks.size(), stores.size());
         // A generator reports the drones of all its docks against what the structure needs; a dock reports its own.
         state = role.isShipGenerator() ? state.withDrones(docked[0], docked[1], dronesWanted()) : state.withDrones(droneCount(), droneCapacity(), 0);
@@ -218,15 +218,14 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
     /** Another switched-on generator on this structure that came on before {@code before}, or null. */
     private @Nullable BlockPos runningGenerator(ServerLevel world, long before) {
         if (structure == null) return null;
-        BlockPos[] found = {null};
-        structure.forEach(pos -> {
-            if (found[0] != null || pos.equals(worldPosition)) return;
+        for (BlockPos pos : structure.blockEntities()) {
+            if (pos.equals(worldPosition)) continue;
             if (world.getBlockEntity(pos) instanceof ShipDeviceBlockEntity other && other.role().isShipGenerator() && other.enabled()
                     && (other.enabledAt < before || other.enabledAt == before && pos.asLong() < worldPosition.asLong())) {
-                found[0] = pos.immutable();
+                return pos;
             }
-        });
-        return found[0];
+        }
+        return null;
     }
 
     /** Emitter drones the structure needs: eight per 64 blocks, rounded up. */
@@ -275,7 +274,7 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
         int capacity = DevicePower.capacity(device());
         if (!energy.manaOn() || energy.mana() >= capacity) return;
         if (owner != null && world.getPlayerByUUID(owner) instanceof ServerPlayer player && player.isAlive()
-                && player.level() == world && player.distanceToSqr(worldPosition.getCenter()) <= OWNER_MANA_RANGE * OWNER_MANA_RANGE) {
+                && player.level() == world && player.distanceToSqr(ShipStructures.worldPosition(world, worldPosition.getCenter())) <= OWNER_MANA_RANGE * OWNER_MANA_RANGE) {
             int before = energy.mana();
             DevicePower.chargeMana(player, device());
             if (DevicePower.energy(device()).mana() != before) deviceChanged();
