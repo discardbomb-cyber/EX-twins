@@ -357,6 +357,12 @@ public final class WorldScenarios {
                     ticks = 0;
                     frame = 0;
                     captureStart = minecraft.level.getGameTime();
+                    // A new take starts a new soundtrack.
+                    try {
+                        java.nio.file.Files.deleteIfExists(soundLog(minecraft, plan.get(scene)));
+                    } catch (java.io.IOException exception) {
+                        RelicsAddon.LOGGER.warn("World scenario {}: could not clear its sound log", plan.get(scene).name(), exception);
+                    }
                     Shot shot = ARMAGEDDON.get(plan.get(scene).name());
                     if (screen(plan.get(scene))) onServer(minecraft, level -> DeviceControlMenu.open(owner(level), true, 0));
                     RelicsAddon.LOGGER.info("World scenario {}: {} fps warming up", plan.get(scene).name(), String.format(Locale.ROOT, "%.1f",
@@ -389,6 +395,7 @@ public final class WorldScenarios {
                 if (minecraft.screen != null && !plan.get(scene).name().equals("ship-window")) minecraft.setScreen(null);
                 Shot shot = ARMAGEDDON.get(plan.get(scene).name());
                 if (++ticks % (shot == null ? plan.get(scene).name().startsWith("juice-") ? 1 : 2 : shot.cadence()) == 0) due = true;
+                noteTicking(minecraft);
                 if (ticks % 40 == 0 && plan.get(scene).name().startsWith("ship-")) onServer(minecraft, level -> {
                     for (String line : dev.hurtify.relicsaddon.ship.ShipBrain.report()) RelicsAddon.LOGGER.info("World scenario {}: {}", plan.get(scene).name(), line);
                 });
@@ -420,6 +427,79 @@ public final class WorldScenarios {
         } catch (ReflectiveOperationException exception) {
             RelicsAddon.LOGGER.warn("World scenario {}: could not place the mouse", plan.get(scene).name(), exception);
         }
+    }
+
+    /**
+     * While a take is filmed, every sound the client starts, one line each, so the take's soundtrack can be mixed
+     * again under its frames: game time, the sound file, volume, pitch, how far it carries, where it played (and
+     * whether that is relative to the listener), and where the camera stood and which way it looked.
+     */
+    @SubscribeEvent
+    public static void onSoundPlayed(net.neoforged.neoforge.client.event.sound.PlaySoundSourceEvent event) {
+        noteSound(event.getSound());
+    }
+
+    @SubscribeEvent
+    public static void onStreamPlayed(net.neoforged.neoforge.client.event.sound.PlayStreamingSourceEvent event) {
+        noteSound(event.getSound());
+    }
+
+    private static void noteSound(net.minecraft.client.resources.sounds.SoundInstance sound) {
+        if (!enabled() || phase != Phase.CAPTURE || plan == null || scene < 0 || scene >= plan.size()) return;
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null || sound.getSound() == null) return;
+        var camera = minecraft.gameRenderer.getMainCamera();
+        Vec3 ear = camera.getPosition();
+        String line = String.format(Locale.ROOT, "%.3f,%s,%.4f,%.4f,%d,%.3f,%.3f,%.3f,%s,%s,%.3f,%.3f,%.3f,%.2f,%.2f,%d,%s%n",
+                minecraft.level.getGameTime() + minecraft.getTimer().getGameTimeDeltaPartialTick(true), sound.getSound().getPath(),
+                sound.getVolume(), sound.getPitch(), sound.getSound().getAttenuationDistance(), sound.getX(), sound.getY(), sound.getZ(),
+                sound.isRelative(), sound.getAttenuation(), ear.x, ear.y, ear.z, camera.getYRot(), camera.getXRot(),
+                System.identityHashCode(sound), sound.isLooping());
+        try {
+            java.nio.file.Files.writeString(soundLog(minecraft, plan.get(scene)), line, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+        } catch (java.io.IOException exception) {
+            RelicsAddon.LOGGER.warn("World scenario {}: could not note a sound", plan.get(scene).name(), exception);
+        }
+    }
+
+    /** The sound engine's ticking sounds (the ones that follow what makes them and swell and fade), found once. */
+    private static java.lang.reflect.Field soundEngineField, tickingField;
+
+    /**
+     * Once a tick of a take, where every ticking sound now stands and how loud and high it is, one line each (marked
+     * with a ~), so the mix can follow a figure's rush as it swells past the camera, and end a hum when it stops.
+     */
+    @SuppressWarnings("unchecked")
+    private static void noteTicking(Minecraft minecraft) {
+        if (plan == null || scene < 0 || scene >= plan.size() || minecraft.level == null) return;
+        try {
+            if (soundEngineField == null) {
+                soundEngineField = net.minecraft.client.sounds.SoundManager.class.getDeclaredField("soundEngine");
+                soundEngineField.setAccessible(true);
+                tickingField = net.minecraft.client.sounds.SoundEngine.class.getDeclaredField("tickingSounds");
+                tickingField.setAccessible(true);
+            }
+            var ticking = (List<net.minecraft.client.resources.sounds.TickableSoundInstance>) tickingField.get(soundEngineField.get(minecraft.getSoundManager()));
+            if (ticking.isEmpty()) return;
+            StringBuilder lines = new StringBuilder();
+            double time = minecraft.level.getGameTime();
+            for (var sound : ticking) {
+                if (sound.getSound() == null) continue;
+                // With what a sound started before the take (a construct's hum) needs to be played from its ticks alone.
+                Vec3 ear = minecraft.gameRenderer.getMainCamera().getPosition();
+                lines.append(String.format(Locale.ROOT, "~,%.3f,%d,%.4f,%.4f,%.3f,%.3f,%.3f,%s,%s,%d,%s,%s,%.3f,%.3f,%.3f,%.2f,%s%n", time, System.identityHashCode(sound),
+                        sound.getVolume(), sound.getPitch(), sound.getX(), sound.getY(), sound.getZ(), sound.isStopped(), sound.getSound().getPath(),
+                        sound.getSound().getAttenuationDistance(), sound.isRelative(), sound.getAttenuation(), ear.x, ear.y, ear.z,
+                        minecraft.gameRenderer.getMainCamera().getYRot(), sound.isLooping()));
+            }
+            java.nio.file.Files.writeString(soundLog(minecraft, plan.get(scene)), lines, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+        } catch (ReflectiveOperationException | java.io.IOException | RuntimeException exception) {
+            RelicsAddon.LOGGER.warn("World scenario: could not note the ticking sounds", exception);
+        }
+    }
+
+    private static java.nio.file.Path soundLog(Minecraft minecraft, Scene current) {
+        return minecraft.gameDirectory.toPath().resolve("screenshots").resolve("scenario-" + current.name() + ".sounds");
     }
 
     @SubscribeEvent
