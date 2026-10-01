@@ -97,9 +97,15 @@ public final class ArmageddonController {
         final int shieldGives;
         int shieldGiven;
         boolean fired, arrived, told, landed;
-        /** The columns the black hole will eat, nearest its target first (packed x and z), how far it has got, and how low it has cut in the one it is on. */
+        /**
+         * The columns the blast will eat, nearest its target first (packed x and z), and the first of them not yet
+         * finished; for each, its state (0 not yet looked at, 1 under way, 2 finished) and four numbers: the lowest and
+         * highest heights taken so far (none while the lowest is above the highest) and the lowest and highest it takes.
+         */
         long[] crater;
-        int eaten, eatenTo = Integer.MAX_VALUE;
+        int eaten;
+        byte[] columnState;
+        int[] spans;
         /** The columns the beam will bore, nearest its axis first (packed x and z), how far it has got, and how low it has cut in the one it is on. */
         long[] shaft;
         int bored, boredTo = Integer.MAX_VALUE;
@@ -384,47 +390,79 @@ public final class ArmageddonController {
     }
 
     /**
-     * The land round the shot's target goes from the middle out: column by column, as its reach passes each,
-     * every breakable block within the sphere of the course's carve radius (below the target only as deep as its
-     * carve depth: a bowl for the RF crater, turned to face the way the RF ball came in), a few thousand a tick; and every
-     * creature it would strike is dragged in: towards the Twins black hole, or swept round and up into the Mana
-     * vortex.
+     * The land round the shot's target goes from the middle out, column by column as its reach passes each: every
+     * breakable block within the sphere of the course's carve radius (below the target only as deep as its carve depth:
+     * a bowl for the RF crater, turned to face the way the RF ball came in), a few thousand a tick; and every creature it
+     * would strike is dragged in: towards the Twins black hole, or swept round and up into the Mana vortex. The black
+     * hole and the vortex take a column whole once their reach passes it; the RF dome takes only what its swelling sphere
+     * has reached, so land standing over the target (or along a wall the ball struck) goes as the dome's front comes to it.
      */
     private static void carve(ServerLevel level, Shot shot, long age) {
         Vec3 centre = shot.state.target();
         double radius = shot.timeline.carveRadius(), reach = shot.timeline.carved(age), most = radius * radius, deep = shot.timeline.carveDepth();
-        int budget = BITES, looks = LOOKS;
+        boolean front = shot.state.type() == HiveType.RF;
+        int[] budget = {BITES, LOOKS};
         BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
         // Asked every tick, so a server turned safe partway through keeps the rest of its land.
-        while (shot.crater != null && !safe() && budget > 0 && looks > 0 && shot.eaten < shot.crater.length) {
-            int x = (int) (shot.crater[shot.eaten] >> 32), z = (int) shot.crater[shot.eaten];
-            double dx = x + .5 - centre.x, dz = z + .5 - centre.z, flat = dx * dx + dz * dz;
-            if (flat > reach * reach) break;
-            double span = Math.sqrt(Math.max(0, most - flat)), below = span * deep, above = span;
-            if (shot.state.type() == HiveType.RF) {
-                double[] bowl = RfArmageddon.bowl(shot.state.normal(), dx, dz, radius, deep);
-                below = bowl == null ? -1 : -bowl[0];
-                above = bowl == null ? -2 : bowl[1];
+        if (shot.crater != null && !safe()) {
+            if (shot.columnState == null) {
+                shot.columnState = new byte[shot.crater.length];
+                shot.spans = new int[shot.crater.length * 4];
             }
-            int floor = Math.max(level.getMinBuildHeight(), (int) Math.ceil(centre.y - below));
-            at.set(x, floor, z);
-            // Never inside spawn protection or beyond the world border, where its owner could not break a block either.
-            if (level.isLoaded(at) && level.mayInteract(shot.owner, at)) {
-                int top = Math.min(shot.eatenTo, Math.min(level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z), (int) Math.floor(centre.y + above)));
-                for (int y = top; y >= floor && budget > 0 && looks > 0; y--) {
-                    looks--;
-                    at.setY(y);
-                    // Checked as it is taken: nothing unbreakable goes.
-                    BlockState state = level.getBlockState(at);
-                    shot.eatenTo = y - 1;
-                    if (state.isAir() || state.getDestroySpeed(level, at) < 0) continue;
-                    level.setBlock(at, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SUPPRESS_DROPS);
-                    budget--;
+            for (int index = shot.eaten; index < shot.crater.length && budget[0] > 0 && budget[1] > 0; index++) {
+                int x = (int) (shot.crater[index] >> 32), z = (int) shot.crater[index];
+                double dx = x + .5 - centre.x, dz = z + .5 - centre.z, flat = dx * dx + dz * dz;
+                if (flat > reach * reach) break;
+                if (shot.columnState[index] == 2) continue;
+                int s = index * 4;
+                if (shot.columnState[index] == 0) {
+                    double span = Math.sqrt(Math.max(0, most - flat)), below = span * deep, above = span;
+                    if (shot.state.type() == HiveType.RF) {
+                        double[] bowl = RfArmageddon.bowl(shot.state.normal(), dx, dz, radius, deep);
+                        below = bowl == null ? -1 : -bowl[0];
+                        above = bowl == null ? -2 : bowl[1];
+                    }
+                    int floor = Math.max(level.getMinBuildHeight(), (int) Math.ceil(centre.y - below));
+                    at.set(x, floor, z);
+                    budget[1]--;
+                    // Never inside spawn protection or beyond the world border, where its owner could not break a block either.
+                    int top = !level.isLoaded(at) || !level.mayInteract(shot.owner, at) ? floor - 1
+                            : Math.min(level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z), (int) Math.floor(centre.y + above));
+                    if (top < floor) {
+                        shot.columnState[index] = 2;
+                        continue;
+                    }
+                    shot.columnState[index] = 1;
+                    shot.spans[s] = Integer.MAX_VALUE;
+                    shot.spans[s + 1] = Integer.MIN_VALUE;
+                    shot.spans[s + 2] = floor;
+                    shot.spans[s + 3] = top;
                 }
-                if ((budget <= 0 || looks <= 0) && shot.eatenTo >= floor) break;
+                int floor = shot.spans[s + 2], top = shot.spans[s + 3];
+                // How much of the column the front has reached: all of it once the reach passes it, for the black hole and
+                // the vortex; for the RF dome, the stretch of it inside the dome's sphere so far.
+                double within = front ? Math.sqrt(Math.max(0, reach * reach - flat)) : Double.MAX_VALUE;
+                int low = front ? Math.max(floor, (int) Math.ceil(centre.y - within)) : floor;
+                int high = front ? Math.min(top, (int) Math.floor(centre.y + within)) : top;
+                if (low <= high) {
+                    if (shot.spans[s] > shot.spans[s + 1]) {
+                        // Nothing taken yet: start at the top of what is reached and go down.
+                        shot.spans[s + 1] = high;
+                        shot.spans[s] = high + 1;
+                    }
+                    // Up from what is taken, then down from it, so what is taken stays one stretch whatever the budget allows.
+                    for (int y = shot.spans[s + 1] + 1; y <= high && budget[0] > 0 && budget[1] > 0; y++) {
+                        take(level, at.set(x, y, z), budget);
+                        shot.spans[s + 1] = y;
+                    }
+                    for (int y = shot.spans[s] - 1; y >= low && budget[0] > 0 && budget[1] > 0; y--) {
+                        take(level, at.set(x, y, z), budget);
+                        shot.spans[s] = y;
+                    }
+                }
+                if (shot.spans[s] <= floor && shot.spans[s + 1] >= top) shot.columnState[index] = 2;
             }
-            shot.eaten++;
-            shot.eatenTo = Integer.MAX_VALUE;
+            while (shot.eaten < shot.crater.length && shot.columnState[shot.eaten] == 2) shot.eaten++;
         }
         if (!shot.timeline.drags(age)) return;
         ServerPlayer owner = shot.owner;
@@ -444,6 +482,16 @@ public final class ArmageddonController {
             } else entity.setDeltaMovement(entity.getDeltaMovement().scale(.6).add(in.scale(.25 * strength / distance)));
             entity.hurtMarked = true;
         }
+    }
+
+    /** One block of a column taken by the blast, unless it is air or unbreakable; {@code budget} holds the blocks and looks left this tick. */
+    private static void take(ServerLevel level, BlockPos at, int[] budget) {
+        budget[1]--;
+        // Checked as it is taken: nothing unbreakable goes.
+        BlockState state = level.getBlockState(at);
+        if (state.isAir() || state.getDestroySpeed(level, at) < 0) return;
+        level.setBlock(at, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SUPPRESS_DROPS);
+        budget[0]--;
     }
 
     /**

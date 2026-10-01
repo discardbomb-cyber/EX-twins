@@ -190,6 +190,7 @@ public final class RfArmageddonVisual {
         Vec3[] f = RfArmageddon.frame(s);
         double unfold = RfArmageddon.unfold(age), charge = RfArmageddon.charge(age), scan = scanline(time);
         body(s, f, age, time, scan, base, camera, glow, m);
+        EffectLights.glow(RfArmageddon.body(s, f, (RfArmageddon.STERN_CAP + RfArmageddon.NOSE_TIP) / 2, 0, 0), (5 + 4 * charge) * base, 12);
         for (int panel = 0; panel < RfArmageddon.PANELS; panel++) panel(s, f, panel, unfold, charge, age, time, base, camera, glow, m);
     }
 
@@ -370,7 +371,9 @@ public final class RfArmageddonVisual {
             double age = s.age(time), radius = RfArmageddon.ballRadius(s, age), charge = RfArmageddon.charge(age);
             Vec3 c = RfArmageddon.nose(s).subtract(camera);
             if (plain) plainBall(c, radius, glow, m);
-            ball(c, radius, age, time, charge, 1, .03 + .22 * charge, s.startedAt(), camera, glow, m);
+            ball(c, radius, age, time, charge, 1, s.startedAt(), camera, glow, m);
+            // The ball lights the world round the nose as it fills.
+            EffectLights.glow(c.add(camera), 4 + 10 * charge, radius * 2 + 6);
             discharges(s, c, radius, age, time, camera, glow, m);
         }
         CHARGING.clear();
@@ -381,7 +384,8 @@ public final class RfArmageddonVisual {
                 double hover = smooth((age - RfArmageddon.ARRIVE) / RfArmageddon.HOVER), radius = RfArmageddon.ballRadius(blast.shot, age);
                 Vec3 c = RfArmageddon.ball(blast.shot, age).subtract(camera);
                 if (plain) plainBall(c, radius, glow, m);
-                ball(c, radius, age, time, 1, 1 - .45 * hover, .28 + .25 * hover, blast.impactAt, camera, glow, m);
+                ball(c, radius, age, time, 1, 1 - .45 * hover, blast.impactAt, camera, glow, m);
+                EffectLights.glow(c.add(camera), 14, radius * 2 + 8);
             }
             bolts(blast, age, camera, glow, m);
             if (t >= 0 && t < RfArmageddon.FLASH + 30) dome(blast, t, time, plain, camera, glow, m);
@@ -392,9 +396,9 @@ public final class RfArmageddonVisual {
     /**
      * The ball's crackle and its atom: jagged arcs round its rim, lightning crawling over the side facing the eye, and
      * the orbits round it ({@code contract} of their full reach), three at first and five as the charge fills, each
-     * with a bright electron running round it {@code spin} radians a tick, trailing light.
+     * with a bright electron running round it as far as {@link #electronRun} says, trailing light.
      */
-    private static void ball(Vec3 c, double radius, double age, double time, double charge, double contract, double spin, long seed, Vec3 camera,
+    private static void ball(Vec3 c, double radius, double age, double time, double charge, double contract, long seed, Vec3 camera,
             VertexConsumer glow, Matrix4f m) {
         if (radius < .02) return;
         Vec3 toEye = c.lengthSqr() < 1e-6 ? new Vec3(0, 0, 1) : c.scale(-1).normalize();
@@ -439,7 +443,7 @@ public final class RfArmageddonVisual {
             orbit(c, radius, axes, along, across, Math.max(.03, radius * .022), RfPalette.HOLO_PALE, 150 * shown, glow, m);
             orbit(c, radius, axes, along, across, Math.max(.12, radius * .07), RfPalette.ELECTRIC, 45 * shown, glow, m);
             // The electron, and the light it trails.
-            double at = hash(orbit, 5) * Math.PI * 2 + time * spin * (1 + .15 * orbit) * (orbit % 2 == 0 ? 1 : -1);
+            double at = hash(orbit, 5) * Math.PI * 2 + electronRun(age) * (1 + .15 * orbit) * (orbit % 2 == 0 ? 1 : -1);
             double direction = orbit % 2 == 0 ? 1 : -1;
             Vec3 previous = null;
             for (int step = 10; step >= 0; step--) {
@@ -455,6 +459,23 @@ public final class RfArmageddonVisual {
                 GlowBrush.dot(glow, m, previous, Math.max(.2, radius * .2), RfPalette.ELECTRIC, 110 * shown);
             }
         }
+    }
+
+    /**
+     * How far (in radians) the atom's electrons have run by {@code age}: their speed, slow while the charge is low,
+     * quickening as it fills, quicker again as the ball hovers, summed over the shot's own clock. Run on the world's
+     * clock instead, every change of speed would make them leap by as much as the world is old.
+     */
+    static double electronRun(double age) {
+        double a = Math.max(0, age), charging = Math.min(a, RfArmageddon.FIRE), span = RfArmageddon.FIRE - RfArmageddon.ASSEMBLED;
+        double filling = Math.max(0, charging - RfArmageddon.ASSEMBLED);
+        // While it charges: .03 a tick, plus .22 as the charge fills (evenly, from assembled to fired).
+        double run = .03 * charging + .22 * filling * filling / (2 * span);
+        if (a <= RfArmageddon.FIRE) return run;
+        // In flight: .28 a tick, plus .25 as the hover sets in (smoothly over HOVER ticks).
+        double u = Math.clamp((a - RfArmageddon.ARRIVE) / RfArmageddon.HOVER, 0, 1);
+        return run + .28 * (a - RfArmageddon.FIRE)
+                + .25 * (RfArmageddon.HOVER * (u * u * u - u * u * u * u / 2) + Math.max(0, a - RfArmageddon.ARRIVE - RfArmageddon.HOVER));
     }
 
     /** Orbit {@code orbit}'s long and short axes: leaning its own way, and slowly turning round the world's up, alternate orbits opposite ways. */
@@ -565,6 +586,10 @@ public final class RfArmageddonVisual {
      * where it lands and spraying sparks: one every second or so in flight, more and more often over the target.
      */
     private static void bolts(Blast blast, double age, Vec3 camera, VertexConsumer glow, Matrix4f m) {
+        // The ball, while it still flies, hides whatever of a bolt passes behind it.
+        Vec3 ballNow = age < RfArmageddon.IMPACT + 1 ? RfArmageddon.ball(blast.shot, age).subtract(camera) : null;
+        double ballRadius = ballNow == null ? 0 : RfArmageddon.ballRadius(blast.shot, age) * .97;
+        java.util.function.Predicate<Vec3> hidden = ballNow == null ? point -> false : point -> behind(ballNow, ballRadius, point);
         for (int k = 0; k < RfArmageddon.bolts(); k++) {
             double at = RfArmageddon.boltAt(k), life = age - at;
             if (life < 0) break;
@@ -577,8 +602,8 @@ public final class RfArmageddonVisual {
             long seed = k * 977L + (life < 3 ? 0 : 1);
             if (face == null) {
                 // Nothing in reach: a bolt lashing out into the air, thinning to nothing at its end.
-                GlowBrush.lightning(glow, m, from, to, seed, 7, .14, .18, RfPalette.SPARK, 180 * flicker);
-                GlowBrush.lightning(glow, m, from, to, seed, 7, .14, .5, RfPalette.ELECTRIC, 50 * flicker);
+                GlowBrush.lightning(glow, m, from, to, seed, 7, .14, .18, RfPalette.SPARK, 180 * flicker, hidden);
+                GlowBrush.lightning(glow, m, from, to, seed, 7, .14, .5, RfPalette.ELECTRIC, 50 * flicker, hidden);
                 continue;
             }
             Vec3[] across = plane(face);
@@ -586,12 +611,14 @@ public final class RfArmageddonVisual {
                 blast.flashed[k] = true;
                 EffectLights.flash(ground.add(face), 12, 14, 6);
             }
-            GlowBrush.lightning(glow, m, from, to, seed, 12, .09, .3, RfPalette.SPARK, 235 * flicker);
-            GlowBrush.lightning(glow, m, from, to, seed, 12, .09, .8, RfPalette.ELECTRIC, 60 * flicker);
+            GlowBrush.lightning(glow, m, from, to, seed, 12, .09, .3, RfPalette.SPARK, 235 * flicker, hidden);
+            GlowBrush.lightning(glow, m, from, to, seed, 12, .09, .8, RfPalette.ELECTRIC, 60 * flicker, hidden);
             Vec3 fork = from.lerp(to, .45 + .2 * hash(k, 304)), split = across[0].scale(Math.cos(k * 2.1)).add(across[1].scale(Math.sin(k * 2.1)));
-            GlowBrush.lightning(glow, m, fork, to.add(split.scale(3 + 3 * hash(k, 305))), seed + 5, 7, .12, .14, RfPalette.SPARK, 170 * flicker);
-            GlowBrush.dot(glow, m, to.add(face.scale(.4)), 2.6 * flicker + .6, RfPalette.SPARK, 240 * flicker);
-            GlowBrush.dot(glow, m, to.add(face.scale(.4)), 7, RfPalette.ELECTRIC, 80 * flicker);
+            GlowBrush.lightning(glow, m, fork, to.add(split.scale(3 + 3 * hash(k, 305))), seed + 5, 7, .12, .14, RfPalette.SPARK, 170 * flicker, hidden);
+            if (!hidden.test(to.add(face.scale(.4)))) {
+                GlowBrush.dot(glow, m, to.add(face.scale(.4)), 2.6 * flicker + .6, RfPalette.SPARK, 240 * flicker);
+                GlowBrush.dot(glow, m, to.add(face.scale(.4)), 7, RfPalette.ELECTRIC, 80 * flicker);
+            }
             // Sparks spraying off what it struck, falling as they go.
             for (int spark = 0; spark < 12; spark++) {
                 double angle = hash(k * 13 + spark, 306) * Math.PI * 2, speed = .25 + .45 * hash(k * 13 + spark, 307), rise = .25 + .4 * hash(k * 13 + spark, 308);
@@ -643,6 +670,7 @@ public final class RfArmageddonVisual {
         double radius = RfArmageddon.dome(Math.min(t, RfArmageddon.FLASH)), heat = smooth((t - 8) / (RfArmageddon.FLASH - 8));
         double shown = smooth(t / 3) * (1 - smooth((t - RfArmageddon.FLASH) / 3));
         int colour = GlowBrush.mix(RfPalette.ELECTRIC, 0xFFFFFF, heat);
+        if (shown > .05) EffectLights.glow(blast.centre().add(n.scale(radius * .3)), 10 + 5 * shown * heat, radius + 10);
         if (plain && shown > .01) GlowBrush.sphere(glow, m, c, radius, 0x000000, GlowBrush.mix(RfPalette.ICE, 0xFFFFFF, heat), 0, 140 * shown, 24);
         if (shown > .01) {
             long bucket = (long) Math.floor(time / 2);
@@ -889,7 +917,8 @@ public final class RfArmageddonVisual {
             if (cut == null || at.getY() < Math.ceil(centre.y + cut[0]) || at.getY() > Math.floor(centre.y + cut[1])) continue;
             BlockState state = minecraft.level.getBlockState(at);
             if (state.isAir() || state.getRenderShape() != RenderShape.MODEL) continue;
-            all.add(new Stone(at, state, RfArmageddon.carvedAt(Math.hypot(at.getX() + .5 - centre.x, at.getZ() + .5 - centre.z)) - RfArmageddon.IMPACT, 0, 0, 0));
+            // Lifted as the dome's front reaches it, as the server takes it: by its whole distance from where the ball met the face.
+            all.add(new Stone(at, state, RfArmageddon.carvedAt(Vec3.atCenterOf(at).distanceTo(centre)) - RfArmageddon.IMPACT, 0, 0, 0));
         }
         long seed = blast.impactAt;
         int step = Math.max(1, all.size() / STONES);
