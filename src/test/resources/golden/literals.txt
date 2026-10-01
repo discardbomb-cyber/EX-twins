@@ -2,239 +2,589 @@
  (expected 
  -> 
  / 
- / 250 drones out of 750
+ / 250 drones out of 2000
  = 
+ FE
+ FE, 
+ at 
+ blocks up (
+ does not feed the RF Armageddon
+ drones are refused
+ drones are refused whole
  enters the level
  fixture
+ gives it nothing
  goes straight through armour
  health=
+ is loaded
+ is out
+ is refused
+ is registered
  is softened by armour: 
+ is synced
+ left 
  mode=
+ must be saved
+ must not be saved
  of 
+ overfilled the hive
  strikes with 
  survives its neighbours
+ threats
  xp 
 #
 #minecraft:arrows
 #minecraft:is_fire
 #relics_addon:shield_strike
 #relics_addon:swarm_damage
+%  
 %.1f
+%.3f,%s,%.4f,%.4f,%d,%.3f,%.3f,%.3f,%s,%s,%.3f,%.3f,%.3f,%.2f,%.2f,%d,%s%n
 (starvation, drowning, suffocation, the void). Damage type ids or #tags, e.g. ["minecraft:fall", "#minecraft:is_fire"].
-+1
-+10
++1 Barrage
++1 from nothing gives exactly the minimum, 
++1 on an empty mode is allowed
+,
+, at 
+, changed at 
+, face 
 , got 
+, room 
+, target 
+-1 at the minimum is allowed
+-1 from the minimum switches the mode off
+-10 to 
 .
 .desc
 .fx
 .hint
 .hint.
 .png
+.sounds
+.ticks
+100 points of mana cost 10 experience points, got 
 2
 210 cells / 50% local HP
+4
 420 cells / full local HP
 8100 experience from level 0 to 10, got 
 90 cells / critical local HP
+99 sound events are registered, got 
 ?
+A Mana hive under 98% cannot fire it
+A Mana shield feeds the Mana Armageddon
+A Mana shot called off before it leaves is gone without a trace
+A Twins shield does not feed the Mana Armageddon
+A blast within reach damages the drones and sends them home
+A blow bigger than the charge gets through
+A blow from outside is taken by the shield
+A blow on the field sets the swarm on the attacker
+A broken shield stops nothing
 A calm zombified piglin is held out but not struck
 A charge blasts the target
+A charged wing flies out on patrol by itself
+A console whose device was swapped ignores button 
 A drone hit lands
 A drone hit never knocks the target back
 A field never shelters a stranger inside it from its own owner's swarm
+A friend in the way holds the beam
+A full Mana battery switched off is no charge: the shot is refused, not started and then called off
 A full Twins pair pays 20 points
+A full level 10 Mana hive fires (refused: 
+A full level 10 RF hive fires (refused: 
+A full top-level Twins hive fires
 A fully absorbed hit must be cancelled, not applied as zero damage
+A grounded hive does not fire
+A grounded hive holds no shield
 A group's dive lands as a swarm blow
 A held target cannot move
 A hit drone goes home for repair
+A hive short of a full charge cannot fire it
+A hive short of the top level cannot fire it
 A kept effect is not cut off
 A kept effect is not trimmed: 
-A level 10 hive holds 750 drones, got 
+A level 0 shield keeps radius 2, got 
+A level 10 hive holds 2000 drones, got 
+A level 3 shield takes radius 5, got 
+A level 9 Mana hive is refused, in the Mana Armageddon's own words
+A level 9 RF hive is refused, in the RF Armageddon's own words
 A listed snowball is intercepted
+A monster beyond the leash is left alone
+A pig is no threat
 A point buys an upgrade rank
 A quarter of the wither stays: 
+A safe server keeps its blocks
+A safe server keeps its blocks from the dome
+A safe server keeps its blocks from the vortex
+A safe server raises no rim
 A sealed target's blows do nothing
 A second touch inside the cooldown is only pushed
+A shield has no healers to add
+A shield whose battery is switched off promises nothing
+A shot called off before it leaves is gone without a trace
 A strike still lands
 A stronger hit inside the window pays only the difference
 A switched-off battery is never drawn from
+A switched-off hive cannot fire it
 A tamed wolf is never pushed
 A tamed wolf is never struck
+A wing is out fighting it
+ACTIVE
+AEGIS
+AEGIS_BLOCK
+AEGIS_BREAK
+AEGIS_DOWN
+AEGIS_RAISE
+AEGIS_UP
+ALL
+ALLIES
+ARRIVE
 ATTACK
+ATTACK_DAMAGE
+ATTACK_INTERVAL_MAX
 AUTO
 Absorbed starvation never reaches the wearer
 Absorption
 After the cooldown the field strikes again
 After the window a new hit is paid again
+AimEye
+AimX
+AimY
+AimZ
+Aimed at a wall, it lands on the face turned to the owner
+Aimed up at a ceiling, it lands on its underside
+All new drones are assigned to barrage, so none can become healers yet
+An RF hive has no mana source to choose
+An RF hive whose battery is under 98% cannot fire it
 An RF shield cannot buy a Twins-only upgrade
+An RF shield feeds the RF Armageddon
 An RF shield strikes with its own discharge damage
+An RF shot called off before it leaves is gone without a trace
 An arrow in an ignored tag is not a target
 An attacker's poison is cut off
 An empty RF battery leaves the shield unpowered
+An intact shield needs no repair
+An overheated turret stops burning
 Approach
+ArcAt
+Armageddon of {} {} at {} ticks in
 Arrows are stopped in flight by default
+Aspect
+At
 At most 250 fly at once
 At most 30 experience per minute, got level 
 BALANCED
 BARRAGE
+BELOW_MINIMUM
 BLAST
+BROKEN
+BUFFER_CAPACITY
+BUY
+BallCentre
+BallCore
+BallRadius
+BallRim
+Barrage flies its places too
 Battery charge gained from one player experience point.
 Battery charge gained from one point of a player's own mana (Ars Nouveau, Iron's Spells).
 Blocks from the owner a hive keeps chasing its target.
 Blocks from the owner within which a hive picks up a target.
+Blocks round a ship (or round a hive off a ship) within which its hives take on threats.
 Botania mana taken from mana tablets and similar items per point of battery charge.
+Both creatures are engaged (
 Burning is absorbed by the field
+Button 2 takes one healer away
+Button 4 adds ten healers
+CAPTURE
 CHARGE
 CLIENT
 COMBAT
 CONTAIN
 CONTAINMENT
+COOLDOWN
+CUT
+Centre
+CentreUv
+ChangedAt
+Charge
+Charges
+ColumnFog
+ColumnGlow
+ColumnRadius
+ColumnRise
+ColumnTop
 Containment zaps do not knock the target about
+Cooling right down takes longer than that
+Core
 Could not bind the {} mana API; its mana will not charge batteries
+Creative tab relics_addon:main is registered
+Creatures are still struck
 Curios did not equip 
 Curios inventory must exist for the test player
 Curios must refuse a second hive
 Cutting an effect costs charge
+DISABLED
 DISTRIBUTION
+DOCKED
+DONE
+DOWN
 DRONE
+DRONE_COUNT
+DRONE_HEALTH
+DRONE_SHOT
 DROPLET
+Damage a lance hive's beam deals every quarter of a second.
 Damage in a listed tag passes the field, bad entries aside
+Damage of an escort wing's arc; its little drones' dives deal a third of it.
+Damage type relics_addon:
+Damage type tag #relics_addon:
 Damage types that always pass the field and reach the wearer, on top of the data tag relics_addon:shield_passes
 Damage types the field absorbs although relics_addon:shield_passes lets them through, e.g. ["minecraft:drown"].
+DarkCore
+Darkness
+Data component relics_addon:
+Deployed
+DeployedAt
+Dim
 Disabled automatically while an Iris/Oculus shader pack is active.
+DiveAt
+DomeEdge
+DomeGlass
+DomeHaze
+DomeHeat
+DomeRadius
+Down
+DownAt
+Dust
+EAST
+EMPTY
+ENGAGE
+ESCORT
+ESCORT_ARC
+ESCORT_DOCKED
+ESCORT_FIGHTING
+ESCORT_LAUNCH
+ESCORT_PATROL
 EX-twins / Hives and swarms
 EXPERIENCE
+East
 Effects nobody cast (a wither rose) still apply
 Effects off the list are still cut
+Einstein
+Enabled
+Energy
+Entity type tag #relics_addon:shield_interceptable_projectiles is loaded
 Even if two are forced in, only one hive runs
 Every drone has three hit points
 Expected twenty Twins facets
 Experience levels a mana battery never draws below.
+FE a lance hive draws each tick its beam burns.
+FE an aegis hive draws each tick its shield stands.
+FE an aegis hive spends to win back one point of its shield's charge (a full shield holds 400).
 FE charges the battery
+FIRE
 Failed to build Photon effect {}
-Failed to load shield refraction shader
+Failed to invoke ArmageddonVisual.told
+Failed to load the refraction shaders
 Failed to register addon client hooks
+Farthest an escort hive's wings chase a threat from their ship's middle, in blocks.
 Feature GIF: 290 native shield frames captured
+Firing
+Flash
+Flood
+Front
 GATHER
+GROUNDED
 Gathering surviving cells / no healing
+Glare
+Glow
+Grey
+GroundHaze
+HEAVY_8
 HIGH
 HIVE
+Halo
 Harmful effects the field never cuts off or trims when an attacker applies them, e.g. ["minecraft:poison"].
+Healers are capped at the swarm's capacity, got 
+Healers can return to the free drones
 Health
+Heat
+HeatAt
 Helpful effects pass
+Hits
 Hits inside the immunity window cost nothing extra
 Hive GIF evidence: {} native frames captured
 Hive evidence: {}; {} drones per family, mean gallery render submission {} ms across {} frames
 Hive unit count exceeds limit
 Holding and striking are paid from the battery: 
+Holding it off cost the shield charge
+Horizon
+How hard a swarm's blows within 16 blocks nudge the camera. 0 turns it off.
+How much the swarm's attacks show: aim circles, trails, sparks, shock rings and what lingers after a blow.
 How strongly the refraction band bends the image behind the wave.
 How visible a shield is when nothing is attacking (0 hides it until a hit, 1 is as bright as in combat).
 Husk fixture
 IMPACT
+INACTIVE_SLOT
 Idle
 Impact wave / across the sphere
 Incomplete spherical Voronoi cell 
 Independent impact waves / continuous animation
+Inside
 Invalid Twins hive layer
 Invalid Twins shield arc
 Invalid Twins shield layer
-Invalid healer allocation
+Invalid held target count
+Invalid hive allocation
 Invalid hive joint
+Invalid hive notice
+Invalid hive notice mode
 Invalid legacy shield relocation
 Invalid shield cell count
 Invalid shield relocation
+InverseProj
+It comes back up by itself
+It does not burn
+It does not go home and set out again
 It does not suffocate
+It flies on its own charge
 It hangs there
+It holds its fire
+It holds its fire while it cools
 It is still kept out of the field
+It moves on to the other attacker
+Item relics_addon:
+Its drones fly over from where they were
+Its drones stay docked
+Its flowers hang over the owner's head and it aims at the target, stopping at whatever is in the way
+Its hologram hangs over the owner's head and it aims at the target, stopping at whatever is in the way
 Its own blow, reflected
 Keeping an effect costs nothing
+LANCE
+LANCE_AIMING
+LANCE_BLOCKED
+LANCE_FIRING
+LANCE_IGNITE
+LANCE_OVERHEAT
+LANCE_OVERHEATED
+LAUNCH
+LEGACY
+LIGHT_1
 LOW
 LambDynamicLights found: shields, swarm effects and blasts will light the world
+LeanX
+LeanY
+LeanZ
 Let visible shields, swarm strike groups, charges, blasts and constructs light up the world around them.
 Letting it through costs nothing
 Level thresholds
 Listed damage reaches the wearer
 Listed starvation is absorbed although shield_passes lets it through
-Loaded three shields and three typed defender hives
+Loaded three shields, three typed defender hives and three ship hives
 MAGIC
 MANA
 MANA_DRONE
 MANA_HIVE
 MANA_SHIELD
+MAXED
+MOVED
+Magenta
 Mana batteries can draw from {}
 Mana devices have no RF battery
 Mana source {} failed; it is disabled for this session
+Menu relics_addon:device_control is registered
+Menu relics_addon:ship_hive is registered
 Mob effect ids or #tags.
+Module
+MoonAt
+MoonGlow
+MoonLight
+MoonRadius
 Most device experience one shield or hive can earn per minute of combat.
 Multiplier for how far a shield throws hostile mobs back. 0 only holds them at the surface.
 Multiplier for the damage a shield deals to hostile mobs it throws back. 0 only pushes them.
+NEEDS_LEVEL
+NONE_FREE
+NORMAL
+NORTH
+NOTHING_LEFT
+NO_POINTS
 Native shield evidence: {}
 Native visual evidence: {}
 Needs LambDynamicLights; without it this does nothing.
+Nine data components are saved, got 
+No charge, no beam
+No healer can be added when no free drone is left
 No hurt animation and no knockback from an absorbed hit
 No poison reaches the wearer
+No wing goes after it
 Normal startup: TitleScreen, no preview; {}
+North
 Not An Id!
 Not a hive: 
 Not a shield: 
 Not an item-backed device: 
+OFF
+OTHER_4
 OVERVIEW
+OWNER
+Once a second the running shield pays its upkeep, got 
 Once it attacks the wearer, it is struck
+One shot at a time
+Only a hive fires Armageddon
+Orb
+OrbGlow
+OrbRadius
+OrbSolid
+OrbTime
+Overheated
 Oversized hive shot packet
+Oversized hive target list
+Oversized hive wing list
 Oversized shield relocation packet
+Owner
+OwnerName
+PATROL
 POWER
+PRIORITY
 Panel break
+Phase
+PhaseAt
 Photon effect failed; further effect errors are suppressed
+Pig fixture
+Pillar
+PillarGlow
+PixelAngle
+Players are spared where the server forbids fights
 Players must get two charm slots from the mod's Curios data
+Players who hurt the ship's crew are always fought back while PvP is on.
 Projectiles the field never stops in flight, whatever the other rules say. Their hits are still absorbed at the
 Projectiles the field stops in flight besides arrows and the tag relics_addon:shield_interceptable_projectiles,
+RADIUS
 RECOVERY
 REFLECT
 RESTORATION
+RETURN
 RF
 RF devices expose a receive-only FE storage
 RF_DRONE
 RF_HIVE
 RF_SHIELD
 RIPPLE
+Raised
 Rank of 
+Reach
 RefractionGain
 Released, it falls again
 Relics / Native Model Test
 Relics / Reactive Shield Test
+Ring
+RingStrength
+RingWidth
 Run with runGameTestServer
+S
 SAVE 
+SETUP
 SHIELD
+SHIELD_DISCHARGE
+SHIELD_MANA_BURST
+SHIELD_TWIN_SURGE
+SMALL_FIREBALL_5
+SOUTH
 STABILIZATION
 STRIKE
 SUMMON
 SUPPORT
 SWARM
+SWARM_REFLECT
+SWARM_STRIKE
+SWARM_VOID
 Scale of the geometric hit wave on Mana and Twins shields. 0 disables it.
 Screen-space refraction along the hit wave of Mana and Twins shields.
+SealGlow
+SealRadius
+SealTurn
+SealWave
+Seam
 Server config {}: ignoring "{}", expected a {} id such as minecraft:example or a #tag
 Server config {}: no {} "{}" is registered, the entry matches nothing
 Server config {}: no {} tag "#{}" exists, the entry matches nothing
 Share of a player's own mana pool that batteries leave untouched for spellcasting.
 Share of each drone's damage that goes into its group's blow or charge.
 Shields and hives run on their built-in RF and mana batteries. Disable to make them free.
+Shock
+ShockRadius
 Shots the target fires are swallowed
+Side
+Silhouette
+Sky
 Snowballs fly through by default
+SphereFog
+SphereGlow
+SpherePressure
+SphereRadius
+SphereTurn
+SphereWritten
+Spheres
 Starvation is not blocked by the field
 Starvation reaches the wearer
 Status damage never reaches the wearer
+Stopping it cost the shield charge
 Strike damage is registered and lands
 Striking earns device experience
+SunGlow
+SunLift
+SunRadius
 Swapping the worn hive in its own slot stays allowed
 Swarm blows are not waved through every field: another player's field stops them
+Switched off, every wing flies home and docks
+Sync
+TEARDOWN
 TOGGLE
 TWINS
 TWINS_DRONE
 TWINS_HIVE
 TWINS_SHIELD
+Target
+TargetSize
+TexelSize
+The Mana shot fires (refused: 
+The Mana shot fires again (refused: 
+The RF blast spares the owner's teammates, even where fights are allowed
+The RF shot fires (refused: 
+The RF shot fires again (refused: 
+The arrow flies
+The arrow has come in past the shell
+The attacker enters the level
 The attacker's poison reaches the wearer
+The ball hangs out in front of the wall and flies into it
+The ball hangs under the ceiling and comes up into it
+The barrage allocation can return its drones to the hive
+The battery pays for the two restored hit points, got 
+The beam never burns a bystander
+The beam never burns the crew
+The beam runs on the battery
+The black hole devours the blocks round it
+The black hole holds the target 
+The blast spares its owner
+The blast spares its owner's pets
+The blast strikes creatures
+The blast strikes other players when the server allows fights
 The blow is turned back on the attacker
 The charge slot only takes FE items
 The console tracks the worn shield
+The coverage command covers only the owner, got 
+The crater's rim rises where its edge meets the ground
+The creature enters the level
+The crew is untouched
+The crew's own shots fly out through the shield
+The damaged drone is whole again, got 
+The dome cuts into the ceiling it came up into
+The dome cuts into the wall it flew into (target 
+The dome cuts the blocks round it
+The dome of light spares the owner's teammates, even where fights are allowed
+The dome of light strikes foes, to the owner's credit
+The dome strikes foes as it swells, to the owner's credit
 The drone hit hurts
 The drones charge the ward (
 The field does not stop an ignored arrow
@@ -247,12 +597,21 @@ The field pays the snowball's cost
 The field spends nothing on damage it lets through
 The field spends nothing on its own strike
 The field strikes a hostile mob it holds back
+The field takes the whole blow
 The first touch is struck
+The healer slider draws from the free drones
+The hive lets go of the shot once its drones are home
+The hive spends nothing on upkeep while its shot is under way, so its sliver lasts until the drones are home
+The hive's owner gets the credit
+The husk enters the level
 The ignore list wins over the intercept list
 The ignored arrow keeps flying
+The lance's beam burns the husk
 The lift stops under the ceiling (
 The listed snowball is stopped at the shell
+The mana battery refills from experience, got 
 The mob loses health
+The mode buttons put every fighter into containment, preserving the healers
 The owner gets the credit
 The owner gets the kill credit
 The owner is untouched
@@ -261,90 +620,225 @@ The pass list wins over the absorb list
 The power button switches the shield off
 The projectile enters the level
 The rank rises and the point is spent
-The rifts hold the target four blocks up (
+The shield fills
+The shield is up
+The shield pays twice the blow
+The shield stops the arrow at its shell
+The shot fires
+The shot is called off
+The shot is still under way
+The shot is under way on the hive
+The shot took the hive's whole charge
+The shot under way is the Mana hive's own
+The shot under way is the RF hive's own
 The skull enters the level
 The skull must not hurt the wearer through the field
 The skull must not wither the wearer through the field
 The strike shows on the shell facing the mob
 The strike throws the mob away from the wearer (outward speed 
+The swarm is fighting its target
+The swarm stays out
+The swarm takes on the target at once
 The target enters the level
 The target is never pushed into the blocks
 The torus holds the target
 The torus strikes its prisoner with lightning
+The turret has nothing to aim at
+The turret is burning
+The turret never burns with a friend in the line of fire
+The turret still takes aim
+The vortex tears up the blocks round the collision
 The ward stops the blow
 The wearer is untouched
 The wearer keeps full health
+The wings keep within their leash
+The wings strike the husk
 The zombie enters the level
 The zombie is held at the shell (
+There is only as much room under it as down to the floor
+They cost it nothing
 Ticks before a shield can strike the same mob again.
+Time
 Tint
 Twins split a cost evenly between RF and mana
+UNPOWERED
+UP
 UPGRADE
 UPGRADES
 Unexpected legacy shield topology
 Unknown device upgrade: 
 Unlisted damage is still absorbed
+Up
+VX
+VY
+VZ
+Vortex
+WAIT_WORLD
+WARM
+WATCHING
+WEST
+Wave
+What has no outside source is not the shield's to take
+When true, Armageddon breaks no blocks: its black hole and blast still strike creatures but leave the land whole.
+When true, ship hives also fire on players outside the owner's team who have not attacked the ship.
+White
+Wings
 With both batteries off the device has no power
+With the line clear it burns
 With the list restored the arrow is stopped
 With the list restored, fire is absorbed again
 Wither damage is absorbed by the field
+Without a target the swarm is recalled at once (active 
 Without power the hit lands
 Without power the wearer takes the damage
+Without the signal it fights again
 Wolf fixture
+World
+World scenario {}: Armageddon refused: {}
+World scenario {}: could not clear its sound log
+World scenario {}: could not note a sound
+World scenario {}: could not note frame times
+World scenario {}: could not place the mouse
+World scenario {}: {}
+World scenario {}: {} fps warming up
+World scenario {}: {} frames
+World scenario: /{}
+World scenario: could not note the ticking sounds
+World scenario: no ship was assembled
+World scenarios captured: {}
+X
+Y
+Z
 Zombie fixture
-_activity
 _disabled
 _enabled
+a Droplet short of a tesseract goes home
+a big hive keeps its orders
+a change of the owner's clears the notice
+a full hive keeps 250 out between its modes: 
+a refused allocation writes nothing
+a slider cannot set 
 a;b;c
 absorbed
 absorption
 active
 active;changedAt
-active;targetId;changedAt;targetX;targetY;targetZ;mode;travel;shots
+active;targetId;changedAt;targetX;targetY;targetZ;wings;travel;shots;targets;previous;retargetedAt;previousHeld
+aegis.down
+aegis.up
+aegis_hive
+aim;headStart;cadence;tickRate;exact
 all
+all into Barrage
 allies
+and a 
+and breaks the shield
+and bursts nowhere
+and gives it nothing
+and hands over its spare charge
+and its owner
+and its owner's pets
+and nothing bursts before its time
+and nothing starts
+and stops nothing
+and the console says why
+and the shot goes out without its link (refused: 
 approach
+armageddon
+armageddon-blast
+armageddon-close
+armageddon-devour
+armageddon.safeMode
+armageddon_blast
+armageddon_composite
+armageddon_fire
+armageddon_light
+armageddon_volume
 ars_nouveau
+at;normal;type;style;start;strength;key;ground;axes
+at;time;volume
 attack_damage
 attack_interval_max
 auto
 axisX;axisY;axisZ;degrees
 back
+barrage
+barrage-multi
+barrage-rf
+barrage-twins
+base
 beam
+black_hole
+block.relics_addon.
 body
 bolt_
 botania
+bounds;at
 break
 broken
 brokenCells
 buffer_capacity
+button 
+called off
+called off: its hive is switched off or gone
+called off: its owner is gone
 cells
-center;perimeter;gameplay
+center;perimeter;gameplay;corners
+centre;horizon;reach;einstein;darkness;ring;ringWidth;ringStrength
+centre;radii
+centre;radius;glow;age;solid
+centre;stage
+centre;t
 changed_at
+charge
 charm
 charm;slot
 com.hollingsworth.arsnouveau.common.capability.ManaCap
 com.hollingsworth.arsnouveau.setup.registry.CapabilityRegistry
 combat_protocol
+console-no-room
+console-refused
+console-shared
+containerId;target;count
+containment
+containment-mana
+containment-mana-close
+containment-mana-golem
+containment-rf
+containment-rf-close
+containment-rf-golem
+containment-twins
+containment-twins-close
+containment-twins-golem
 cooldown
 core
+core;type;room;seen
 coverage
+crater_rim
 curios
 damage_distribution
 dense
 deploy
+dev.hurtify.relicsaddon.client.ArmageddonVisual
 dev.hurtify.relicsaddon.client.ClientEventRegistrar
 device-test
 device_control
 device_energy
 device_progression
+dimension;ship;owner;region
 disabled
 dist
 distance
+domain;frame;panels;rings;ringRadius;flying
+drone-closeup
 drone_count
 drone_health
 drone_shot
 drone_stack_state
+droplet
+droplet-mana
+droplet-multi
+droplet-twins
 dust
 e.g. ["minecraft:snowball"] or a mod's bullet. Tridents, pearls and potions listed here are stopped too. Entity type ids or #tags.
 enabled
@@ -357,13 +851,25 @@ end_y
 end_z
 energy_cell
 entity;position
+entity;score
+escort.docked
+escort.fighting
+escort.patrol
+escort_hive
+every fighter holds, as before: 
+every fighter in Barrage
+exactly the minimum is allowed
 experience
 experience;level;points;upgrades
+field;t;unit
 field_arena
 fill;deep;bright;edge;node
 fired_at
 flash
+frame;panels;rings;ringRadius;flying
+frequency;corners;edges;faces
 from
+from the hive's battery
 from;to
 front
 fx
@@ -378,29 +884,81 @@ getMana
 getMaxMana
 getPlayerMagicData
 glints
+grey;dim;silhouette;flood;shockRadius;shock;ball;ballRadius;ballCore;ballRim;age;dome;domeGlass;domeHeat;domeHaze;domeEdge;axis
+grounded
+had
 halo
 head
 healers
-healers;mode
+healers from free drones
+healers only from free drones
+healers;droplet;barrage;containment;notice
 health;sharedBuffer;spent
+height
+helper;blocks;chunk
 hive
+hive.armageddon_blast
+hive.armageddon_charge
+hive.armageddon_devour
+hive.armageddon_fire
+hive.armageddon_shock
+hive.effects
+hive.far_boom
+hive.mana_armageddon_blast
+hive.mana_armageddon_charge
+hive.mana_armageddon_collision
+hive.mana_armageddon_fire
+hive.mana_armageddon_shock
+hive.mana_armageddon_sphere
 hive.mana_charge_fire
+hive.mana_drop_fall
+hive.mana_drop_splash
 hive.mana_droplet
+hive.mana_flight
 hive.mana_lightning_blast
+hive.mana_lotus_hum
+hive.mana_lotus_lock
+hive.mana_release
 hive.mana_ward
 hive.maxHealingPerSecond
 hive.pursuitRange
+hive.rf_armageddon_blast
+hive.rf_armageddon_charge
+hive.rf_armageddon_dome
+hive.rf_armageddon_fire
+hive.rf_armageddon_flight
+hive.rf_cage_hum
+hive.rf_cage_lock
 hive.rf_charge_fire
+hive.rf_flight
+hive.rf_ground_bolt
 hive.rf_lightning_blast
+hive.rf_ram_impact
+hive.rf_ram_windup
+hive.rf_release
+hive.rf_ring_burst
 hive.rf_seal
 hive.rf_tesseract
+hive.shake
 hive.strikeEfficiency
 hive.targetRange
 hive.twins_charge_fire
+hive.twins_flight
+hive.twins_glass_shatter
 hive.twins_lightning_blast
 hive.twins_pulsar
+hive.twins_release
 hive.twins_rift
+hive.twins_rift_hum
+hive.twins_rift_lock
+hive.twins_rift_open
 hive.ward_reflect
+hive;centre;from;face;room;impactAt
+hive;module;frame;shape;brain;at
+hive;owner;foe
+hive;owner;husk
+hive_allocation
+hive_armageddon
 hive_beam_
 hive_bolt_
 hive_combat_state
@@ -419,6 +977,8 @@ hp;readyAt
 hp;readyAt;lastHit;attackReadyAt
 id
 id;panel;perimeter;center
+id;x;y;z;width;height
+identifier;index
 idle
 impact_at
 impacts
@@ -431,40 +991,78 @@ iris
 irons_spellbooks
 irons_spellbooks:max_mana
 isShaderPackInUse
+it comes back only once its drone is repaired
+it sets out afresh
 item.relics_addon.
 item/animated/
 itemGroup.relics_addon.main
+its drones are freed
+juice-
 key.categories.relics_addon
+key.relics_addon.armageddon
 key.relics_addon.device_control
 kind
+kind;mode;had;need
+kind;offset;facing
+lance.aiming
+lance.blocked
+lance.firing
+lance.overheated
+lance_hive
 lastAbsorbed
 lastActiveGameTime
 lastHitPanel
 lastInterceptGameTime
+layout
 left
+left behind by its hive
+left with no mode instead of
 level
-light;behavior;distanceSqr
-light;start;ticks
+level;timeline;centre;impactAt;owner;reached
 lights.dynamic
+low is about as they were before; high throws more sparks and lets them linger longer.
 main
 mana
+mana-ally
+mana-armageddon
+mana-armageddon-blast
+mana-armageddon-flowers
+mana-armageddon-seal
+mana-armageddon-sky
+mana-armageddon-streams
 mana.attack_1
 mana.attack_2
 mana.dismiss
 mana.impact_1
 mana.impact_2
 mana.summon
+mana_armageddon_allies
 mana_cell
 mana_drone
 mana_drone_shell
 mana_hive
 mana_on
+mana_shell
 mana_shield
 mana_shield_core
+mana_volume
 matrix;x;y;z;radius;fx;fz;eye;perspective
 max_mana
 message.relics_addon.
+message.relics_addon.armageddon.
+message.relics_addon.armageddon.charge
+message.relics_addon.armageddon.level
+message.relics_addon.armageddon.no_hive
+message.relics_addon.armageddon.running
 message.relics_addon.coverage.
+message.relics_addon.mana_armageddon.
+message.relics_addon.mana_armageddon.charge
+message.relics_addon.mana_armageddon.level
+message.relics_addon.mana_armageddon.running
+message.relics_addon.rf_armageddon.
+message.relics_addon.rf_armageddon.charge
+message.relics_addon.rf_armageddon.level
+message.relics_addon.rf_armageddon.running
 message.relics_addon.shield_blocked
 message.relics_addon.shield_coverage.changed
 message.relics_addon.shield_effect_cut
@@ -474,32 +1072,52 @@ message.relics_addon.shield_radius.invalid
 message.relics_addon.shield_status
 message.relics_addon.status.
 message.relics_addon.status.no_shield
+minecraft:husk
+minecraft:iron_golem
 minecraft:no_such_damage
 minecraft:poison
+minecraft:skeleton
 minecraft:snowball
 minecraft:starve
 minecraft:wither
 mode
-mode;type;slots;groups;members;drones;owner;target;width;height;time;cycleStart;interval;formed
+mode;type;base;pool;slots;first
+mode;type;slots;groups;members;drones;owner;targets;time;cycleStart;interval;formed;timing;timingGroups
 motes
+moved to barrage from
 moves
 n;t1;t2;x;y;z;radius
 name
+name;hive;hiveLevel;mode;shield;foes;foesFight;camera;look;warmTicks;frames;killFirstAtFrame;foeType;console
+need
 net.irisshaders.iris.api.v0.IrisApi
 net.neoforged.fml.loading.FMLEnvironment
 no hold
+no more drones than the hive holds
+no more than 250 fly: 
+no more than the hive holds
 none
+none is allowed
+nonsense is refused
 normal
 normal;gameTime;panel;absorbed;broken;brokenCells;distance;strike
+normal;tangent;dronePivot;shieldPivot
 normal;tangent;pivot;offset;tilt;twist
 normal;ticks
+notice
 nova
 oculus
+off
 open_device
+orders;hover;screen
+out
+out;since;layout
 overlapping-waves
 owner
 owner;shield
+paid;after
 panel
+panel;along;angle;radius;length;width
 passingDamageTypes wins over this list, and shield strikes and swarm blows always pass. Damage type ids or #tags.
 photon
 player
@@ -508,6 +1126,10 @@ player;time
 playerGameType
 point
 points
+pos;state;liftAt;height;drift;index
+pos;state;takenAt
+pos;state;takenAt;radius;height;spin;index
+pos;top;fill;rise;outX;outZ;width
 power.botaniaManaPerPoint
 power.experiencePointValue
 power.experienceReserveLevels
@@ -515,15 +1137,22 @@ power.playerManaReserve
 power.playerManaValue
 power.requireBatteries
 presence;absorption;destruction
+previous
+previous_held
 priority
 progression.maxExperiencePerMinute
+question
 radius
 radius;coverage
+rbasamoyai.createbigcannons.munitions.autocannon.AbstractAutocannonProjectile
+rbasamoyai.createbigcannons.munitions.big_cannon.AbstractBigCannonProjectile
 ready
 ready_at
 recovery_protocol
 register
+relic_black_hole_horizon
 relic_hive_combat
+relic_mana_runes
 relic_shield
 relic_shield_glow
 relics-hive-
@@ -533,6 +1162,8 @@ relics-normal-startup.png
 relics-shield-gif-%03d.png
 relics-shields-
 relics_addon
+relics_addon shield_coverage owner
+relics_addon shield_radius 5
 relics_addon.captureAndExit
 relics_addon.cellSmoke
 relics_addon.featureGif
@@ -542,6 +1173,7 @@ relics_addon.interactiveSmoke
 relics_addon.shieldSmoke
 relics_addon.startupSmoke
 relics_addon.visualSmoke
+relics_addon.worldScenario
 relics_addon:
 relics_addon:field_absorbed_for
 relics_addon:field_credit_for
@@ -552,7 +1184,19 @@ removeMana
 requestMana
 research
 resonant_circuit
+retarget
+retargeted_at
 rf
+rf-ally
+rf-armageddon
+rf-armageddon-blast
+rf-armageddon-ceiling
+rf-armageddon-charged
+rf-armageddon-crater
+rf-armageddon-flight
+rf-armageddon-hologram
+rf-armageddon-safe
+rf-armageddon-wall
 rf.attack_1
 rf.attack_2
 rf.dismiss
@@ -560,15 +1204,48 @@ rf.impact_1
 rf.impact_2
 rf.summon
 rf;mana;rfOn;manaOn;source
+rf_armageddon_allies
 rf_drone
 rf_drone_frame
+rf_grade
 rf_hive
 rf_on
 rf_shield
 rf_shield_core
+rf_volume
 right
 ring
+running
+sable assemble area 
+sable paused false
+sable paused true
+sable remove 
+sable teleport %s %.2f %.2f %.2f 25 8
 scatter
+scenario-
+scenario-%s-%03d.png
+scoreboard;team
+screen.relics_addon.all_in
+screen.relics_addon.all_in.hint
+screen.relics_addon.allocation_below_minimum
+screen.relics_addon.allocation_detail
+screen.relics_addon.allocation_figures
+screen.relics_addon.allocation_free
+screen.relics_addon.allocation_free_only
+screen.relics_addon.allocation_grounded
+screen.relics_addon.allocation_minimum
+screen.relics_addon.allocation_none_free
+screen.relics_addon.allocation_nothing_left
+screen.relics_addon.allocation_row
+screen.relics_addon.allocation_slider.hint
+screen.relics_addon.armageddon.
+screen.relics_addon.armageddon.activate
+screen.relics_addon.armageddon.cancel
+screen.relics_addon.armageddon.drain
+screen.relics_addon.armageddon.radius
+screen.relics_addon.armageddon.safe
+screen.relics_addon.armageddon.shield
+screen.relics_addon.armageddon.target
 screen.relics_addon.battery_mana
 screen.relics_addon.battery_mana.hint
 screen.relics_addon.battery_mana_amount
@@ -589,12 +1266,18 @@ screen.relics_addon.console_title
 screen.relics_addon.device_control
 screen.relics_addon.experience
 screen.relics_addon.experience.hint
-screen.relics_addon.fighters
 screen.relics_addon.healers
-screen.relics_addon.healers_adjust
-screen.relics_addon.healers_move
+screen.relics_addon.healers_detail
+screen.relics_addon.healers_slider.hint
 screen.relics_addon.help
 screen.relics_addon.help_button
+screen.relics_addon.mana_armageddon.
+screen.relics_addon.mana_armageddon.drain
+screen.relics_addon.mana_armageddon.no_shield
+screen.relics_addon.mana_armageddon.radius
+screen.relics_addon.mana_armageddon.shield
+screen.relics_addon.mana_armageddon.target
+screen.relics_addon.mana_armageddon.vortex
 screen.relics_addon.mana_source.
 screen.relics_addon.mana_source_label
 screen.relics_addon.max_level
@@ -604,11 +1287,30 @@ screen.relics_addon.monitor_no_power
 screen.relics_addon.monitor_offline
 screen.relics_addon.monitor_online
 screen.relics_addon.no_devices
+screen.relics_addon.notice.
 screen.relics_addon.overview_drones
 screen.relics_addon.overview_integrity
 screen.relics_addon.overview_level
 screen.relics_addon.power_off
 screen.relics_addon.power_on
+screen.relics_addon.rf_armageddon.
+screen.relics_addon.rf_armageddon.crater
+screen.relics_addon.rf_armageddon.drain
+screen.relics_addon.rf_armageddon.no_shield
+screen.relics_addon.rf_armageddon.radius
+screen.relics_addon.rf_armageddon.shield
+screen.relics_addon.rf_armageddon.target
+screen.relics_addon.ship.energy
+screen.relics_addon.ship.energy.hint
+screen.relics_addon.ship.heat
+screen.relics_addon.ship.hint.
+screen.relics_addon.ship.not_yours
+screen.relics_addon.ship.owner
+screen.relics_addon.ship.phase.
+screen.relics_addon.ship.shield
+screen.relics_addon.ship.switch_off
+screen.relics_addon.ship.switch_on
+screen.relics_addon.ship.wing
 screen.relics_addon.stat.buffer
 screen.relics_addon.stat.damage
 screen.relics_addon.stat.drone_health
@@ -618,7 +1320,6 @@ screen.relics_addon.stat.radius
 screen.relics_addon.stat.repair
 screen.relics_addon.stat.strike
 screen.relics_addon.stats
-screen.relics_addon.swarm_hint
 screen.relics_addon.swarm_title
 screen.relics_addon.tab.
 screen.relics_addon.toggle.hint
@@ -630,6 +1331,7 @@ screen.relics_addon.upgrade_no_points
 screen.relics_addon.upgrade_points
 screen.relics_addon.upgrade_rank
 screen.relics_addon.upgrade_requirement
+screenshots
 seg
 segments;pads
 setMana
@@ -638,6 +1340,7 @@ sharedBuffer
 shell
 shell_
 shield
+shield-provoke
 shield.absorbedDamageTypes
 shield.idleOpacity
 shield.ignoredProjectiles
@@ -691,8 +1394,45 @@ shield_strike_arc_
 shield_strike_burst_
 shield_strike_zap_
 shield_twin_surge
+ship 
+ship-
+ship-aegis
+ship-bystander
+ship-crew
+ship-duo
+ship-lance
+ship-lance-close
+ship-sable
+ship-sable-close
+ship-window
+ship.aegisEnergyPerPoint
+ship.aegisUpkeep
+ship.aegis_block
+ship.aegis_break
+ship.aegis_raise
+ship.escortDamage
+ship.escortLeash
+ship.escort_arc
+ship.escort_launch
+ship.lanceDamage
+ship.lanceEnergyPerTick
+ship.lance_beam
+ship.lance_ignite
+ship.lance_overheat
+ship.relics_addon.status.
+ship.relics_addon.tooltip.energy
+ship.relics_addon.tooltip.setup
+ship.targetPlayers
+ship.targetRange
+ship;centre;orientation;velocity;bounds;hull;pose
+ship_escort
+ship_hive
+ship_lance
 shots
+since
+six drones cannot hold anything: 
 smoke
+soundEngine
 source
 source;ids;tags;rejected
 sparkle
@@ -701,6 +1441,7 @@ stack
 start_x
 start_y
 start_z
+status;value
 strike
 support_protocol
 swarm
@@ -714,20 +1455,37 @@ swarm_strike
 swarm_void
 swarm_ward
 swirl
+switched off
 syncToClient
+t;seam;sphere;written;pressure;sphereGlow;sphereTurn;sun;sunGlow;seal;sealGlow;sealWave;sealTurn;column;columnGlow;columnRise;columnFog;sphereFog;groundHaze;flash;shockRadius;shock;darkCore;front;wave;glare;white;vortex;moonGlow;moonAt;moonLight;light
+target
 target_id
 target_x
 target_y
 target_z
+targets
 test_room
+text;color
 textures/gui/upgrades/
+textures/misc/mana_runes.png
 textures/particle/kila_tail.png
 textures/particle/ring.png
 textures/particle/smoke.png
+the Droplet has no room in the air
+the Droplet never strikes
+the Droplet stays home
+the migrated orders are written back
+the notice says which mode and why: 
+the other modes fight on
+the refused step changed nothing
+tick;absorbed
 tick;attacker;absorbed;passed
 tick;level;hives;present
+tickingSounds
 time;normal
+title
 to
+told
 tooltip.relics_addon.battery_mana
 tooltip.relics_addon.battery_mana_off
 tooltip.relics_addon.battery_rf
@@ -741,6 +1499,7 @@ tooltip.relics_addon.shield.strike
 tooltip.relics_addon.state.
 tooltip.relics_addon.strike.
 travel
+twenty cannot build the Twins tori, so they go to Barrage: 
 twins
 twins.bolt_attack_1
 twins.bolt_attack_2
@@ -757,33 +1516,51 @@ twins_drone_plate
 twins_hive
 twins_shield
 twins_shield_core
+two whole figures
+type;at;heading;time;seed
 type;stack
+type;startedAt;origin;target;face;room;shieldLinked
+type;units;settings;healerSlots;wings
 u0;v0;u1;v1;s0;s1
 u;v;s;size
 ui.toggle
 ui.upgrade
 unit
+unit;at;strength
 unit;firedAt;kind;startX;startY;startZ;endX;endY;endZ;impactAt
 units
+unpowered
 upgrade.relics_addon.
 upgrades
+value;refusal
 vazkii.botania.api.mana.ManaItemHandler
 vertices;triangles;edges;vertexCell;triangleCell
+watching
 wave
 wearer unless their damage type passes the field (passingDamageTypes). Entity type ids or #tags.
+width
+wing;state;foes;frames;previous;groups;cycleStart;occupant
+wings
+with a part of its charge
+with their own blows
+x
 x;y;w;h;label;active;selected;action;tooltip
 x;y;w;h;text
 x;y;z
 x;y;z;category
-x;y;z;inner;radius;strength;funnel
+x;y;z;inner;radius;strength
 x;y;z;luminance;radius
 x;y;z;offset;tilt;spin
 x;y;z;radius;role;impacts;time
+xpos
+y
+ypos
+z
 zap_
+{}'s {} hive: {} {} ({} drones, its figure needs {})
+~,%.3f,%d,%.4f,%.4f,%.3f,%.3f,%.3f,%s,%s,%d,%s,%s,%.3f,%.3f,%.3f,%.2f,%s%n
 \u00d7
 \u2026
-\u22121
-\u221210
 \u25ae
 \u25af
 \u25cf 

@@ -318,14 +318,6 @@ public final class GeometryGoldenCheck {
             }
         });
         int[] structures = {1, 2, 12, 16, 17, 60, 100, 250, 750};
-        function("HiveShapes.torus", d -> {
-            for (int count : structures) for (int s = -1; s <= count; s++) for (double time : TIMES) {
-                for (double[] torus : new double[][] {{1.25, .44}, {2.3, .5}}) {
-                    final int slot = s;
-                    d.v(() -> HiveShapes.torus(slot, count, time, torus[0], torus[1]));
-                }
-            }
-        });
         function("HiveShapes.ward", d -> {
             for (int count : structures) for (int s = -1; s <= count; s++) for (double time : TIMES) for (double scale : new double[] {1, 1.4}) {
                 final int slot = s;
@@ -336,24 +328,6 @@ public final class GeometryGoldenCheck {
             for (double t = -1; t <= 2; t += 1 / 64D) for (double angle : new double[] {0, 1, -2.5, 7}) {
                 final double at = t;
                 d.v(() -> HiveShapes.rhombusPoint(at, angle));
-            }
-        });
-        function("HiveShapes.riftSpheres", d -> {
-            for (int count : structures) for (int s = -1; s <= count; s++) for (double time : TIMES) for (double distance : new double[] {1.5, 2.3}) {
-                final int slot = s;
-                d.v(() -> HiveShapes.riftSpheres(slot, count, time, distance));
-            }
-        });
-        function("HiveShapes.riftCentre", d -> {
-            for (int sphere = 0; sphere < 8; sphere++) for (double time : TIMES) for (double distance : new double[] {1.5, 2.3}) {
-                final int s = sphere;
-                d.v(() -> HiveShapes.riftCentre(s, time, distance));
-            }
-        });
-        function("HiveShapes.riftSpin", d -> {
-            for (int sphere = 0; sphere < 8; sphere++) for (double time : TIMES) {
-                final int s = sphere;
-                d.d(() -> HiveShapes.riftSpin(s, time));
             }
         });
         function("HiveShapes.axes", d -> {
@@ -368,50 +342,10 @@ public final class GeometryGoldenCheck {
     }
 
     private void slots() {
-        int[] healers = {0, 1, 12, 249, 250, 251, 700, 750};
-        function("HiveSlots.healerSlots", d -> {
-            for (int units = -1; units <= 800; units++) for (int count : healers) {
-                final int u = units;
-                d.i(() -> HiveSlots.healerSlots(u, HiveSettings.legacy(count, AttackMode.BARRAGE)));
-            }
-        });
-        function("HiveSlots.fighterSlots", d -> {
-            for (int units = -1; units <= 800; units++) for (int count : healers) {
-                final int u = units;
-                d.i(() -> HiveSlots.fighterSlots(u, HiveSettings.legacy(count, AttackMode.BARRAGE)));
-            }
-        });
-        Random random = new Random(42);
-        List<List<HiveStackState.Unit>> swarms = new ArrayList<>();
-        for (int size : UNITS) {
-            List<HiveStackState.Unit> units = new ArrayList<>(size);
-            for (int index = 0; index < size; index++) {
-                units.add(new HiveStackState.Unit(random.nextInt(4), random.nextInt(3) == 0 ? random.nextInt(2_000) : 0,
-                        random.nextInt(3) == 0 ? random.nextInt(2_000) : -1, random.nextInt(2_000)));
-            }
-            swarms.add(units);
-        }
-        long[] nows = {0, 500, 1_000, 2_500};
-        function("HiveSlots.occupant", d -> {
-            for (List<HiveStackState.Unit> units : swarms) for (int slots : SLOTS) for (int slot = -1; slot <= slots; slot++) {
-                for (int fighters : new int[] {units.size(), units.size() / 2}) for (long now : nows) {
-                    final int s = slot;
-                    d.i(() -> HiveSlots.occupant(units, s, slots, fighters, now));
-                }
-            }
-        });
-        function("HiveSlots.since", d -> {
-            for (List<HiveStackState.Unit> units : swarms) for (int slots : SLOTS) for (int slot = -1; slot <= slots; slot++) {
-                for (int fighters : new int[] {units.size(), units.size() / 2}) for (long now : nows) {
-                    final int s = slot;
-                    d.l(() -> HiveSlots.since(units, s, slots, fighters, HiveSlots.occupant(units, s, slots, fighters, now), now));
-                }
-            }
-        });
         function("HiveSlots.groups", d -> {
-            for (int slots = -1; slots <= 800; slots++) {
+            for (int slots = -1; slots <= 800; slots++) for (AttackMode mode : AttackMode.values()) for (HiveType type : HiveType.values()) {
                 final int s = slots;
-                d.i(() -> HiveSlots.groups(s));
+                d.i(() -> HiveSlots.groups(s, mode, type));
             }
         });
         function("HiveSlots.group", d -> {
