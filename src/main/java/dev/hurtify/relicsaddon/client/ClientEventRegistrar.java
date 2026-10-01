@@ -23,6 +23,8 @@ public final class ClientEventRegistrar {
         NeoForge.EVENT_BUS.addListener(ShiftHoverOpener::onTooltip);
         modEventBus.addListener(HiveMenuKey::register);
         modEventBus.addListener(AnimatedRelicItemRenderer::registerAdditionalModels);
+        modEventBus.addListener(ShipDeviceRenderer::registerAdditionalModels);
+        modEventBus.addListener(ShipDeviceRenderer::register);
         modEventBus.addListener(ClientEventRegistrar::registerItemExtensions);
         modEventBus.addListener(ClientEventRegistrar::registerScreens);
         modEventBus.addListener(ClientEventRegistrar::registerShaders);

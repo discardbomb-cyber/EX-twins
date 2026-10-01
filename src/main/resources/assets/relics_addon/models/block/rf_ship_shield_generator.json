@@ -1,8 +1,21 @@
 {
-  "parent": "minecraft:block/cube_bottom_top",
+  "loader": "neoforge:obj",
+  "model": "relics_addon:models/block/rf_ship_shield_generator.obj",
+  "automatic_culling": false,
+  "shade_quads": true,
+  "emissive_ambient": true,
+  "render_type": "minecraft:cutout",
   "textures": {
-    "top": "relics_addon:block/ship/rf_ship_shield_generator_top",
-    "side": "relics_addon:block/ship/rf_ship_shield_generator_side",
-    "bottom": "relics_addon:block/ship/rf_ship_shield_generator_bottom"
+    "particle": "relics_addon:block/ship/steel"
+  },
+  "visibility": {
+    "body": true,
+    "ring": false,
+    "core": false,
+    "fx": false,
+    "shell_0": false,
+    "shell_1": false,
+    "shell_2": false,
+    "shell_3": false
   }
 }

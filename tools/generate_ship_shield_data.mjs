@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Blockstates, models, loot tables, tags, recipes and recipe-book advancements for the ship shield
+// Blockstates, loot tables, tags, recipes and recipe-book advancements for the ship shield
 // devices (three families x generator, dock and emitter drone). Recipes come in two flavours: with
 // Create's casings and precision mechanism (condition neoforge:mod_loaded create) and a basic one
 // without it. Run after changing any of them:
@@ -37,17 +37,7 @@ for (const family of FAMILIES) {
       }
     }
     write(join(ASSETS, `blockstates/${block}.json`), { variants });
-    for (const lit of [false, true]) {
-      write(join(ASSETS, `models/block/${block}${lit ? "_on" : ""}.json`), {
-        parent: "minecraft:block/cube_bottom_top",
-        textures: {
-          top: `${MOD}:block/ship/${block}_top${lit ? "_on" : ""}`,
-          side: `${MOD}:block/ship/${block}_side`,
-          bottom: `${MOD}:block/ship/${block}_bottom`,
-        },
-      });
-    }
-    write(join(ASSETS, `models/item/${block}.json`), { parent: `${MOD}:block/${block}` });
+    // The block and item models (OBJ) come from tools/build_ship_device_meshes.mjs.
     write(join(DATA, `${MOD}/loot_table/blocks/${block}.json`), {
       type: "minecraft:block",
       pools: [{

@@ -1,8 +1,16 @@
 {
-  "parent": "minecraft:block/cube_bottom_top",
+  "loader": "neoforge:obj",
+  "model": "relics_addon:models/block/twins_drone_dock.obj",
+  "automatic_culling": false,
+  "shade_quads": true,
+  "emissive_ambient": true,
+  "render_type": "minecraft:cutout",
   "textures": {
-    "top": "relics_addon:block/ship/twins_drone_dock_top_on",
-    "side": "relics_addon:block/ship/twins_drone_dock_side",
-    "bottom": "relics_addon:block/ship/twins_drone_dock_bottom"
+    "particle": "relics_addon:block/ship/steel"
+  },
+  "visibility": {
+    "body": true,
+    "core": false,
+    "fx": false
   }
 }

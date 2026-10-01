@@ -10,7 +10,6 @@ import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const BLOCKS = join(ROOT, "src/main/resources/assets/relics_addon/textures/block/ship");
 const ITEMS = join(ROOT, "src/main/resources/assets/relics_addon/textures/item/component");
 const S = 16;
 
@@ -55,58 +54,6 @@ const FAMILIES = {
 };
 
 /** Brushed plate: base metal with fine horizontal grain and a darker rim. */
-function plate(t, metal, seed) {
-  t.fill((x, y) => {
-    const grain = 0.88 + 0.16 * noise(x, y, seed) + 0.06 * Math.sin(y * 1.7 + seed);
-    const rim = x === 0 || y === 0 || x === S - 1 || y === S - 1 ? 0.72 : 1;
-    return shade(metal, grain * rim);
-  });
-}
-
-/** Seam lines every 5 pixels in the seam colour, dimmer than the glow. */
-function seams(t, seam, glow, lit) {
-  const line = lit ? mix(seam, glow, 0.5) : seam;
-  for (let i = 5; i < S; i += 5) { for (let k = 1; k < S - 1; k++) { t.set(i, k, mix(t.get(i, k), line, 0.7)); t.set(k, i, mix(t.get(k, i), line, 0.7)); } }
-}
-
-/** A round glowing core in the middle, brighter when the device is on. */
-function core(t, glow, trim, radius, lit) {
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-    const dx = x + 0.5 - S / 2, dy = y + 0.5 - S / 2, d = Math.sqrt(dx * dx + dy * dy);
-    if (d > radius + 1) continue;
-    if (d > radius) { t.set(x, y, mix(t.get(x, y), trim, 0.85)); continue; }
-    const k = 1 - d / radius;
-    const c = lit ? mix(mix(glow, [255, 255, 255, 255], k * 0.6), glow, 0.2) : mix(shade(glow, 0.35), shade(glow, 0.6), k);
-    t.set(x, y, c);
-  }
-}
-
-/** Generator: a plate with a core; docks: a plate with four landing pads and a small ring. */
-function generatorTop(f, lit, seed) { const t = new Tex(); plate(t, f.metal, seed); seams(t, f.seam, f.glow, lit); core(t, f.glow, f.trim, 4.2, lit); return t; }
-function generatorSide(f, seed) {
-  const t = new Tex(); plate(t, f.metal, seed);
-  t.rect(0, 12, S, 3, (x, y) => shade(f.trim, 0.8 + 0.2 * noise(x, y, seed)));
-  for (let x = 2; x < S - 2; x += 4) { t.set(x, 4, f.seam); t.set(x, 5, mix(f.seam, f.glow, 0.5)); t.set(x, 6, f.seam); }
-  t.rect(6, 1, 4, 2, shade(f.metal, 0.6));
-  return t;
-}
-function dockTop(f, lit, seed) {
-  const t = new Tex(); plate(t, f.metal, seed);
-  for (const [px, py] of [[2, 2], [10, 2], [2, 10], [10, 10]]) {
-    t.rect(px, py, 4, 4, (x, y) => shade(f.trim, 0.75 + 0.25 * noise(x, y, seed + 3)));
-    t.set(px + 1, py + 1, lit ? f.glow : shade(f.glow, 0.5)); t.set(px + 2, py + 2, lit ? f.glow : shade(f.glow, 0.5));
-  }
-  core(t, f.glow, f.seam, 2.2, lit);
-  return t;
-}
-function dockSide(f, seed) {
-  const t = new Tex(); plate(t, f.metal, seed);
-  t.rect(1, 3, S - 2, 6, (x, y) => shade(f.metal, 0.55 + 0.1 * noise(x, y, seed + 7)));
-  for (let x = 2; x < S - 2; x += 3) t.rect(x, 4, 1, 4, mix(f.seam, f.glow, 0.35));
-  t.rect(0, 12, S, 3, (x, y) => shade(f.trim, 0.8 + 0.2 * noise(x, y, seed)));
-  return t;
-}
-function bottom(f, seed) { const t = new Tex(); plate(t, shade(f.metal, 0.8), seed); t.rect(3, 3, 10, 10, (x, y) => shade(f.trim, 0.6 + 0.15 * noise(x, y, seed + 11))); return t; }
 
 /** Drone icon: a small hull with two side fins and a glowing emitter eye, outlined like the other parts. */
 function drone(f) {
@@ -127,19 +74,9 @@ function drone(f) {
   return t;
 }
 
-mkdirSync(BLOCKS, { recursive: true });
 mkdirSync(ITEMS, { recursive: true });
 const written = [];
-Object.entries(FAMILIES).forEach(([name, f], index) => {
-  const seed = 17 + index * 31;
-  const generator = `${name}_ship_shield_generator`, dock = `${name}_drone_dock`;
-  const files = {
-    [`${generator}_top`]: generatorTop(f, false, seed), [`${generator}_top_on`]: generatorTop(f, true, seed),
-    [`${generator}_side`]: generatorSide(f, seed), [`${generator}_bottom`]: bottom(f, seed),
-    [`${dock}_top`]: dockTop(f, false, seed + 1), [`${dock}_top_on`]: dockTop(f, true, seed + 1),
-    [`${dock}_side`]: dockSide(f, seed + 1), [`${dock}_bottom`]: bottom(f, seed + 1),
-  };
-  for (const [file, tex] of Object.entries(files)) { writeFileSync(join(BLOCKS, `${file}.png`), tex.png()); written.push(file); }
+Object.entries(FAMILIES).forEach(([name, f]) => {
   writeFileSync(join(ITEMS, `${name}_emitter_drone.png`), drone(f).png());
   written.push(`${name}_emitter_drone`);
 });
@@ -147,15 +84,13 @@ console.log(`wrote ${written.length} textures`);
 
 if (process.argv.includes("--preview")) {
   // 8x contact sheet of everything, for a look before shipping.
-  const scale = 8, cols = 9, rows = Math.ceil(written.length / cols);
+  const scale = 8, cols = 3, rows = Math.ceil(written.length / cols);
   const W = cols * S * scale, H = rows * S * scale;
   const raw = Buffer.alloc((W * 4 + 1) * H);
   for (let y = 0; y < H; y++) raw[y * (W * 4 + 1)] = 0;
   const all = [];
-  Object.entries(FAMILIES).forEach(([name, f], index) => {
-    const seed = 17 + index * 31;
-    all.push(generatorTop(f, false, seed), generatorTop(f, true, seed), generatorSide(f, seed), bottom(f, seed),
-      dockTop(f, false, seed + 1), dockTop(f, true, seed + 1), dockSide(f, seed + 1), bottom(f, seed + 1), drone(f));
+  Object.entries(FAMILIES).forEach(([name, f]) => {
+    all.push(drone(f));
   });
   all.forEach((tex, i) => {
     const ox = (i % cols) * S * scale, oy = Math.floor(i / cols) * S * scale;

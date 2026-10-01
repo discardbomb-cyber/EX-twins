@@ -1,0 +1,39 @@
+newmtl steel
+Kd 0.62 0.66 0.7
+Ka 0 0 0
+map_Kd relics_addon:block/ship/steel
+
+newmtl steel_dark
+Kd 0.3 0.33 0.37
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl steel_light
+Kd 0.8 0.83 0.86
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl graphite
+Kd 0.1 0.11 0.13
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl rubber
+Kd 0.05 0.055 0.065
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl cyan
+Kd 0.3 0.82 1
+Ka 1 1 1
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl cyan_dim
+Kd 0.15 0.45 0.6
+Ka 0.3 0.3 0.3
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl ring_light
+Kd 0.72 0.96 1
+Ka 1 1 1
+map_Kd relics_addon:item/materials/rf_mesh_white

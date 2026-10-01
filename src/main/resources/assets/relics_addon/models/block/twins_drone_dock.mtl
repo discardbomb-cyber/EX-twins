@@ -1,0 +1,39 @@
+newmtl steel
+Kd 0.78 0.8 0.84
+Ka 0 0 0
+map_Kd relics_addon:block/ship/steel
+
+newmtl steel_dark
+Kd 0.32 0.33 0.38
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl chrome
+Kd 0.88 0.9 0.94
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl interior
+Kd 0.05 0.04 0.08
+Ka 0 0 0
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl violet
+Kd 0.65 0.3 1
+Ka 1 1 1
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl violet_dim
+Kd 0.3 0.12 0.5
+Ka 0.3 0.3 0.3
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl plexus
+Kd 0.75 0.85 1
+Ka 0.9 0.9 0.9
+map_Kd relics_addon:item/materials/rf_mesh_white
+
+newmtl node
+Kd 0.9 0.7 1
+Ka 1 1 1
+map_Kd relics_addon:item/materials/rf_mesh_white
