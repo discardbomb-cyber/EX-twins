@@ -393,5 +393,9 @@
   "subtitles.relics_addon.ship_aegis_break": "Щит корабля пробит",
   "subtitles.relics_addon.ship_aegis_raise": "Щит корабля поднимается",
   "subtitles.relics_addon.ship_escort_arc": "Дроны сопровождения бьют",
-  "subtitles.relics_addon.ship_escort_launch": "Дроны сопровождения взлетают"
+  "subtitles.relics_addon.ship_escort_launch": "Дроны сопровождения взлетают",
+  "item.relics_addon.twins_spear": "Копьё Близнецов",
+  "item.relics_addon.twins_spear.tooltip.throw": "Отведите и отпустите, чтобы метнуть его отражение: оно пришпиливает цель, а дроны надетого улья Twins кружат вокруг и бьют её.",
+  "item.relics_addon.twins_spear.tooltip.pull": "Присядьте и используйте, пока отражение держит цель, чтобы рвануть к нему.",
+  "entity.relics_addon.twins_spear": "Отражение Копья Близнецов"
 }

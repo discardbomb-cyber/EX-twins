@@ -25,6 +25,7 @@ public final class RelicsAddon {
         ModDataComponents.DATA_COMPONENTS.register(modEventBus);
         dev.hurtify.relicsaddon.registry.ModBlocks.BLOCKS.register(modEventBus);
         ModItems.ITEMS.register(modEventBus);
+        dev.hurtify.relicsaddon.registry.ModEntities.ENTITIES.register(modEventBus);
         dev.hurtify.relicsaddon.registry.ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
         modEventBus.addListener(dev.hurtify.relicsaddon.registry.ModBlockEntities::registerCapabilities);
         ModCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
@@ -53,6 +54,7 @@ public final class RelicsAddon {
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.ArmageddonController::onServerStopping);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.HiveCombatController::onPlayerChangedDimension);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.ShieldStatusCommand::register);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.relic.TwinsSpearEntity::onEnderTeleport);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.ship.ShipBrain::onDamage);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.ship.ShipBrain::onExplosion);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.ship.ShipBrain::onProjectileImpact);

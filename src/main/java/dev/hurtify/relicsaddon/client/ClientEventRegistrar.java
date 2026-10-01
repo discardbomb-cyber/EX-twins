@@ -25,6 +25,9 @@ public final class ClientEventRegistrar {
         modEventBus.addListener(AnimatedRelicItemRenderer::registerAdditionalModels);
         modEventBus.addListener(ClientEventRegistrar::registerItemExtensions);
         modEventBus.addListener(ClientEventRegistrar::registerScreens);
+        // The spear's reflection is drawn with the swarms (TwinsSpearVisual), not by an entity renderer of its own.
+        modEventBus.addListener((net.neoforged.neoforge.client.event.EntityRenderersEvent.RegisterRenderers event) ->
+                event.registerEntityRenderer(dev.hurtify.relicsaddon.registry.ModEntities.TWINS_SPEAR.get(), net.minecraft.client.renderer.entity.NoopRenderer::new));
         modEventBus.addListener(ClientEventRegistrar::registerShaders);
         modEventBus.addListener(dev.hurtify.relicsaddon.client.fx.ExFx::registerReloadListener);
     }

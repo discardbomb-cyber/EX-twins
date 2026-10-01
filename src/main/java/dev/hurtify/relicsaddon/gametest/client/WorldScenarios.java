@@ -241,6 +241,12 @@ public final class WorldScenarios {
             Scene.juice(RelicRole.RF_HIVE, AttackMode.CONTAINMENT, new HiveSettings(0, 0, 0, 42)),
             Scene.juice(RelicRole.MANA_HIVE, AttackMode.CONTAINMENT, new HiveSettings(0, 0, 0, 37)),
             Scene.juice(RelicRole.TWINS_HIVE, AttackMode.CONTAINMENT, new HiveSettings(0, 0, 0, 48)),
+            // The Twins spear thrown at a husk, with a Twins hive whose drones all stay home to heal (so only the
+            // spear's six fight), and without a hive; filmed from the side, a frame a tick.
+            new Scene("juice-spear", RelicRole.TWINS_HIVE, 10, null, null, List.of(new Vec3(0, 0, -9)), false, new Vec3(4, 2.4, -5.5),
+                    new Vec3(0, 1.3, -8.5), 5, 110, -1, "minecraft:husk", new Console(new HiveSettings(500, 0, 0, 0), null, false)),
+            new Scene("juice-spear-alone", null, 10, null, null, List.of(new Vec3(0, 0, -9)), false, new Vec3(4, 2.4, -5.5),
+                    new Vec3(0, 1.3, -8.5), 5, 90, -1, "minecraft:husk"),
             Scene.console("console-shared", RelicRole.RF_HIVE, 10, new HiveSettings(40, 608, 900, 432), AttackMode.DROPLET),
             Scene.console("console-refused", RelicRole.RF_HIVE, 0, new HiveSettings(10, 16, 64, 0), AttackMode.CONTAINMENT),
             Scene.console("console-no-room", RelicRole.MANA_HIVE, 10, new HiveSettings(0, 14, 1986, 0), null));
@@ -443,6 +449,13 @@ public final class WorldScenarios {
                 RelicsAddon.LOGGER.warn("World scenario {}: could not note frame times", current.name(), exception);
             }
         }
+        if (current.name().startsWith("juice-spear") && index == 3) onServer(minecraft, level -> {
+            ServerPlayer thrower = owner(level);
+            if (!FOES.isEmpty() && level.getEntity(FOES.getFirst()) instanceof net.minecraft.world.entity.LivingEntity foe) {
+                thrower.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, foe.position().add(0, foe.getBbHeight() * .6, 0));
+            }
+            dev.hurtify.relicsaddon.relic.TwinsSpearItem.throwFrom(level, thrower);
+        });
         if (index == current.killFirstAtFrame()) onServer(minecraft, level -> {
             if (!FOES.isEmpty() && level.getEntity(FOES.getFirst()) instanceof net.minecraft.world.entity.LivingEntity foe) foe.kill();
         });
@@ -563,6 +576,8 @@ public final class WorldScenarios {
             }
         }
         if (scene.shield() != null) curios.setEquippedCurio(RelicRole.EQUIPMENT_SLOT, 1, device(scene.shield(), 0, null));
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, scene.name().startsWith("juice-spear")
+                ? new ItemStack(ModItems.TWINS_SPEAR.get()) : ItemStack.EMPTY);
 
         if (SABLE.contains(scene.name())) sableShip(level, player);
         if (scene.name().equals("ship-window") && level.getBlockEntity(net.minecraft.core.BlockPos.containing(stage.add(0, 3, -4)))

@@ -149,6 +149,7 @@ public final class HiveVisualRenderer {
         for (HiveModeVisual.Scene scene : scenes) HiveModeVisual.render(scene, camera, glow, fill, matrix);
         HiveJuice.render(camera, glow, fill, matrix, time);
         HiveProjectiles.flush(camera, glow, fill, matrix);
+        TwinsSpearVisual.render(minecraft, camera, glow, fill, matrix, time, partial);
         HiveConstructVisual.sweep(time);
         RfArmageddonVisual.scorches(time, camera, fill, matrix);
         if (EffectLights.enabled()) scenes.forEach(HiveModeVisual::light);

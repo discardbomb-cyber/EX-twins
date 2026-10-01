@@ -393,5 +393,9 @@
   "subtitles.relics_addon.ship_aegis_break": "Ship shield breaks",
   "subtitles.relics_addon.ship_aegis_raise": "Ship shield rises",
   "subtitles.relics_addon.ship_escort_arc": "Escort drones strike",
-  "subtitles.relics_addon.ship_escort_launch": "Escort drones take off"
+  "subtitles.relics_addon.ship_escort_launch": "Escort drones take off",
+  "item.relics_addon.twins_spear": "Twins Spear",
+  "item.relics_addon.twins_spear.tooltip.throw": "Draw back and release to throw its reflection: it pins what it strikes, and a worn Twins hive's drones circle and strike it.",
+  "item.relics_addon.twins_spear.tooltip.pull": "Sneak and use while the reflection is pinned to be pulled to it.",
+  "entity.relics_addon.twins_spear": "Twins Spear Reflection"
 }

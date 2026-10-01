@@ -293,6 +293,31 @@ public final class RelicSounds {
      * Plays {@code near} to every player close by and the far boom to those further off: in the open air the
      * high crack dies away long before the low roll, and a sound played the same for all cannot do that.
      */
+    /** The moments of the Twins spear that are heard. */
+    public enum Spear { THROW, ANCHOR, STICK, STRIKE, RETURN, PULL }
+
+    /**
+     * The Twins spear's sounds, from the Twins family's own glass and rifts for now: a high glassy throw, a lock and a
+     * shatter as it pins, a light glass tick for each drone's blow, and a rush on the way home and on a pull.
+     */
+    public static void spear(ServerLevel level, Vec3 position, Spear moment) {
+        switch (moment) {
+            case THROW -> {
+                level.playSound(null, position.x, position.y, position.z, net.minecraft.sounds.SoundEvents.TRIDENT_THROW.value(), SoundSource.PLAYERS, 1, 1.1F);
+                level.playSound(null, position.x, position.y, position.z, TWINS_CHARGE_FIRE.get(), SoundSource.PLAYERS, .7F, 1.5F);
+            }
+            case ANCHOR -> {
+                nearAndFar(level, position, TWINS_RIFT_LOCK, 1.2F, 1.1F);
+                level.playSound(null, position.x, position.y, position.z, TWINS_GLASS_SHATTER.get(), SoundSource.PLAYERS, .9F, 1.3F);
+            }
+            case STICK -> level.playSound(null, position.x, position.y, position.z, TWINS_GLASS_SHATTER.get(), SoundSource.PLAYERS, .8F, .9F);
+            case STRIKE -> level.playSound(null, position.x, position.y, position.z, TWINS_BOLT_IMPACT_1.get(), SoundSource.PLAYERS, .35F,
+                    groupPitch((int) (level.getGameTime() / 5), 1.2F));
+            case RETURN -> level.playSound(null, position.x, position.y, position.z, net.minecraft.sounds.SoundEvents.TRIDENT_RETURN, SoundSource.PLAYERS, 1, 1.2F);
+            case PULL -> level.playSound(null, position.x, position.y, position.z, TWINS_RELEASE.get(), SoundSource.PLAYERS, 1, 1.2F);
+        }
+    }
+
     private static void nearAndFar(ServerLevel level, Vec3 position, DeferredHolder<SoundEvent, SoundEvent> near, float volume, float pitch) {
         long seed = level.getRandom().nextLong();
         var nearHolder = net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.wrapAsHolder(near.get());
