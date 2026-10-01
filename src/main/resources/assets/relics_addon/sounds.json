@@ -824,5 +824,109 @@
         "name": "relics_addon:combat/ship_escort_launch"
       }
     ]
+  },
+  "noctis.spear_throw": {
+    "subtitle": "subtitles.relics_addon.noctis_spear_throw",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/noctis_spear_throw"
+      }
+    ]
+  },
+  "noctis.spear_anchor": {
+    "subtitle": "subtitles.relics_addon.noctis_spear_anchor",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/noctis_spear_anchor"
+      }
+    ]
+  },
+  "noctis.spear_return": {
+    "subtitle": "subtitles.relics_addon.noctis_spear_return",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/noctis_spear_return"
+      }
+    ]
+  },
+  "noctis.spear_collapse": {
+    "subtitle": "subtitles.relics_addon.noctis_spear_collapse",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/noctis_spear_collapse"
+      }
+    ]
+  },
+  "noctis.light_cut": {
+    "subtitle": "subtitles.relics_addon.noctis_light_cut",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/noctis_light_cut"
+      }
+    ]
+  },
+  "noctis.quantum_charge": {
+    "subtitle": "subtitles.relics_addon.noctis_quantum_charge",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/noctis_quantum_charge"
+      }
+    ]
+  },
+  "noctis.quantum_fire": {
+    "subtitle": "subtitles.relics_addon.noctis_quantum_fire",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/noctis_quantum_fire"
+      }
+    ]
+  },
+  "noctis.black_halo": {
+    "subtitle": "subtitles.relics_addon.noctis_black_halo",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/noctis_black_halo"
+      }
+    ]
+  },
+  "noctis.scythe_unfold": {
+    "subtitle": "subtitles.relics_addon.noctis_scythe_unfold",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/noctis_scythe_unfold"
+      }
+    ]
+  },
+  "noctis.scythe_swing": {
+    "subtitle": "subtitles.relics_addon.noctis_scythe_swing",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/noctis_scythe_swing"
+      }
+    ]
+  },
+  "noctis.overdrive": {
+    "subtitle": "subtitles.relics_addon.noctis_overdrive",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/noctis_overdrive"
+      }
+    ]
+  },
+  "noctis.wormhole_scan": {
+    "subtitle": "subtitles.relics_addon.noctis_wormhole_scan",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/noctis_wormhole_scan"
+      }
+    ]
+  },
+  "noctis.wormhole_burst": {
+    "subtitle": "subtitles.relics_addon.noctis_wormhole_burst",
+    "sounds": [
+      {
+        "name": "relics_addon:combat/noctis_wormhole_burst"
+      }
+    ]
   }
 }

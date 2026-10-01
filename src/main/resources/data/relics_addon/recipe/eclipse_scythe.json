@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "PPM",
+    "  X",
+    "  E"
+  ],
+  "key": {
+    "P": {
+      "item": "relics_addon:twins_drone_plate"
+    },
+    "X": {
+      "item": "relics_addon:resonant_circuit"
+    },
+    "E": {
+      "item": "relics_addon:energy_cell"
+    },
+    "M": {
+      "item": "relics_addon:mana_cell"
+    }
+  },
+  "result": {
+    "id": "relics_addon:eclipse_scythe",
+    "count": 1
+  }
+}

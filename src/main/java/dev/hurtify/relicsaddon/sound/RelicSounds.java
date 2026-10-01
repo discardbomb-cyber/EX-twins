@@ -293,28 +293,49 @@ public final class RelicSounds {
      * Plays {@code near} to every player close by and the far boom to those further off: in the open air the
      * high crack dies away long before the low roll, and a sound played the same for all cannot do that.
      */
-    /** The moments of the Twins spear that are heard. */
-    public enum Spear { THROW, ANCHOR, STICK, STRIKE, RETURN, PULL }
+    /** The moments of the Noctis weapons that are heard. */
+    public enum Spear { THROW, ANCHOR, STICK, STRIKE, RETURN, PULL, COLLAPSE, CUT, BEAM_CHARGE, BEAM_FIRE, HALO, SCYTHE_OPEN, SCYTHE_CLOSE,
+        SCYTHE_SWING, OVERDRIVE, WORMHOLE_SCAN, WORMHOLE_BURST }
+    private static final DeferredHolder<SoundEvent, SoundEvent> NOCTIS_THROW = sound("noctis.spear_throw");
+    private static final DeferredHolder<SoundEvent, SoundEvent> NOCTIS_ANCHOR = sound("noctis.spear_anchor");
+    private static final DeferredHolder<SoundEvent, SoundEvent> NOCTIS_RETURN = sound("noctis.spear_return");
+    private static final DeferredHolder<SoundEvent, SoundEvent> NOCTIS_COLLAPSE = sound("noctis.spear_collapse");
+    private static final DeferredHolder<SoundEvent, SoundEvent> NOCTIS_CUT = sound("noctis.light_cut");
+    private static final DeferredHolder<SoundEvent, SoundEvent> NOCTIS_QUANTUM_CHARGE = sound("noctis.quantum_charge");
+    private static final DeferredHolder<SoundEvent, SoundEvent> NOCTIS_QUANTUM_FIRE = sound("noctis.quantum_fire");
+    private static final DeferredHolder<SoundEvent, SoundEvent> NOCTIS_HALO = sound("noctis.black_halo");
+    private static final DeferredHolder<SoundEvent, SoundEvent> NOCTIS_SCYTHE_UNFOLD = sound("noctis.scythe_unfold");
+    private static final DeferredHolder<SoundEvent, SoundEvent> NOCTIS_SCYTHE_SWING = sound("noctis.scythe_swing");
+    private static final DeferredHolder<SoundEvent, SoundEvent> NOCTIS_OVERDRIVE = sound("noctis.overdrive");
+    private static final DeferredHolder<SoundEvent, SoundEvent> NOCTIS_WORMHOLE_SCAN = sound("noctis.wormhole_scan");
+    private static final DeferredHolder<SoundEvent, SoundEvent> NOCTIS_WORMHOLE_BURST = sound("noctis.wormhole_burst");
 
     /**
      * The Twins spear's sounds, from the Twins family's own glass and rifts for now: a high glassy throw, a lock and a
      * shatter as it pins, a light glass tick for each drone's blow, and a rush on the way home and on a pull.
      */
     public static void spear(ServerLevel level, Vec3 position, Spear moment) {
+        float pitch = 1 + (float) level.getRandom().nextGaussian() * .03F;
         switch (moment) {
-            case THROW -> {
-                level.playSound(null, position.x, position.y, position.z, net.minecraft.sounds.SoundEvents.TRIDENT_THROW.value(), SoundSource.PLAYERS, 1, 1.1F);
-                level.playSound(null, position.x, position.y, position.z, TWINS_CHARGE_FIRE.get(), SoundSource.PLAYERS, .7F, 1.5F);
-            }
-            case ANCHOR -> {
-                nearAndFar(level, position, TWINS_RIFT_LOCK, 1.2F, 1.1F);
-                level.playSound(null, position.x, position.y, position.z, TWINS_GLASS_SHATTER.get(), SoundSource.PLAYERS, .9F, 1.3F);
-            }
-            case STICK -> level.playSound(null, position.x, position.y, position.z, TWINS_GLASS_SHATTER.get(), SoundSource.PLAYERS, .8F, .9F);
-            case STRIKE -> level.playSound(null, position.x, position.y, position.z, TWINS_BOLT_IMPACT_1.get(), SoundSource.PLAYERS, .35F,
-                    groupPitch((int) (level.getGameTime() / 5), 1.2F));
-            case RETURN -> level.playSound(null, position.x, position.y, position.z, net.minecraft.sounds.SoundEvents.TRIDENT_RETURN, SoundSource.PLAYERS, 1, 1.2F);
-            case PULL -> level.playSound(null, position.x, position.y, position.z, TWINS_RELEASE.get(), SoundSource.PLAYERS, 1, 1.2F);
+            case THROW -> level.playSound(null, position.x, position.y, position.z, NOCTIS_THROW.get(), SoundSource.PLAYERS, 1, pitch);
+            case ANCHOR -> nearAndFar(level, position, NOCTIS_ANCHOR, 1.2F, pitch);
+            case STICK -> level.playSound(null, position.x, position.y, position.z, NOCTIS_ANCHOR.get(), SoundSource.PLAYERS, .8F, .9F * pitch);
+            // Silent Gospel: the halo's blades are all but silent, a glass tick each.
+            case STRIKE -> level.playSound(null, position.x, position.y, position.z, TWINS_BOLT_IMPACT_1.get(), SoundSource.PLAYERS, .15F,
+                    groupPitch((int) (level.getGameTime() / 5), 1.3F));
+            case RETURN -> level.playSound(null, position.x, position.y, position.z, NOCTIS_RETURN.get(), SoundSource.PLAYERS, 1, pitch);
+            case PULL -> level.playSound(null, position.x, position.y, position.z, NOCTIS_RETURN.get(), SoundSource.PLAYERS, 1, 1.25F * pitch);
+            case COLLAPSE -> nearAndFar(level, position, NOCTIS_COLLAPSE, 1, pitch);
+            case CUT -> nearAndFar(level, position, NOCTIS_CUT, 1.1F, pitch);
+            case BEAM_CHARGE -> level.playSound(null, position.x, position.y, position.z, NOCTIS_QUANTUM_CHARGE.get(), SoundSource.PLAYERS, 1.2F, 1);
+            case BEAM_FIRE -> nearAndFar(level, position, NOCTIS_QUANTUM_FIRE, 2, 1);
+            case HALO -> nearAndFar(level, position, NOCTIS_HALO, 1.4F, 1);
+            case SCYTHE_OPEN -> level.playSound(null, position.x, position.y, position.z, NOCTIS_SCYTHE_UNFOLD.get(), SoundSource.PLAYERS, 1, pitch);
+            case SCYTHE_CLOSE -> level.playSound(null, position.x, position.y, position.z, NOCTIS_SCYTHE_UNFOLD.get(), SoundSource.PLAYERS, .8F, .7F * pitch);
+            case SCYTHE_SWING -> level.playSound(null, position.x, position.y, position.z, NOCTIS_SCYTHE_SWING.get(), SoundSource.PLAYERS, .9F, pitch);
+            case OVERDRIVE -> level.playSound(null, position.x, position.y, position.z, NOCTIS_OVERDRIVE.get(), SoundSource.PLAYERS, 1.1F, 1);
+            case WORMHOLE_SCAN -> level.playSound(null, position.x, position.y, position.z, NOCTIS_WORMHOLE_SCAN.get(), SoundSource.PLAYERS, 1.2F, 1);
+            case WORMHOLE_BURST -> nearAndFar(level, position, NOCTIS_WORMHOLE_BURST, 2, 1);
         }
     }
 

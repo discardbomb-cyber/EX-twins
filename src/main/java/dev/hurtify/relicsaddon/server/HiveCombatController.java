@@ -591,6 +591,14 @@ public final class HiveCombatController {
         }
     }
 
+    /** Whether {@code living} is remembered as one of {@code owner}'s attackers (see {@link #noteAttacker}). */
+    public static boolean remembersAttacker(ServerPlayer owner, LivingEntity living) {
+        Map<Integer, Long> seen = ATTACKERS.get(owner.getUUID());
+        if (seen == null) return false;
+        Long at = seen.get(living.getId());
+        return at != null && owner.level().getGameTime() - at <= ATTACK_MEMORY;
+    }
+
     private static List<LivingEntity> recentAttackers(ServerPlayer owner, ServerLevel level, long now) {
         Map<Integer, Long> seen = ATTACKERS.get(owner.getUUID());
         if (seen == null) return List.of();

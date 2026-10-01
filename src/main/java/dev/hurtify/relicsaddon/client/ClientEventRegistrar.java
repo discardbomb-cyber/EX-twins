@@ -23,6 +23,10 @@ public final class ClientEventRegistrar {
         NeoForge.EVENT_BUS.addListener(ShiftHoverOpener::onTooltip);
         modEventBus.addListener(HiveMenuKey::register);
         modEventBus.addListener(AnimatedRelicItemRenderer::registerAdditionalModels);
+        modEventBus.addListener(NoctisWeaponRenderer::registerAdditionalModels);
+        modEventBus.addListener(NoctisWeaponRenderer::addLayers);
+        NeoForge.EVENT_BUS.addListener(NoctisWeaponRenderer::beforeLiving);
+        NeoForge.EVENT_BUS.addListener(NoctisWeaponRenderer::afterLiving);
         modEventBus.addListener(ClientEventRegistrar::registerItemExtensions);
         modEventBus.addListener(ClientEventRegistrar::registerScreens);
         // The spear's reflection is drawn with the swarms (TwinsSpearVisual), not by an entity renderer of its own.
@@ -60,6 +64,14 @@ public final class ClientEventRegistrar {
         event.registerItem(extension, ModItems.RF_HIVE.get());
         event.registerItem(extension, ModItems.MANA_HIVE.get());
         event.registerItem(extension, ModItems.TWINS_HIVE.get());
+        IClientItemExtensions noctis = new IClientItemExtensions() {
+            @Override
+            public BlockEntityWithoutLevelRenderer getCustomRenderer() {
+                return NoctisWeaponRenderer.getInstance();
+            }
+        };
+        event.registerItem(noctis, ModItems.TWINS_SPEAR.get());
+        event.registerItem(noctis, ModItems.ECLIPSE_SCYTHE.get());
     }
 
     private ClientEventRegistrar() {

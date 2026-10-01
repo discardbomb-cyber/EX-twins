@@ -60,6 +60,9 @@ public final class ModItems {
     public static final DeferredItem<dev.hurtify.relicsaddon.relic.TwinsSpearItem> TWINS_SPEAR = ITEMS.register("twins_spear",
             () -> new dev.hurtify.relicsaddon.relic.TwinsSpearItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC)));
 
+    public static final DeferredItem<dev.hurtify.relicsaddon.relic.EclipseScytheItem> ECLIPSE_SCYTHE = ITEMS.register("eclipse_scythe",
+            () -> new dev.hurtify.relicsaddon.relic.EclipseScytheItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC)));
+
     public static final DeferredItem<AutonomousRelicItem> RF_SHIELD = ITEMS.register(
             RelicRole.RF_SHIELD.itemId(),
             () -> new AutonomousRelicItem.RfShield(new Item.Properties().stacksTo(1).rarity(Rarity.RARE)));

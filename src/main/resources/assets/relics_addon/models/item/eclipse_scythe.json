@@ -2,19 +2,19 @@
   "parent": "minecraft:builtin/entity",
   "gui_light": "front",
   "textures": {
-    "particle": "relics_addon:item/twins_spear"
+    "particle": "relics_addon:item/eclipse_scythe"
   },
   "display": {
     "thirdperson_righthand": {
       "rotation": [
+        -70,
         0,
-        -90,
-        -70
+        0
       ],
       "translation": [
         0,
-        5,
-        2
+        2,
+        1
       ],
       "scale": [
         1,
@@ -24,14 +24,14 @@
     },
     "thirdperson_lefthand": {
       "rotation": [
+        -70,
         0,
-        90,
-        70
+        0
       ],
       "translation": [
         0,
-        5,
-        2
+        2,
+        1
       ],
       "scale": [
         1,
@@ -41,36 +41,36 @@
     },
     "firstperson_righthand": {
       "rotation": [
+        -20,
         0,
-        -90,
-        -60
+        -15
       ],
       "translation": [
         2,
-        3,
-        -4
+        -2,
+        -3
       ],
       "scale": [
-        0.75,
-        0.75,
-        0.75
+        0.8,
+        0.8,
+        0.8
       ]
     },
     "firstperson_lefthand": {
       "rotation": [
+        -20,
         0,
-        90,
-        60
+        15
       ],
       "translation": [
         -2,
-        3,
-        -4
+        -2,
+        -3
       ],
       "scale": [
-        0.75,
-        0.75,
-        0.75
+        0.8,
+        0.8,
+        0.8
       ]
     },
     "gui": {

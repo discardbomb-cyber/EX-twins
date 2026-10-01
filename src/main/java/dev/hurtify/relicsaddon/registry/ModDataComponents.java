@@ -78,6 +78,24 @@ public final class ModDataComponents {
             DATA_COMPONENTS.registerComponentType("shield_impacts", builder -> builder
                     .networkSynchronized(dev.hurtify.relicsaddon.shield.ShieldImpactHistory.STREAM_CODEC));
 
+    /** The charge of a Noctis weapon's core (0 to 100): fed by its blows, spent by its great works. */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> NOCTIS_CORE =
+            DATA_COMPONENTS.registerComponentType("noctis_core", builder -> builder
+                    .persistent(Codec.intRange(0, 100))
+                    .networkSynchronized(ByteBufCodecs.VAR_INT));
+
+    /** Whether the Eclipse scythe is open (its blade out) rather than folded to its hilt. */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Boolean>> SCYTHE_OPEN =
+            DATA_COMPONENTS.registerComponentType("scythe_open", builder -> builder
+                    .persistent(Codec.BOOL)
+                    .networkSynchronized(ByteBufCodecs.BOOL));
+
+    /** The game time until which the scythe's Overdrive lasts (0 when it is not on). */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Long>> SCYTHE_OVERDRIVE =
+            DATA_COMPONENTS.registerComponentType("scythe_overdrive", builder -> builder
+                    .persistent(Codec.LONG)
+                    .networkSynchronized(ByteBufCodecs.VAR_LONG));
+
     private ModDataComponents() {
     }
 }

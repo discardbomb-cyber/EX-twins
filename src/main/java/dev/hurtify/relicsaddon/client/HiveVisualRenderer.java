@@ -97,6 +97,8 @@ public final class HiveVisualRenderer {
             HiveJuice.clear();
             HiveLoopSounds.clear();
             HiveConstructVisual.clear();
+            NoctisFx.clear();
+            EclipseScytheVisual.clear();
         }
         if (minecraft.level == null || minecraft.player == null) {
             ACTIVE.clear(); VISIBILITY.clear(); SEEN.clear(); LAUNCHES.clear(); PREY.clear();
@@ -150,6 +152,7 @@ public final class HiveVisualRenderer {
         HiveJuice.render(camera, glow, fill, matrix, time);
         HiveProjectiles.flush(camera, glow, fill, matrix);
         TwinsSpearVisual.render(minecraft, camera, glow, fill, matrix, time, partial);
+        NoctisFx.render(minecraft, camera, glow, fill, matrix, time, partial);
         HiveConstructVisual.sweep(time);
         RfArmageddonVisual.scorches(time, camera, fill, matrix);
         if (EffectLights.enabled()) scenes.forEach(HiveModeVisual::light);

@@ -149,6 +149,12 @@ const SPECS = [
   ["ship_lance_beam", "lance_beam:twins", 2.0], ["ship_lance_ignite", "lance_ignite:twins", .6], ["ship_lance_overheat", "lance_overheat:twins", 1.6],
   ["ship_aegis_block_1", "aegis_block:mana", .45], ["ship_aegis_block_2", "aegis_block:mana", .5],
   ["ship_aegis_break", "shield_collapse:mana", 1.4], ["ship_aegis_raise", "aegis_raise:mana", .9],
+  // Lux Noctis: the Twins spear and the Eclipse scythe.
+  ["noctis_spear_throw", "noctis_throw:twins", .6], ["noctis_spear_anchor", "noctis_anchor:twins", 1.1], ["noctis_spear_return", "noctis_return:twins", .5],
+  ["noctis_spear_collapse", "noctis_collapse:twins", .55], ["noctis_light_cut", "noctis_cut:twins", .7], ["noctis_quantum_charge", "noctis_charge:twins", 1.6],
+  ["noctis_quantum_fire", "noctis_beam:twins", 2.4], ["noctis_black_halo", "noctis_halo:twins", 2.0], ["noctis_scythe_unfold", "noctis_unfold:twins", .5],
+  ["noctis_scythe_swing", "noctis_swing:twins", .5], ["noctis_overdrive", "noctis_overdrive:twins", 1.8], ["noctis_wormhole_scan", "noctis_scan:twins", 2.0],
+  ["noctis_wormhole_burst", "noctis_burst:twins", 3.0],
   ["ship_escort_arc_1", "escort_arc:rf", .35], ["ship_escort_arc_2", "escort_arc:rf", .4], ["ship_escort_launch", "escort_launch:rf", .7],
 ];
 
@@ -1178,6 +1184,104 @@ function synthesize(name, family, seconds) {
       v.add(mul(bandpass(v.noise(), (t, x) => 300 + 2500 * Math.sin(Math.PI * x * .8), 3), env(n, .15, .25)), .5);
       v.add(mul(fm(n, (t, x) => p.pitch * (.5 + .6 * x) * detune, p.ratio, p.index * .5, .3), env(n, .1, .2)), .22);
       space = .2;
+      break;
+    }
+    case "noctis_throw": {
+      // A rush of air and a glassy whistle falling away.
+      v.add(mul(bandpass(v.noise(), (t, x) => 2500 - 1700 * x, 3), env(n, .02, .2)), .5);
+      v.add(mul(fm(n, (t, x) => 1400 * (1 - .5 * x) * detune, 2.76, 1.5, .2), env(n, .01, .15)), .2);
+      space = .2;
+      break;
+    }
+    case "noctis_anchor": {
+      // A deep thud, a glass lock, and a low pull sinking away: the horizon opening.
+      v.add(mul(osc(n, t => 90 * Math.exp(-t * 10) + 32), env(n, .003, .35)), .9);
+      v.add(bell(n, 520 * detune, [1, 2.76, 5.4], .25), .3);
+      v.add(mul(osc(n, (t, x) => 60 - 30 * x, "saw"), env(n, .1, .5)), .15);
+      v.add(mul(highpass(v.noise(Math.round(.05 * RATE)), 2000), env(Math.round(.05 * RATE), .0005, .01)), .5);
+      space = .35;
+      break;
+    }
+    case "noctis_return": {
+      // The rush of the throw, backwards: rising into the hand.
+      v.add(mul(bandpass(v.noise(), (t, x) => 800 + 2200 * x, 3), env(n, .35, .05)), .5);
+      v.add(mul(bell(n, 1200 * detune, [1, 2.76], .1), env(n, .4, .1)), .2);
+      break;
+    }
+    case "noctis_collapse": {
+      // A vacuum clap: a sharp crack, then air rushing in to a point and a hollow thump.
+      v.add(mul(highpass(v.noise(), 1500), env(n, .0003, .015)), .9);
+      v.add(mul(bandpass(v.noise(), (t, x) => 4000 * Math.exp(-x * 4) + 200, 2), env(n, .01, .12)), .5);
+      v.add(mul(osc(n, t => 70 * Math.exp(-t * 6) + 30), env(n, .04, .2)), .8);
+      space = .2;
+      break;
+    }
+    case "noctis_cut": {
+      // A thin bright blade of sound sweeping round: a ringing slice and a hiss.
+      v.add(mul(fm(n, (t, x) => 2600 * (1 - .3 * x) * detune, 1.5, 2, .3), env(n, .005, .25)), .3);
+      v.add(mul(highpass(v.noise(), 5000), env(n, .005, .2)), .35);
+      v.add(bell(n, 1760 * detune, [1, 2.76, 5.4], .3), .15);
+      space = .3;
+      break;
+    }
+    case "noctis_charge": {
+      // The chains overloading: a whine rising, crackle thickening.
+      v.add(mul(fm(n, (t, x) => 200 + 1200 * x * x, 1.5, 2, 1e9), env(n, 1.2, .2)), .3);
+      v.add(highpass(crackle(v, (t, x) => 200 + 4000 * x * x, .001), 2000), .4);
+      v.add(mul(osc(n, 55, "saw"), env(n, 1, .5)), .15);
+      break;
+    }
+    case "noctis_beam": {
+      // The quantum beam: a crack, a roaring sheet of noise over a deep saw, dying to a hiss.
+      v.add(mul(highpass(v.noise(), 800), env(n, .0005, .03)), .9);
+      v.add(mul(lowpass(osc(n, 41, "saw").map((x, i) => x + Math.sin(TAU * 41.5 * i / RATE)), 600), env(n, .02, .9)), .5);
+      v.add(mul(bandpass(pink(v), (t, x) => 3000 - 2000 * x, 1.5), env(n, .01, .8)), .6);
+      v.add(highpass(crackle(v, (t, x) => 2500 * Math.exp(-x * 2), .001), 1500), .3);
+      space = .3;
+      break;
+    }
+    case "noctis_halo": {
+      // The eclipse opening: a deep swell and glass bells in fifths, ringing out.
+      v.add(mul(osc(n, (t, x) => 40 + 15 * x), env(n, .3, .8)), .6);
+      [1, 1.5, 2, 3].forEach((step, k) => v.add(bell(n, 330 * step * detune, [1, 2.76, 5.4], .8), .12, k * .08));
+      v.add(mul(bandpass(v.noise(), 7000, 6), env(n, .2, .6)), .12);
+      space = .5;
+      break;
+    }
+    case "noctis_unfold": {
+      // Plates sliding out and locking: ticks, a slide and a click.
+      for (let k = 0; k < 5; k++) v.add(mul(highpass(v.noise(Math.round(.02 * RATE)), 2500), env(Math.round(.02 * RATE), .0005, .004)), .5, k * .06);
+      v.add(mul(bandpass(v.noise(), (t, x) => 600 + 1800 * x, 4), env(n, .05, .15)), .3);
+      v.add(mul(osc(n, t => 160 * Math.exp(-Math.max(0, t - .3) * 20) + 80), env(n, .3, .06)), .4);
+      break;
+    }
+    case "noctis_swing": {
+      // A heavy whoosh with a dark rim: low air and a breathy tone.
+      v.add(mul(bandpass(v.noise(), (t, x) => 300 + 900 * Math.sin(Math.PI * x), 2), env(n, .12, .15)), .8);
+      v.add(mul(osc(n, (t, x) => 90 + 40 * Math.sin(Math.PI * x)), env(n, .1, .15)), .3);
+      break;
+    }
+    case "noctis_overdrive": {
+      // The void folding in: a low hum swelling with a fast pulse, and a sucking drop.
+      const pulse = osc(n, (t, x) => 4 + 12 * x).map(y => .6 + .4 * y);
+      v.add(mul(mul(lowpass(osc(n, 38, "saw"), 400), pulse), env(n, .3, .8)), .7);
+      v.add(mul(osc(n, (t, x) => 300 * Math.exp(-x * 3) + 30), env(n, .01, .5)), .4);
+      space = .25;
+      break;
+    }
+    case "noctis_scan": {
+      // The circuit reading the land: soft pings walking outward over a rising hum.
+      for (let k = 0; k < 10; k++) v.add(bell(Math.round(.3 * RATE), (800 + 90 * k) * detune, [1, 2.76], .08), .15, k * .18);
+      v.add(mul(fm(n, (t, x) => 110 + 220 * x, 2, .8, 1e9), env(n, 1.5, .3)), .2);
+      space = .4;
+      break;
+    }
+    case "noctis_burst": {
+      // The dome: a vast low blast, then a sucking implosion to silence.
+      v.add(mul(highpass(pink(v), 100), env(n, .005, .6)), .8);
+      v.add(mul(osc(n, (t, x) => 50 * Math.exp(-x * 2) + 22), env(n, .01, 1.2)), .9);
+      v.add(mul(bandpass(v.noise(), (t, x) => 200 + 3000 * Math.max(0, x - .4), 2), env(n, 1.4, .3)), .3);
+      space = .4;
       break;
     }
     default:

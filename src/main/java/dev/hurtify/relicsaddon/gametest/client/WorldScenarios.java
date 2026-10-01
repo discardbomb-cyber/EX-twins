@@ -79,6 +79,15 @@ public final class WorldScenarios {
          * One attack filmed up close, a frame every tick: a level 10 {@code hive} with just {@code orders}, one
          * figure's worth, so its wind-up, flight, blow and what lingers each show clearly.
          */
+        /**
+         * A Noctis weapon's moment up close, a frame a tick: the husks stand where given, a Twins hive (if {@code hive}) with
+         * every drone a healer, so only the weapon's own work shows. What the player does, and when, is in {@code noctisAct}.
+         */
+        static Scene noctis(String name, boolean hive, List<Vec3> foes, Vec3 camera, Vec3 look, int frames) {
+            return new Scene(name, hive ? RelicRole.TWINS_HIVE : null, 10, null, null, foes, false, camera, look, 5, frames, -1, "minecraft:husk",
+                    hive ? new Console(new HiveSettings(500, 0, 0, 0), null, false) : null);
+        }
+
         static Scene juice(RelicRole hive, AttackMode mode, HiveSettings orders) {
             String family = hive == RelicRole.RF_HIVE ? "rf" : hive == RelicRole.MANA_HIVE ? "mana" : "twins";
             boolean droplet = mode == AttackMode.DROPLET, lifted = hive == RelicRole.TWINS_HIVE && mode == AttackMode.CONTAINMENT;
@@ -89,6 +98,11 @@ public final class WorldScenarios {
                     droplet ? new Vec3(0, 2.8, -3.5) : lifted ? new Vec3(0, 5.6, -7) : new Vec3(0, 2.2, -7), 5, 140,
                     mode == AttackMode.CONTAINMENT ? 115 : -1, "minecraft:husk", new Console(orders, null, false));
         }
+    }
+
+    /** Whether a scene is one of the Noctis weapons' (the spear's, the scythe's), its weapon in hand and its core full. */
+    private static boolean noctis(Scene scene) {
+        return scene.name().startsWith("juice-spear") || scene.name().startsWith("juice-scythe") || scene.name().equals("juice-wormhole") || scene.name().equals("juice-noctis-model");
     }
 
     /** What a console scene shows: the hive's orders, and which mode's slider the mouse rests on (none if {@code hover} is null). */
@@ -243,10 +257,16 @@ public final class WorldScenarios {
             Scene.juice(RelicRole.TWINS_HIVE, AttackMode.CONTAINMENT, new HiveSettings(0, 0, 0, 48)),
             // The Twins spear thrown at a husk, with a Twins hive whose drones all stay home to heal (so only the
             // spear's six fight), and without a hive; filmed from the side, a frame a tick.
-            new Scene("juice-spear", RelicRole.TWINS_HIVE, 10, null, null, List.of(new Vec3(0, 0, -9)), false, new Vec3(4, 2.4, -5.5),
-                    new Vec3(0, 1.3, -8.5), 5, 110, -1, "minecraft:husk", new Console(new HiveSettings(500, 0, 0, 0), null, false)),
-            new Scene("juice-spear-alone", null, 10, null, null, List.of(new Vec3(0, 0, -9)), false, new Vec3(4, 2.4, -5.5),
-                    new Vec3(0, 1.3, -8.5), 5, 90, -1, "minecraft:husk"),
+            Scene.noctis("juice-spear", true, List.of(new Vec3(0, 0, -9), new Vec3(-5, 0, -12), new Vec3(5, 0, -13)), new Vec3(4, 2.4, -5.5), new Vec3(0, 1.3, -8.5), 110),
+            Scene.noctis("juice-spear-alone", false, List.of(new Vec3(0, 0, -9)), new Vec3(4, 2.4, -5.5), new Vec3(0, 1.3, -8.5), 90),
+            Scene.noctis("juice-spear-halo", true, List.of(new Vec3(0, 0, -5), new Vec3(-4, 0, -7), new Vec3(4, 0, -8), new Vec3(-2, 0, -11)), new Vec3(13, 6.5, 1), new Vec3(0, 7.5, -5), 110),
+            Scene.noctis("juice-noctis-model", false, List.of(), new Vec3(0, 2.5, 1), new Vec3(0, 1.5, -6), 20),
+            Scene.noctis("juice-spear-beam", true, List.of(new Vec3(0, 0, -7), new Vec3(1, 0, -14), new Vec3(-1, 0, -24)), new Vec3(7, 3.5, -7), new Vec3(-4, 1.5, -20), 70),
+            Scene.noctis("juice-spear-cut", true, List.of(new Vec3(3, 0, -3), new Vec3(-3.5, 0, -2), new Vec3(0, 0, -4.5), new Vec3(4, 0, 1)), new Vec3(6, 4, -5), new Vec3(0, 1.2, -1), 40),
+            Scene.noctis("juice-spear-back", false, List.of(), new Vec3(2.5, 2.3, 4), new Vec3(0, 1.1, 0), 40),
+            Scene.noctis("juice-scythe", true, List.of(new Vec3(-1.5, 0, -2.5), new Vec3(1.5, 0, -2.5), new Vec3(0, 0, -3.5)), new Vec3(4.5, 2.6, -1), new Vec3(0, 1.3, -2.5), 110),
+            Scene.noctis("juice-scythe-overdrive", true, List.of(new Vec3(-2, 0, -3), new Vec3(2, 0, -3.5), new Vec3(0, 0, -4.5)), new Vec3(4.5, 2.6, -1), new Vec3(0, 1.3, -2.5), 80),
+            Scene.noctis("juice-wormhole", true, List.of(new Vec3(-5, 0, -4), new Vec3(6, 0, -7), new Vec3(0, 0, -10), new Vec3(-7, 0, -11)), new Vec3(18, 9, 2), new Vec3(0, 2, -6), 110),
             Scene.console("console-shared", RelicRole.RF_HIVE, 10, new HiveSettings(40, 608, 900, 432), AttackMode.DROPLET),
             Scene.console("console-refused", RelicRole.RF_HIVE, 0, new HiveSettings(10, 16, 64, 0), AttackMode.CONTAINMENT),
             Scene.console("console-no-room", RelicRole.MANA_HIVE, 10, new HiveSettings(0, 14, 1986, 0), null));
@@ -449,13 +469,7 @@ public final class WorldScenarios {
                 RelicsAddon.LOGGER.warn("World scenario {}: could not note frame times", current.name(), exception);
             }
         }
-        if (current.name().startsWith("juice-spear") && index == 3) onServer(minecraft, level -> {
-            ServerPlayer thrower = owner(level);
-            if (!FOES.isEmpty() && level.getEntity(FOES.getFirst()) instanceof net.minecraft.world.entity.LivingEntity foe) {
-                thrower.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, foe.position().add(0, foe.getBbHeight() * .6, 0));
-            }
-            dev.hurtify.relicsaddon.relic.TwinsSpearItem.throwFrom(level, thrower);
-        });
+        if (noctis(current)) onServer(minecraft, level -> noctisAct(level, current.name(), index));
         if (index == current.killFirstAtFrame()) onServer(minecraft, level -> {
             if (!FOES.isEmpty() && level.getEntity(FOES.getFirst()) instanceof net.minecraft.world.entity.LivingEntity foe) foe.kill();
         });
@@ -473,6 +487,53 @@ public final class WorldScenarios {
             minecraft.setCameraEntity(minecraft.player);
             phase = Phase.TEARDOWN;
             ticks = 0;
+        }
+    }
+
+    /** What the player does with a Noctis weapon at frame {@code index} of the scene {@code name}. */
+    private static void noctisAct(ServerLevel level, String name, int index) {
+        ServerPlayer player = owner(level);
+        net.minecraft.world.entity.LivingEntity foe = !FOES.isEmpty() && level.getEntity(FOES.getFirst()) instanceof net.minecraft.world.entity.LivingEntity living ? living : null;
+        ItemStack weapon = player.getMainHandItem();
+        switch (name) {
+            case "juice-spear", "juice-spear-alone" -> {
+                if (index != 3) return;
+                if (foe != null) player.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, foe.position().add(0, foe.getBbHeight() * .6, 0));
+                dev.hurtify.relicsaddon.relic.TwinsSpearItem.throwFrom(level, player, weapon);
+            }
+            case "juice-spear-halo" -> {
+                if (index != 3) return;
+                player.setXRot(-75);
+                dev.hurtify.relicsaddon.relic.TwinsSpearItem.throwFrom(level, player, weapon);
+            }
+            case "juice-spear-beam" -> {
+                if (index != 3) return;
+                player.setXRot(0);
+                player.setYRot(180);
+                player.setYHeadRot(180);
+                dev.hurtify.relicsaddon.server.NoctisBeam.fire(level, player, weapon, dev.hurtify.relicsaddon.relic.NoctisCore.hive(player));
+            }
+            case "juice-spear-cut" -> {
+                if (index == 3) dev.hurtify.relicsaddon.server.NoctisCombat.lightCut(level, player, weapon);
+            }
+            case "juice-scythe", "juice-scythe-overdrive" -> {
+                if (index == 3 && name.endsWith("overdrive")) {
+                    weapon.set(ModDataComponents.SCYTHE_OVERDRIVE.get(), level.getGameTime() + 200);
+                    dev.hurtify.relicsaddon.relic.EclipseScytheItem.setOpen(weapon, true, true);
+                }
+                if (index % 30 == 5 && foe != null) {
+                    player.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, foe.position().add(0, foe.getBbHeight() * .6, 0));
+                    player.attack(foe);
+                    player.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
+                }
+            }
+            case "juice-noctis-model" -> {
+                if (index == 0) Minecraft.getInstance().execute(() -> dev.hurtify.relicsaddon.client.TwinsSpearVisual.MODEL = stage.add(0, 1, -6));
+            }
+            case "juice-wormhole" -> {
+                if (index == 3) dev.hurtify.relicsaddon.server.NoctisWormhole.plant(level, player, weapon, dev.hurtify.relicsaddon.relic.NoctisCore.hive(player));
+            }
+            default -> { }
         }
     }
 
@@ -576,8 +637,17 @@ public final class WorldScenarios {
             }
         }
         if (scene.shield() != null) curios.setEquippedCurio(RelicRole.EQUIPMENT_SLOT, 1, device(scene.shield(), 0, null));
-        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, scene.name().startsWith("juice-spear")
-                ? new ItemStack(ModItems.TWINS_SPEAR.get()) : ItemStack.EMPTY);
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        player.getInventory().setItem(1, ItemStack.EMPTY);
+        if (noctis(scene)) {
+            // The weapon of the scene, its core full; the scythe open. The back scene carries the spear, in hand nothing.
+            boolean scythe = scene.name().startsWith("juice-scythe") || scene.name().equals("juice-wormhole");
+            ItemStack weapon = new ItemStack(scythe ? ModItems.ECLIPSE_SCYTHE.get() : ModItems.TWINS_SPEAR.get());
+            weapon.set(ModDataComponents.NOCTIS_CORE.get(), dev.hurtify.relicsaddon.relic.NoctisCore.MAX);
+            if (scythe) dev.hurtify.relicsaddon.relic.EclipseScytheItem.setOpen(weapon, true, false);
+            if (scene.name().equals("juice-spear-back")) player.getInventory().setItem(1, weapon);
+            else player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, weapon);
+        }
 
         if (SABLE.contains(scene.name())) sableShip(level, player);
         if (scene.name().equals("ship-window") && level.getBlockEntity(net.minecraft.core.BlockPos.containing(stage.add(0, 3, -4)))

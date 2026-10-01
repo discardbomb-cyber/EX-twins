@@ -33,6 +33,7 @@ public final class RelicsAddon {
         modEventBus.addListener(dev.hurtify.relicsaddon.network.OpenDevicePayload::register);
         modEventBus.addListener(dev.hurtify.relicsaddon.network.ArmageddonPayloads::register);
         modEventBus.addListener(dev.hurtify.relicsaddon.network.HiveAllocationPayload::register);
+        modEventBus.addListener(dev.hurtify.relicsaddon.network.NoctisPayloads::register);
         modEventBus.addListener(dev.hurtify.relicsaddon.power.DeviceEnergyStorage::register);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.power.DevicePower::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(ShieldController::onIncomingDamage);
@@ -55,6 +56,11 @@ public final class RelicsAddon {
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.HiveCombatController::onPlayerChangedDimension);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.ShieldStatusCommand::register);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.relic.TwinsSpearEntity::onEnderTeleport);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.NoctisCombat::onIncomingDamage);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.NoctisCombat::onAttack);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.NoctisCombat::onPlayerTick);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.NoctisBeam::onLevelTick);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.server.NoctisWormhole::onLevelTick);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.ship.ShipBrain::onDamage);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.ship.ShipBrain::onExplosion);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.ship.ShipBrain::onProjectileImpact);

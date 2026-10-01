@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "  P",
+    "XPE",
+    " X "
+  ],
+  "key": {
+    "P": {
+      "item": "relics_addon:twins_drone_plate"
+    },
+    "X": {
+      "item": "relics_addon:resonant_circuit"
+    },
+    "E": {
+      "item": "relics_addon:energy_cell"
+    }
+  },
+  "result": {
+    "id": "relics_addon:twins_spear",
+    "count": 1
+  }
+}

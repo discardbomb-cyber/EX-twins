@@ -26,6 +26,7 @@ public final class AddonConfig {
     public static final ModConfigSpec.DoubleValue HIVE_STRIKE_EFFICIENCY;
     public static final ModConfigSpec.BooleanValue POWER_REQUIRED;
     public static final ModConfigSpec.BooleanValue ARMAGEDDON_SAFE;
+    public static final ModConfigSpec.DoubleValue SPEAR_HORIZON_RADIUS, SPEAR_HALO_RADIUS, SPEAR_BEAM_LENGTH, SCYTHE_WORMHOLE_RADIUS;
     public static final ModConfigSpec.IntValue XP_POINT_VALUE;
     public static final ModConfigSpec.IntValue XP_RESERVE_LEVELS;
     public static final ModConfigSpec.DoubleValue PLAYER_MANA_VALUE;
@@ -87,6 +88,14 @@ public final class AddonConfig {
                 .define("power.requireBatteries", true);
         ARMAGEDDON_SAFE = builder.comment("When true, Armageddon breaks no blocks: its black hole and blast still strike creatures but leave the land whole.")
                 .define("armageddon.safeMode", false);
+        SPEAR_HORIZON_RADIUS = builder.comment("Blocks round the Twins spear's pinned reflection from which its singularity drags creatures in.")
+                .defineInRange("spear.horizonRadius", 12.0, 2.0, 64.0);
+        SPEAR_HALO_RADIUS = builder.comment("Blocks under the Twins spear's Black Halo within which its light spears fall.")
+                .defineInRange("spear.haloRadius", 10.0, 2.0, 64.0);
+        SPEAR_BEAM_LENGTH = builder.comment("Blocks the Twins spear's quantum beam reaches; without armageddon.safeMode it bores a tunnel that far.")
+                .defineInRange("spear.beamLength", 96.0, 8.0, 512.0);
+        SCYTHE_WORMHOLE_RADIUS = builder.comment("Blocks round the planted Eclipse scythe that its wormhole takes in.")
+                .defineInRange("scythe.wormholeRadius", 16.0, 4.0, 64.0);
         XP_POINT_VALUE = builder.comment("Battery charge gained from one player experience point.")
                 .defineInRange("power.experiencePointValue", 10, 1, 1000);
         XP_RESERVE_LEVELS = builder.comment("Experience levels a mana battery never draws below.")

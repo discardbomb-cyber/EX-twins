@@ -20,13 +20,24 @@ import org.joml.Matrix4f;
  *   <li>on its way home, carried by two of the drones.</li>
  * </ul>
  */
-final class TwinsSpearVisual {
-    private static final int VIOLET = 0xB151FF, BRIGHT = 0xE7C6FF, DEEP = 0x12031F, WHITE = 0xFFF4FF;
+public final class TwinsSpearVisual {
+    /** Where the weapons stand to be looked over (a model scene), or null. */
+    public static Vec3 MODEL;
+    private static final int VIOLET = 0xB151FF, BRIGHT = 0xE7C6FF, DEEP = 0x12031F, WHITE = 0xFFF4FF, INK = NoctisFx.INK;
     /** The spear's length, its tip's, and how far the tip sits ahead of the entity's position. */
     private static final double LENGTH = 2.1, TIP = .5, AHEAD = .35;
 
     static void render(Minecraft minecraft, Vec3 camera, VertexConsumer glow, VertexConsumer fill, Matrix4f m, double time, float partial) {
         if (minecraft.level == null) return;
+        EclipseScytheVisual.trails(camera, glow, fill, m, time);
+        if (MODEL != null) {
+            Vec3 at = MODEL.subtract(camera);
+            EclipseScytheVisual.draw(glow, fill, m, at, new Vec3(0, 1, 0), new Vec3(-1, 0, 0), 1, 0, 1, time, 1);
+            EclipseScytheVisual.draw(glow, fill, m, at.add(2.5, 0, 0), new Vec3(0, 1, 0), new Vec3(-1, 0, 0), 0, 0, 1, time, 1);
+            EclipseScytheVisual.draw(glow, fill, m, at.add(-2.5, 0, 0), new Vec3(0, 1, 0), new Vec3(-1, 0, 0), 1, 1, 1, time, 1);
+            spear(glow, fill, m, at.add(5, 2.1, 0), new Vec3(0, 1, 0), time, 1, 1, 0);
+            spear(glow, fill, m, at.add(-5, 2.1, 0), new Vec3(0, 1, 0), time, 1, .3, .8);
+        }
         for (Entity entity : minecraft.level.entitiesForRendering()) {
             if (!(entity instanceof TwinsSpearEntity spear) || entity.position().distanceToSqr(camera) > 96 * 96) continue;
             draw(spear, camera, glow, fill, m, time, partial);
@@ -41,7 +52,9 @@ final class TwinsSpearVisual {
         double t = spear.stateTicks() + partial;
         long seed = spear.getId() * 7919L;
         int state = spear.state();
-        spear(glow, fill, m, tip, heading, time, 1);
+        spear(glow, fill, m, tip, heading, time, 1, .7, 0);
+        NoctisFx.fire(tip.add(camera), heading, time, .8);
+        if (state == TwinsSpearEntity.ANCHORED || state == TwinsSpearEntity.STUCK) horizon(glow, m, tip, t, time, seed);
         switch (state) {
             case TwinsSpearEntity.FLYING -> trail(glow, m, tip, heading, time, seed);
             case TwinsSpearEntity.ANCHORED -> {
@@ -59,6 +72,7 @@ final class TwinsSpearVisual {
                 strike(glow, m, tip, heading, t, seed);
                 GlowBrush.dot(glow, m, tip, .35 + .08 * Math.sin(time * .4), VIOLET, 70);
             }
+            case TwinsSpearEntity.HALO -> eclipse(glow, fill, m, at, t, time, seed);
             default -> {
                 trail(glow, m, tip, heading, time, seed);
                 if (spear.swarm() > 0) {
@@ -71,8 +85,11 @@ final class TwinsSpearVisual {
         }
     }
 
-    /** The spear itself, pointing along {@code heading} with its tip at {@code tip}. */
-    static void spear(VertexConsumer glow, VertexConsumer fill, Matrix4f m, Vec3 tip, Vec3 heading, double time, double alpha) {
+    /**
+     * The spear itself, pointing along {@code heading} with its tip at {@code tip}; its core {@code fullness} full
+     * (more and brighter circuit lines), and {@code charge} of the way to firing its beam (its chains overloading).
+     */
+    static void spear(VertexConsumer glow, VertexConsumer fill, Matrix4f m, Vec3 tip, Vec3 heading, double time, double alpha, double fullness, double charge) {
         Vec3[] axes = HiveShapes.axes(heading);
         Vec3 u = axes[1], v = axes[2];
         Vec3 neck = tip.subtract(heading.scale(TIP)), tail = tip.subtract(heading.scale(LENGTH));
@@ -86,7 +103,31 @@ final class TwinsSpearVisual {
             GlowBrush.line(glow, m, tail.add(ra), neck.add(ra), .006, BRIGHT, 120 * alpha);
         }
         // Its core: a thin violet light the length of it, brighter towards the tip.
-        GlowBrush.line(glow, m, tail, neck, .015, .03, DEEP, VIOLET, 40 * alpha, 160 * alpha);
+        GlowBrush.line(glow, m, tail, neck, .015, .03, DEEP, VIOLET, 40 * alpha, (120 + 80 * fullness) * alpha);
+        // The circuit's chains along the shaft: lit stretches travelling up it, more the fuller the core, and
+        // flashing wildly as the beam is charged.
+        int chains = 1 + (int) Math.round(fullness * 3);
+        long flicker = (long) Math.floor(time * 3);
+        for (int chain = 0; chain < chains; chain++) {
+            double a = Math.PI * 2 * chain / chains + Math.PI / 6;
+            Vec3 off = u.scale(Math.cos(a) * shaft * 1.05).add(v.scale(Math.sin(a) * shaft * 1.05));
+            double from = ((time * .03 + chain * .27) % 1) * (LENGTH - TIP), to = Math.min(LENGTH - TIP, from + .3 + .5 * fullness);
+            boolean flash = charge > 0 && hash(flicker, chain) < charge;
+            GlowBrush.line(glow, m, tail.add(off).add(heading.scale(from)), tail.add(off).add(heading.scale(to)), flash ? .012 : .006,
+                    flash ? WHITE : BRIGHT, (100 + 120 * fullness) * alpha);
+            if (flash) GlowBrush.line(glow, m, tail.add(off), neck.add(off), .02, VIOLET, 160 * charge * alpha);
+        }
+        if (charge > 0) {
+            // The tip gathers the beam: a white ball swelling at it, and bolts tearing round the shaft.
+            GlowBrush.dot(glow, m, tip, .15 + .5 * charge, WHITE, 230 * charge * alpha);
+            GlowBrush.dot(glow, m, tip, .4 + 1.2 * charge, VIOLET, 90 * charge * alpha);
+            for (int bolt = 0; bolt < 4; bolt++) {
+                double b = hash(flicker + bolt, 7) * Math.PI * 2;
+                Vec3 start = tail.lerp(neck, hash(flicker, bolt + 3));
+                GlowBrush.lightning(glow, m, start, start.add(u.scale(Math.cos(b) * .3 * charge)).add(v.scale(Math.sin(b) * .3 * charge)),
+                        flicker * 5 + bolt, 4, .4, .006, BRIGHT, 220 * charge * alpha);
+            }
+        }
         // A guard where the tip meets the shaft.
         GlowBrush.circle(glow, m, neck, u, v, .09, 6, .012, BRIGHT, 200 * alpha);
         // The tip: an octahedron drawn out along the heading, its widest a third of the way back.
@@ -200,19 +241,78 @@ final class TwinsSpearVisual {
      */
     private static void drones(VertexConsumer glow, VertexConsumer fill, Matrix4f m, Vec3 middle, double radius, int count, double t, double time, double fade) {
         double arrive = Mth.clamp(t / 8, 0, 1), tilt = Math.toRadians(25);
-        int striking = (int) Math.floor((t - 2) / TwinsSpearEntity.DRONE_EVERY);
-        double since = (t - 2) - striking * TwinsSpearEntity.DRONE_EVERY;
+        int striking = (int) Math.floor((t - 2) / TwinsSpearEntity.BLADE_EVERY);
+        double since = (t - 2) - striking * TwinsSpearEntity.BLADE_EVERY;
         for (int drone = 0; drone < count; drone++) {
             double a = time * .12 + Math.PI * 2 * drone / count;
             Vec3 ring = new Vec3(Math.cos(a) * radius, Math.sin(a) * radius * Math.sin(tilt), Math.sin(a) * radius * Math.cos(tilt));
             Vec3 at = middle.add(ring).add(0, 4 * (1 - arrive) * (1 - arrive), 0);
-            HiveProjectiles.icosahedron(glow, fill, m, at, .18, time * .2 + drone, Math.max(.3, fade));
+            Vec3 tangent = new Vec3(-Math.sin(a), Math.cos(a) * Math.sin(tilt), Math.cos(a) * Math.cos(tilt)).normalize();
+            Vec3 in = middle.subtract(at).normalize();
+            Vec3 front = at.add(tangent.scale(.32)), back = at.subtract(tangent.scale(.22)), keel = at.add(in.scale(.14));
+            double show = Math.max(.3, fade);
+            face(fill, m, back, front, keel, keel, show);
+            GlowBrush.line(glow, m, back, front, .009, WHITE, 230 * show);
+            GlowBrush.line(glow, m, front, keel, .006, BRIGHT, 200 * show);
+            GlowBrush.line(glow, m, keel, back, .006, VIOLET, 160 * show);
+            GlowBrush.dot(glow, m, at, .14, VIOLET, 70 * show);
             if (t > 8 && Math.floorMod(striking, count) == drone && since < 2.5) {
                 double k = 1 - since / 2.5;
                 GlowBrush.line(glow, m, at, middle, .03 * k + .01, BRIGHT, 240 * k * fade);
                 GlowBrush.dot(glow, m, middle.add(at.subtract(middle).normalize().scale(.35)), .3 * k + .1, WHITE, 220 * k * fade);
             }
         }
+    }
+
+    /** The event horizon round a pinned spear: space pulled in to it, dark, with a slow violet swirl at its rim. */
+    private static void horizon(VertexConsumer glow, Matrix4f m, Vec3 tip, double t, double time, long seed) {
+        double reach = TwinsSpearEntity.horizon(), open = Mth.clamp(t / 8, 0, 1), fade = Mth.clamp((TwinsSpearEntity.ANCHOR - t) / 8, 0, 1) * open;
+        if (fade <= 0) return;
+        if (!GlowBrush.flat()) BlackHoleLens.queue(tip, .25 + .15 * open, reach * .5 * open + 1, 1.6 * fade, 1.5);
+        GlowBrush.dot(glow, m, tip, .6 + .3 * open, INK, 230 * fade);
+        GlowBrush.dot(glow, m, tip, 1.2 * open, VIOLET, 60 * fade);
+        // Streams of dark matter drawn in along spirals from the horizon's edge.
+        for (int stream = 0; stream < 9; stream++) {
+            double a = Math.PI * 2 * stream / 9 - time * .08, r = reach * .45 * open;
+            Vec3 previous = null;
+            for (int step = 0; step <= 10; step++) {
+                double k = step / 10.0, radius = r * (1 - k * .92), angle = a + k * 2.2 + hash(seed, stream) * .5;
+                Vec3 p = tip.add(Math.cos(angle) * radius, (hash(seed, stream + 4) - .5) * .8 * (1 - k), Math.sin(angle) * radius);
+                if (previous != null) GlowBrush.line(glow, m, previous, p, .03 * (1 - k) + .008, step % 2 == 0 ? VIOLET : INK, (60 + 150 * k) * fade);
+                previous = p;
+            }
+        }
+    }
+
+    /** The Black Halo: the spear hanging point down, an eclipse opened round it, a corona of light and runes about the dark. */
+    private static void eclipse(VertexConsumer glow, VertexConsumer fill, Matrix4f m, Vec3 at, double t, double time, long seed) {
+        double open = Mth.clamp((t - TwinsSpearEntity.RISE) / 6, 0, 1), end = TwinsSpearEntity.RISE + TwinsSpearEntity.RAIN;
+        double fade = t > end - 8 ? Mth.clamp((end - t) / 8, 0, 1) : 1;
+        if (open <= 0) return;
+        double radius = 2.6 * open * fade;
+        Vec3 x = new Vec3(1, 0, 0), z = new Vec3(0, 0, 1);
+        int segments = 48;
+        for (int segment = 0; segment < segments; segment++) {
+            double a = Math.PI * 2 * segment / segments, b = Math.PI * 2 * (segment + 1) / segments;
+            GlowBrush.quad(fill, m, at, at.add(Math.cos(a) * radius, 0, Math.sin(a) * radius), at.add(Math.cos(b) * radius, 0, Math.sin(b) * radius), at,
+                    INK, INK, INK, INK, 250, 250, 250, 250);
+        }
+        GlowBrush.circle(glow, m, at, x, z, radius * 1.02, segments, .12, WHITE, 240 * fade);
+        GlowBrush.circle(glow, m, at, x, z, radius * 1.15, segments, .3, VIOLET, 120 * fade);
+        // The corona: rays flickering out from the rim.
+        long flicker = (long) Math.floor(time * 2);
+        for (int ray = 0; ray < 24; ray++) {
+            double a = Math.PI * 2 * ray / 24 + time * .02, length = .4 + 1.2 * hash(seed + flicker, ray);
+            Vec3 from = at.add(Math.cos(a) * radius * 1.05, 0, Math.sin(a) * radius * 1.05);
+            GlowBrush.line(glow, m, from, from.add(Math.cos(a) * length, 0, Math.sin(a) * length), .03, .005, BRIGHT, VIOLET, 220 * fade, 0);
+        }
+        // Runes turning under it.
+        for (int mark = 0; mark < 16; mark++) {
+            double a = -time * .06 + Math.PI * 2 * mark / 16;
+            Vec3 in = at.add(Math.cos(a) * radius * .75, -.05, Math.sin(a) * radius * .75), out = at.add(Math.cos(a) * radius * .92, -.05, Math.sin(a) * radius * .92);
+            GlowBrush.line(glow, m, in, out, .015, BRIGHT, 200 * fade);
+        }
+        GlowBrush.dot(glow, m, at, radius * .9, VIOLET, 30 * fade);
     }
 
     private static void diamond(VertexConsumer glow, Matrix4f m, Vec3 at, Vec3 u, Vec3 v, double size, int color, double alpha) {

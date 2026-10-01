@@ -4,6 +4,9 @@
     "relics_addon:swarm_strike",
     "relics_addon:swarm_void",
     "relics_addon:swarm_reflect",
-    "relics_addon:armageddon"
+    "relics_addon:armageddon",
+    "relics_addon:noctis_light",
+    "relics_addon:noctis_beam",
+    "relics_addon:noctis_void"
   ]
 }
