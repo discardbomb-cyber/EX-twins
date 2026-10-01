@@ -15,6 +15,7 @@ public final class ClientEventRegistrar {
         NeoForge.EVENT_BUS.addListener(HiveVisualRenderer::onLoggingOut);
         NeoForge.EVENT_BUS.addListener(ShipHiveRenderer::onRenderLevelStage);
         NeoForge.EVENT_BUS.addListener(ShipHiveRenderer::onLoggingOut);
+        NeoForge.EVENT_BUS.addListener(ShipShellRenderer::onRenderLevelStage);
         NeoForge.EVENT_BUS.addListener(ArmageddonShake::onCameraAngles);
         NeoForge.EVENT_BUS.addListener(EffectLights::onFrame);
         NeoForge.EVENT_BUS.addListener(HiveMenuKey::tick);

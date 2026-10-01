@@ -356,6 +356,7 @@ tasks.named('check') {
     dependsOn 'verifyEffectLightSources'
     dependsOn 'verifyReleaseContents'
     dependsOn 'verifyObjCompact'
+    dependsOn 'verifyShipShell'
 }
 
 // The OBJ models ship deduplicated (tools/compact_obj.mjs): no repeated v/vt/vn records, every face index in range.
@@ -420,6 +421,12 @@ tasks.register('verifyShieldShell', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
     mainClass = 'dev.hurtify.relicsaddon.client.ShieldShellEquivalenceCheck'
+}
+
+tasks.register('verifyShipShell', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.shipshield.ShellMeshCheck'
 }
 
 tasks.register('verifyDevicePower', JavaExec) {

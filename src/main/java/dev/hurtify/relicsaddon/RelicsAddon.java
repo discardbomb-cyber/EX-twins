@@ -67,6 +67,13 @@ public final class RelicsAddon {
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.ship.AegisFields::onExplosion);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.ship.AegisFields::onServerTick);
         NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.ship.AegisFields::onServerStopping);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.shipshield.ShipShieldFields::onEntityTick);
+        NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.HIGH, dev.hurtify.relicsaddon.shipshield.ShipShieldFields::onIncomingDamage);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.shipshield.ShipShieldFields::onExplosion);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.shipshield.ShipShieldFields::onBlockChange);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.shipshield.ShipShieldFields::onServerTick);
+        NeoForge.EVENT_BUS.addListener(dev.hurtify.relicsaddon.shipshield.ShipShieldFields::onServerStopping);
+        dev.hurtify.relicsaddon.shipshield.ShipShieldCompat.bind();
         registerClientOnly(modEventBus);
         LOGGER.info("Loaded three shields, three typed defender hives and three ship hives");
     }

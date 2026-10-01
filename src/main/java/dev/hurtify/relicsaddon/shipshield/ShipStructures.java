@@ -7,7 +7,11 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.fml.ModList;
@@ -15,19 +19,29 @@ import net.neoforged.fml.ModList;
 /**
  * Finds the structure a ship device stands on. With Sable loaded the airship locator in
  * {@code compat.aeronautics} answers first; a device off any airship, or any device without
- * Sable, gets the connected solid blocks around it.
+ * Sable, gets the connected solid blocks around it. Works on both sides: a client finds the same
+ * structure from its own copy of the blocks, so it can build the same shield shell.
  */
 public final class ShipStructures {
     /** Answers which blocks belong to the structure at {@code anchor}, or null to defer to the static scan. */
     public interface Locator {
-        ShipStructure locate(ServerLevel level, BlockPos anchor);
+        ShipStructure locate(Level level, BlockPos anchor);
     }
+
+    /**
+     * Blocks that are land, not build: the connected-block scan never counts them and never passes
+     * through them, so a generator standing on the ground shields the building, not the hill under
+     * it. Natural stone, dirt, sand, gravel, terracotta, ores, leaves, snow, ice and the like; a
+     * datapack can add a mod's own terrain.
+     */
+    public static final TagKey<Block> NATURAL_TERRAIN = TagKey.create(Registries.BLOCK,
+            ResourceLocation.fromNamespaceAndPath(RelicsAddon.MOD_ID, "natural_terrain"));
 
     private static final int STATIC_SCAN_LIMIT_FLOOR = 64;
     private static Locator airships;
     private static boolean airshipsResolved;
 
-    public static ShipStructure locate(ServerLevel level, BlockPos anchor) {
+    public static ShipStructure locate(Level level, BlockPos anchor) {
         Locator locator = airships();
         if (locator != null) {
             try {
@@ -62,11 +76,13 @@ public final class ShipStructures {
     }
 
     /**
-     * Connected solid blocks around {@code anchor} (6-neighbourhood), within the configured radius
-     * and block limit. Terrain counts too, so a generator on the ground reaches the limit and is
-     * reported as truncated; ship shields are meant for airships and free-standing builds.
+     * Connected blocks of a build around {@code anchor} (6-neighbourhood), within the configured
+     * radius and block limit. Natural terrain ({@link #NATURAL_TERRAIN}) and fluids are not part of
+     * a build and stop the fill, so a house on a hill is the house: its walls, floors, furniture
+     * and machines. A build made of raw terrain blocks (plain stone, dirt) is cut off there too;
+     * cobblestone, bricks, planks and every processed block count.
      */
-    public static ShipStructure connected(ServerLevel level, BlockPos anchor) {
+    public static ShipStructure connected(Level level, BlockPos anchor) {
         int radius = AddonConfig.SPEC.isLoaded() ? AddonConfig.SHIP_STATIC_RADIUS.get() : 32;
         int limit = blockLimit();
         LongSet seen = new LongOpenHashSet();
@@ -86,7 +102,7 @@ public final class ShipStructures {
                 long next = BlockPos.asLong(x, y, z);
                 if (seen.contains(next)) continue;
                 if (seen.size() >= limit) { truncated = true; break; }
-                if (!level.isLoaded(cursor.set(x, y, z)) || !solid(level.getBlockState(cursor))) continue;
+                if (!level.isLoaded(cursor.set(x, y, z)) || !build(level.getBlockState(cursor))) continue;
                 seen.add(next);
                 queue.enqueue(next);
                 if (level.getBlockEntity(cursor) != null) entities.add(cursor.immutable());
@@ -100,7 +116,7 @@ public final class ShipStructures {
      * away, so distances to players go through this. Sable Companion is bundled and answers with the
      * point itself where there is no Sable or no ship.
      */
-    public static net.minecraft.world.phys.Vec3 worldPosition(net.minecraft.world.level.Level level, net.minecraft.world.phys.Vec3 position) {
+    public static net.minecraft.world.phys.Vec3 worldPosition(Level level, net.minecraft.world.phys.Vec3 position) {
         return dev.ryanhcode.sable.companion.SableCompanion.INSTANCE.projectOutOfSubLevel(level, (net.minecraft.core.Position) position);
     }
 
@@ -112,11 +128,17 @@ public final class ShipStructures {
     /**
      * Blocks that make up a build: anything that is not air, a fluid, a loose plant a player can
      * walk through, or an invisible technical block (barriers, structure voids, lights). A
-     * waterlogged slab or stair is still a block.
+     * waterlogged slab or stair is still a block. Airships are made of these; a static build is
+     * made of those that are not {@link #build natural terrain} as well.
      */
     public static boolean solid(BlockState state) {
         return !state.isAir() && !state.liquid() && !state.canBeReplaced()
                 && !state.is(Blocks.BARRIER) && !state.is(Blocks.STRUCTURE_VOID) && !state.is(Blocks.LIGHT);
+    }
+
+    /** A block of a static build: {@link #solid} and not natural terrain. */
+    public static boolean build(BlockState state) {
+        return solid(state) && !state.is(NATURAL_TERRAIN);
     }
 
     private ShipStructures() {

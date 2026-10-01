@@ -438,8 +438,12 @@ public final class DeviceControlScreen extends AbstractContainerScreen<DeviceCon
             if (role().isShipGenerator()) {
                 lines.add(Component.translatable("screen.relics_addon.stat.drones_wanted", ship.dronesWanted(), ship.drones()));
                 lines.add(Component.translatable("screen.relics_addon.stat.docks", ship.docks()));
+                lines.add(Component.translatable("screen.relics_addon.stat.layers", ship.layers()));
+                lines.add(Component.translatable("screen.relics_addon.stat.integrity", ship.integrity(), ship.integrityMax()));
             } else {
                 lines.add(Component.translatable("screen.relics_addon.stat.dock_drones", ship.drones(), ship.droneCapacity()));
+                lines.add(Component.translatable("screen.relics_addon.stat.drones_out", ship.dronesOut()));
+                lines.add(Component.translatable("screen.relics_addon.stat.repair_queue", ship.repairQueue()));
             }
             lines.add(Component.translatable("screen.relics_addon.stat.stores", ship.stores()));
             if (!ship.notice().isEmpty()) lines.add(Component.translatable(ship.notice(), ship.detail()).withStyle(ChatFormatting.GOLD));

@@ -12,7 +12,7 @@ import it.unimi.dsi.fastutil.longs.LongSet;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 
@@ -26,7 +26,7 @@ import net.minecraft.world.level.chunk.LevelChunkSection;
  * {@link ShipStructures} loads it by name when the mod is present.
  */
 public final class AeronauticsStructures implements ShipStructures.Locator {
-    @Override public ShipStructure locate(ServerLevel level, BlockPos anchor) {
+    @Override public ShipStructure locate(Level level, BlockPos anchor) {
         SubLevelAccess access = SableCompanion.INSTANCE.getContaining(level, anchor);
         if (!(access instanceof SubLevel ship) || ship.isRemoved()) return null;
         BoundingBox3ic bounds = ship.getPlot().getBoundingBox();

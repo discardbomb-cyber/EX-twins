@@ -7,19 +7,25 @@ import net.neoforged.neoforge.items.IItemHandler;
 
 /**
  * A dock's emitter drones, kept as a count and shown to hoppers and pipes as stacks of the dock's
- * own drone item. It only takes that item and never more than the dock's level allows.
+ * own drone item. It only takes that item and never more than the dock's level allows. Drones out
+ * on the shell stay in the count but cannot be taken out until they are back.
  */
 public final class DroneStore implements IItemHandler {
     private final Item drone;
     private final IntSupplier capacity;
     private final Runnable onChange;
+    private final IntSupplier locked;
     private int count;
 
-    public DroneStore(Item drone, IntSupplier capacity, Runnable onChange) {
+    public DroneStore(Item drone, IntSupplier capacity, Runnable onChange, IntSupplier locked) {
         this.drone = drone;
         this.capacity = capacity;
         this.onChange = onChange;
+        this.locked = locked;
     }
+
+    /** Drones at home, free to be taken out. */
+    public int available() { return Math.max(0, count - Math.max(0, locked.getAsInt())); }
 
     public int count() { return count; }
     public int capacity() { return capacity.getAsInt(); }
@@ -41,9 +47,9 @@ public final class DroneStore implements IItemHandler {
         return taken;
     }
 
-    /** Takes up to {@code wanted} drones out and returns how many it gave. */
+    /** Takes up to {@code wanted} drones out (those at home) and returns how many it gave. */
     public int extract(int wanted) {
-        int given = Math.min(Math.max(0, wanted), count);
+        int given = Math.min(Math.max(0, wanted), available());
         if (given > 0) setCount(count - given);
         return given;
     }
@@ -65,7 +71,7 @@ public final class DroneStore implements IItemHandler {
     }
 
     @Override public ItemStack extractItem(int slot, int amount, boolean simulate) {
-        int inSlot = Math.min(64, count - slot * 64);
+        int inSlot = Math.min(64, available() - slot * 64);
         int given = Math.min(Math.max(0, amount), Math.max(0, inSlot));
         if (given <= 0) return ItemStack.EMPTY;
         if (!simulate) setCount(count - given);

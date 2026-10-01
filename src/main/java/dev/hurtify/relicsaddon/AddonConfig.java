@@ -36,6 +36,18 @@ public final class AddonConfig {
     public static final ModConfigSpec.IntValue SHIP_MAX_STRUCTURE_BLOCKS;
     public static final ModConfigSpec.IntValue SHIP_DRONES_PER_64_BLOCKS;
     public static final ModConfigSpec.IntValue SHIP_MANA_CELL_POINTS;
+    public static final ModConfigSpec.IntValue SHIP_SHELL_OFFSET;
+    public static final ModConfigSpec.IntValue SHIP_SHELL_CELLS;
+    public static final ModConfigSpec.IntValue SHIP_SHELL_REBUILD_DELAY;
+    public static final ModConfigSpec.IntValue SHIP_LEVELS_PER_LAYER;
+    public static final ModConfigSpec.IntValue SHIP_PATCH_RF, SHIP_PATCH_MANA, SHIP_PATCH_TWINS;
+    public static final ModConfigSpec.IntValue SHIP_SPREAD_RINGS;
+    public static final ModConfigSpec.IntValue SHIP_OVERLOAD_RESTART;
+    public static final ModConfigSpec.IntValue SHIP_PATCH_REPAIR_INTERVAL;
+    public static final ModConfigSpec.IntValue SHIP_DRONE_CHARGE_TICKS;
+    public static final ModConfigSpec.IntValue SHIP_DRONE_FLIGHT_COST;
+    public static final ModConfigSpec.IntValue SHIP_REPAIR_PAUSE;
+    public static final ModConfigSpec.IntValue SHIP_REPAIR_BLOCK_COST;
     public static final ModConfigSpec.DoubleValue SHIP_RANGE;
     public static final ModConfigSpec.BooleanValue SHIP_TARGET_PLAYERS;
     public static final ModConfigSpec.DoubleValue LANCE_DAMAGE;
@@ -112,6 +124,34 @@ public final class AddonConfig {
                 .defineInRange("shipShield.dronesPer64Blocks", 8, 1, 64);
         SHIP_MANA_CELL_POINTS = builder.comment("Mana battery points a ship device gains from one Mana Cell taken out of a linked item store.")
                 .defineInRange("shipShield.manaCellPoints", 12500, 100, 1000000);
+        SHIP_SHELL_OFFSET = builder.comment("Blocks between a ship's blocks and its shield's innermost shell; each further layer stands one block further out.")
+                .defineInRange("shipShield.offset", 2, 1, 6);
+        SHIP_SHELL_CELLS = builder.comment("Most cells (quads) a shell is traced with; a larger ship gets a coarser shell.")
+                .defineInRange("shipShield.maxShellCells", 4096, 64, 16384);
+        SHIP_SHELL_REBUILD_DELAY = builder.comment("Ticks a generator waits after its structure changed before it traces the shell again (off the server thread).")
+                .defineInRange("shipShield.rebuildDelayTicks", 40, 0, 1200);
+        SHIP_LEVELS_PER_LAYER = builder.comment("Device levels per shield layer: a generator has one layer, plus one for every this many levels, three at most.")
+                .defineInRange("shipShield.levelsPerLayer", 4, 1, 10);
+        SHIP_PATCH_RF = builder.comment("Damage one emitter's patch of an RF ship shield holds at level 0; every level adds a tenth.")
+                .defineInRange("shipShield.patchIntegrity.rf", 40, 1, 100000);
+        SHIP_PATCH_MANA = builder.comment("The same for a Mana ship shield.")
+                .defineInRange("shipShield.patchIntegrity.mana", 60, 1, 100000);
+        SHIP_PATCH_TWINS = builder.comment("The same for an Ex-Twins ship shield.")
+                .defineInRange("shipShield.patchIntegrity.twins", 50, 1, 100000);
+        SHIP_SPREAD_RINGS = builder.comment("Rings of neighbouring patches a blow spreads to on one layer before it goes on to the layer within.")
+                .defineInRange("shipShield.spreadRings", 2, 0, 8);
+        SHIP_OVERLOAD_RESTART = builder.comment("Ticks an overloaded ship shield stays down before it comes up again.")
+                .defineInRange("shipShield.overloadRestartTicks", 600, 20, 72000);
+        SHIP_PATCH_REPAIR_INTERVAL = builder.comment("Ticks between a ship shield winning back one point on each damaged patch, once it has been quiet for two seconds.")
+                .defineInRange("shipShield.patchRepairIntervalTicks", 20, 1, 1200);
+        SHIP_DRONE_CHARGE_TICKS = builder.comment("Ticks a dock takes to charge an emitter drone from empty to full.")
+                .defineInRange("shipShield.droneChargeTicks", 200, 20, 72000);
+        SHIP_DRONE_FLIGHT_COST = builder.comment("Battery points a dock spends to send a drone out or call it home.")
+                .defineInRange("shipShield.droneFlightCost", 20, 0, 100000);
+        SHIP_REPAIR_PAUSE = builder.comment("Ticks after the shield was last hit during which the dock repairs no blocks.")
+                .defineInRange("shipShield.repairPauseTicks", 200, 0, 72000);
+        SHIP_REPAIR_BLOCK_COST = builder.comment("Battery points a dock spends to put one block of the ship back.")
+                .defineInRange("shipShield.repairBlockCost", 50, 0, 100000);
         SHIP_RANGE = builder.comment("Blocks round a ship (or round a hive off a ship) within which its hives take on threats.")
                 .defineInRange("ship.targetRange", 48.0, 8.0, 128.0);
         SHIP_TARGET_PLAYERS = builder.comment("When true, ship hives also fire on players outside the owner's team who have not attacked the ship.",

@@ -235,6 +235,11 @@ public final class WorldScenarios {
                     new Vec3(3.5, 3.2, 3.5), new Vec3(0, 0.6, -2), 60, 4, -1),
             new Scene("ship-console", RelicRole.RF_HIVE, 0, AttackMode.DROPLET, null, List.of(), false,
                     new Vec3(3.5, 3.2, 3.5), new Vec3(0, 0.6, -2), 60, 4, -1),
+            // The RF shield's shell round the deck as a wire mesh, its eight drones at their seats; from the side and from above.
+            new Scene("ship-shell", RelicRole.RF_HIVE, 0, AttackMode.DROPLET, null, List.of(), false,
+                    new Vec3(11, 5, 7), new Vec3(0, 0.5, -2), 160, 4, -1),
+            new Scene("ship-shell-above", RelicRole.RF_HIVE, 0, AttackMode.DROPLET, null, List.of(), false,
+                    new Vec3(2, 12, 6), new Vec3(0, 0, -2), 160, 4, -1),
             // The console's Swarm tab: drones shared between all three modes and the healers, a slider hovered;
             // Containment with no free drones for its tori, dimmed, with its reason; a Droplet squeezed out of the air by Barrage.
             // The nine attacks up close, one figure each (see Scene.juice).
@@ -542,7 +547,7 @@ public final class WorldScenarios {
         backdrop(level, BACKDROP.contains(scene.name()));
         if (scene.name().equals("rf-armageddon-ceiling")) build(level, -30, 30, 45, 45, -70, -10);
         if (scene.name().equals("rf-armageddon-wall")) build(level, -40, 40, 0, 50, -91, -88);
-        if (scene.name().startsWith("ship-")) shipDeck(level, true);
+        if (scene.name().startsWith("ship-")) shipDeck(level, true, scene.name().startsWith("ship-shell") ? 8 : 5);
         level.setDayTime(11_500);
         // The long Armageddon takes would otherwise slide into sunset while they are filmed.
         level.getGameRules().getRule(net.minecraft.world.level.GameRules.RULE_DAYLIGHT).set(false, level.getServer());
@@ -723,7 +728,7 @@ public final class WorldScenarios {
             wasSafe = null;
         }
         level.getServer().tickRateManager().setTickRate(20);
-        shipDeck(level, false);
+        shipDeck(level, false, 0);
         clear(level);
         for (net.minecraft.core.BlockPos at : BUILT) level.setBlock(at, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
         BUILT.clear();
@@ -757,7 +762,7 @@ public final class WorldScenarios {
      * An iron deck in front of the owner with the three generators, three docks and a chest on it (or takes it
      * down). The RF generator is switched on; the Mana generator beside it then refuses, which its console shows.
      */
-    private static void shipDeck(ServerLevel level, boolean build) {
+    private static void shipDeck(ServerLevel level, boolean build, int drones) {
         if (!build) {
             DECK.forEach((pos, state) -> level.setBlock(pos, state, 2));
             DECK.clear();
@@ -787,7 +792,7 @@ public final class WorldScenarios {
         }
         if (level.getBlockEntity(base.offset(-3, 0, -2)) instanceof dev.hurtify.relicsaddon.shipshield.ShipDeviceBlockEntity rf) rf.setEnabled(null, true);
         if (level.getBlockEntity(base.offset(-2, 0, -2)) instanceof dev.hurtify.relicsaddon.shipshield.ShipDeviceBlockEntity dock) {
-            dock.insertDrones(new ItemStack(ModItems.EMITTER_DRONES.get(families[0]).get(), 5));
+            dock.insertDrones(new ItemStack(ModItems.EMITTER_DRONES.get(families[0]).get(), drones));
         }
     }
 

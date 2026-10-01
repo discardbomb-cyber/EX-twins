@@ -44,6 +44,18 @@ public final class ShipStructure {
     /** Every block entity on the structure, whatever the block limit cut off: where devices and stores are found. */
     public List<BlockPos> blockEntities() { return blockEntities; }
 
+    /** A stable fingerprint of the block set: the same blocks give the same value, so shells can be cached by it. */
+    public long fingerprint() {
+        long sum = 0, xor = 0;
+        for (long packed : blocks) {
+            long mixed = packed * 0x9E3779B97F4A7C15L;
+            mixed ^= mixed >>> 29;
+            sum += mixed;
+            xor ^= mixed;
+        }
+        return sum ^ xor << 1 ^ (long) blocks.size() << 48;
+    }
+
     public void forEach(Consumer<BlockPos> action) {
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
         blocks.forEach(packed -> action.accept(cursor.set(packed)));

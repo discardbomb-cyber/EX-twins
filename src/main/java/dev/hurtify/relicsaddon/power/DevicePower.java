@@ -85,6 +85,15 @@ public final class DevicePower {
         return hasMana(role) && energy.manaOn() ? energy.mana() : 0;
     }
 
+    /** Points the device's switched-on batteries hold between them (unbounded when power is disabled). */
+    public static int usablePoints(ItemStack stack) {
+        RelicRole role = role(stack);
+        if (role == null) return 0;
+        if (!required()) return Integer.MAX_VALUE / 2;
+        DeviceEnergy energy = energy(stack);
+        return usableRf(role, energy) + usableMana(role, energy);
+    }
+
     /** Whether the device has charge in a switched-on battery (always true in Creative or when power is disabled). */
     public static boolean powered(Player player, ItemStack stack) {
         RelicRole role = role(stack);

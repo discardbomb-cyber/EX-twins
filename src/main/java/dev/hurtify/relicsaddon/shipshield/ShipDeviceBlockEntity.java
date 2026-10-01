@@ -11,12 +11,18 @@ import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.sound.RelicSounds;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.WeakHashMap;
+import java.util.concurrent.CompletableFuture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
@@ -26,6 +32,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -42,11 +49,18 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Every few seconds the device scans the structure it stands on (an airship, or the connected
  * blocks around it) and notes the docks, generators and item stores it shares it with. Only one
- * generator may run per structure: the second one to be switched on refuses and says why.
+ * generator may run per structure: the second one to be switched on refuses and says why. A
+ * generator raises a {@link ShipShield} round the structure; a dock lends its emitter drones to
+ * the generator of its family and keeps a snapshot of the ship for repairs.
+ *
+ * <p>On a client the block entity keeps the generator's {@link ShipShieldView} and traces the same
+ * shell from its own blocks, for the renderer.
  */
 public final class ShipDeviceBlockEntity extends BlockEntity {
     /** Ticks between structure scans; a scan of a large build touches thousands of block states. */
     public static final int SCAN_INTERVAL = 200;
+    /** Ticks a scan asked for by a block change waits, so a burst of changes is one scan. */
+    public static final int SCAN_SOON = 10;
     /** Emitter drones a dock holds at level 0 and how many more each level adds (8 at 0, 128 at 10). */
     public static final int DOCK_BASE_CAPACITY = 8, DOCK_CAPACITY_PER_LEVEL = 12;
     /** Blocks of the owner's reach within which a mana battery refills from them. */
@@ -54,25 +68,40 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
     public static final String NOTICE_OTHER_GENERATOR = "notice.relics_addon.ship.other_generator";
     public static final String NOTICE_NO_POWER = "notice.relics_addon.ship.no_power";
     public static final String NOTICE_TRUNCATED = "notice.relics_addon.ship.truncated";
+    /** The generators a client has loaded, for the shell renderer. */
+    public static final Set<ShipDeviceBlockEntity> CLIENT_LOADED = Collections.newSetFromMap(new WeakHashMap<>());
 
     private ItemStack device = ItemStack.EMPTY;
     private @Nullable UUID owner;
     private long enabledAt;
     /** Game time of the last structure scan; negative until the first one (a fresh or reloaded block scans at once). */
     private long scannedAt = -1;
+    private long scanSoonAt = -1;
     private @Nullable ShipStructure structure;
     private final List<BlockPos> docks = new ArrayList<>();
     private final List<BlockPos> stores = new ArrayList<>();
     private @Nullable BlockPos generator;
     private final @Nullable DroneStore drones;
+    private int dronesOut;
     private final @Nullable IEnergyStorage energy;
+    private final @Nullable ShipShield shield;
+    private @Nullable ShipRepair repair;
     private boolean syncDue;
+    private @Nullable CompoundTag loadedShield;
+
+    // Client side: the generator's shield as last told, and the shell traced here from the same blocks.
+    private ShipShieldView view = ShipShieldView.NONE;
+    private List<ShellMesh> clientLayers = List.of();
+    private long clientKey, clientCheckedAt = Long.MIN_VALUE;
+    private @Nullable CompletableFuture<List<ShellMesh>> clientPending;
+    private long clientPendingKey;
 
     public ShipDeviceBlockEntity(BlockPos pos, BlockState state) {
         super(ShipBlocks.DEVICE.get(), pos, state);
         RelicRole role = role();
-        drones = role.isDroneDock() ? new DroneStore(ModItems.EMITTER_DRONES.get(ShipFamily.of(role)).get(), this::droneCapacity, this::onDronesChanged) : null;
+        drones = role.isDroneDock() ? new DroneStore(ModItems.EMITTER_DRONES.get(ShipFamily.of(role)).get(), this::droneCapacity, this::onDronesChanged, () -> dronesOut) : null;
         energy = DevicePower.hasRf(role) ? new Energy() : null;
+        shield = role.isShipGenerator() ? new ShipShield(this) : null;
     }
 
     // --- identity and state --------------------------------------------------------------------
@@ -104,9 +133,18 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
     public @Nullable BlockPos generator() { return generator; }
     public @Nullable IEnergyStorage energyStorage() { return energy; }
     public @Nullable IItemHandler droneHandler() { return drones; }
+    /** The shield a generator raises; null on a dock. */
+    public @Nullable ShipShield shield() { return shield; }
 
     /** Whether the device can run right now: switched on and its batteries hold charge. */
     public boolean operating() { return enabled() && DevicePower.powered(null, device()); }
+
+    /** The owner, when they are on this server. */
+    public @Nullable ServerPlayer ownerOnline() {
+        if (owner == null || !(level instanceof ServerLevel world)) return null;
+        ServerPlayer player = world.getServer().getPlayerList().getPlayer(owner);
+        return player != null && player.isAlive() ? player : null;
+    }
 
     /** Marks the device's stack changed: saved with the chunk and shown to consoles shortly. */
     public void deviceChanged() {
@@ -121,10 +159,27 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
     public int droneCount() { return drones == null ? 0 : drones.count(); }
     public boolean acceptsDrones(ItemStack stack) { return drones != null && drones.isItemValid(0, stack) && drones.count() < droneCapacity(); }
     public int insertDrones(ItemStack stack) { return drones == null ? 0 : drones.insert(stack); }
+    /** Drones of this dock out on the shell (they stay in the dock's count, but hoppers cannot take them). */
+    public int dronesOut() { return dronesOut; }
+    /** Drones of this dock at home and free to go out. */
+    public int spareDrones() { return Math.max(0, droneCount() - dronesOut); }
+
+    /** A drone leaves for the shell. */
+    void sendDrone() {
+        dronesOut = Math.min(droneCount(), dronesOut + 1);
+        onDronesChanged();
+    }
+
+    /** A drone is back for good (its seat is gone), or vanished with its generator. */
+    void droneHome() {
+        dronesOut = Math.max(0, dronesOut - 1);
+        onDronesChanged();
+    }
 
     private void onDronesChanged() {
         if (drones == null) return;
-        setState(state().withDrones(drones.count(), droneCapacity(), 0));
+        if (dronesOut > drones.count()) dronesOut = drones.count();
+        setState(state().withDrones(drones.count(), droneCapacity(), 0).withRepair(dronesOut, state().repairQueue()));
         // The generator's count of docked drones follows on its next scan; ask for one now.
         if (generator != null && level != null && level.getBlockEntity(generator) instanceof ShipDeviceBlockEntity owner) owner.requestScan();
     }
@@ -132,6 +187,11 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
     /** Makes the next server tick rescan the structure. */
     public void requestScan() {
         scannedAt = -1;
+    }
+
+    /** Rescans the structure within a few ticks (a block changed under the shield). */
+    public void requestScanSoon() {
+        if (scanSoonAt < 0 && level != null) scanSoonAt = level.getGameTime() + SCAN_SOON;
     }
 
     // --- switching --------------------------------------------------------------------------------
@@ -156,6 +216,8 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
                 }
             }
             enabledAt = world.getGameTime();
+        } else if (shield != null) {
+            shield.recall();
         }
         setState(state().withEnabled(enabled).withNotice("", ""));
         RelicRuntime.setEnabled(player, device(), enabled);
@@ -185,13 +247,14 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
     /** Rescans the structure and the devices on it. Cheap enough to call on demand, done on a timer otherwise. */
     public void scan(ServerLevel world, long now) {
         scannedAt = now;
+        scanSoonAt = -1;
         structure = ShipStructures.locate(world, worldPosition);
         docks.clear();
         stores.clear();
         generator = null;
         ShipFamily family = family();
         RelicRole role = role();
-        int[] docked = {0, 0};
+        int[] docked = {0, 0, 0};
         for (BlockPos pos : structure.blockEntities()) {
             BlockEntity entity = world.getBlockEntity(pos);
             if (entity == null || pos.equals(worldPosition)) continue;
@@ -200,6 +263,7 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
                     docks.add(pos.immutable());
                     docked[0] += other.droneCount();
                     docked[1] += other.droneCapacity();
+                    docked[2] += other.dronesOut();
                 }
                 if (other.role().isShipGenerator() && other.family() == family && role.isDroneDock() && (generator == null || other.enabled())) generator = pos.immutable();
                 continue;
@@ -209,8 +273,12 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
         ShipDeviceState state = state().withStructure(structure.size(), docks.size(), stores.size());
         // A generator reports the drones of all its docks against what the structure needs; a dock reports its own.
         state = role.isShipGenerator() ? state.withDrones(docked[0], docked[1], dronesWanted()) : state.withDrones(droneCount(), droneCapacity(), 0);
-        if (state.notice().isEmpty() || state.notice().equals(NOTICE_TRUNCATED)) {
-            state = structure.truncated() ? state.withNotice(NOTICE_TRUNCATED, String.valueOf(structure.size())) : state.withNotice("", "");
+        if (shield != null) state = state.withShield(docked[2], shield.layerCount(), shield.integrity().total(), shield.integrity().capacity());
+        if (repair != null) state = state.withRepair(dronesOut, repair.queue());
+        if (!state.notice().equals(NOTICE_OTHER_GENERATOR) && !state.notice().equals(NOTICE_NO_POWER)) {
+            String notice = structure.truncated() ? NOTICE_TRUNCATED : shield == null ? "" : shield.notice(now);
+            String detail = structure.truncated() ? String.valueOf(structure.size()) : shield == null ? "" : shield.noticeDetail(now);
+            state = state.withNotice(notice, detail);
         }
         setState(state);
     }
@@ -239,7 +307,11 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
     void serverTick() {
         if (!(level instanceof ServerLevel world)) return;
         long now = world.getGameTime();
-        if (scannedAt < 0 || now - scannedAt >= SCAN_INTERVAL) {
+        if (loadedShield != null && shield != null) {
+            shield.load(loadedShield, now);
+            loadedShield = null;
+        }
+        if (scannedAt < 0 || now - scannedAt >= SCAN_INTERVAL || scanSoonAt >= 0 && now >= scanSoonAt) {
             scan(world, now);
             if (enabled() && role().isShipGenerator()) {
                 BlockPos other = runningGenerator(world, enabledAt);
@@ -261,6 +333,8 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
             }
             if (now % 10 == 5) refillMana(world);
         }
+        if (shield != null) shield.tick(world, now);
+        if (repair != null) repair.tick(world, now);
         if (syncDue && now % 10 == 0) {
             syncDue = false;
             world.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
@@ -299,6 +373,73 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
         return false;
     }
 
+    /** Whether a linked store holds {@code item}. */
+    public boolean storesHave(ServerLevel world, net.minecraft.world.item.Item item) {
+        for (BlockPos pos : stores) {
+            IItemHandler handler = world.getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
+            if (handler == null) continue;
+            for (int slot = 0; slot < handler.getSlots(); slot++) if (handler.getStackInSlot(slot).is(item)) return true;
+        }
+        return false;
+    }
+
+    // --- client ---------------------------------------------------------------------------------------
+
+    /** What the server last said about the shield (client side). */
+    public ShipShieldView view() { return view; }
+
+    /**
+     * The shell layers as traced on this client from its own blocks, innermost first; empty until
+     * traced. The structure is looked at again every few seconds while the shield stands.
+     */
+    public List<ShellMesh> clientLayers() {
+        if (level == null || !level.isClientSide() || shield == null) return List.of();
+        long now = level.getGameTime();
+        if (clientPending != null && clientPending.isDone()) {
+            try {
+                List<ShellMesh> traced = clientPending.join();
+                if (!traced.isEmpty() && !traced.get(0).isEmpty()) {
+                    clientLayers = traced;
+                    clientKey = clientPendingKey;
+                }
+            } catch (RuntimeException ignored) {
+                // A failed trace is tried again at the next look.
+            }
+            clientPending = null;
+        }
+        if (view.active() && clientPending == null && now - clientCheckedAt >= 40) {
+            clientCheckedAt = now;
+            ShipStructure structure = ShipStructures.locate(level, worldPosition);
+            long key = structure.fingerprint() * 31 + Double.doubleToLongBits(view.offset()) + view.layers() * 1024L + view.cellLimit();
+            if (key != clientKey && structure.size() > 0) {
+                var blocks = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(structure.size());
+                structure.forEach(pos -> blocks.add(pos.asLong()));
+                List<CompletableFuture<ShellMesh>> traces = new ArrayList<>();
+                for (int layer = 0; layer < view.layers(); layer++) {
+                    traces.add(ShellCache.trace(blocks, view.offset() + layer, view.cellLimit(), net.minecraft.Util.backgroundExecutor()));
+                }
+                clientPendingKey = key;
+                clientPending = CompletableFuture.allOf(traces.toArray(CompletableFuture[]::new)).thenApply(ignored -> traces.stream().map(CompletableFuture::join).toList());
+            }
+        }
+        return clientLayers;
+    }
+
+    @Override public void onLoad() {
+        super.onLoad();
+        if (level != null && level.isClientSide() && shield != null) CLIENT_LOADED.add(this);
+    }
+
+    @Override public void setRemoved() {
+        super.setRemoved();
+        CLIENT_LOADED.remove(this);
+    }
+
+    @Override public void onChunkUnloaded() {
+        super.onChunkUnloaded();
+        CLIENT_LOADED.remove(this);
+    }
+
     // --- placing, breaking, saving -------------------------------------------------------------
 
     void onPlaced(@Nullable LivingEntity placer, ItemStack stack) {
@@ -316,7 +457,9 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
     }
 
     void onRemoved() {
+        if (level instanceof ServerLevel world && shield != null) shield.release(world);
         if (drones != null && drones.count() > 0 && level != null) {
+            dronesOut = 0;
             int left = drones.extract(drones.count());
             while (left > 0) {
                 int stack = Math.min(64, left);
@@ -344,7 +487,7 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
         builder.set(ModDataComponents.DEVICE_PROGRESSION.get(), stack.get(ModDataComponents.DEVICE_PROGRESSION.get()));
         builder.set(ModDataComponents.DEVICE_ENERGY.get(), stack.get(ModDataComponents.DEVICE_ENERGY.get()));
         // Drones stay in the dock only while it stands; the dropped block starts empty.
-        builder.set(ModDataComponents.SHIP_DEVICE_STATE.get(), state().withEnabled(false).withNotice("", "").withDrones(0, droneCapacity(), 0));
+        builder.set(ModDataComponents.SHIP_DEVICE_STATE.get(), state().withEnabled(false).withNotice("", "").withDrones(0, droneCapacity(), 0).withRepair(0, 0));
     }
 
     @Override protected void applyImplicitComponents(DataComponentInput input) {
@@ -369,7 +512,16 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
         tag.put("device", device().saveOptional(registries));
         if (owner != null) tag.putUUID("owner", owner);
         tag.putLong("enabled_at", enabledAt);
-        if (drones != null) tag.putInt("drones", drones.count());
+        if (drones != null) {
+            tag.putInt("drones", drones.count());
+            tag.putInt("drones_out", dronesOut);
+        }
+        if (shield != null && level != null) {
+            CompoundTag state = new CompoundTag();
+            shield.save(state, level.getGameTime());
+            tag.put("shield", state);
+        }
+        if (repair != null) tag.put("repair", repair.save(registries));
     }
 
     @Override protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
@@ -381,10 +533,34 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
         }
         owner = tag.hasUUID("owner") ? tag.getUUID("owner") : null;
         enabledAt = tag.getLong("enabled_at");
-        if (drones != null) drones.setCount(tag.getInt("drones"));
+        if (drones != null) {
+            drones.setCount(tag.getInt("drones"));
+            dronesOut = Math.min(drones.count(), tag.getInt("drones_out"));
+        }
+        if (shield != null && tag.contains("shield", Tag.TAG_COMPOUND)) loadedShield = tag.getCompound("shield");
+        if (role().isDroneDock() && tag.contains("repair", Tag.TAG_COMPOUND)) repair().load(tag.getCompound("repair"), registries);
+        if (tag.contains("view", Tag.TAG_COMPOUND)) {
+            view = ShipShieldView.CODEC.parse(NbtOps.INSTANCE, tag.getCompound("view")).result().orElse(ShipShieldView.NONE);
+        }
     }
 
-    @Override public CompoundTag getUpdateTag(HolderLookup.Provider registries) { return saveWithoutMetadata(registries); }
+    /** The dock's repair work, made on first use; null on a generator. */
+    public @Nullable ShipRepair repair() {
+        if (repair == null && role().isDroneDock()) repair = new ShipRepair(this);
+        return repair;
+    }
+
+    @Override public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        CompoundTag tag = saveWithoutMetadata(registries);
+        // The shield's drones and patches travel as the view; the saved form and the snapshot stay home.
+        tag.remove("shield");
+        tag.remove("repair");
+        if (shield != null && level != null) {
+            ShipShieldView.CODEC.encodeStart(NbtOps.INSTANCE, shield.view(level.getGameTime())).result().ifPresent(view -> tag.put("view", view));
+        }
+        return tag;
+    }
+
     @Override public @Nullable Packet<ClientGamePacketListener> getUpdatePacket() { return ClientboundBlockEntityDataPacket.create(this); }
 
     /** Comparators read the fuller battery, 0..15. */
@@ -410,4 +586,6 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
         @Override public boolean canReceive() { return true; }
     }
 
+    /** The level, for the shield's helpers. */
+    public @Nullable Level world() { return level; }
 }
