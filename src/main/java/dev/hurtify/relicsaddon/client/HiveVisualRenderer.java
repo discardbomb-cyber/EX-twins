@@ -8,6 +8,7 @@ import dev.hurtify.relicsaddon.drone.ArmageddonState;
 import dev.hurtify.relicsaddon.drone.HiveCombatState;
 import dev.hurtify.relicsaddon.drone.HiveFormation;
 import dev.hurtify.relicsaddon.drone.HiveFlightPlan;
+import dev.hurtify.relicsaddon.drone.HiveSettings;
 import dev.hurtify.relicsaddon.drone.HiveSlots;
 import dev.hurtify.relicsaddon.drone.HiveStackState;
 import dev.hurtify.relicsaddon.drone.HiveSupportState;
@@ -75,6 +76,68 @@ public final class HiveVisualRenderer {
 
     /** Where each drone was when an Armageddon shot began, so it flies into the cannon from there. */
     private static final Map<Player, EnumMap<HiveType, Vec3[]>> LAUNCHES = new WeakHashMap<>();
+
+    /**
+     * A swarm's lanes this tick: which drone flies each place of each wing and when it took it, and the flight plan
+     * itself. They follow from the same drones, orders and tick alone, so they are worked out once a tick, not every
+     * frame; the drones' places between ticks are still worked out every frame.
+     */
+    private static final class Lanes {
+        Object units, settings;
+        long now;
+        int count = -1;
+        HiveFlightPlan plan;
+        final Map<HiveFlightPlan.Wing, int[]> occupants = new java.util.HashMap<>();
+        final Map<HiveFlightPlan.Wing, long[]> since = new java.util.HashMap<>();
+
+        HiveFlightPlan plan(ItemStack stack, HiveType type, int units) {
+            HiveSettings current = HiveTaskController.settings(stack);
+            if (plan == null || settings != current || count != units) {
+                settings = current;
+                count = units;
+                plan = HiveFlightPlan.of(type, units, current);
+            }
+            return plan;
+        }
+
+        /** The unit flying each of a wing's places ({@link HiveFlightPlan.Wing#occupants}). */
+        int[] occupants(HiveFlightPlan.Wing wing, List<HiveStackState.Unit> units, long now) {
+            tick(units, now);
+            int[] result = occupants.get(wing);
+            if (result == null) occupants.put(wing, result = wing.occupants(units, now));
+            return result;
+        }
+
+        /** When each flown place's unit took it ({@link HiveFlightPlan.Wing#since}); -1 for an empty place. */
+        long[] since(HiveFlightPlan.Wing wing, List<HiveStackState.Unit> units, long now) {
+            int[] flying = occupants(wing, units, now);
+            long[] result = since.get(wing);
+            if (result == null) {
+                result = new long[flying.length];
+                for (int slot = 0; slot < flying.length; slot++) result[slot] = flying[slot] < 0 ? -1 : wing.since(units, slot, flying[slot], now);
+                since.put(wing, result);
+            }
+            return result;
+        }
+
+        private void tick(List<HiveStackState.Unit> current, long tick) {
+            if (units != current || now != tick) {
+                units = current;
+                now = tick;
+                occupants.clear();
+                since.clear();
+            }
+        }
+    }
+
+    private static final Map<Player, EnumMap<HiveType, Lanes>> LANES = new WeakHashMap<>();
+
+    private static Lanes lanes(Player player, HiveType type) {
+        EnumMap<HiveType, Lanes> byType = LANES.computeIfAbsent(player, ignored -> new EnumMap<>(HiveType.class));
+        Lanes lanes = byType.get(type);
+        if (lanes == null) byType.put(type, lanes = new Lanes());
+        return lanes;
+    }
     /** Drone models per frame, then how many of them may be the full model and how many the swarm model; the rest are the dense model. */
     private static final int MODEL_BUDGET = 900, FULL_BUDGET = 6, SWARM_BUDGET = 160;
     /** Beyond RANGE nothing is drawn, beyond MODEL_RANGE drones are points of light; FULL_RANGE and SWARM_RANGE pick the model's detail. */
@@ -99,7 +162,7 @@ public final class HiveVisualRenderer {
             HiveConstructVisual.clear();
         }
         if (minecraft.level == null || minecraft.player == null) {
-            ACTIVE.clear(); VISIBILITY.clear(); SEEN.clear(); LAUNCHES.clear(); PREY.clear();
+            ACTIVE.clear(); VISIBILITY.clear(); SEEN.clear(); LAUNCHES.clear(); PREY.clear(); LANES.clear();
             HiveJuice.clear();
             HiveLoopSounds.clear();
             ArmageddonVisual.BLASTS.clear();
@@ -198,7 +261,8 @@ public final class HiveVisualRenderer {
         List<HiveStackState.Unit> units = swarm.units();
         int count = units.size();
         if (count == 0) return;
-        HiveFlightPlan plan = HiveCombatController.plan(stack, type, count);
+        Lanes lanes = lanes(player, type);
+        HiveFlightPlan plan = lanes.plan(stack, type, count);
         int fighters = plan.fighters(), slots = plan.slots(), healerSlots = plan.healerSlots();
         Vec3 owner = new Vec3(Mth.lerp(partial, player.xo, player.getX()), Mth.lerp(partial, player.yo, player.getY()), Mth.lerp(partial, player.zo, player.getZ()));
         float yaw = Mth.rotLerp(partial, player.yRotO, player.getYRot());
@@ -222,7 +286,7 @@ public final class HiveVisualRenderer {
         int interval = HiveCombatController.strikeInterval(player, stack);
 
         if (armageddon != null && armageddon.running(now)) {
-            armageddon(minecraft, event, player, type, armageddon, units, plan, count, owner, yaw, appear, seen, now, time, partial,
+            armageddon(minecraft, event, player, type, armageddon, units, plan, lanes, count, owner, yaw, appear, seen, now, time, partial,
                     camera, poses, glow, budget);
         } else if (combat.active() && slots > 0 && !targets.isEmpty()) {
             // Each wing flies its own places round the creatures it takes on, in its own order.
@@ -237,11 +301,12 @@ public final class HiveVisualRenderer {
                 int groups = wing.groups(), engaged = HiveFormation.engaged(wingTargets.size(), wing.figures());
                 int[] members = new int[groups];
                 Vec3[] drones = new Vec3[wing.slots()];
-                int[] occupants = wing.occupants(units, now);
+                int[] occupants = lanes.occupants(wing, units, now);
+                long[] since = lanes.since(wing, units, now);
                 for (int slot = 0; slot < wing.slots(); slot++) {
                     int unit = occupants[slot];
                     if (unit < 0) continue;
-                    double launched = Math.max(wing.since(units, slot, unit, now), start);
+                    double launched = Math.max(since[slot], start);
                     int group = HiveSlots.group(slot, groups);
                     Vec3 station = HiveFormation.engagedStation(wing.mode(), type, slot, wing.slots(), owner, wingTargets, previous, combat.retargetedAt(),
                             time, cycleStart, interval);
@@ -263,11 +328,19 @@ public final class HiveVisualRenderer {
         // Hit drones fly home from where they were struck; a wing that ran short of drones flies home whole, and after a recall the whole swarm does
         // (but not while an Armageddon holds them).
         boolean held = armageddon != null && armageddon.running(now);
+        List<HiveFlightPlan.Wing> wings = plan.wings();
+        boolean[] home = new boolean[wings.size()];
+        long[] benchedSince = new long[wings.size()];
+        for (int index = 0; index < wings.size(); index++) {
+            HiveCombatState.Wing flying = combat.wing(wings.get(index).mode());
+            home[index] = !flying.out();
+            benchedSince[index] = flying.since();
+        }
         for (int unit = 0; unit < fighters && !held; unit++) {
             HiveStackState.Unit state = units.get(unit);
             double benchedAt = -1;
-            if (combat.active()) for (HiveFlightPlan.Wing wing : plan.wings()) {
-                if (wing.owns(unit) && !combat.wing(wing.mode()).out()) benchedAt = combat.wing(wing.mode()).since();
+            if (combat.active()) for (int index = 0; index < wings.size(); index++) {
+                if (home[index] && wings.get(index).owns(unit)) benchedAt = benchedSince[index];
             }
             if (benchedAt >= 0 && time - benchedAt >= HiveFormation.RETURN_TICKS) seen[unit] = null;
             boolean recalled = !combat.active() && time - combat.changedAt() < HiveFormation.RETURN_TICKS && seen[unit] != null;
@@ -308,22 +381,22 @@ public final class HiveVisualRenderer {
      * the target while it charges and fires, and flies home once it comes apart.
      */
     private static void armageddon(Minecraft minecraft, RenderLevelStageEvent event, Player player, HiveType type, ArmageddonState shot,
-            List<HiveStackState.Unit> units, HiveFlightPlan plan, int count, Vec3 owner, float yaw, double appear, Vec3[] seen, long now,
+            List<HiveStackState.Unit> units, HiveFlightPlan plan, Lanes lanes, int count, Vec3 owner, float yaw, double appear, Vec3[] seen, long now,
             double time, float partial, Vec3 camera, PoseStack poses, com.mojang.blaze3d.vertex.VertexConsumer glow, int[] budget) {
         if (shot.type() == HiveType.MANA) {
-            manaArmageddon(minecraft, event, player, type, shot, units, plan, count, owner, yaw, appear, seen, now, time, partial,
+            manaArmageddon(minecraft, event, player, type, shot, units, plan, lanes, count, owner, yaw, appear, seen, now, time, partial,
                     camera, poses, glow, budget);
             return;
         }
         if (shot.type() == HiveType.RF) {
-            rfArmageddon(minecraft, event, player, type, shot, units, plan, count, owner, yaw, appear, seen, now, time, partial,
+            rfArmageddon(minecraft, event, player, type, shot, units, plan, lanes, count, owner, yaw, appear, seen, now, time, partial,
                     camera, poses, glow, budget);
             return;
         }
         // The whole swarm flies in the Armageddon, whatever its modes: every fighter, as many as fit in the air.
         HiveFlightPlan.Wing swarm = plan.everyone();
         int slots = swarm.slots();
-        int[] occupants = swarm.occupants(units, now);
+        int[] occupants = lanes.occupants(swarm, units, now);
         Vec3[] from = launches(player, type, shot, seen, count);
         double recover = shot.startedAt() + Armageddon.RECOVER;
         // The escort is flung off when the containment breaks and lost until the cannon comes apart and calls it home.
@@ -353,13 +426,13 @@ public final class HiveVisualRenderer {
      * has settled.
      */
     private static void manaArmageddon(Minecraft minecraft, RenderLevelStageEvent event, Player player, HiveType type, ArmageddonState shot,
-            List<HiveStackState.Unit> units, HiveFlightPlan plan, int count, Vec3 owner, float yaw, double appear, Vec3[] seen, long now,
+            List<HiveStackState.Unit> units, HiveFlightPlan plan, Lanes lanes, int count, Vec3 owner, float yaw, double appear, Vec3[] seen, long now,
             double time, float partial, Vec3 camera, PoseStack poses, com.mojang.blaze3d.vertex.VertexConsumer glow, int[] budget) {
         Vec3[] from = launches(player, type, shot, seen, count);
         // The whole swarm flies in the Armageddon, whatever its modes: every fighter, as many as fit in the air.
         HiveFlightPlan.Wing swarm = plan.everyone();
         int slots = swarm.slots();
-        int[] occupants = swarm.occupants(units, now);
+        int[] occupants = lanes.occupants(swarm, units, now);
         double age = shot.age(time), recover = shot.startedAt() + ManaArmageddon.RECOVER;
         // The escort is flung off as the sphere shatters and lost until the drones are called home.
         boolean lost = age > ManaArmageddon.IMPACT + 30 && time < recover;
@@ -393,13 +466,14 @@ public final class HiveVisualRenderer {
      * drones are called home.
      */
     private static void rfArmageddon(Minecraft minecraft, RenderLevelStageEvent event, Player player, HiveType type, ArmageddonState shot,
-            List<HiveStackState.Unit> units, HiveFlightPlan plan, int count, Vec3 owner, float yaw, double appear, Vec3[] seen, long now,
+            List<HiveStackState.Unit> units, HiveFlightPlan plan, Lanes lanes, int count, Vec3 owner, float yaw, double appear, Vec3[] seen, long now,
             double time, float partial, Vec3 camera, PoseStack poses, com.mojang.blaze3d.vertex.VertexConsumer glow, int[] budget) {
         Vec3[] from = launches(player, type, shot, seen, count);
         // The whole swarm flies in the Armageddon, whatever its modes: every fighter, as many as fit in the air.
         HiveFlightPlan.Wing swarm = plan.everyone();
         int slots = swarm.slots();
-        int[] occupants = swarm.occupants(units, now);
+        int[] occupants = lanes.occupants(swarm, units, now);
+        long[] since = lanes.since(swarm, units, now);
         double age = shot.age(time), scatter = shot.startedAt() + RfArmageddon.SCATTER, recover = shot.startedAt() + RfArmageddon.RECOVER;
         int hologram = RfArmageddon.hologram(slots);
         // The escort is flung off by the flash and lost until the drones are called home.
@@ -424,9 +498,9 @@ public final class HiveVisualRenderer {
             } else {
                 Vec3 station = RfArmageddon.station(shot, slot, slots, time, pose);
                 // A drone that took its place during the shot (repaired, or replacing a hit one) flies in from the hive.
-                long since = swarm.since(units, slot, unit, now);
-                if (since > shot.startedAt()) {
-                    at = HiveFormation.flight(HiveFormation.belt(owner, yaw, type), station, unit, type, (time - since) / 30.0);
+                long took = since[slot];
+                if (took > shot.startedAt()) {
+                    at = HiveFormation.flight(HiveFormation.belt(owner, yaw, type), station, unit, type, (time - took) / 30.0);
                 } else {
                     Vec3 start = from[unit] != null ? from[unit] : HiveFormation.idle(owner, yaw, unit, count, type, shot.startedAt());
                     at = RfArmageddon.assemble(shot, start, station, RfArmageddon.gathered(slot, slots, age));
@@ -505,7 +579,7 @@ public final class HiveVisualRenderer {
 
     /** Forgets every Armageddon's light and every swarm's remembered places as the player leaves the world. */
     public static void onLoggingOut(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
-        ACTIVE.clear(); VISIBILITY.clear(); SEEN.clear(); LAUNCHES.clear(); PREY.clear();
+        ACTIVE.clear(); VISIBILITY.clear(); SEEN.clear(); LAUNCHES.clear(); PREY.clear(); LANES.clear();
         ArmageddonVisual.BLASTS.clear();
         ManaArmageddonVisual.BLASTS.clear();
         RfArmageddonVisual.clear();
@@ -519,8 +593,9 @@ public final class HiveVisualRenderer {
     private static void trail(Player player, HiveType type, int unit, int count, Vec3 at, double time, Vec3 camera,
             com.mojang.blaze3d.vertex.VertexConsumer glow, PoseStack poses) {
         if (HiveJuice.detail() == HiveJuice.Detail.LOW || at.distanceToSqr(camera) > 40 * 40) return;
-        Trail[] trails = TRAILS.computeIfAbsent(player, ignored -> new EnumMap<>(HiveType.class)).compute(type,
-                (ignored, old) -> old == null || old.length != count ? new Trail[count] : old);
+        EnumMap<HiveType, Trail[]> byType = TRAILS.computeIfAbsent(player, ignored -> new EnumMap<>(HiveType.class));
+        Trail[] trails = byType.get(type);
+        if (trails == null || trails.length != count) byType.put(type, trails = new Trail[count]);
         if (trails[unit] == null) trails[unit] = new Trail();
         Vec3 oldest = trails[unit].note(at, time);
         if (oldest == null) return;
@@ -533,7 +608,7 @@ public final class HiveVisualRenderer {
     private static void drawDrone(Minecraft minecraft, RenderLevelStageEvent event, Player player, HiveType type, Vec3 at, Vec3 facing,
             double appear, int count, Vec3 camera, PoseStack poses, com.mojang.blaze3d.vertex.VertexConsumer glow, int[] budget) {
         if (appear <= .01) return;
-        if (!event.getFrustum().isVisible(new AABB(at, at).inflate(.45))) return;
+        if (!event.getFrustum().isVisible(new AABB(at.x - .45, at.y - .45, at.z - .45, at.x + .45, at.y + .45, at.z + .45))) return;
         if (player == minecraft.player && minecraft.options.getCameraType().isFirstPerson() && at.distanceToSqr(camera) < 1) return;
         double distance = at.distanceTo(camera);
         if (distance > MODEL_RANGE || budget[0] <= 0) {

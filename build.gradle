@@ -302,6 +302,7 @@ tasks.named('check') {
     dependsOn 'verifyObjCompact'
     dependsOn 'verifyPartModels'
     dependsOn 'verifyTwinsShieldLayers'
+    dependsOn 'verifyHiveVisuals'
 }
 
 tasks.register('verifyTwinsShieldLayers', JavaExec) {
