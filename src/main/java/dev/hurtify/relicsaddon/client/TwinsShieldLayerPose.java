@@ -3,19 +3,33 @@ package dev.hurtify.relicsaddon.client;
 /**
  * Mechanical clocks for the separated Ex-Twins shield arcs.  These are kept
  * outside {@link TwinsFacetPose}: that class owns the actual mesh-facet pivots.
+ * Layer axes are constant; only the angles depend on the time.
  */
 final class TwinsShieldLayerPose {
+    // Cage, heart and rune/smoke layer turn on unlike axes. Their
+    // modest rates preserve the clear air gap between the arc shells.
+    private static final float[][] AXES = {{.18F, 1.0F, .37F}, {1.0F, -.31F, .16F}, {-.42F, .51F, 1.0F}};
+
     record Layer(float axisX, float axisY, float axisZ, float degrees) { }
 
     static Layer layer(int index, double time) {
+        float[] axis = axis(index);
+        return new Layer(axis[0], axis[1], axis[2], degrees(index, time));
+    }
+
+    /** The constant rotation axis {x, y, z} of a layer; the array is shared, do not write to it. */
+    static float[] axis(int index) {
         if (index < 0 || index > 2) throw new IllegalArgumentException("Invalid Twins shield layer");
+        return AXES[index];
+    }
+
+    static float degrees(int index, double time) {
         double ticks = Double.isFinite(time) ? time : 0.0D;
         return switch (index) {
-            // Cage, heart and rune/smoke layer turn on unlike axes. Their
-            // modest rates preserve the clear air gap between the arc shells.
-            case 0 -> new Layer(.18F, 1.0F, .37F, degrees(ticks * .92D));
-            case 1 -> new Layer(1.0F, -.31F, .16F, degrees(-ticks * 1.61D + 41.0D));
-            default -> new Layer(-.42F, .51F, 1.0F, degrees(ticks * 2.43D - 23.0D));
+            case 0 -> degrees(ticks * .92D);
+            case 1 -> degrees(-ticks * 1.61D + 41.0D);
+            case 2 -> degrees(ticks * 2.43D - 23.0D);
+            default -> throw new IllegalArgumentException("Invalid Twins shield layer");
         };
     }
 
