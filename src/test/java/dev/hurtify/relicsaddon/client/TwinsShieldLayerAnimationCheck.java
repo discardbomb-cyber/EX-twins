@@ -32,7 +32,22 @@ public final class TwinsShieldLayerAnimationCheck {
                         "arcs need distinct motion signatures");
             }
         }
-        System.out.println("Twins shield animation: body/core/fx rotate and all arc plates move independently.");
+        long identical = 0;
+        for (double tick = -1200; tick <= 1200; tick += .5D) {
+            for (double sample : new double[] {tick, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, 1e12}) {
+                for (int index = 0; index < 3; index++) {
+                    TwinsShieldLayerPose.Layer expected = HiveShellPoseReference.shieldLayer(index, sample);
+                    require(expected.equals(TwinsShieldLayerPose.layer(index, sample)), "Shield layer differs from the reference at " + sample);
+                    float[] axis = TwinsShieldLayerPose.axis(index);
+                    require(Float.floatToIntBits(expected.degrees()) == Float.floatToIntBits(TwinsShieldLayerPose.degrees(index, sample))
+                            && expected.axisX() == axis[0] && expected.axisY() == axis[1] && expected.axisZ() == axis[2],
+                            "Shield layer axis or angle differs from the reference at " + sample);
+                    identical++;
+                }
+            }
+        }
+        System.out.println("Twins shield animation: body/core/fx rotate and all arc plates move independently; "
+                + identical + " tabulated layers bit-identical to the reference.");
     }
 
     private static void require(boolean condition, String message) {

@@ -58,6 +58,7 @@ public final class TwinsFacetPoseCheck {
             }
         }
         require(facets.size() == 20, "Twenty separately animated plates");
+        long identical = checkTabulatedBases();
         for (int tick = 0; tick <= 1200; tick++) {
             JsonObject frame = new JsonObject();
             JsonArray offsets = new JsonArray(), tilts = new JsonArray(), twists = new JsonArray();
@@ -78,7 +79,55 @@ public final class TwinsFacetPoseCheck {
         Path path = Path.of(args[0]);
         Files.createDirectories(path.getParent());
         Files.writeString(path, gson.toJson(report));
-        System.out.println("Twins: 20 independent closed armor facets per item, 4801 half-tick samples, unique periods and pivots");
+        System.out.println("Twins: 20 independent closed armor facets per item, 4801 half-tick samples, unique periods and pivots; "
+                + identical + " tabulated poses bit-identical to the per-sample reference");
+    }
+
+    /**
+     * The tabulated bases and split clocks must give exactly the pose the old per-sample code gave:
+     * every double compared by its bits, over both items, all facets and a spread of times
+     * (including the non-finite ones the renderer guards against).
+     */
+    private static long checkTabulatedBases() {
+        long compared = 0;
+        double[] times = new double[4821];
+        for (int k = 0; k < 4801; k++) times[k] = -1200 + k * .5D;
+        double[] odd = {0, 17, 1234.5625D, 1e6 + .125D, 1e9, 1e12, -7.75D, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY,
+                Double.MIN_VALUE, -Double.MIN_VALUE, 200.0D, 211.0D, 399.99D, 2.5e-3D, 73.25D, 73.375D, 99999.5D, -99999.5D};
+        System.arraycopy(odd, 0, times, 4801, odd.length);
+        for (int index = 0; index < TwinsFacetPose.COUNT; index++) {
+            for (boolean shield : new boolean[] {false, true}) {
+                for (double time : times) {
+                    var expected = TwinsFacetPoseReference.sample(time, index, shield);
+                    var actual = TwinsFacetPose.sample(time, index, shield);
+                    var basis = TwinsFacetPose.basis(index);
+                    samePoint(expected.normal(), actual.normal());
+                    samePoint(expected.tangent(), actual.tangent());
+                    samePoint(expected.pivot(), actual.pivot());
+                    samePoint(expected.normal(), basis.normal());
+                    samePoint(expected.tangent(), basis.tangent());
+                    samePoint(expected.pivot(), basis.pivot(shield));
+                    same(expected.offset(), actual.offset());
+                    same(expected.tilt(), actual.tilt());
+                    same(expected.twist(), actual.twist());
+                    same(expected.offset(), TwinsFacetPose.offset(time, index, shield));
+                    same(expected.tilt(), TwinsFacetPose.tilt(time, index));
+                    same(expected.twist(), TwinsFacetPose.twist(time, index, shield));
+                    compared++;
+                }
+            }
+        }
+        return compared;
+    }
+
+    private static void samePoint(TwinsFacetPose.Point expected, TwinsFacetPose.Point actual) {
+        same(expected.x(), actual.x());
+        same(expected.y(), actual.y());
+        same(expected.z(), actual.z());
+    }
+
+    private static void same(double expected, double actual) {
+        require(Double.doubleToLongBits(expected) == Double.doubleToLongBits(actual), "Pose differs from the reference: " + expected + " vs " + actual);
     }
 
     private static void close(double a, double b) {
