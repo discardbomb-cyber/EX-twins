@@ -34,7 +34,7 @@ import org.joml.Vector3f;
 /**
  * Draws the moving parts of the ship shield generators and drone docks. The block model is only the
  * device's static body (and a generator's lit floor ring); the parts that move - the RF ring's
- * three runic vanes and core, the Mana reactor's three petals and nucleus, the Ex-Twins ring of galaxy orbs
+ * three induction vanes and core, the Mana reactor's three petals and nucleus, the Ex-Twins ring of galaxy orbs
  * and gold threads, the RF dock's sliding modules, the Mana dock's ring and shards, the Ex-Twins
  * dock's plexus - are OBJ groups of the same model (tools/build_ship_device_meshes.mjs), loaded as
  * standalone part models and posed here each frame.
@@ -128,7 +128,7 @@ public final class ShipDeviceRenderer implements BlockEntityRenderer<ShipDeviceB
         return ease(Mth.clamp(open * count - index, 0, 1));
     }
 
-    // RF: a rotating suspended ring and three independently floating runic vanes.
+    // RF: a rotating induction ring and three independently floating radiator vanes.
     private void rfGenerator(RelicRole role, BlockState state, View view, double open, double time, PoseStack poses,
                              VertexConsumer buffer, int light, int bright, int overlay, Vec3 centre) {
         double share = ease(open);

@@ -1,17 +1,19 @@
-// RF shield generator rebuilt from the author's floating ring / three runic vanes reference.
+// Industrial RF shield generator retaining the floating ring / three vane silhouette.
 // The vanes contain actual through-holes. Geometry is authored here; no game mesh is imported.
 export function buildRfGenerator(Mesh,{add,sub,mul,norm,cross}) {
   const m=new Mesh("rf_ship_shield_generator",{
-    hull:[[.075,.16,.20],0,"relics_addon:block/ship/machined"],
-    inset:[[.025,.065,.085],0,"relics_addon:block/ship/enamel"],
-    edge:[[.20,.32,.37],0,"relics_addon:block/ship/aged_alloy"],
+    hull:[[.24,.27,.29],0,"relics_addon:block/ship/machined"],
+    inset:[[.055,.065,.075],0,"relics_addon:block/ship/enamel"],
+    edge:[[.48,.51,.53],0,"relics_addon:block/ship/aged_alloy"],
+    copper:[[.62,.29,.10],0,"relics_addon:block/ship/aged_alloy"],
+    warning:[[.95,.53,.055],0],
     groove:[[.035,.09,.12],0],
-    glow:[[.20,.90,.89],.85],
-    white:[[.60,1,.97],1],
-    core:[[.60,.98,.95],.95,"relics_addon:block/ship/crystal"],
+    glow:[[1,.33,.045],.85],
+    white:[[1,.74,.28],1],
+    core:[[.13,.15,.17],0,"relics_addon:block/ship/machined"],
   });
   const Y=[0,1,0], centre=[.5,.78,.5];
-  // A tiered stone-metal ritual platform, with a recessed face and segmented outer rim.
+  // Recessed steel service deck and segmented rim.
   m.lathe("body",j=>j===1||j===3?"edge":j>5?"inset":"hull",[.5,0,.5],Y,
     [[0,0],[.46,0],[.47,.028],[.45,.035],[.45,.055],[.425,.067],[.375,.071],[0,.071]],64,[1,1]);
   for(let i=0;i<18;i++) {
@@ -21,20 +23,23 @@ export function buildRfGenerator(Mesh,{add,sub,mul,norm,cross}) {
   }
   m.annulus("ring","glow",[.5,.072,.5],Y,.346,.350,64);
   m.torus("body","edge",[.5,.073,.5],Y,.389,.006,64,6);
-  // Engraved constellation diagram, intersecting spokes, contact wells and short light columns.
+  // Six radial power buses, cooling fins and bolted service cartridges.
   const nodes=Array.from({length:6},(_,i)=>{
     const a=i*Math.PI/3+.14;
     return [.5+Math.cos(a)*.28,.074,.5+Math.sin(a)*.28];
   });
   for(let i=0;i<6;i++) {
     const p=nodes[i];
-    m.tube("ring","glow",p,nodes[(i+2)%6],.0018,4);
-    m.tube("ring","glow",p,[.5,.074,.5],.0012,4);
+    const d=norm(sub(p,[.5,.074,.5])), t=cross(Y,d);
+    for(const offset of [-.012,.012]) m.tube("body","copper",add(p,mul(t,offset)),add([.5,.074,.5],mul(add(d,mul(t,offset)),.11)),.004,6);
+    m.panel("body","hull","edge","inset",add(p,[0,.016,0]),t,Y,d,.036,.018,.058,.004);
+    for(let k=0;k<7;k++) m.tube("body","edge",add(add(p,mul(d,(k-3)*.012)),mul(t,-.024)),add(add(p,mul(d,(k-3)*.012)),mul(t,.024)),.0025,4);
     m.lathe("body","edge",p,Y,[[0,0],[.021,0],[.021,.006],[.014,.008],[0,.008]],12);
     m.lens("fx","white",add(p,[0,.009,0]),Y,.011,.003,2,12);
-    m.tube("fx","glow",add(p,[0,.012,0]),add(p,[0,.075,0]),.002,6);
     m.annulus("ring","glow",add(p,[0,.010,0]),Y,.019,.021,16);
   }
+  m.lathe("body","inset",[.5,.075,.5],Y,[[0,0],[.09,0],[.09,.02],[.07,.034],[0,.034]],24);
+  m.torus("ring","glow",[.5,.104,.5],Y,.073,.003,32,6);
   // The floating assembly has two concentric interrupted rails and a slim open central aperture.
   for(const y of [-.038,.038]) {
     m.torus("core","hull",add(centre,[0,y,0]),Y,.327,.020,64,8);
@@ -49,6 +54,8 @@ export function buildRfGenerator(Mesh,{add,sub,mul,norm,cross}) {
     const p=add(centre,mul(d,.265));
     m.lathe("core",j=>j===1?"edge":"hull",p,d,[[0,0],[.020,0],[.022,.020],[.017,.035],[.017,.070],[.022,.080],[0,.085]],10);
     m.torus("core","glow",add(p,mul(d,.044)),d,.018,.0025,12,5);
+    for(let k=0;k<9;k++) m.torus("core","copper",add(p,mul(d,.022+k*.005)),d,.020,.0015,12,5);
+    for(const offset of [-.011,.011]) m.tube("core","edge",add(add(p,mul(t,offset)),[0,-.045,0]),add(add(p,mul(t,offset)),[0,.045,0]),.003,6);
     for(const y of [-.02,.02]) {
       const path=Array.from({length:6},(_,j)=>{
         const f=j/5,angle=a-.26+f*.39;
@@ -57,14 +64,14 @@ export function buildRfGenerator(Mesh,{add,sub,mul,norm,cross}) {
       m.cable("core","glow",path,.0016,4);
     }
   }
-  // A bright spherical source remains exposed in the aperture.
-  m.sphere("fx","core",centre,.098,14,24);
-  m.sphere("fx","white",centre,.083,10,16);
-  const phi=(1+Math.sqrt(5))/2, ico=[];
-  for(const [a,b] of [[1,phi],[1,-phi],[-1,phi],[-1,-phi]]) ico.push(norm([0,a,b]),norm([a,b,0]),norm([b,0,a]));
-  for(let i=0;i<ico.length;i++) for(let j=i+1;j<ico.length;j++) if(Math.hypot(...sub(ico[i],ico[j]))<1.1) {
-    m.tube("fx","white",add(centre,mul(ico[i],.099)),add(centre,mul(ico[j],.099)),.0014,4);
+  // Armoured induction chamber with copper windings and illuminated equatorial slit.
+  m.sphere("core","core",centre,.098,14,24);
+  for(let k=-4;k<=4;k++) {
+    const y=k*.018, r=Math.sqrt(.099**2-y*y);
+    m.torus("core","copper",add(centre,[0,y,0]),Y,r,.0025,32,5);
   }
+  m.torus("fx","white",centre,Y,.101,.004,40,6);
+  for(const y of [-.085,.085]) m.lathe("core","edge",add(centre,[0,y,0]),Y,[[0,0],[.044,0],[.044,.012],[.032,.018],[0,.018]],16);
   // Three asymmetric floating vanes: swept triangular outlines with a real circular aperture.
   const heights=[.62,1.12,.97];
   for(let index=0;index<3;index++) {
@@ -96,22 +103,22 @@ export function buildRfGenerator(Mesh,{add,sub,mul,norm,cross}) {
     const loop=points=>[...points,points[0]].map(p=>warp(p,.003));
     m.cable(group,"edge",loop(outer),.004,5);
     const rim=outer.map(p=>[p[0]*.88,p[1]*.88]);
-    m.cable(group,"glow",loop(rim),.0015,4);
-    m.cable(group,"glow",loop(inner),.0018,4);
-    // Routed branching sigils follow the vane surface without closing its aperture.
-    const strokes=[[[0,.18],[-.04,.11],[-.07,.06],[-.09,-.02],[-.12,-.10]],
-      [[-.04,.11],[.012,.065],[.035,.005],[.067,-.04],[.12,-.10]],
-      [[-.07,.06],[-.035,.022],[-.015,-.025]],
-      [[.035,.005],[.072,.025],[.107,-.02],[.14,-.11]],
-      [[-.14,-.14],[-.075,-.155],[0,-.145],[.09,-.155],[.15,-.14]]];
+    m.cable(group,"edge",loop(rim),.0025,4);
+    m.cable(group,"copper",loop(inner),.003,6);
+    // Straight busbars and repeated radiator ribs replace the ornamental sigils.
+    const strokes=[[[ -.045,.13],[-.045,.035],[.025,.035],[.025,-.025]],
+      [[-.11,-.125],[-.07,-.125]],[[.065,-.125],[.12,-.125]]];
     for(const depth of [.004,-.016]) {
-      for(const stroke of strokes) m.cable(group,"glow",stroke.map(p=>warp(p,depth)),.0015,4);
-      m.cable(group,"glow",[...rim,rim[0]].map(p=>warp(p,depth)),.0015,4);
+      for(const stroke of strokes) m.cable(group,"copper",stroke.map(p=>warp(p,depth)),.003,6);
+      for(let k=0;k<9;k++) {
+        const y=.012+k*.013, x=-.065;
+        m.tube(group,"edge",warp([x-.023,y],depth),warp([x+.023,y],depth),.002,4);
+      }
     }
     for(const [x,y] of [[-.068,.13],[-.145,-.12],[.14,-.11]]) {
-      const diamond=[[x,y+.012],[x-.009,y],[x,y-.012],[x+.009,y],[x,y+.012]];
-      m.cable(group,"glow",diamond.map(p=>warp(p,.004)),.0014,4);
+      m.lathe(group,"edge",warp([x,y],.005),normal([x,y]),[[0,0],[.004,0],[.004,.004],[0,.004]],6);
     }
+    for(let k=0;k<4;k++) m.tube(group,k%2?"inset":"warning",warp([.065+k*.012,-.15],.005),warp([.072+k*.012,-.132],.005),.004,4);
   }
   m.write(["body","ring","core","fx","shell_0","shell_1","shell_2"]);
   return {shells:3,height:1.4};
