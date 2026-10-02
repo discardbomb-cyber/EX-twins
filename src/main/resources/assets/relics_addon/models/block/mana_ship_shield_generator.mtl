@@ -1,39 +1,39 @@
-newmtl gold
-Kd 0.62 0.43 0.15
-Ka 0 0 0
-map_Kd relics_addon:block/ship/aged_alloy
-
-newmtl gold_edge
-Kd 0.76 0.6 0.32
-Ka 0 0 0
-map_Kd relics_addon:block/ship/aged_alloy
-
-newmtl bronze
-Kd 0.07 0.09 0.2
+newmtl ceramic
+Kd 0.79 0.81 0.78
 Ka 0 0 0
 map_Kd relics_addon:block/ship/enamel
+
+newmtl shadow
+Kd 0.41 0.48 0.55
+Ka 0 0 0
+map_Kd relics_addon:block/ship/machined
 
 newmtl navy
-Kd 0.035 0.05 0.12
+Kd 0.024 0.04 0.09
 Ka 0 0 0
 map_Kd relics_addon:block/ship/enamel
 
-newmtl glass
-Kd 0.03 0.08 0.16
-Ka 0.05 0.05 0.05
+newmtl gold
+Kd 0.59 0.4 0.13
+Ka 0 0 0
+map_Kd relics_addon:block/ship/aged_alloy
+
+newmtl edge
+Kd 0.91 0.71 0.3
+Ka 0 0 0
+map_Kd relics_addon:block/ship/aged_alloy
+
+newmtl crystal
+Kd 0.045 0.45 0.83
+Ka 0.2 0.2 0.2
 map_Kd relics_addon:block/ship/crystal
 
-newmtl glass_light
-Kd 0.3 0.78 1
-Ka 0.5 0.5 0.5
+newmtl light
+Kd 0.28 0.89 1
+Ka 0.8 0.8 0.8
 map_Kd relics_addon:item/materials/rf_mesh_white
 
-newmtl core_light
-Kd 0.3 0.78 1
-Ka 0.65 0.65 0.65
-map_Kd relics_addon:item/materials/rf_mesh_white
-
-newmtl ring_light
-Kd 0.3 0.78 1
-Ka 0.55 0.55 0.55
+newmtl ice
+Kd 0.66 0.92 1
+Ka 0.45 0.45 0.45
 map_Kd relics_addon:item/materials/rf_mesh_white

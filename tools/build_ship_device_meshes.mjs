@@ -17,6 +17,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import { compactObjText } from "./compact_obj.mjs";
+import { buildManaGenerator } from "./ship_mana_design.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const ASSETS = join(ROOT, "src/main/resources/assets/relics_addon");
@@ -47,6 +48,36 @@ const rotateY = (p, angle, centre = C) => add(centre, rotate(sub(p, centre), [0,
 
 // --- mesh ----------------------------------------------------------------------------------------
 class Mesh {
+  /** Bevelled armour panel in a local frame; front, chamfer and side use separate materials. */
+  panel(group, front, edge, side, centre, u, w, n, hx, hy, depth, bevel=.008) {
+    const outline=[[hx-bevel,hy],[-hx+bevel,hy],[-hx,hy-bevel],[-hx,-hy+bevel],[-hx+bevel,-hy],[hx-bevel,-hy],[hx,-hy+bevel],[hx,hy-bevel]];
+    const at=(p,z,scale=1)=>add(add(add(centre,mul(u,p[0]*scale)),mul(w,p[1]*scale)),mul(n,z));
+    const outer=outline.map(p=>at(p,depth)), inner=outline.map(p=>at(p,depth+bevel,.93)), rear=outline.map(p=>at(p,0));
+    this.poly(group,front,inner);
+    this.poly(group,side,[...rear].reverse());
+    for(let i=0;i<8;i++) {
+      const j=(i+1)%8;
+      this.poly(group,edge,[outer[i],outer[j],inner[j],inner[i]]);
+      this.poly(group,side,[rear[i],rear[j],outer[j],outer[i]]);
+    }
+  }
+  /** Continuous cable, without redundant internal caps at every segment. */
+  cable(group,material,path,radius,sides=8) {
+    const rings=path.map((p,i)=>{
+      const tangent=norm(sub(path[Math.min(i+1,path.length-1)],path[Math.max(0,i-1)]));
+      const u=perp(tangent), w=cross(tangent,u);
+      return Array.from({length:sides},(_,j)=>{
+        const normal=add(mul(u,Math.cos(j*Math.PI*2/sides)),mul(w,Math.sin(j*Math.PI*2/sides)));
+        return {p:add(p,mul(normal,radius)),n:normal};
+      });
+    });
+    for(let i=0;i+1<rings.length;i++) for(let j=0;j<sides;j++) {
+      const k=(j+1)%sides, q=[rings[i][j],rings[i+1][j],rings[i+1][k],rings[i][k]];
+      this.quad(group,material,q.map(c=>c.p),q.map(c=>c.n));
+    }
+    this.poly(group,material,rings[0].map(c=>c.p).reverse());
+    this.poly(group,material,rings.at(-1).map(c=>c.p));
+  }
   /** Smooth torus for collars, rounded bezels and orbit rails. */
   torus(group, material, centre, axis, radius, thickness, segments = 48, sides = 8) {
     const a = norm(axis), u = perp(a), w = cross(a, u);
@@ -394,83 +425,7 @@ function rfGenerator() {
 }
 
 // --- the Mana holocron cube (s05, s10) -----------------------------------------------------------
-function manaGenerator() {
-  const m = new Mesh("mana_ship_shield_generator", {
-    gold: [[.62, .43, .15], 0, "relics_addon:block/ship/aged_alloy"],
-    gold_edge: [[.76, .60, .32], 0, "relics_addon:block/ship/aged_alloy"],
-    bronze: [[.07, .09, .20], 0, "relics_addon:block/ship/enamel"],
-    navy: [[.035, .05, .12], 0, "relics_addon:block/ship/enamel"],
-    glass: [[.03, .08, .16], .05, "relics_addon:block/ship/crystal"],
-    glass_light: [[.3, .78, 1], .5],
-    core_light: [[.3, .78, 1], .65],
-    ring_light: [[.3, .78, 1], .55],
-  });
-  const oct = r => Array.from({ length: 48 }, (_, i) => [Math.cos(i * Math.PI / 24) * r, Math.sin(i * Math.PI / 24) * r]);
-  m.prism("body", "bronze", C, oct(.44), 0, .05, "gold");
-  m.prism("body", "navy", C, oct(.34), .05, .1, "gold_edge");
-  m.lathe("body", i => (i === 0 ? "gold_edge" : "gold"), [.5, .1, .5], [0, 1, 0], [[.2, 0], [.2, .03], [.14, .05], [.1, .12], [0, .12]], 16);
-  for (let i = 0; i < 4; i++) {
-    const a = i * Math.PI / 2, d = [Math.cos(a), 0, Math.sin(a)], t = [-Math.sin(a), 0, Math.cos(a)];
-    m.box("body", "gold_edge", add([.5, .11, .5], mul(d, .3)), mul(d, .06), [0, .012, 0], mul(t, .02));
-    m.box("fx", "glass_light", add([.5, .105, .5], mul(d, .25)), mul(d, .015), [0, .01, 0], mul(t, .012));
-  }
-  m.annulus("ring", "ring_light", [.5, .052, .5], [0, 1, 0], .39, .43, 32);
-  // The cube floats above the plinth. Six face plates (shells): a gold frame round a blue lens
-  // whose glass dishes inward, and a gold pyramid behind it that only shows when the star opens.
-  const centre = [.5, .6, .5], half = .2;
-  const faces = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
-  faces.forEach((n, i) => {
-    const group = `shell_${i}`, u = perp(n), w = cross(n, u);
-    const at = (x, y, out) => add(add(add(centre, mul(n, half + out)), mul(u, x)), mul(w, y));
-    // Navy housing, layered gold bezel and a dark crystalline lens.
-    m.lens(group, "bronze", at(0,0,-.035), n, .205, .055);
-    m.torus(group, "gold", at(0,0,.005), n, .174, .007, 40);
-    m.lens(group, "glass", at(0,0,.01), n, .151, .035);
-    m.torus(group, "glass_light", at(0,0,.043), n, .112, .0035, 40, 6);
-    const glyph = [[0,.034],[-.023,0],[0,-.034],[.023,0]].map(([x,y])=>at(x,y,.047));
-    for(let j=0;j<4;j++) m.tube(group,"glass_light",glyph[j],glyph[(j+1)%4],.0025,6);
-    for(const side of [-1,1]) {
-      const path=[], directions=[];
-      for(let j=0;j<=20;j++) {
-        const a=.25+j/20*2.5;
-        path.push(at(side*Math.sin(a)*.184,Math.cos(a)*.184,-.011)); directions.push(n);
-      }
-      m.ribbon(group,path,directions,.012,.008,"gold_edge","gold");
-    }
-    for (let s=0;s<12;s++) {
-      const a=s*Math.PI/6;
-      m.tube(group,"gold_edge",at(Math.cos(a)*.126,Math.sin(a)*.126,.036),at(Math.cos(a)*.141,Math.sin(a)*.141,.03),.0025,6);
-      // Angular, individually cut sigils between the radial graduations.
-      const p=(r,b)=>at(Math.cos(b)*r,Math.sin(b)*r,.036);
-      m.tube(group,"gold",p(.137,a+.08),p(.148,a+.08),.0015,4);
-      m.tube(group,"gold",p(.148,a+.08),p(.148,a+.15),.0015,4);
-      if(s%2===0) m.tube(group,"gold",p(.148,a+.15),p(.141,a+.19),.0015,4);
-      const seat=at(Math.cos(a)*.184,Math.sin(a)*.184,-.005);
-      m.sphere(group,"gold_edge",seat,.0045,3,6);
-    }
-    // Faceted small crystals seated in the outer housing, with dark recesses.
-    for(let j=0;j<4;j++) {
-      const a=j*Math.PI/2+Math.PI/4, x=Math.cos(a)*.18,y=Math.sin(a)*.18;
-      m.lens(group,"navy",at(x,y,-.013),n,.012,.004,2,12);
-      m.poly(group,"glass",[[0,.009],[-.005,0],[0,-.009],[.005,0]].map(([dx,dy])=>at(x+dx,y+dy,-.005)));
-      m.tube(group,"gold_edge",at(x-.008,y,-.005),at(x+.008,y,-.005),.0015,4);
-    }
-
-  });
-  // Core: a star, a blue octahedron lit from within with a gold pyramid on each face (the open
-  // holocron's points), hidden inside the closed cube.
-  const r = .11;
-  const tips = [[r, 0, 0], [-r, 0, 0], [0, r, 0], [0, -r, 0], [0, 0, r], [0, 0, -r]].map(d => add(centre, d));
-  for (const [a, b, c] of [[0, 2, 4], [4, 2, 1], [1, 2, 5], [5, 2, 0], [4, 3, 0], [1, 3, 4], [5, 3, 1], [0, 3, 5]]) {
-    const tri = [tips[a], tips[b], tips[c]], n = norm(sub(mul(add(add(tri[0], tri[1]), tri[2]), 1 / 3), centre));
-    const apex = add(centre, mul(n, .19));
-    for (let k = 0; k < 3; k++) m.poly("core", k === 0 ? "gold_edge" : "gold", [tri[k], tri[(k + 1) % 3], apex], null, true);
-    m.poly("core", "core_light", tri.map(p => add(p, mul(n, .004))), null, true);
-  }
-  for (const [a, b] of [[0, 2], [2, 1], [1, 3], [3, 0], [4, 2], [2, 5], [5, 3], [3, 4], [0, 4], [4, 1], [1, 5], [5, 0]]) m.tube("core", "glass_light", tips[a], tips[b], .008, 5);
-  m.write(["body", "ring", "core", "fx", "shell_0", "shell_1", "shell_2", "shell_3", "shell_4", "shell_5"]);
-  return { shells: 6, height: 1 };
-}
+function manaGenerator() { return buildManaGenerator(Mesh, {add,sub,mul,norm,cross,perp}); }
 
 // --- the Ex-Twins marble hex sphere (s14, s15) ---------------------------------------------------
 /** Truncated icosahedron: 60 vertices, 12 pentagons and 20 hexagons, scaled to the unit sphere. */
@@ -511,13 +466,13 @@ function truncatedIcosahedron() {
 
 function twinsGenerator() {
   const m = new Mesh("twins_ship_shield_generator", {
-    marble: [[.65, .67, .70], 0, "relics_addon:block/ship/marble"],
-    marble_dark: [[.24, .25, .29], 0, "relics_addon:block/ship/machined"],
-    gold: [[.61, .52, .35], 0, "relics_addon:block/ship/aged_alloy"],
-    gold_edge: [[.75, .67, .48], 0, "relics_addon:block/ship/aged_alloy"],
+    marble: [[.16, .14, .22], 0, "relics_addon:block/ship/marble"],
+    marble_dark: [[.075, .066, .11], 0, "relics_addon:block/ship/machined"],
+    gold: [[.31, .28, .38], 0, "relics_addon:block/ship/aged_alloy"],
+    gold_edge: [[.50, .49, .57], 0, "relics_addon:block/ship/aged_alloy"],
     galaxy: [[.65, .60, .80], .08, "relics_addon:block/ship/galaxy"],
-    thread: [[.65, .35, .88], .55],
-    ring_light: [[.65, .35, .88], .55],
+    thread: [[.83, .47, 1], .85],
+    ring_light: [[.57, .10, .84], .55],
   });
   // Pedestal: a marble drum with gold hoops and four marble clamps (s15 pillars), on an octagonal plinth.
   const oct = r => Array.from({ length: 48 }, (_, i) => [Math.cos(i * Math.PI / 24) * r, Math.sin(i * Math.PI / 24) * r]);

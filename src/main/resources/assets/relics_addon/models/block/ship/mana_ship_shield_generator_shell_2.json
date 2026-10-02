@@ -15,9 +15,6 @@
     "fx": false,
     "shell_0": false,
     "shell_1": false,
-    "shell_2": true,
-    "shell_3": false,
-    "shell_4": false,
-    "shell_5": false
+    "shell_2": true
   }
 }

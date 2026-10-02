@@ -48,11 +48,9 @@ const POSES = {
     return about(add([.5, .81, .5], mul(d, .21)), t, 2.1);
   } },
   mana_ship_shield_generator: { on: group => {
-    const i = Number(group.replace("shell_", ""));
-    if (Number.isNaN(i)) return null;
-    const n = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]][i];
-    const centre = [.5, .6, .5];
-    return p => add(about(centre, n, Math.PI / 4)(p), mul(n, .16));
+    if (!group.startsWith("shell_")) return null;
+    const i=Number(group.slice(6)), angle=i*Math.PI*2/3, n=[Math.cos(angle),0,Math.sin(angle)];
+    return p=>add(about([.5,.62,.5],n,Math.PI/10)(p),mul(n,.13));
   } },
   rf_drone_dock: { docked: group => {
     const i = Number(group.replace("shell_", ""));
@@ -68,6 +66,10 @@ const hidden = { rest: new Set(["ring"]), on: new Set(), docked: new Set(["ring"
 const textures = new Map();
 function texture(ref) {
   if (!textures.has(ref)) {
+    if (ref.endsWith(".png") && existsSync(ref)) {
+      textures.set(ref, PNG.sync.read(readFileSync(ref)));
+      return textures.get(ref);
+    }
     const [ns, path] = ref.split(":");
     const png = join(ASSETS, "..", ns, "textures", `${path}.png`);
     textures.set(ref, existsSync(png) ? PNG.sync.read(readFileSync(png)) : null);

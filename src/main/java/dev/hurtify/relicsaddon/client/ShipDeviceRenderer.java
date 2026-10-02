@@ -53,7 +53,7 @@ import org.joml.Vector3f;
 public final class ShipDeviceRenderer implements BlockEntityRenderer<ShipDeviceBlockEntity> {
     /** Ticks a generator takes to open, and a dock to bring its modules out. */
     private static final double OPEN_TICKS = 60, DOCK_TICKS = 20;
-    private static final int MANA_PLATES = 6, RF_MASTS = 4, RF_DOCK_MODULES = 3, MANA_DOCK_SHARDS = 3;
+    private static final int MANA_PLATES = 3, RF_MASTS = 4, RF_DOCK_MODULES = 3, MANA_DOCK_SHARDS = 3;
     /** The RF masts: hinge height and radius, how far each swings up (radians) and how long it is. */
     private static final double MAST_HINGE_Y = .81, MAST_HINGE_R = .21, MAST_SWING = 2.1, MAST_LENGTH = .55;
     private static final int SPARK_COLOR = 0x8EEBFF, SPARK_TICKS = 6;
@@ -225,31 +225,31 @@ public final class ShipDeviceRenderer implements BlockEntityRenderer<ShipDeviceB
         glow.addVertex(matrix, (float) at.x, (float) at.y, (float) at.z).setColor(r, g, b, alpha);
     }
 
-    // --- the Mana holocron: the cube turns slowly; switched on, its plates swing out and the star inside lights ----
+    // --- the Mana reactor: three curved petals uncover a rotating crystalline sphere ----
     private void manaGenerator(RelicRole role, BlockState state, View view, double open, double time, PoseStack poses, VertexConsumer buffer, int light, int bright, int overlay, Vec3 centre) {
         view.turn = (view.turn + (1 + 2 * open) * view.dt) % 360;
         view.spin = (view.spin + 3 * open * view.dt) % 360;
         float bob = (float) (Math.sin(time * .05) * .02);
         poses.pushPose();
         poses.translate(0, bob, 0);
-        about(poses, .5, .6, 0, 1, 0, (float) view.turn);
+        about(poses, .5, .62, 0, 1, 0, (float) view.turn);
         if (open > 0) {
             poses.pushPose();
-            about(poses, .5, .6, 1, .4, .6, (float) view.spin);
+            about(poses, .5, .62, 1, .4, .6, (float) view.spin);
             float scale = (float) (.4 + .6 * ease(open));
-            poses.translate(.5, .6, .5);
+            poses.translate(.5, .62, .5);
             poses.scale(scale, scale, scale);
-            poses.translate(-.5, -.6, -.5);
+            poses.translate(-.5, -.62, -.5);
             part(role, "core", state, poses, buffer, bright, overlay);
             poses.popPose();
         }
-        float[][] normals = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+        float[][] normals = {{1, 0, 0}, {-.5F, 0, .8660254F}, {-.5F, 0, -.8660254F}};
         double share = ease(open);
         for (int index = 0; index < MANA_PLATES; index++) {
             float[] n = normals[index];
             poses.pushPose();
-            poses.translate(n[0] * .24 * share, n[1] * .24 * share, n[2] * .24 * share);
-            about(poses, .5, .6, n[0], n[1], n[2], (float) (45 * share));
+            poses.translate(n[0] * .13 * share, n[1] * .13 * share, n[2] * .13 * share);
+            about(poses, .5, .62, n[0], n[1], n[2], (float) (18 * share));
             part(role, "shell_" + index, state, poses, buffer, light, overlay);
             poses.popPose();
         }
