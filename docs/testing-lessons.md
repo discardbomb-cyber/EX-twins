@@ -65,3 +65,67 @@
 - Исправление: конфиг обоих клиентов переведён на канонический адрес, заявленный самим сервером. Проверку resource не отключали.
 - Повторный результат: CLI сформировал OAuth-ссылку. Затем автор отменил установку ElevenLabs: вход остановлен, записи удалены из обоих клиентов. Сохранённых OAuth-данных CLI не обнаружил.
 - Вывод: сверять URL protected resource metadata; не обходить проверку адреса и не сохранять ключи в репозитории.
+
+## TEST-005 — JOML отсутствует в classpath новой JavaExec
+
+- Дата: 02.10.2026; codex/finish-pending, база 2b8c24a.
+- Команда: `verifyNetworkCodecs verifyLensScreenBounds verifyArmageddonColumns recordCodecCandidate --offline`.
+- Лог: `work/test-runs/2026-10-02-pending-checks-01.log`.
+- Результат: NetworkCodecCheck прошёл (2000 дронов: 3125 байт в смешанном состоянии, 6 в покое); verifyLensScreenBounds упал с `NoClassDefFoundError: org/joml/Matrix4fc`.
+- Причина: moddev предоставляет JOML в compileJava.classpath, но не в обычном test.runtimeClasspath для отдельного JavaExec. Standalone-проверка с JOML ранее прошла.
+- Исправление: classpath дополнен compileJava.classpath, как в остальных проверках Minecraft-типов. Повторный результат будет записан после прогона.
+- Вывод: проверкам с JOML/Minecraft нужен полный classpath выбранной ветки; standalone успех не заменяет Gradle-проверку.
+
+## ENV-003 — Python WindowsApps не исполняется
+
+- Дата: 02.10.2026; codex/finish-pending.
+- Агент не смог запустить WindowsApps python.exe для вспомогательного редактирования; ResourceUnavailable, код 1, до записи исходников.
+- Диагностическое свидетельство: `work/checks/2026-10-02/armageddon-columns-python-unavailable.log` (сводка агента, не исходный stderr).
+- Исправление: изменения внесены apply_patch; JDK 21 standalone проверка columns прошла 550 последовательностей и порядок равных расстояний.
+- Вывод: WindowsApps alias не доказывает наличие работоспособного Python; для Java-проверок использовать установленный JDK.
+
+### TEST-005 — повторный результат
+
+`pending-checks-02`: BUILD SUCCESSFUL; 6 912 000 лучей LensScreenBounds и 550 последовательностей columns прошли. Allocation disk 1 525 760 → 814 304 байта, rim80 304 328 → 170 752 байта на вызов.
+
+## TEST-006 — утраченный диагностический литерал кодека
+
+- Дата: 02.10.2026; codex/finish-pending. Лог: `work/test-runs/2026-10-02-pending-full-01.log`.
+- `build runGameTestServer --offline`: verifyContracts отклонил удаление `Oversized hive target list`; до GameTests не дошёл.
+- Причина: при переходе количества targets на VarInt агент переименовал диагностику, входящую в контракт.
+- Исправление: сохранён исходный текст; новый DecoderException и проверки отрицательного/слишком большого значения остаются. Эталон литералов не ослаблен.
+- Вывод: при изменении wire-формата сохранять независимые диагностические контракты. Повторный результат — после полного прогона.
+
+## TEST-007 — новые треугольники линзы меняют интерполяцию
+
+- Дата: 02.10.2026; codex/finish-pending. Логи: `work/test-runs/2026-10-02-gpu-check-01.log`, `2026-10-02-gpu-02-gpu-check.log`.
+- Проверка hidden OpenGL на Intel Iris Xe: уменьшенный screen quad сохранил математические границы, но pixel channel 9868 изменился с 0.36411023 на 0.3634549.
+- Причина: другой размер треугольников меняет float-интерполяцию viewPos; nearest sampling усиливает разницу на границе texel. Одной проверки геометрических лучей недостаточно.
+- Исправление: исходные полноэкранные треугольники сохранены, ограничение выполнено консервативным scissor с восстановлением предыдущего состояния.
+- Повторный результат: 42 пары float-кадров до/после (два volume shader и black_hole) совпали с допуском 0.00001; GLSL компиляция и OpenGL error check прошли.
+- Вывод: для сокращения fragment work сохранять исходные вершины/интерполяцию и проверять GPU-кадры, включая screen edges и camera inside.
+
+## TEST-008 — ошибки вспомогательной сверки wire-эталона
+
+- Дата: 02.10.2026; codex/finish-pending. Логи: `work/test-runs/2026-10-02-codec-review-01.log`, `-02.log`, `-03.log`.
+- Первый сбой: init script записал candidate относительно своего каталога work, проверка ожидала путь от projectDir. Исправлено явным project.layout.projectDirectory.
+- Второй сбой: вспомогательная сверка ожидала ошибку декодирования в NBT-колонке, хотя stream fixture хранит её в третьей колонке с полным именем класса. Исходные codecs работали корректно.
+- Исправление: сверка читает правильные колонки; принимает ровно 4 изменённые общие строки, одну заменённую malformed fixture и две новые. Все общие NBT-колонки сверены побайтно.
+- Повторный результат: review-03 прошёл; принят только намеренный новый wire-контракт, NBT неизменён.
+- Вывод: генерировать candidate отдельно, проверять ключи/колонки и ограниченный diff прежде изменения golden; не применять общий -PgoldenRecord ради зелёного build.
+
+### TEST-006 — повторный результат
+
+`pending-full-02`: BUILD SUCCESSFUL, все 97 обязательных GameTests прошли, включая hidden-section контрпример. Контракты ресурсов, кодеков, архитектуры, геометрии и графики прошли. Диагностический литерал сохранён без изменения его golden.
+
+### TEST-007 — дополнение финального ревью
+
+Ревью выявило, что при изначально выключенном scissor нужно восстанавливать также GL_SCISSOR_BOX, а не только enabled flag. Исправлено: восстановление прежнего box выполняется всегда, затем возвращается исходное состояние enabled/disabled. После этой последней клиентской поправки выполняется отдельная пересборка JAR, verifyArchitecture, verifyContracts, verifyReleaseContents и verifyLensScreenBounds; серверная механика не менялась.
+
+### ENV-002 — повтор при первом запуске новой рабочей копии
+
+`work/test-runs/2026-10-02-pending-full-02.log`: новое run-gametest снова сообщило об отсутствующем server.properties и создало файл. Итог — 97/97, BUILD SUCCESSFUL; это тот же подтверждённый случай первичной генерации, а не падение тестов.
+
+### TEST-007 — итог последней клиентской поправки
+
+`work/test-runs/2026-10-02-final-client-01.log`: BUILD SUCCESSFUL (код 0). Итоговый JAR пересобран; verifyArchitecture, verifyContracts, verifyReleaseContents и verifyLensScreenBounds прошли. Это проверка последнего изменения после полного прогона 97/97, серверный код не менялся.

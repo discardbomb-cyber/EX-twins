@@ -25,6 +25,8 @@
 - Энергия: `DevicePowerCheck` либо выделенные domain-проверки. Формы и распределение роя: `HiveFormationCheck`, `HiveAllocationCheck`, `HiveConstructsCheck`, где они существуют.
 - Защита и взаимодействие с миром: `ShieldDefenseGameTests`, `DeviceGameTests`, `ArmageddonGameTests` по изменённой механике. Используй helpers; тестируй поведение, не текст реализации.
 - Свет: `EffectLightsCheck`, `client/light/EffectLightPoolCheck`. Модели: проверки pose/animation и `verifyObjCompact` выбранной ветки.
+- Постэффекты: `verifyLensScreenBounds`, `node tools/check_volume_wave_bounds.mjs`; на Windows `./tools/check_post_effects_gpu.ps1 -RunId <уникальное-имя>` компилирует GLSL и сравнивает float-кадры в скрытом OpenGL-контексте. Нужны JDK 21 и кеш LWJGL/JOML, полученный обычной сборкой. Кадры не сохраняются, Minecraft не запускается.
+- Подготовка кратера: `verifyArmageddonColumns` сравнивает полную последовательность столбцов с исходной стабильной сортировкой и измеряет аллокацию для disk/rim.
 - Для Markdown достаточно ссылок, путей и согласованности правил; Gradle/GameTests не нужны.
 
 `DeviceTestSupport.player(helper, ...)` создаёт survival ServerPlayer с двумя Curios charm-слотами; `equip(...)` выдаёт включённое заряженное устройство. Шаблоны `test_room` и `field_arena` содержат блоки — очищай область, если тесту нужен воздух. События можно моделировать прямыми вызовами damage/tick handlers и `runAfterDelay`.
@@ -46,6 +48,7 @@ Shield-фильтры AddonConfig используют `RegistryFilter`. `Config
 - **Сеть:** `playToClient` регистрируется на обеих сторонах. Client-only условие вызывало kick с `channel relics_addon:armageddon_blast absent on server`. Клиентская реализация остаётся внутри handler lambda.
 - **Архитектура callback:** прямая ссылка на client-класс даже внутри lambda остаётся в bytecode. Для ArmageddonPayloads после S6 нужен отложенный reflective handler при безусловной регистрации; это проверяют architecture gate и NetworkRegistrationGameTests. История исправления — [журнал](testing-lessons.md).
 - **Stream codec:** byte для количества дронов ломал синхронизацию роя из 500 дронов; используй VarInt/VarLong и проверку кодека.
+- **Wire v5:** одинаковые Unit передаются bounded RLE, NBT сохраняет прежние массивы. Клиенту и серверу требуется один и тот же новый JAR; обязательный handshake Armageddon v5 отклоняет старый v4. Намеренные wire-изменения проверяй отдельным candidate golden и неизменностью NBT, не общим перезаписыванием эталонов.
 - **Урон:** damage=0 оставляет knockback/on-hit эффекты, например Wither от черепа. Полное поглощение отменяет событие. `minecraft:bypasses_shield` включает огонь, магию, падение и не определяет поведение наших щитов.
 - **Зависимости:** целевая NeoForge 21.1.251; Photon и LDLib2 нужны также на сервере. Relics не требуется. Версии определяет build.gradle выбранной ветки.
 - **Curios:** определение charm-слота само по себе не выдаёт его игроку; проверь `src/main/resources/data/relics_addon/curios/entities/devices.json`.
@@ -54,6 +57,7 @@ Shield-фильтры AddonConfig используют `RegistryFilter`. `Config
 - **Новый run-каталог:** без options.txt клиент ждёт accessibility onboarding. Для сценарного запуска используй существующие настройки с `onboardAccessibility:false`, не затирай настройки пользовательского клиента.
 - **MDG classpath:** мод для отдельных run-задач добавляй через JVM `classpathProvider`, не `additionalRuntimeClasspath`, иначе FML может пропустить boot-layer library. LDL нужны `net.minecraft.mappings=mojmap` и `bundling=external`, чтобы не выбрать shadowed dev JAR.
 - **Windows:** checkout-пути держи короткими (`C:/dev/...`). Наличие Python/ffmpeg проверяй; существующие генераторы обычно используют Node.js, видео — WinRT.
+- **JavaExec:** для проверок JOML/Minecraft дополняй test.runtimeClasspath classpath задачи compileJava; moddev не обязан включать эти типы в обычный test runtime.
 
 ## Корабли и шейдеры
 
@@ -62,6 +66,10 @@ Shield-фильтры AddonConfig используют `RegistryFilter`. `Config
 Sable хранит корабельные блоки в удалённом plot. `level.clip` может вернуть попадание в координатах plot: перед сравнением расстояний или поиском сущностей переведи через `SableCompanion.projectOutOfSubLevel`. Иначе AABB растягивается на миллионы блоков. Pose изменяемый — копируй `new Pose3d(pose)`; скорость в блоках/секунду. `stillValid` меню учитывает мировую позицию улья. Sable-селектор `@l` требует player source; на сервере используй UUID корабля.
 
 Veil в Sable перепечатывает core shader через glsl-processor 0.2.3, который терял `;` после одиночного `x++;`. Используй `x += 1;`; заголовки for не затронуты. Проверяй parse/print либо `Couldn't compile dynamic` в логе Sable-клиента.
+
+Уменьшение screen quad может менять float-интерполяцию viewPos и выбор texel. Для finite-support линзы сохраняй исходные треугольники, ограничивай fragment work консервативным scissor и восстанавливай прежнее состояние; одной математической проверки границ недостаточно, нужен GPU-сравнительный прогон. Эффекты с неограниченными glow tails нельзя обрезать по произвольному порогу.
+
+`getEntitiesOfClass(Player.class, ...)` не равнозначен `ServerLevel.players()`: пространственные секции могут скрывать игрока, который остаётся в player list и тикает. Перед заменой перебора в перехватчике проверяй незагруженные секции и порядок равных пересечений; регрессия — `spatialQueriesOmitShieldWearersInHiddenSections`.
 
 ## Ресурсы и инструменты
 
