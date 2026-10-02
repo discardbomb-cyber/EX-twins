@@ -114,9 +114,23 @@ public final class BlackHoleLens {
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
         RenderSystem.disableCull();
+        boolean scissorEnabled = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+        int[] previousScissor = new int[4];
+        GL11.glGetIntegerv(GL11.GL_SCISSOR_BOX, previousScissor);
         try {
             for (Hole hole : HOLES) {
                 Vector3f centre = view.transformPosition(new Vector3f((float) hole.centre.x, (float) hole.centre.y, (float) hole.centre.z));
+                LensScreenBounds.Bounds bounds = LensScreenBounds.of(centre, hole.reach, RenderSystem.getProjectionMatrix(), main.width, main.height);
+                if (bounds.empty()) continue;
+                int left = bounds.leftPixel(main.width), bottom = bounds.bottomPixel(main.height);
+                int right = bounds.rightPixel(main.width), top = bounds.topPixel(main.height);
+                if (scissorEnabled) {
+                    left = Math.max(left, previousScissor[0]); bottom = Math.max(bottom, previousScissor[1]);
+                    right = Math.min(right, previousScissor[0] + previousScissor[2]);
+                    top = Math.min(top, previousScissor[1] + previousScissor[3]);
+                }
+                if (left >= right || bottom >= top) continue;
+                RenderSystem.enableScissor(left, bottom, right - left, top - bottom);
                 // The halo's width: dark near the horizon, fading to next to nothing at the reach.
                 double halo = hole.darkness > 0 ? Math.sqrt((hole.reach * hole.reach - hole.horizon * hole.horizon) / Math.log(hole.darkness / EDGE_DARKNESS)) : 1;
                 shader.safeGetUniform("InverseProj").set(inverseProjection);
@@ -135,6 +149,8 @@ public final class BlackHoleLens {
                 if (mesh != null) BufferUploader.drawWithShader(mesh);
             }
         } finally {
+            RenderSystem.enableScissor(previousScissor[0], previousScissor[1], previousScissor[2], previousScissor[3]);
+            if (!scissorEnabled) RenderSystem.disableScissor();
             RenderSystem.enableCull();
             RenderSystem.depthMask(true);
             RenderSystem.enableDepthTest();
@@ -143,12 +159,16 @@ public final class BlackHoleLens {
     }
 
     /**
-     * The whole screen, in normalised device coordinates: a hole's reach can cover any part of it (all of
-     * it when the camera is inside the reach), and the shader drops every pixel it does not.
+     * Keep the original full-screen triangles and interpolation. A conservative scissor removes
+     * fragments outside Reach without changing the view rays along the lens's visible boundary.
      */
     private static void screen(BufferBuilder builder) {
-        float[][] corners = {{-1, -1}, {1, -1}, {1, 1}, {-1, -1}, {1, 1}, {-1, 1}};
-        for (float[] corner : corners) builder.addVertex(corner[0], corner[1], 0);
+        builder.addVertex(-1, -1, 0);
+        builder.addVertex(1, -1, 0);
+        builder.addVertex(1, 1, 0);
+        builder.addVertex(-1, -1, 0);
+        builder.addVertex(1, 1, 0);
+        builder.addVertex(-1, 1, 0);
     }
 
     private BlackHoleLens() {

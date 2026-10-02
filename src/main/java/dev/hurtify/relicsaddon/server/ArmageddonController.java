@@ -18,7 +18,6 @@ import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.relic.RelicRuntime;
 import dev.hurtify.relicsaddon.sound.RelicSounds;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -598,16 +597,54 @@ public final class ArmageddonController {
 
     /** Every column within {@code radius} of {@code centre} but not within {@code inner}, nearest first. */
     private static long[] columns(Vec3 centre, double radius, double inner) {
-        int reach = (int) Math.ceil(radius), cx = (int) Math.floor(centre.x), cz = (int) Math.floor(centre.z);
-        List<long[]> columns = new ArrayList<>();
-        for (int x = cx - reach; x <= cx + reach; x++) for (int z = cz - reach; z <= cz + reach; z++) {
-            double dx = x + .5 - centre.x, dz = z + .5 - centre.z, d = dx * dx + dz * dz;
-            if (d <= radius * radius && (inner < 0 || d >= inner * inner)) columns.add(new long[]{(long) x << 32 | (z & 0xFFFFFFFFL), Double.doubleToLongBits(d)});
+        return Columns.generate(centre.x, centre.z, radius, inner);
+    }
+
+    /** Primitive working storage; ties keep the original x-major, then z-major traversal order. */
+    static final class Columns {
+        static long[] generate(double centreX, double centreZ, double radius, double inner) {
+            int reach = (int) Math.ceil(radius), cx = (int) Math.floor(centreX), cz = (int) Math.floor(centreZ);
+            int count = 0;
+            // Count first: disks and narrow rims both allocate only their accepted columns.
+            for (int x = cx - reach; x <= cx + reach; x++) for (int z = cz - reach; z <= cz + reach; z++) {
+                double dx = x + .5 - centreX, dz = z + .5 - centreZ, d = dx * dx + dz * dz;
+                if (d <= radius * radius && (inner < 0 || d >= inner * inner)) count++;
+            }
+            long[] packed = new long[count];
+            double[] distances = new double[count];
+            int index = 0;
+            for (int x = cx - reach; x <= cx + reach; x++) for (int z = cz - reach; z <= cz + reach; z++) {
+                double dx = x + .5 - centreX, dz = z + .5 - centreZ, d = dx * dx + dz * dz;
+                if (d <= radius * radius && (inner < 0 || d >= inner * inner)) {
+                    packed[index] = (long) x << 32 | (z & 0xFFFFFFFFL);
+                    distances[index++] = d;
+                }
+            }
+            if (count < 2) return packed;
+            long[] scratch = new long[count];
+            double[] scratchDistances = new double[count];
+            sort(packed, distances, scratch, scratchDistances, 0, count);
+            return packed;
         }
-        columns.sort(Comparator.comparingDouble(column -> Double.longBitsToDouble(column[1])));
-        long[] shaft = new long[columns.size()];
-        for (int index = 0; index < shaft.length; index++) shaft[index] = columns.get(index)[0];
-        return shaft;
+
+        private static void sort(long[] packed, double[] distances, long[] scratch, double[] scratchDistances,
+                                 int start, int end) {
+            if (end - start < 2) return;
+            int middle = (start + end) >>> 1;
+            sort(packed, distances, scratch, scratchDistances, start, middle);
+            sort(packed, distances, scratch, scratchDistances, middle, end);
+            if (Double.compare(distances[middle - 1], distances[middle]) <= 0) return;
+            int left = start, right = middle;
+            for (int at = start; at < end; at++) {
+                // Taking the left on equality preserves List.sort's stable tie order.
+                int source = right == end || (left < middle && Double.compare(distances[left], distances[right]) <= 0)
+                        ? left++ : right++;
+                scratch[at] = packed[source];
+                scratchDistances[at] = distances[source];
+            }
+            System.arraycopy(scratch, start, packed, start, end - start);
+            System.arraycopy(scratchDistances, start, distances, start, end - start);
+        }
     }
 
     /** Called off when the owner leaves, dies or changes dimension before the shot leaves; a shot already fired still lands. */

@@ -499,7 +499,7 @@ tasks.register('inspectShieldSave', JavaExec) {
 
 // NeoForge can exit zero after a loading error, before running any tests. The count is pinned, so a
 // GameTest that silently stops being discovered fails the run too.
-def expectedGameTests = 96
+def expectedGameTests = 97
 
 tasks.named('runGameTestServer').configure {
     doFirst { ext.testStartedMillis = System.currentTimeMillis() }
@@ -594,4 +594,22 @@ tasks.register('verifyDomainRules', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'dev.hurtify.relicsaddon.domain.DomainRulesCheck'
+}
+
+tasks.register('verifyLensScreenBounds', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.client.LensScreenBoundsCheck'
+}
+tasks.named('check') {
+    dependsOn 'verifyLensScreenBounds'
+}
+
+tasks.register('verifyArmageddonColumns', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath + tasks.named('compileJava').get().classpath
+    mainClass = 'dev.hurtify.relicsaddon.server.ArmageddonColumnsCheck'
+}
+tasks.named('check').configure {
+    dependsOn 'verifyArmageddonColumns'
 }

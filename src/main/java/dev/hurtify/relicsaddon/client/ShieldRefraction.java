@@ -15,6 +15,7 @@ import dev.hurtify.relicsaddon.adapter.out.world.McVectors;
 import dev.hurtify.relicsaddon.domain.device.RelicRole;
 import dev.hurtify.relicsaddon.domain.shield.ShieldImpact;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
@@ -42,6 +43,13 @@ public final class ShieldRefraction {
     private static ShaderInstance shader;
     private static TextureTarget sceneCopy;
     private static Boolean irisPresent;
+    private static boolean irisResolved;
+    private static Method irisInstance, irisShaderPack;
+    // Render-thread scratch space: each band is emitted before the next one overwrites it.
+    private static final Vec3[][] BAND_POINTS = new Vec3[RINGS + 1][SEGMENTS + 1];
+    private static final int[][] BAND_COLORS = new int[RINGS + 1][SEGMENTS + 1];
+    private static final Vec3[][] LENS_POINTS = new Vec3[9][41];
+    private static final int[][] LENS_COLORS = new int[9][41];
 
     private record Job(double x, double y, double z, double radius, RelicRole role, List<ShieldImpact> impacts, double time) { }
     /** A round warp facing the camera: a ring bump between {@code inner} and {@code radius}. */
@@ -91,9 +99,14 @@ public final class ShieldRefraction {
         if (irisPresent == null) irisPresent = ModList.get().isLoaded("iris") || ModList.get().isLoaded("oculus");
         if (!irisPresent) return false;
         try {
-            Class<?> api = Class.forName("net.irisshaders.iris.api.v0.IrisApi");
-            Object instance = api.getMethod("getInstance").invoke(null);
-            return (boolean) api.getMethod("isShaderPackInUse").invoke(instance);
+            if (!irisResolved) {
+                irisResolved = true;
+                Class<?> api = Class.forName("net.irisshaders.iris.api.v0.IrisApi");
+                irisInstance = api.getMethod("getInstance");
+                irisShaderPack = api.getMethod("isShaderPackInUse");
+            }
+            if (irisInstance == null || irisShaderPack == null) return true;
+            return (boolean) irisShaderPack.invoke(irisInstance.invoke(null));
         } catch (ReflectiveOperationException | LinkageError exception) {
             return true;
         }
@@ -146,8 +159,8 @@ public final class ShieldRefraction {
         Vec3 n = McVectors.toMc(impact.normal());
         Vec3 t1 = n.cross(Math.abs(n.y) > .9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize();
         Vec3 t2 = n.cross(t1).normalize();
-        Vec3[][] points = new Vec3[RINGS + 1][SEGMENTS + 1];
-        int[][] colors = new int[RINGS + 1][SEGMENTS + 1];
+        Vec3[][] points = BAND_POINTS;
+        int[][] colors = BAND_COLORS;
         for (int ring = 0; ring <= RINGS; ring++) {
             double theta = from + (to - from) * ring / RINGS;
             // Soft window so the band has no visible edge.
@@ -183,8 +196,8 @@ public final class ShieldRefraction {
         Vec3 right = view.cross(Math.abs(view.y) > .95 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize();
         Vec3 up = right.cross(view);
         int rings = 8, segments = 40;
-        Vec3[][] points = new Vec3[rings + 1][segments + 1];
-        int[][] colors = new int[rings + 1][segments + 1];
+        Vec3[][] points = LENS_POINTS;
+        int[][] colors = LENS_COLORS;
         for (int ring = 0; ring <= rings; ring++) {
             double t = ring / (double) rings, r = lens.inner + (lens.radius - lens.inner) * t;
             double height = lens.strength * Math.sin(Math.PI * t), window = Math.sin(Math.PI * t);

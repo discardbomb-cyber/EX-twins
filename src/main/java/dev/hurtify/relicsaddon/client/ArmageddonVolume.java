@@ -512,8 +512,12 @@ public final class ArmageddonVolume {
 
     private static void screen() {
         BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION);
-        float[][] corners = {{-1, -1}, {1, -1}, {1, 1}, {-1, -1}, {1, 1}, {-1, 1}};
-        for (float[] corner : corners) builder.addVertex(corner[0], corner[1], 0);
+        builder.addVertex(-1, -1, 0);
+        builder.addVertex(1, -1, 0);
+        builder.addVertex(1, 1, 0);
+        builder.addVertex(-1, -1, 0);
+        builder.addVertex(1, 1, 0);
+        builder.addVertex(-1, 1, 0);
         MeshData mesh = builder.build();
         if (mesh != null) BufferUploader.drawWithShader(mesh);
     }

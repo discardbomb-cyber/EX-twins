@@ -127,7 +127,9 @@ void main() {
 
         // The ball of light: a wave of glowing haze, its front ragged and billowing as it splashes out, a glowing
         // wake behind it, thickest where it scours the ground; and its light filling the air inside.
-        if (Wave > 0.001 && Front > 1.0 && up > -3.0) {
+        // Normalised fbm is in [0, 1], so the noisy front moves at most 13 blocks.
+        // Keep one extra block at both ends for floating-point rounding.
+        if (Wave > 0.001 && Front > 1.0 && up > -3.0 && Front - r > -22.0 && Front - r < 84.0) {
             float n = fbm(w * 0.026 + vec3(0.0, -Time * 0.05, Time * 0.03));
             float s = Front - (r + (n - 0.5) * 26.0);
             if (s > -8.0 && s < 70.0) {

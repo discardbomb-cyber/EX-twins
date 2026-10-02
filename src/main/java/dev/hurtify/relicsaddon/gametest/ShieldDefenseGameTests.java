@@ -43,6 +43,31 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class ShieldDefenseGameTests {
     @GameTest(template = TEMPLATE)
+    public static void spatialQueriesOmitShieldWearersInHiddenSections(GameTestHelper helper) {
+        ServerPlayer player = DeviceTestSupport.player(helper);
+        DeviceTestSupport.equip(helper, player, RelicRole.RF_SHIELD, 0);
+        // Players keep ticking and remain in level.players() even before their destination
+        // chunk becomes accessible. Section queries intentionally skip such hidden sections.
+        Vec3 destination = new Vec3(-2000000.5, 100, -2000000.5);
+        helper.assertFalse(helper.getLevel().hasChunkAt(net.minecraft.core.BlockPos.containing(destination)),
+                "The destination chunk is unloaded");
+        player.setPos(destination);
+        var projectile = new net.minecraft.world.entity.projectile.Snowball(helper.getLevel(),
+                destination.x - 4, destination.y + ShieldField.CENTER_Y, destination.z);
+        projectile.setDeltaMovement(4, 0, 0);
+        var vicinity = projectile.getBoundingBox().expandTowards(projectile.getDeltaMovement())
+                .inflate(dev.hurtify.relicsaddon.AddonConfig.SHIELD_MAX_RADIUS.get() + 1);
+        helper.assertTrue(helper.getLevel().players().contains(player) && vicinity.contains(player.position()),
+                "The legacy player scan includes the wearer");
+        helper.assertTrue(dev.hurtify.relicsaddon.server.ShieldProjectileInterceptor.crossing(projectile, player, 1) != null,
+                "The projectile crosses the equipped shield in this tick");
+        helper.assertFalse(helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.player.Player.class,
+                vicinity, candidate -> vicinity.contains(candidate.position())).contains(player),
+                "A spatial section query misses this eligible wearer");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE)
     public static void absorbedMeleeIsCancelledWithoutKnockback(GameTestHelper helper) {
         ServerPlayer player = DeviceTestSupport.player(helper);
         ItemStack shield = DeviceTestSupport.equip(helper, player, RelicRole.RF_SHIELD, 0);

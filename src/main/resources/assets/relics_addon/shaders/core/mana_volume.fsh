@@ -247,7 +247,8 @@ void main() {
                     }
                     // The dome of light: a wave of glowing haze, its front ragged and billowing, its wake glowing, its
                     // light filling the air inside.
-                    if (Wave > 0.001 && Front > 1.0 && w.y > -3.0) {
+                    // Normalised fbm displaces the front by at most 13 blocks; leave a rounding margin.
+                    if (Wave > 0.001 && Front > 1.0 && w.y > -3.0 && Front - r > -22.0 && Front - r < 84.0) {
                         float n = fbm(w * 0.026 + vec3(0.0, -Time * 0.05, Time * 0.03));
                         float s = Front - (r + (n - 0.5) * 26.0);
                         if (s > -8.0 && s < 70.0) {
