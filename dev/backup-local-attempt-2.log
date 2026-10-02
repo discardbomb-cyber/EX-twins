@@ -1,0 +1,1 @@
+fatal: update_ref failed for ref 'refs/heads/codex/dev-20261003/codex/finish-pending': cannot lock ref 'refs/heads/codex/dev-20261003/codex/finish-pending': unable to create directory for .git/refs/heads/codex/dev-20261003/codex/finish-pending

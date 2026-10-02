@@ -1,0 +1,16 @@
+| `docs/readme-ru` | `codex/dev-20261003/docs/readme-ru` | `1dff7d701ef5c9a9207e1376e0a72b3e66b2472b` |
+| `wf/shield-absorb-config` | `codex/dev-20261003/wf/shield-absorb-config` | `374ba53510c9878f2ce02f173d747c663acd26b8` |
+| `wf/dynamic-lights` | `codex/dev-20261003/wf/dynamic-lights` | `d3838c0ef5b37855b3cdb6aef56730057a89b67d` |
+| `codex/finish-pending` | `codex/dev-20261003/codex/finish-pending` | `514a30a7676d514927a9adde75f1a9347f31a693` |
+| `codex/ship-models` | `codex/dev-20261003/codex/ship-models` | `fb18769dd5601990761730adcb28aa7e340f9adb` |
+| `feature/armageddon-crater` | `codex/dev-20261003/feature/armageddon-crater` | `2e8634249a00bdfe543ef549f3cbc929a171ab5f` |
+| `feature/attacks-juice` | `codex/dev-20261003/feature/attacks-juice` | `134a5d8b3c6519960a687f5cf27d8723e34663da` |
+| `release/swarm-shields` | `codex/dev-20261003/release/swarm-shields` | `37441185654663f05c744563f6fdcb63a113915a` |
+| `main` | `codex/dev-20261003/main` | `433317a22e7456feba5ffd66f2735507fed7ecf1` |
+| `feature/ship-shield-models` | `codex/dev-20261003/feature/ship-shield-models` | `94877d2c4fb67b83c13dd7bf4a9770f9ebf619fc` |
+| `perf/effect-lights` | `codex/dev-20261003/perf/effect-lights` | `daf015b4649ec741a8db80727e8a1c3e63fcb15b` |
+| `feature/rf-armageddon` | `codex/dev-20261003/feature/rf-armageddon` | `3af7b6eb306c23c8e7ebc1c65a947b8ac2965a66` |
+| `feature/shield-repel` | `codex/dev-20261003/feature/shield-repel` | `9e9b8b738d1a554d203e01a0fb3fcfeb604fe9c3` |
+| `feature/ship-shields` | `codex/dev-20261003/feature/ship-shields` | `87739f59cb34ffa8e9c5427fd52f2b6f99d24e22` |
+| `feature/twins-spear` | `codex/dev-20261003/feature/twins-spear` | `cc6e96dcc2c16255a34f6621f41c61885564b7b5` |
+| `codex/mekanism-recipes` | `codex/dev-20261003/codex/mekanism-recipes` | `2b8c24a540c92654c18805eff44a98efd67836fe` |
