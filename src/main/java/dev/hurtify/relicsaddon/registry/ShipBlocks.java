@@ -44,7 +44,7 @@ public final class ShipBlocks {
 
     private static DeferredBlock<ShipDeviceBlock> block(RelicRole role, MapColor color) {
         DeferredBlock<ShipDeviceBlock> block = BLOCKS.register(role.itemId(), () -> new ShipDeviceBlock(role, BlockBehaviour.Properties.of()
-                .mapColor(color).strength(4, 12).sound(SoundType.COPPER).requiresCorrectToolForDrops()
+                .mapColor(color).strength(4, 12).sound(SoundType.COPPER).requiresCorrectToolForDrops().noOcclusion()
                 .lightLevel(state -> state.getValue(ShipDeviceBlock.LIT) ? 9 : 3)));
         ITEMS.put(role, ModItems.ITEMS.register(role.itemId(), () -> new ShipDeviceItem(block.get(),
                 new Item.Properties().stacksTo(1).rarity(role.isShipGenerator() ? Rarity.RARE : Rarity.UNCOMMON))));

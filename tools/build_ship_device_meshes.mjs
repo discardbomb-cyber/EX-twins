@@ -93,6 +93,7 @@ class Mesh {
     this.box(group, material, c, [h[0], 0, 0], [0, h[1], 0], [0, 0, h[2]]);
   }
   /** Surface of revolution: profile = [[radius, along]] from the centre along the axis; closed when the ends have radius 0. */
+  /** uvScale maps the whole surface onto that share of the texture; atlas sprites cannot tile, so never above 1. */
   lathe(group, material, centre, axis, profile, segments = 32, uvScale = null) {
     const a = norm(axis), u = perp(a), w = cross(a, u);
     const ring = ([radius, along], t) => add(add(centre, mul(a, along)), add(mul(u, Math.cos(t) * radius), mul(w, Math.sin(t) * radius)));
@@ -144,14 +145,15 @@ class Mesh {
       this.poly(group, material, [at(inner, t0), at(inner, t1), at(outer, t1), at(outer, t0)]);
     }
   }
-  /** Extruded regular or custom polygon: 2D points [[x, z]] round `centre`, from y0 to y1. */
+  /** Extruded polygon: 2D points [[x, z]] round `centre` in angle order, from y0 to y1; faces wound outward. */
   prism(group, material, centre, points2d, y0, y1, sideMaterial = material) {
     const at = (p, y) => [centre[0] + p[0], y, centre[2] + p[1]];
-    this.poly(group, material, points2d.map(p => at(p, y1)), null, true);
-    this.poly(group, material, [...points2d].reverse().map(p => at(p, y0)), null, true);
+    // Points in increasing angle from +x towards +z run clockwise seen from above (y up, z south).
+    this.poly(group, material, [...points2d].reverse().map(p => at(p, y1)), null, true);
+    this.poly(group, material, points2d.map(p => at(p, y0)), null, true);
     for (let i = 0; i < points2d.length; i++) {
       const p = points2d[i], q = points2d[(i + 1) % points2d.length];
-      this.poly(group, sideMaterial, [at(p, y0), at(q, y0), at(q, y1), at(p, y1)], null, true);
+      this.poly(group, sideMaterial, [at(p, y1), at(q, y1), at(q, y0), at(p, y0)], null, true);
     }
   }
   /** UV sphere: material(theta, phi, dir) picks the material per quad, or null to leave a hole. */
@@ -317,6 +319,11 @@ function rfGenerator() {
     const end = add(pivot, [0, -length + .04, 0]);
     m.box(group, k => (k === 0 ? "steel_light" : "graphite"), add(end, mul(d, .022)), mul(d, .008), [0, .09, 0], mul(t, .075));
     m.box(group, "cyan", add(end, mul(d, .032)), mul(d, .003), [0, .012, 0], mul(t, .012));
+    // Open radiator grille like the tower reference, with visible ribs instead of a solid slab.
+    for (let rib = 0; rib < 7; rib++) {
+      m.box(group, "steel_light", add(add(end, [0, -.075 + rib * .025, 0]), mul(d, .038)), mul(d, .004), [0, .004, 0], mul(t, .068));
+    }
+    for (const side of [-1, 1]) m.box(group, "steel", add(add(end, mul(t, side * .07)), mul(d, .038)), mul(d, .005), [0, .09, 0], mul(t, .005));
   }
   // The lit floor ring (s10) in the block's `_on` model.
   m.annulus("ring", "ring_light", [.5, y0 + .062, .5], [0, 1, 0], .4, .45, 32);
@@ -361,6 +368,11 @@ function manaGenerator() {
     m.poly(group, "navy", [at(-.165, -.165, -.042), at(.165, -.165, -.042), at(.165, .165, -.042), at(-.165, .165, -.042)]);
     m.poly(group, "glass_light", [at(0, .1, -.028), at(-.1, 0, -.028), at(0, -.1, -.028), at(.1, 0, -.028)]);
     m.poly(group, "glass", [at(0, .06, -.026), at(-.06, 0, -.026), at(0, -.06, -.026), at(.06, 0, -.026)]);
+    // Circular inscription inset into each square face, matching the holocron reference.
+    for (let s = 0; s < 24; s++) {
+      const a = s * Math.PI / 12, b = (s + 1) * Math.PI / 12;
+      m.tube(group, "gold_edge", at(Math.cos(a) * .13, Math.sin(a) * .13, -.02), at(Math.cos(b) * .13, Math.sin(b) * .13, -.02), .003, 4);
+    }
   });
   // Core: a star, a blue octahedron lit from within with a gold pyramid on each face (the open
   // holocron's points), hidden inside the closed cube.
@@ -395,9 +407,16 @@ function truncatedIcosahedron() {
   // Faces: the vertex ring round each face normal (hexagon centres = icosahedron faces, pentagon centres = its vertices).
   const faces = [];
   const centres = [];
-  for (const [x, y, z] of [[0, 1, phi]]) for (const p of perms(x, y, z)) for (const sy of [1, -1]) for (const sz of [1, -1]) centres.push({ n: norm([p[0], p[1] * sy, p[2] * sz]), size: 5 });
-  for (const s of [[1, 1, 1], [1, 1, -1], [1, -1, 1], [1, -1, -1], [-1, 1, 1], [-1, 1, -1], [-1, -1, 1], [-1, -1, -1]]) centres.push({ n: norm(s), size: 6 });
-  for (const [x, y, z] of [[0, 1 / phi, phi]]) for (const p of perms(x, y, z)) for (const sy of [1, -1]) for (const sz of [1, -1]) centres.push({ n: norm([p[0], p[1] * sy, p[2] * sz]), size: 6 });
+  const signed = (seed, size) => {
+    for (const p of perms(...seed)) for (const sx of [1, -1]) for (const sy of [1, -1]) for (const sz of [1, -1]) {
+      const n = norm([p[0] * sx, p[1] * sy, p[2] * sz]);
+      if (!centres.some(c => len(sub(c.n, n)) < 1e-9)) centres.push({ n, size });
+    }
+  };
+  signed([0, 1, phi], 5);
+  signed([1, 1, 1], 6);
+  signed([0, 1 / phi, phi], 6);
+  if (centres.length !== 32) throw new Error(`truncated icosahedron: ${centres.length} faces`);
   for (const { n, size } of centres) {
     const ring = verts.map((v, i) => ({ i, d: dot(v, n) })).sort((a, b) => b.d - a.d).slice(0, size).map(e => e.i);
     const u = perp(n), w = cross(n, u);
@@ -421,7 +440,7 @@ function twinsGenerator() {
   const oct = r => Array.from({ length: 8 }, (_, i) => [Math.cos((i + .5) * Math.PI / 4) * r, Math.sin((i + .5) * Math.PI / 4) * r]);
   m.prism("body", "marble_dark", C, oct(.44), 0, .05, "marble");
   m.lathe("body", i => (i === 1 || i === 4 ? "gold_edge" : i >= 6 ? "gold" : "marble"), [.5, .05, .5], [0, 1, 0],
-    [[.22, 0], [.22, .05], [.24, .07], [.21, .07], [.21, .16], [.24, .18], [.2, .18], [.1, .18], [.1, .26], [0, .26]], 24, [4, 1]);
+    [[.22, 0], [.22, .05], [.24, .07], [.21, .07], [.21, .16], [.24, .18], [.2, .18], [.1, .18], [.1, .26], [0, .26]], 24, [1, 1]);
   for (let i = 0; i < 4; i++) {
     const a = i * Math.PI / 2 + Math.PI / 4, d = [Math.cos(a), 0, Math.sin(a)], t = [-Math.sin(a), 0, Math.cos(a)];
     m.box("body", k => (k === 1 ? "gold" : "marble"), add([.5, .2, .5], mul(d, .2)), mul(d, .04), [0, .08, 0], mul(t, .05));
@@ -437,10 +456,10 @@ function twinsGenerator() {
     const uvs = points.map(p => { const q = sub(p, centre); return [.5 + dot(q, u) * 1.4, .5 + dot(q, w) * 1.4]; });
     m.poly("body", "marble", points, uvs, true);
   }
-  m.sphere("body", "marble_dark", centre, R * .88, 8, 14, [4, 2]);
+  m.sphere("body", "marble_dark", centre, R * .88, 8, 14);
   for (const [a, b] of edges) m.tube("body", "gold_edge", add(centre, mul(verts[a], R * 1.01)), add(centre, mul(verts[b], R * 1.01)), .011, 5);
   // Core: the ring of galaxy orbs on a thin gold rail, tilted; it spins when the generator runs.
-  const tilt = .38, axis = norm([Math.sin(tilt), Math.cos(tilt), 0]), ringR = .54, orbs = 14;
+  const tilt = .38, axis = norm([Math.sin(tilt), Math.cos(tilt), 0]), ringR = .54, orbs = 20;
   const u = perp(axis), w = cross(axis, u);
   const onRing = t => add(centre, add(mul(u, Math.cos(t) * ringR), mul(w, Math.sin(t) * ringR)));
   const rail = [], side = [];
@@ -448,7 +467,7 @@ function twinsGenerator() {
   m.ribbon("core", rail, side, .012, .008, "gold", "gold_edge", true);
   for (let i = 0; i < orbs; i++) {
     const p = onRing(2 * Math.PI * i / orbs);
-    m.sphere("core", "galaxy", p, .055, 5, 8);
+    m.sphere("core", "galaxy", p, .055, 7, 12);
     m.lathe("core", "gold_edge", p, axis, [[.058, -.006], [.062, 0], [.058, .006]], 10);
   }
   // Fx: golden threads from the pedestal to the sphere and on to the ring, slightly twisted.
@@ -489,7 +508,7 @@ function rfDock() {
   });
   // Base disc with a stepped rim, a ring of spoke slots and the raised hub.
   m.lathe("body", i => (i <= 1 ? "black" : i === 3 ? "panel" : "grey"), [.5, 0, .5], [0, 1, 0],
-    [[0, 0], [.5, 0], [.5, .07], [.47, .09], [.33, .1], [.3, .13], [.22, .13], [.2, .2], [.17, .22], [0, .22]], 36, [6, 1]);
+    [[0, 0], [.5, 0], [.5, .07], [.47, .09], [.33, .1], [.3, .13], [.22, .13], [.2, .2], [.17, .22], [0, .22]], 36, [1, 1]);
   for (let i = 0; i < 12; i++) {
     const a = i * Math.PI / 6 + Math.PI / 12, d = [Math.cos(a), 0, Math.sin(a)], t = [-Math.sin(a), 0, Math.cos(a)];
     m.box("body", "black", add([.5, .1, .5], mul(d, .4)), mul(d, .05), [0, .012, 0], mul(t, .012));
@@ -615,7 +634,7 @@ function twinsDock() {
     const a = Math.atan2(dot(dir, u), dot(dir, cut.d)), b = Math.atan2(dot(dir, w), dot(dir, cut.d));
     return dot(dir, cut.d) > 0 && (a / cut.ra) ** 2 + (b / cut.rb) ** 2 < scale * scale;
   };
-  m.sphere("body", (t, p, dir) => (cuts.some(cut => inCut(dir, cut)) ? null : dir[1] < -.6 ? "steel_dark" : "steel"), centre, R, 18, 36, [3, 2]);
+  m.sphere("body", (t, p, dir) => (cuts.some(cut => inCut(dir, cut)) ? null : dir[1] < -.6 ? "steel_dark" : "steel"), centre, R, 18, 36);
   for (const cut of cuts) {
     const u = rotate(perp(cut.d), cut.d, cut.spin), w = cross(cut.d, u);
     const path = [], side = [];
@@ -684,15 +703,20 @@ function writeModels(id, parts, generator) {
 }
 
 writeTextures();
-const built = {
-  rf_ship_shield_generator: [rfGenerator(), true],
-  mana_ship_shield_generator: [manaGenerator(), true],
-  twins_ship_shield_generator: [twinsGenerator(), true],
-  rf_drone_dock: [rfDock(), false],
-  mana_drone_dock: [manaDock(), false],
-  twins_drone_dock: [twinsDock(), false],
+const builders = {
+  rf_ship_shield_generator: [rfGenerator, true],
+  mana_ship_shield_generator: [manaGenerator, true],
+  twins_ship_shield_generator: [twinsGenerator, true],
+  rf_drone_dock: [rfDock, false],
+  mana_drone_dock: [manaDock, false],
+  twins_drone_dock: [twinsDock, false],
 };
-for (const [id, [{ shells }, generator]] of Object.entries(built)) {
+const onlyIndex = process.argv.indexOf("--only");
+const selected = onlyIndex < 0 ? Object.keys(builders) : process.argv[onlyIndex + 1]?.split(",");
+if (!selected?.length || selected.some(id => !builders[id])) throw new Error("--only expects comma-separated device IDs");
+for (const id of selected) {
+  const [build, generator] = builders[id];
+  const { shells } = build();
   const parts = ["body", ...(generator ? ["ring"] : []), "core", "fx", ...Array.from({ length: shells }, (_, i) => `shell_${i}`)];
   writeModels(id, parts, generator);
 }
