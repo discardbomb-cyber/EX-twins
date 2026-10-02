@@ -11,13 +11,13 @@
       "item": "relics_addon:twins_drone_plate"
     },
     "C": {
-      "item": "relics_addon:resonant_circuit"
+      "item": "mekanism:ultimate_control_circuit"
     },
     "E": {
       "item": "relics_addon:energy_cell"
     },
     "I": {
-      "item": "minecraft:iron_block"
+      "item": "mekanism:block_steel"
     }
   },
   "result": {

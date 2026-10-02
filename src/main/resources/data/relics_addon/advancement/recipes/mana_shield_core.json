@@ -6,7 +6,12 @@
       "conditions": {
         "items": [
           {
-            "items": "relics_addon:resonant_circuit"
+            "items": [
+              "mekanism:alloy_reinforced",
+              "mekanism:elite_control_circuit",
+              "mekanism:ingot_refined_glowstone",
+              "minecraft:amethyst_block"
+            ]
           }
         ]
       }

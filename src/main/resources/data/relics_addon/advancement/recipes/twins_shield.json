@@ -6,7 +6,13 @@
       "conditions": {
         "items": [
           {
-            "items": "relics_addon:twins_shield_core"
+            "items": [
+              "mekanism:ingot_refined_obsidian",
+              "mekanism:ultimate_control_circuit",
+              "relics_addon:energy_cell",
+              "relics_addon:mana_cell",
+              "relics_addon:twins_shield_core"
+            ]
           }
         ]
       }

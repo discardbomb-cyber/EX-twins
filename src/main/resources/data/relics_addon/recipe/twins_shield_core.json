@@ -8,16 +8,16 @@
   ],
   "key": {
     "C": {
-      "item": "minecraft:crying_obsidian"
+      "item": "mekanism:ingot_refined_obsidian"
     },
     "E": {
-      "item": "minecraft:echo_shard"
+      "item": "mekanism:alloy_atomic"
     },
     "X": {
       "item": "relics_addon:resonant_circuit"
     },
     "D": {
-      "item": "minecraft:diamond"
+      "item": "mekanism:ultimate_control_circuit"
     }
   },
   "result": {

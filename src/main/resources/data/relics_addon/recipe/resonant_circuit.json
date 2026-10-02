@@ -8,16 +8,16 @@
   ],
   "key": {
     "G": {
-      "item": "minecraft:gold_nugget"
+      "item": "mekanism:ingot_osmium"
     },
     "R": {
-      "item": "minecraft:redstone"
+      "item": "mekanism:alloy_infused"
     },
     "Q": {
       "item": "minecraft:quartz"
     },
     "C": {
-      "item": "minecraft:copper_ingot"
+      "item": "mekanism:basic_control_circuit"
     }
   },
   "result": {

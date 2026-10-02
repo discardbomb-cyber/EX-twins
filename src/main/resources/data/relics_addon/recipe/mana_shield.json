@@ -8,13 +8,13 @@
   ],
   "key": {
     "X": {
-      "item": "relics_addon:resonant_circuit"
+      "item": "mekanism:elite_control_circuit"
     },
     "M": {
       "item": "relics_addon:mana_cell"
     },
     "G": {
-      "item": "minecraft:gold_ingot"
+      "item": "mekanism:ingot_refined_glowstone"
     },
     "K": {
       "item": "relics_addon:mana_shield_core"

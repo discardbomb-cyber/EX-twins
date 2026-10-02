@@ -6,7 +6,11 @@
       "conditions": {
         "items": [
           {
-            "items": "relics_addon:mana_drone_shell"
+            "items": [
+              "mekanism:elite_control_circuit",
+              "relics_addon:mana_cell",
+              "relics_addon:mana_drone_shell"
+            ]
           }
         ]
       }

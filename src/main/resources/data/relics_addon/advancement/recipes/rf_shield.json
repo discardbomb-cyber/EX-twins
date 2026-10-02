@@ -6,7 +6,12 @@
       "conditions": {
         "items": [
           {
-            "items": "relics_addon:rf_shield_core"
+            "items": [
+              "mekanism:advanced_control_circuit",
+              "mekanism:ingot_steel",
+              "relics_addon:energy_cell",
+              "relics_addon:rf_shield_core"
+            ]
           }
         ]
       }

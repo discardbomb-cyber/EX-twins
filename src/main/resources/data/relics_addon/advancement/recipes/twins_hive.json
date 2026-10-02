@@ -6,7 +6,13 @@
       "conditions": {
         "items": [
           {
-            "items": "relics_addon:twins_drone_plate"
+            "items": [
+              "mekanism:teleportation_core",
+              "mekanism:ultimate_control_circuit",
+              "relics_addon:energy_cell",
+              "relics_addon:mana_cell",
+              "relics_addon:twins_drone_plate"
+            ]
           }
         ]
       }

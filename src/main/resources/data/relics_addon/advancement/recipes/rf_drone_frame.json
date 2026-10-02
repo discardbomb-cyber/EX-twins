@@ -6,7 +6,12 @@
       "conditions": {
         "items": [
           {
-            "items": "relics_addon:resonant_circuit"
+            "items": [
+              "mekanism:alloy_infused",
+              "mekanism:ingot_osmium",
+              "mekanism:ingot_steel",
+              "relics_addon:resonant_circuit"
+            ]
           }
         ]
       }

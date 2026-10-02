@@ -8,16 +8,16 @@
   ],
   "key": {
     "I": {
-      "item": "minecraft:iron_ingot"
+      "item": "mekanism:ingot_steel"
     },
     "X": {
-      "item": "relics_addon:resonant_circuit"
+      "item": "mekanism:alloy_infused"
     },
     "S": {
       "item": "minecraft:shield"
     },
     "D": {
-      "item": "minecraft:diamond"
+      "item": "mekanism:advanced_control_circuit"
     }
   },
   "result": {

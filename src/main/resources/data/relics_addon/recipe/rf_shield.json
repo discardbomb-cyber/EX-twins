@@ -8,13 +8,13 @@
   ],
   "key": {
     "X": {
-      "item": "relics_addon:resonant_circuit"
+      "item": "mekanism:advanced_control_circuit"
     },
     "E": {
       "item": "relics_addon:energy_cell"
     },
     "I": {
-      "item": "minecraft:iron_ingot"
+      "item": "mekanism:ingot_steel"
     },
     "K": {
       "item": "relics_addon:rf_shield_core"
