@@ -233,6 +233,9 @@ public final class WorldScenarios {
             // of the Mana generator, which refused to come on beside it.
             new Scene("ship-devices", RelicRole.RF_HIVE, 0, AttackMode.DROPLET, null, List.of(), false,
                     new Vec3(3.5, 3.2, 3.5), new Vec3(0, 0.6, -2), 60, 4, -1),
+            // The same deck from the east end of the row, close enough to read the models and their motion.
+            new Scene("ship-devices-close", RelicRole.RF_HIVE, 0, AttackMode.DROPLET, null, List.of(), false,
+                    new Vec3(5.2, 1.9, 0.2), new Vec3(-1, 0.55, -2), 100, 4, -1),
             new Scene("ship-console", RelicRole.RF_HIVE, 0, AttackMode.DROPLET, null, List.of(), false,
                     new Vec3(3.5, 3.2, 3.5), new Vec3(0, 0.6, -2), 60, 4, -1),
             // The console's Swarm tab: drones shared between all three modes and the healers, a slider hovered;

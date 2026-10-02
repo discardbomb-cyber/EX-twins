@@ -45,7 +45,7 @@ const POSES = {
     const i = Number(group.replace("shell_", ""));
     if (Number.isNaN(i)) return null;
     const a = i * Math.PI / 2 + Math.PI / 4, d = [Math.cos(a), 0, Math.sin(a)], t = [-Math.sin(a), 0, Math.cos(a)];
-    return about(add([.5, .81, .5], mul(d, .21)), t, -2.1);
+    return about(add([.5, .81, .5], mul(d, .21)), t, 2.1);
   } },
   mana_ship_shield_generator: { on: group => {
     const i = Number(group.replace("shell_", ""));
