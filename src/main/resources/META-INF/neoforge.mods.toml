@@ -44,6 +44,14 @@ versionRange="[${ldlib2_version},)"
 ordering="AFTER"
 side="BOTH"
 
+# Core Mekanism is required by the crafting progression on both client and server.
+[[dependencies.${mod_id}]]
+modId="mekanism"
+type="required"
+versionRange="[${mekanism_min_version},10.8)"
+ordering="AFTER"
+side="BOTH"
+
 # Optional: with LambDynamicLights installed, shields, swarm effects and blasts light up the world.
 [[dependencies.${mod_id}]]
 modId="lambdynlights_api"

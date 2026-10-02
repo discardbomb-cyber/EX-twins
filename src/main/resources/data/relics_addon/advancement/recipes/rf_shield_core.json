@@ -6,7 +6,12 @@
       "conditions": {
         "items": [
           {
-            "items": "relics_addon:resonant_circuit"
+            "items": [
+              "mekanism:advanced_control_circuit",
+              "mekanism:alloy_infused",
+              "mekanism:ingot_steel",
+              "minecraft:shield"
+            ]
           }
         ]
       }

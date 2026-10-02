@@ -8,16 +8,16 @@
   ],
   "key": {
     "G": {
-      "item": "minecraft:gold_ingot"
+      "item": "mekanism:ingot_refined_glowstone"
     },
     "X": {
-      "item": "relics_addon:resonant_circuit"
+      "item": "mekanism:alloy_reinforced"
     },
     "A": {
       "item": "minecraft:amethyst_block"
     },
     "D": {
-      "item": "minecraft:diamond"
+      "item": "mekanism:elite_control_circuit"
     }
   },
   "result": {

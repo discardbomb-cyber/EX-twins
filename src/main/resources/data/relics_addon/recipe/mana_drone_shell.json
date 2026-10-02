@@ -8,13 +8,13 @@
   ],
   "key": {
     "N": {
-      "item": "minecraft:gold_nugget"
+      "item": "mekanism:ingot_refined_glowstone"
     },
     "A": {
       "item": "minecraft:amethyst_shard"
     },
     "X": {
-      "item": "relics_addon:resonant_circuit"
+      "item": "mekanism:alloy_reinforced"
     }
   },
   "result": {

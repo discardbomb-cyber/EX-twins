@@ -8,13 +8,13 @@
   ],
   "key": {
     "T": {
-      "item": "minecraft:copper_ingot"
+      "item": "mekanism:energy_tablet"
     },
     "I": {
-      "item": "minecraft:iron_ingot"
+      "item": "mekanism:ingot_steel"
     },
     "B": {
-      "item": "minecraft:redstone_block"
+      "item": "mekanism:basic_control_circuit"
     },
     "X": {
       "item": "relics_addon:resonant_circuit"

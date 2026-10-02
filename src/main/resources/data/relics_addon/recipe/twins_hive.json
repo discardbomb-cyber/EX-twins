@@ -11,7 +11,7 @@
       "item": "relics_addon:twins_drone_plate"
     },
     "X": {
-      "item": "relics_addon:resonant_circuit"
+      "item": "mekanism:ultimate_control_circuit"
     },
     "E": {
       "item": "relics_addon:energy_cell"
@@ -20,7 +20,7 @@
       "item": "relics_addon:mana_cell"
     },
     "Y": {
-      "item": "minecraft:end_crystal"
+      "item": "mekanism:teleportation_core"
     }
   },
   "result": {

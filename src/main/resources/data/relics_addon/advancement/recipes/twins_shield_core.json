@@ -6,7 +6,12 @@
       "conditions": {
         "items": [
           {
-            "items": "minecraft:echo_shard"
+            "items": [
+              "mekanism:alloy_atomic",
+              "mekanism:ingot_refined_obsidian",
+              "mekanism:ultimate_control_circuit",
+              "relics_addon:resonant_circuit"
+            ]
           }
         ]
       }

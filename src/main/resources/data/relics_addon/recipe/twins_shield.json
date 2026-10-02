@@ -8,7 +8,7 @@
   ],
   "key": {
     "X": {
-      "item": "relics_addon:resonant_circuit"
+      "item": "mekanism:ultimate_control_circuit"
     },
     "E": {
       "item": "relics_addon:energy_cell"
@@ -17,7 +17,7 @@
       "item": "relics_addon:mana_cell"
     },
     "O": {
-      "item": "minecraft:crying_obsidian"
+      "item": "mekanism:ingot_refined_obsidian"
     },
     "K": {
       "item": "relics_addon:twins_shield_core"

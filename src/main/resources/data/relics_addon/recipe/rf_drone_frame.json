@@ -8,16 +8,16 @@
   ],
   "key": {
     "I": {
-      "item": "minecraft:iron_ingot"
+      "item": "mekanism:ingot_steel"
     },
     "C": {
-      "item": "minecraft:copper_ingot"
+      "item": "mekanism:ingot_osmium"
     },
     "X": {
       "item": "relics_addon:resonant_circuit"
     },
     "R": {
-      "item": "minecraft:redstone"
+      "item": "mekanism:alloy_infused"
     }
   },
   "result": {

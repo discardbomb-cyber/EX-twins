@@ -11,7 +11,7 @@
       "item": "relics_addon:mana_drone_shell"
     },
     "C": {
-      "item": "relics_addon:resonant_circuit"
+      "item": "mekanism:elite_control_circuit"
     },
     "S": {
       "item": "relics_addon:mana_shield_core"

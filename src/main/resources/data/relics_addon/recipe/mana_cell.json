@@ -11,10 +11,10 @@
       "item": "minecraft:amethyst_shard"
     },
     "G": {
-      "item": "minecraft:gold_ingot"
+      "item": "mekanism:ingot_refined_glowstone"
     },
     "L": {
-      "item": "minecraft:lapis_block"
+      "item": "mekanism:advanced_control_circuit"
     },
     "X": {
       "item": "relics_addon:resonant_circuit"

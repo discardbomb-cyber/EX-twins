@@ -6,7 +6,12 @@
       "conditions": {
         "items": [
           {
-            "items": "minecraft:redstone"
+            "items": [
+              "mekanism:alloy_infused",
+              "mekanism:basic_control_circuit",
+              "mekanism:ingot_osmium",
+              "minecraft:quartz"
+            ]
           }
         ]
       }

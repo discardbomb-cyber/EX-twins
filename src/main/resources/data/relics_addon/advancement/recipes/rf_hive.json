@@ -6,7 +6,11 @@
       "conditions": {
         "items": [
           {
-            "items": "relics_addon:rf_drone_frame"
+            "items": [
+              "mekanism:advanced_control_circuit",
+              "relics_addon:energy_cell",
+              "relics_addon:rf_drone_frame"
+            ]
           }
         ]
       }

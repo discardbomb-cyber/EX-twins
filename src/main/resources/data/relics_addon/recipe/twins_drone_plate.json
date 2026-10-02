@@ -8,13 +8,13 @@
   ],
   "key": {
     "O": {
-      "item": "minecraft:obsidian"
+      "item": "mekanism:ingot_refined_obsidian"
     },
     "A": {
-      "item": "minecraft:amethyst_shard"
+      "item": "mekanism:alloy_atomic"
     },
     "X": {
-      "item": "relics_addon:resonant_circuit"
+      "item": "mekanism:elite_control_circuit"
     }
   },
   "result": {

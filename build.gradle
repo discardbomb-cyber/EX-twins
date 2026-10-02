@@ -180,6 +180,11 @@ neoForge {
 
 repositories {
     maven {
+        name = "Mekanism"
+        url = "https://modmaven.dev/"
+        content { includeGroup "mekanism" }
+    }
+    maven {
         name = "Curios"
         url = "https://maven.theillusivec4.top/"
         content { includeGroup "top.theillusivec4.curios" }
@@ -215,6 +220,8 @@ def neoForgeVariant = { AttributeContainer attributes ->
 dependencies {
     attributesSchema { attribute(mappingsAttribute) }
     testImplementation 'com.google.code.gson:gson:2.10.1'
+    // Required recipe ingredients, without a Java/API dependency or bundling Mekanism.
+    runtimeOnly "mekanism:Mekanism:${mekanism_version}"
     implementation "top.theillusivec4.curios:curios-neoforge:${curios_version}"
     implementation("com.lowdragmc.photon:photon-neoforge-1.21.1:${photon_version}:all") { transitive = false }
     implementation "com.lowdragmc.ldlib2:ldlib2-neoforge-1.21.1:${ldlib2_version}:all"
@@ -250,6 +257,7 @@ tasks.named('processResources', ProcessResources).configure {
             mod_version      : mod_version,
             mod_authors      : mod_authors,
             mod_description  : mod_description,
+            mekanism_min_version: mekanism_min_version,
             curios_version   : curios_version,
             photon_version   : photon_version,
             ldlib2_version   : ldlib2_version,
@@ -267,7 +275,7 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }
 
-configurations.releaseProbeRuntimeClasspath.extendsFrom(configurations.implementation)
+configurations.releaseProbeRuntimeClasspath.extendsFrom(configurations.implementation, configurations.runtimeOnly)
 
 tasks.withType(AbstractArchiveTask).configureEach {
     preserveFileTimestamps = false
@@ -491,7 +499,7 @@ tasks.register('inspectShieldSave', JavaExec) {
 
 // NeoForge can exit zero after a loading error, before running any tests. The count is pinned, so a
 // GameTest that silently stops being discovered fails the run too.
-def expectedGameTests = 95
+def expectedGameTests = 96
 
 tasks.named('runGameTestServer').configure {
     doFirst { ext.testStartedMillis = System.currentTimeMillis() }
