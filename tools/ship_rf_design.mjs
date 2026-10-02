@@ -72,23 +72,30 @@ export function buildRfGenerator(Mesh,{add,sub,mul,norm,cross}) {
   }
   m.torus("fx","white",centre,Y,.101,.004,40,6);
   for(const y of [-.085,.085]) m.lathe("core","edge",add(centre,[0,y,0]),Y,[[0,0],[.044,0],[.044,.012],[.032,.018],[0,.018]],16);
-  // Three asymmetric floating vanes: swept triangular outlines with a real circular aperture.
-  const heights=[.62,1.12,.97];
-  for(let index=0;index<3;index++) {
-    const group=`shell_${index}`, angle=-Math.PI/2+index*Math.PI*2/3;
+  // Six spherical triangular radiator panels: three upper and three lower sectors.
+  for(let index=0;index<6;index++) {
+    const group=`shell_${index}`, angle=-Math.PI/2+(index%3)*Math.PI*2/3;
     const n=[Math.cos(angle),0,Math.sin(angle)], u=[-Math.sin(angle),0,Math.cos(angle)];
-    const pivot=add([.5,heights[index],.5],mul(n,.395));
+    const hemisphere=index<3?1:-1;
     const outer=[], count=36, control=[[-.19,-.16],[-.065,.24],[.185,-.14]];
     for(let edge=0;edge<3;edge++) {
       const a=control[edge],b=control[(edge+1)%3];
       for(let k=0;k<12;k++) {
-        const f=k/12, bend=edge===2?-.065:.024;
+        const f=k/12, bend=0;
         outer.push([a[0]*(1-f)+b[0]*f, a[1]*(1-f)+b[1]*f+bend*Math.sin(f*Math.PI)]);
       }
     }
     const hole=[0,-.085], radius=.038;
-    const warp=(p,back=0)=>add(add(add(pivot,mul(u,p[0])),mul(Y,p[1])),mul(n,.016+.065*(p[0]/.19)**2+back));
-    const normal=p=>norm(add(n,mul(u,-2*.065*p[0]/(.19*.19))));
+    const spherical=p=>{
+      const [a,b,c]=control, det=(b[1]-c[1])*(a[0]-c[0])+(c[0]-b[0])*(a[1]-c[1]);
+      const wa=((b[1]-c[1])*(p[0]-c[0])+(c[0]-b[0])*(p[1]-c[1]))/det;
+      const wb=((c[1]-a[1])*(p[0]-c[0])+(a[0]-c[0])*(p[1]-c[1]))/det;
+      const left=[Math.cos(angle-Math.PI/3),0,Math.sin(angle-Math.PI/3)];
+      const right=[Math.cos(angle+Math.PI/3),0,Math.sin(angle+Math.PI/3)];
+      return norm(add(add(mul(left,wa),[0,hemisphere*wb,0]),mul(right,1-wa-wb)));
+    };
+    const warp=(p,back=0)=>add(centre,mul(spherical(p),.375+back));
+    const normal=p=>spherical(p);
     const inner=outer.map(p=>{
       const a=Math.atan2(p[1]-hole[1],p[0]-hole[0]);
       return [hole[0]+Math.cos(a)*radius,hole[1]+Math.sin(a)*radius];
@@ -120,6 +127,6 @@ export function buildRfGenerator(Mesh,{add,sub,mul,norm,cross}) {
     }
     for(let k=0;k<4;k++) m.tube(group,k%2?"inset":"warning",warp([.065+k*.012,-.15],.005),warp([.072+k*.012,-.132],.005),.004,4);
   }
-  m.write(["body","ring","core","fx","shell_0","shell_1","shell_2"]);
-  return {shells:3,height:1.4};
+  m.write(["body","ring","core","fx",...Array.from({length:6},(_,i)=>`shell_${i}`)]);
+  return {shells:6,height:1.4};
 }

@@ -49,7 +49,7 @@ import org.joml.Vector3f;
 public final class ShipDeviceRenderer implements BlockEntityRenderer<ShipDeviceBlockEntity> {
     /** Ticks a generator takes to open, and a dock to bring its modules out. */
     private static final double OPEN_TICKS = 60, DOCK_TICKS = 20;
-    private static final int MANA_PLATES = 3, RF_VANES = 3, RF_DOCK_MODULES = 3, MANA_DOCK_SHARDS = 3;
+    private static final int MANA_PLATES = 3, RF_VANES = 6, RF_DOCK_MODULES = 3, MANA_DOCK_SHARDS = 3;
     private static final Map<ShipDeviceBlockEntity, View> VIEWS = new WeakHashMap<>();
 
     /** What each device looks like right now: how far open it is, and the motion that accumulates. */
@@ -132,22 +132,25 @@ public final class ShipDeviceRenderer implements BlockEntityRenderer<ShipDeviceB
     private void rfGenerator(RelicRole role, BlockState state, View view, double open, double time, PoseStack poses,
                              VertexConsumer buffer, int light, int bright, int overlay, Vec3 centre) {
         double share = ease(open);
-        view.spin = (view.spin + 1.7 * share * view.dt) % 360;
-        view.turn = (view.turn + .65 * share * view.dt) % 360;
+        view.spin = (view.spin + 3 * share * view.dt) % 360;
+        view.turn = (view.turn + 1.5 * share * view.dt) % 360;
         poses.pushPose();
         about(poses, .5, .78, 0, 1, 0, (float) view.spin);
         part(role, "core", state, poses, buffer, light, overlay);
         poses.popPose();
-        double[] heights = {.62, 1.12, .97};
         for (int index = 0; index < RF_VANES; index++) {
-            double angle = -Math.PI / 2 + index * Math.PI * 2 / 3;
-            double nx = Math.cos(angle), nz = Math.sin(angle);
+            double angle = -Math.PI / 2 + (index % 3) * Math.PI * 2 / 3;
+            double nx = Math.cos(angle), nz = Math.sin(angle), sy = index < 3 ? 1 : -1;
+            Vector3f normal = new Vector3f((float) nx, (float) (.55 * sy), (float) nz).normalize();
+            Vector3f tangent = new Vector3f((float) -nz, 0, (float) nx);
+            double px = .5 + normal.x * .375, py = .78 + normal.y * .375, pz = .5 + normal.z * .375;
             poses.pushPose();
             about(poses, .5, .78, 0, 1, 0, (float) view.turn);
-            poses.translate(nx * .055 * share, Math.sin(time * .045 + index * Math.PI * 2 / 3) * .012 * share, nz * .055 * share);
-            poses.translate(.5 + nx * .395, heights[index], .5 + nz * .395);
-            poses.mulPose(Axis.of(new Vector3f((float) nx, 0, (float) nz)).rotation((float) (.15 * share)));
-            poses.translate(-.5 - nx * .395, -heights[index], -.5 - nz * .395);
+            poses.translate(normal.x * .23 * share, normal.y * .23 * share, normal.z * .23 * share);
+            poses.translate(px, py, pz);
+            poses.mulPose(Axis.of(tangent).rotationDegrees((float) (sy * 24 * share)));
+            poses.mulPose(Axis.of(normal).rotationDegrees((float) (sy * 30 * share)));
+            poses.translate(-px, -py, -pz);
             part(role, "shell_" + index, state, poses, buffer, light, overlay);
             poses.popPose();
         }
@@ -164,7 +167,7 @@ public final class ShipDeviceRenderer implements BlockEntityRenderer<ShipDeviceB
     private void manaGenerator(RelicRole role, BlockState state, View view, double open, double time, PoseStack poses, VertexConsumer buffer, int light, int bright, int overlay, Vec3 centre) {
         view.turn = (view.turn + (1 + 2 * open) * ease(open) * view.dt) % 360;
         view.spin = (view.spin + 3 * open * view.dt) % 360;
-        float bob = (float) (Math.sin(time * .05) * .02 * open);
+        float bob = (float) (Math.sin(time * Math.PI / 120) * .02 * open);
         poses.pushPose();
         poses.translate(0, bob, 0);
         about(poses, .5, .62, 0, 1, 0, (float) view.turn);
@@ -202,14 +205,17 @@ public final class ShipDeviceRenderer implements BlockEntityRenderer<ShipDeviceB
         part(role, "core", state, poses, buffer, open > .5 ? bright : light, overlay);
         poses.popPose();
         for (int index = 0; index < 20; index++) {
-            double tilt = .35 + .8 * ((index * 7) % 20) / 19.0;
-            double azimuth = index * 2.399963;
+            double tilt = .85 + .30 * ((index * 7) % 20) / 19.0;
+            double azimuth = -Math.PI / 4 + .20 * Math.sin(index * 2.399963);
             float nx = (float) (Math.cos(azimuth) * Math.sin(tilt));
             float nz = (float) (Math.sin(azimuth) * Math.sin(tilt));
-            float speed = (float) ((index % 2 == 0 ? 1 : -1) * (.65 + .11 * (index % 9)));
+            float speed = (float) ((index % 2 == 0 ? 1 : -1) * (1.5 * (1 + index % 3)));
             poses.pushPose();
             about(poses, .5, .62, nx, (float) Math.cos(tilt), nz, (float) (view.spin * speed / 2.5 + index * 137.5));
-            part(role, "shell_" + index, state, poses, buffer, open > .01 ? bright : light, overlay);
+            double baseAngle = index * Math.PI * 2 / 20;
+            double radius = .78 + .05 * Math.sin(index * 2.17);
+            poses.translate((ease(open) - 1) * radius * Math.cos(baseAngle), 0, (ease(open) - 1) * radius * Math.sin(baseAngle));
+            if (open > .01) part(role, "shell_" + index, state, poses, buffer, bright, overlay);
             poses.popPose();
         }
         if (open > .02) {

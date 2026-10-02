@@ -29,16 +29,17 @@ const ease = x => x*x*(3-2*x);
 const share = ease(activation), rad = Math.PI/180;
 function animated(group) {
   if (name === "rf_ship_shield_generator") {
-    const spin=about([.5,.78,.5],[0,1,0],ticks*1.7*share*rad);
+    const spin=about([.5,.78,.5],[0,1,0],ticks*3*rad);
     if(group==="core" || group==="fx") return spin;
     if(group.startsWith("shell_")) {
-      const i=Number(group.slice(6)), a=-Math.PI/2+i*Math.PI*2/3, n=[Math.cos(a),0,Math.sin(a)];
-      const pivot=add([.5,[.62,1.12,.97][i],.5],mul(n,.395));
-      return p=>about([.5,.78,.5],[0,1,0],ticks*.65*share*rad)(add(add(about(pivot,n,.15*share)(p),mul(n,.055*share)),[0,Math.sin(ticks*.045+i*Math.PI*2/3)*.012*share,0]));
+      const i=Number(group.slice(6)), a=-Math.PI/2+(i%3)*Math.PI*2/3, sy=i<3?1:-1;
+      const n=norm([Math.cos(a),.55*sy,Math.sin(a)]), tangent=[-Math.sin(a),0,Math.cos(a)];
+      const pivot=add([.5,.78,.5],mul(n,.375));
+      return p=>about([.5,.78,.5],[0,1,0],ticks*1.5*rad)(add(about(pivot,tangent,sy*24*share*rad)(about(pivot,n,sy*30*share*rad)(p)),mul(n,.23*share)));
     }
   }
   if(name === "mana_ship_shield_generator" && (group==="core" || group.startsWith("shell_"))) {
-    const outer=p=>add(about([.5,.62,.5],[0,1,0],ticks*(1+2*activation)*rad)(p),[0,Math.sin(ticks*.05)*.02*activation,0]);
+    const outer=p=>add(about([.5,.62,.5],[0,1,0],ticks*3*rad)(p),[0,Math.sin(ticks*Math.PI/120)*.02*activation,0]);
     if(group==="core") return p=>outer(about([.5,.62,.5],[1,.4,.6],ticks*3*activation*rad)(add([.5,.62,.5],mul(sub(p,[.5,.62,.5]),.4+.6*share))));
     const i=Number(group.slice(6)), a=i*Math.PI*2/3,n=[Math.cos(a),0,Math.sin(a)];
     const s=ease(Math.max(0,Math.min(1,activation*3-i)));
@@ -46,10 +47,11 @@ function animated(group) {
   }
   if(name === "twins_ship_shield_generator") {
     if(group.startsWith("shell_")) {
-      const i=Number(group.slice(6)), tilt=.35+.8*((i*7)%20)/19, az=i*2.399963;
+      const i=Number(group.slice(6)), tilt=.85+.30*((i*7)%20)/19, az=-Math.PI/4+.20*Math.sin(i*2.399963);
       const axis=[Math.cos(az)*Math.sin(tilt),Math.cos(tilt),Math.sin(az)*Math.sin(tilt)];
-      const speed=(i%2===0?1:-1)*(.65+.11*(i%9));
-      return about([.5,.62,.5],axis,(ticks*speed*share+i*137.5)*rad);
+      const speed=(i%2===0?1:-1)*(1.5*(1+i%3));
+      const orbit=about([.5,.62,.5],axis,(ticks*speed+i*137.5)*rad),a=i*Math.PI*2/20,r=.78+.05*Math.sin(i*2.17);
+      return p=>orbit(add(p,[(share-1)*r*Math.cos(a),0,(share-1)*r*Math.sin(a)]));
     }
     if(group==="core") return about([.5,.62,.5],[0,1,0],ticks*2.5*share*rad);
     if(group==="fx") return p=>[p[0],.3+(p[1]-.3)*share,p[2]];
@@ -74,12 +76,7 @@ const about = (pivot, axis, angle) => p => add(pivot, rotate(sub(p, pivot), axis
 // --- the poses the renderer ends in --------------------------------------------------------------
 const C = [.5, .5, .5];
 const POSES = {
-  rf_ship_shield_generator: { on: group => {
-    if (!group.startsWith("shell_")) return null;
-    const i=Number(group.slice(6)), a=-Math.PI/2+i*Math.PI*2/3, n=[Math.cos(a),0,Math.sin(a)];
-    const pivot=add([.5,[.62,1.12,.97][i],.5],mul(n,.395));
-    return p=>add(about(pivot,n,.15)(p),mul(n,.055));
-  } },
+  rf_ship_shield_generator: { on: group => animated(group) },
   mana_ship_shield_generator: { on: group => {
     if (!group.startsWith("shell_")) return null;
     const i=Number(group.slice(6)), angle=i*Math.PI*2/3, n=[Math.cos(angle),0,Math.sin(angle)];
@@ -95,6 +92,7 @@ const POSES = {
 };
 const hidden = { rest: new Set(["ring"]), on: new Set(), docked: new Set(["ring"]) }[pose] ?? new Set();
 if (name === "rf_ship_shield_generator" && pose === "rest") hidden.add("fx");
+if(activation<=.01 && name.startsWith("twins")) for(let i=0;i<20;i++) hidden.add(`shell_${i}`);
 if(activation<=.01 && name.endsWith("ship_shield_generator")) { hidden.add("fx"); if(name.startsWith("mana")) hidden.add("core"); }
 
 // --- load ----------------------------------------------------------------------------------------
@@ -110,7 +108,7 @@ function texture(ref) {
     const tex=existsSync(png)?PNG.sync.read(readFileSync(png)):null;
     if(tex && existsSync(png+".mcmeta") && tex.height>tex.width) {
       const meta=JSON.parse(readFileSync(png+".mcmeta","utf8")), height=tex.width;
-      const frame=Math.floor(ticks/(meta.animation?.frametime??1))%(tex.height/height);
+      const frame=Number(option("--texture-frame",Math.floor((activation<=.01?0:ticks)/(meta.animation?.frametime??1))))%(tex.height/height);
       tex.data=tex.data.subarray(frame*height*tex.width*4,(frame+1)*height*tex.width*4); tex.height=height;
     }
     textures.set(ref,tex);

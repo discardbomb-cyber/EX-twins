@@ -9,15 +9,15 @@
     "particle": "relics_addon:block/ship/steel"
   },
   "visibility": {
-    "body": true,
-    "ring": true,
+    "body": false,
+    "ring": false,
     "core": false,
     "fx": false,
     "shell_0": false,
     "shell_1": false,
     "shell_2": false,
     "shell_3": false,
-    "shell_4": false,
+    "shell_4": true,
     "shell_5": false
   }
 }

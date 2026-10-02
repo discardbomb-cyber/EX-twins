@@ -438,7 +438,7 @@ function twinsGenerator() {
   // Independent free-flying satellites: no rail, sockets, claws or core links.
   const orbs = 20;
   for (let i = 0; i < orbs; i++) {
-    const a=i*Math.PI*2/orbs, radius=.54+.07*Math.sin(i*2.17);
+    const a=i*Math.PI*2/orbs, radius=.78+.05*Math.sin(i*2.17);
     m.sphere(`shell_${i}`, "portal", add(centre,[Math.cos(a)*radius,0,Math.sin(a)*radius]), .055, 10, 16);
   }
   // Fx: golden threads from the pedestal to the sphere and on to the ring, slightly twisted.
