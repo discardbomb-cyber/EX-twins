@@ -152,8 +152,11 @@ public final class ShipDeviceRenderer implements BlockEntityRenderer<ShipDeviceB
             poses.popPose();
         }
         if (open > .01) {
+            poses.pushPose();
+            about(poses, .5, .78, 0, 1, 0, (float) view.spin);
             part(role, "fx", state, poses, buffer, bright, overlay);
-            EffectLights.glow(centre.add(0, .28, 0), 5 + 9 * share, 3 + 2 * share);
+            poses.popPose();
+            EffectLights.glow(centre.add(0, .28, 0), (5 + 9 * share) * (.94 + .06 * Math.sin(time * .2)), 3 + 2 * share);
         }
     }
 
@@ -161,7 +164,7 @@ public final class ShipDeviceRenderer implements BlockEntityRenderer<ShipDeviceB
     private void manaGenerator(RelicRole role, BlockState state, View view, double open, double time, PoseStack poses, VertexConsumer buffer, int light, int bright, int overlay, Vec3 centre) {
         view.turn = (view.turn + (1 + 2 * open) * view.dt) % 360;
         view.spin = (view.spin + 3 * open * view.dt) % 360;
-        float bob = (float) (Math.sin(time * .05) * .02);
+        float bob = (float) (Math.sin(time * .05) * .02 * open);
         poses.pushPose();
         poses.translate(0, bob, 0);
         about(poses, .5, .62, 0, 1, 0, (float) view.turn);
@@ -179,9 +182,10 @@ public final class ShipDeviceRenderer implements BlockEntityRenderer<ShipDeviceB
         double share = ease(open);
         for (int index = 0; index < MANA_PLATES; index++) {
             float[] n = normals[index];
+            double petal = stagger(open, index, MANA_PLATES);
             poses.pushPose();
-            poses.translate(n[0] * .13 * share, n[1] * .13 * share, n[2] * .13 * share);
-            about(poses, .5, .62, n[0], n[1], n[2], (float) (18 * share));
+            poses.translate(n[0] * .13 * petal, n[1] * .13 * petal, n[2] * .13 * petal);
+            about(poses, .5, .62, n[0], n[1], n[2], (float) (18 * petal));
             part(role, "shell_" + index, state, poses, buffer, light, overlay);
             poses.popPose();
         }

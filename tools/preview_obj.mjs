@@ -23,6 +23,33 @@ const file = id.endsWith(".obj") ? id : join(ASSETS, "models/block", `${id}.obj`
 const name = basename(file, ".obj");
 const pose = option("--pose", "rest");
 const size = Number(option("--size", 256));
+const ticks = Number(option("--time", 0)) * 20;
+const activation = Number(option("--open", pose === "on" ? 1 : 0));
+const ease = x => x*x*(3-2*x);
+const share = ease(activation), rad = Math.PI/180;
+function animated(group) {
+  if (name === "rf_ship_shield_generator") {
+    const spin=about([.5,.78,.5],[0,1,0],ticks*1.7*share*rad);
+    if(group==="core" || group==="fx") return spin;
+    if(group.startsWith("shell_")) {
+      const i=Number(group.slice(6)), a=-Math.PI/2+i*Math.PI*2/3, n=[Math.cos(a),0,Math.sin(a)];
+      const pivot=add([.5,[.62,1.12,.97][i],.5],mul(n,.395));
+      return p=>about([.5,.78,.5],[0,1,0],ticks*.65*share*rad)(add(add(about(pivot,n,.15*share)(p),mul(n,.055*share)),[0,Math.sin(ticks*.045+i*Math.PI*2/3)*.012*share,0]));
+    }
+  }
+  if(name === "mana_ship_shield_generator" && (group==="core" || group.startsWith("shell_"))) {
+    const outer=p=>add(about([.5,.62,.5],[0,1,0],ticks*(1+2*activation)*rad)(p),[0,Math.sin(ticks*.05)*.02*activation,0]);
+    if(group==="core") return p=>outer(about([.5,.62,.5],[1,.4,.6],ticks*3*activation*rad)(add([.5,.62,.5],mul(sub(p,[.5,.62,.5]),.4+.6*share))));
+    const i=Number(group.slice(6)), a=i*Math.PI*2/3,n=[Math.cos(a),0,Math.sin(a)];
+    const s=ease(Math.max(0,Math.min(1,activation*3-i)));
+    return p=>outer(add(about([.5,.62,.5],n,18*s*rad)(p),mul(n,.13*s)));
+  }
+  if(name === "twins_ship_shield_generator") {
+    if(group==="core") return about([.5,.62,.5],[0,1,0],ticks*2.5*share*rad);
+    if(group==="fx") return p=>[p[0],.3+(p[1]-.3)*share,p[2]];
+  }
+  return null;
+}
 const out = option("--out", join(ROOT, "work", `preview-${name}${pose === "rest" ? "" : "-" + pose}.png`));
 
 // --- vectors -------------------------------------------------------------------------------------
@@ -62,6 +89,7 @@ const POSES = {
 };
 const hidden = { rest: new Set(["ring"]), on: new Set(), docked: new Set(["ring"]) }[pose] ?? new Set();
 if (name === "rf_ship_shield_generator" && pose === "rest") hidden.add("fx");
+if(activation<=.01 && name.endsWith("ship_shield_generator")) { hidden.add("fx"); if(name.startsWith("mana")) hidden.add("core"); }
 
 // --- load ----------------------------------------------------------------------------------------
 const textures = new Map();
@@ -96,6 +124,14 @@ for (const block of readFileSync(file.replace(/\.obj$/, ".mtl"), "utf8").split("
   materials[lines[0].trim()] = mat;
 }
 const v = [], vt = [], vn = [], tris = [];
+const transforms = new Map(), posedVertices = new Map(), posedNormals = new Map();
+function corner(pi,ti,ni,group,transform) {
+  const key=`${group}:${pi}`;
+  if(!posedVertices.has(key)) posedVertices.set(key,transform?transform(v[pi-1]):v[pi-1]);
+  const nk=`${key}:${ni}`;
+  if(ni && !posedNormals.has(nk)) posedNormals.set(nk,transform?norm(sub(transform(add(v[pi-1],vn[ni-1])),posedVertices.get(key))):vn[ni-1]);
+  return {p:posedVertices.get(key),t:ti?vt[ti-1]:[.5,.5],n:ni?posedNormals.get(nk):null};
+}
 let group = "default", material = null;
 for (const line of readFileSync(file, "utf8").split(/\r?\n/)) {
   const parts = line.trim().split(/\s+/);
@@ -107,16 +143,17 @@ for (const line of readFileSync(file, "utf8").split(/\r?\n/)) {
   else if (parts[0] === "f") {
     if (hidden.has(group)) continue;
     const corners = parts.slice(1).map(tok => tok.split("/").map(s => (s === "" ? 0 : Number(s))));
-    const transform = POSES[name]?.[pose]?.(group) ?? null;
+    if(!transforms.has(group)) transforms.set(group,args.includes("--time") ? animated(group) : POSES[name]?.[pose]?.(group) ?? null);
+    const transform = transforms.get(group);
     for (let i = 1; i + 1 < corners.length; i++) {
-      tris.push({ material, transform, corners: [corners[0], corners[i], corners[i + 1]].map(([pi, ti, ni]) => ({
-        p: transform ? transform(v[pi - 1]) : v[pi - 1], t: ti ? vt[ti - 1] : [.5, .5], n: ni ? (transform ? norm(sub(transform(add(v[pi - 1], vn[ni - 1])), transform(v[pi - 1]))) : vn[ni - 1]) : null })) });
+      tris.push({ material, transform, corners: [corners[0], corners[i], corners[i + 1]].map(([pi,ti,ni])=>corner(pi,ti,ni,group,transform)) });
     }
   }
 }
 let lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
 for (const t of tris) for (const c of t.corners) { lo = lo.map((x, i) => Math.min(x, c.p[i])); hi = hi.map((x, i) => Math.max(x, c.p[i])); }
-const centre = mul(add(lo, hi), .5);
+const fixed = args.includes("--fixed-camera");
+const centre = fixed ? [.5,.70,.5] : mul(add(lo, hi), .5);
 
 // --- render --------------------------------------------------------------------------------------
 /** Views: name, camera forward direction (towards the model) and up. */
@@ -148,7 +185,7 @@ VIEWS.forEach(([label, forward, upHint], viewIndex) => {
     const d=sub(corner.p,centre), x=dot(d,right), y=dot(d,up);
     minX=Math.min(minX,x); maxX=Math.max(maxX,x); minY=Math.min(minY,y); maxY=Math.max(maxY,y);
   }
-  const extent=Math.max(maxX-minX,maxY-minY)*1.12, offsetX=(minX+maxX)/2, offsetY=(minY+maxY)/2;
+  const extent=fixed?1.85:Math.max(maxX-minX,maxY-minY)*1.12, offsetX=fixed?0:(minX+maxX)/2, offsetY=fixed?0:(minY+maxY)/2;
   const depth = new Float32Array(size * size).fill(Infinity);
   const project = p => { const d = sub(p, centre); return [((dot(d, right)-offsetX) / extent + .5) * size, (.5 - (dot(d, up)-offsetY) / extent) * size, dot(d, forward)]; };
   for (const tri of tris) {

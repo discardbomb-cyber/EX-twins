@@ -2,14 +2,14 @@
 // The vanes contain actual through-holes. Geometry is authored here; no game mesh is imported.
 export function buildRfGenerator(Mesh,{add,sub,mul,norm,cross}) {
   const m=new Mesh("rf_ship_shield_generator",{
-    hull:[[.24,.27,.29],0,"relics_addon:block/ship/machined"],
-    inset:[[.055,.065,.075],0,"relics_addon:block/ship/enamel"],
-    edge:[[.48,.51,.53],0,"relics_addon:block/ship/aged_alloy"],
-    copper:[[.62,.29,.10],0,"relics_addon:block/ship/aged_alloy"],
+    hull:[[.24,.28,.33],0,"relics_addon:block/ship/machined"],
+    inset:[[.045,.055,.068],0,"relics_addon:block/ship/enamel"],
+    edge:[[.47,.51,.55],0,"relics_addon:block/ship/aged_alloy"],
+    copper:[[.40,.24,.13],0,"relics_addon:block/ship/aged_alloy"],
     warning:[[.95,.53,.055],0],
     groove:[[.035,.09,.12],0],
-    glow:[[1,.33,.045],.85],
-    white:[[1,.74,.28],1],
+    glow:[[.32,.77,1],1],
+    white:[[.93,.98,1],1],
     core:[[.13,.15,.17],0,"relics_addon:block/ship/machined"],
   });
   const Y=[0,1,0], centre=[.5,.78,.5];
