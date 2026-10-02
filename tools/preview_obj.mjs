@@ -49,7 +49,7 @@ function animated(group) {
       const i=Number(group.slice(6)), tilt=.35+.8*((i*7)%20)/19, az=i*2.399963;
       const axis=[Math.cos(az)*Math.sin(tilt),Math.cos(tilt),Math.sin(az)*Math.sin(tilt)];
       const speed=(i%2===0?1:-1)*(.65+.11*(i%9));
-      return about([.5,.62,.5],axis,(ticks*speed+i*137.5)*rad);
+      return about([.5,.62,.5],axis,(ticks*speed*share+i*137.5)*rad);
     }
     if(group==="core") return about([.5,.62,.5],[0,1,0],ticks*2.5*share*rad);
     if(group==="fx") return p=>[p[0],.3+(p[1]-.3)*share,p[2]];
@@ -135,6 +135,7 @@ for (const block of readFileSync(file.replace(/\.obj$/, ".mtl"), "utf8").split("
   }
   materials[lines[0].trim()] = mat;
 }
+if(activation<=.01 && name.endsWith("ship_shield_generator")) for(const mat of Object.values(materials)) mat.ka=0;
 const v = [], vt = [], vn = [], tris = [];
 const transforms = new Map(), posedVertices = new Map(), posedNormals = new Map();
 function corner(pi,ti,ni,group,transform) {

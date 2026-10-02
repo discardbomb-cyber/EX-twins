@@ -162,7 +162,7 @@ public final class ShipDeviceRenderer implements BlockEntityRenderer<ShipDeviceB
 
     // --- the Mana reactor: three curved petals uncover a rotating crystalline sphere ----
     private void manaGenerator(RelicRole role, BlockState state, View view, double open, double time, PoseStack poses, VertexConsumer buffer, int light, int bright, int overlay, Vec3 centre) {
-        view.turn = (view.turn + (1 + 2 * open) * view.dt) % 360;
+        view.turn = (view.turn + (1 + 2 * open) * ease(open) * view.dt) % 360;
         view.spin = (view.spin + 3 * open * view.dt) % 360;
         float bob = (float) (Math.sin(time * .05) * .02 * open);
         poses.pushPose();
@@ -208,8 +208,8 @@ public final class ShipDeviceRenderer implements BlockEntityRenderer<ShipDeviceB
             float nz = (float) (Math.sin(azimuth) * Math.sin(tilt));
             float speed = (float) ((index % 2 == 0 ? 1 : -1) * (.65 + .11 * (index % 9)));
             poses.pushPose();
-            about(poses, .5, .62, nx, (float) Math.cos(tilt), nz, (float) (time * speed + index * 137.5));
-            part(role, "shell_" + index, state, poses, buffer, bright, overlay);
+            about(poses, .5, .62, nx, (float) Math.cos(tilt), nz, (float) (view.spin * speed / 2.5 + index * 137.5));
+            part(role, "shell_" + index, state, poses, buffer, open > .01 ? bright : light, overlay);
             poses.popPose();
         }
         if (open > .02) {
