@@ -18,6 +18,7 @@ import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import { compactObjText } from "./compact_obj.mjs";
 import { buildManaGenerator } from "./ship_mana_design.mjs";
+import { buildRfGenerator } from "./ship_rf_design.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const ASSETS = join(ROOT, "src/main/resources/assets/relics_addon");
@@ -331,98 +332,7 @@ function writeTextures() {
 }
 
 // --- the RF emitter tower (s11, s10) -------------------------------------------------------------
-function rfGenerator() {
-  const m = new Mesh("rf_ship_shield_generator", {
-    steel: [[.32, .35, .38], 0, "relics_addon:block/ship/machined"],
-    steel_dark: [[.19, .21, .24], 0, "relics_addon:block/ship/machined"],
-    steel_light: [[.53, .35, .23], 0, "relics_addon:block/ship/aged_alloy"],
-    graphite: [[.1, .11, .13], 0],
-    rubber: [[.05, .055, .065], 0],
-    cyan: [[.31, .85, .94], 1],
-    cyan_dim: [[.15, .45, .6], .3],
-    ring_light: [[.72, .96, 1], 1],
-  });
-  const y0 = 0;
-  // Octagonal base plate with a raised rim and four foot pads.
-  const oct = r => Array.from({ length: 48 }, (_, i) => [Math.cos(i * Math.PI / 24) * r, Math.sin(i * Math.PI / 24) * r]);
-  m.prism("body", "steel_dark", C, oct(.46), y0, y0 + .06, "graphite");
-  m.prism("body", "steel", C, oct(.36), y0 + .06, y0 + .1, "steel_dark");
-  for (let i = 0; i < 4; i++) {
-    const a = i * Math.PI / 2 + Math.PI / 4, d = [Math.cos(a), 0, Math.sin(a)], t = [-Math.sin(a), 0, Math.cos(a)];
-    m.box("body", k => (k === 1 ? "steel_light" : "steel_dark"), add([.5, y0 + .085, .5], mul(d, .38)), mul(d, .07), [0, .035, 0], mul(t, .05));
-    m.box("body", "cyan_dim", add([.5, y0 + .12, .5], mul(d, .4)), mul(d, .02), [0, .006, 0], mul(t, .03));
-  }
-  // Drum and the segmented column.
-  m.lathe("body", i => (i === 1 ? "graphite" : i >= 4 ? "steel_dark" : "steel"), [.5, y0 + .1, .5], [0, 1, 0],
-    [[0, 0], [.24, 0], [.24, .05], [.2, .05], [.2, .14], [.26, .17], [.26, .2], [.17, .22], [0, .22]], 48);
-  m.lathe("body", i => (i % 2 ? "steel_dark" : "steel"), [.5, y0 + .32, .5], [0, 1, 0],
-    [[.13, 0], [.14, .08], [.11, .1], [.11, .18], [.14, .2], [.14, .3], [.11, .32], [.11, .44], [.15, .46], [.15, .55], [.17, .6], [0, .6]], 48);
-  // Hinge collar for the masts near the column's top.
-  m.lathe("body", "graphite", [.5, y0 + .78, .5], [0, 1, 0], [[.12, 0], [.19, 0], [.19, .06], [.12, .06]], 16);
-  // Lamps on the drum: fx (drawn fullbright on the switched-on tower, blinking at rest).
-  for (let i = 0; i < 4; i++) {
-    const a = i * Math.PI / 2, d = [Math.cos(a), 0, Math.sin(a)], t = [-Math.sin(a), 0, Math.cos(a)];
-    m.box("fx", "cyan", add([.5, y0 + .27, .5], mul(d, .255)), mul(d, .008), [0, .012, 0], mul(t, .03));
-  }
-  for(let j=0;j<6;j++) m.torus("body","steel_light",[.5,.37+j*.066,.5],[0,1,0],.145,.006,40,6);
-  for(let i=0;i<8;i++) {
-    const a=i*Math.PI/4, d=[Math.cos(a),0,Math.sin(a)];
-    m.tube("body","steel_light",add([.5,.16,.5],mul(d,.217)),add([.5,.29,.5],mul(d,.217)),.011,10);
-    m.sphere("body","steel_light",add([.5,.075,.5],mul(d,.415)),.012,4,8);
-  }
-  // Core: the antenna spindle with its three vanes and the top lamp; spins slowly.
-  // Separate cooling fins, service ports and four curved insulated power leads.
-  for (let i=0;i<12;i++) {
-    const a=i*Math.PI/6, d=[Math.cos(a),0,Math.sin(a)], t=[-Math.sin(a),0,Math.cos(a)];
-    m.box("body","graphite",add([.5,.245,.5],mul(d,.25)),mul(d,.028),[0,.055,0],mul(t,.006));
-    const port=add([.5,.135,.5],mul(d,.24));
-    m.lathe("body","steel_light",port,d,[[0,0],[.014,0],[.014,.018],[.009,.021],[0,.021]],8);
-  }
-  for (let i=0;i<4;i++) {
-    const a=i*Math.PI/2+.22, d=[Math.cos(a),0,Math.sin(a)];
-    const at=f=>add([.5,.30+f*.40,.5],mul(d,.18+Math.sin(f*Math.PI)*.045));
-    for(let j=0;j<12;j++) m.tube("body","rubber",at(j/12),at((j+1)/12),.009,6);
-    for(let j=0;j<=4;j++) m.torus("body","steel_light",at(j/4),[0,1,0],.01,.002,10,4);
-  }
-  m.lathe("core", i => (i >= 3 ? "steel_light" : "steel_dark"), [.5, y0 + .92, .5], [0, 1, 0], [[0, 0], [.05, 0], [.05, .1], [.03, .1], [.03, .32], [.045, .34], [0, .38]], 12);
-  for (let i = 0; i < 3; i++) {
-    const a = i * 2 * Math.PI / 3, d = [Math.cos(a), 0, Math.sin(a)], t = [-Math.sin(a), 0, Math.cos(a)];
-    m.box("core", "steel_light", add([.5, y0 + 1.16, .5], mul(d, .07)), mul(d, .045), [0, .055, 0], mul(t, .005));
-  }
-  m.box("fx", "cyan", [.5, y0 + 1.31, .5], [.018, 0, 0], [0, .018, 0], [0, 0, .018]);
-  // Masts: four lattice arms hinged at the collar, modelled folded down along the column. The
-  // renderer swings each about its tangent axis through the pivot to raise it.
-  for (let i = 0; i < 4; i++) {
-    const a = i * Math.PI / 2 + Math.PI / 4, d = [Math.cos(a), 0, Math.sin(a)], t = [-Math.sin(a), 0, Math.cos(a)];
-    const pivot = add([.5, y0 + .81, .5], mul(d, .21));
-    const group = `shell_${i}`;
-    m.lathe(group, "steel_dark", add(pivot, mul(t, -.04)), t, [[0, 0], [.03, 0], [.03, .08], [0, .08]], 10);
-    const length = .58;
-    for (const s of [-1, 1]) {
-      m.box(group, "steel", add(pivot, add(mul(t, s * .022), [0, -length / 2, 0])), mul(t, .007), [0, length / 2, 0], mul(d, .007));
-    }
-    for (let k = 0; k < 5; k++) m.box(group, "steel_light", add(pivot, [0, -.08 - k * .095, 0]), mul(t, .022), [0, .005, 0], mul(d, .005));
-    // Panel at the free end, and its lamp.
-    const end = add(pivot, [0, -length + .04, 0]);
-    // Diagonal lattice braces and small fasteners on the antenna arm.
-    for(let k=0;k<5;k++) {
-      const y=-.08-k*.095;
-      m.tube(group,"steel_light",add(add(pivot,[0,y,0]),mul(t,-.022)),add(add(pivot,[0,y-.075,0]),mul(t,.022)),.003,4);
-      m.sphere(group,"steel_light",add(add(pivot,[0,y,0]),mul(t,.022)),.006,3,6);
-    }
-    m.box(group, k => (k === 0 ? "steel_light" : "graphite"), add(end, mul(d, .022)), mul(d, .008), [0, .09, 0], mul(t, .075));
-    m.box(group, "cyan", add(end, mul(d, .032)), mul(d, .003), [0, .012, 0], mul(t, .012));
-    // Open radiator grille like the tower reference, with visible ribs instead of a solid slab.
-    for (let rib = 0; rib < 7; rib++) {
-      m.box(group, "steel_light", add(add(end, [0, -.075 + rib * .025, 0]), mul(d, .038)), mul(d, .004), [0, .004, 0], mul(t, .068));
-    }
-    for (const side of [-1, 1]) m.box(group, "steel", add(add(end, mul(t, side * .07)), mul(d, .038)), mul(d, .005), [0, .09, 0], mul(t, .005));
-  }
-  // The lit floor ring (s10) in the block's `_on` model.
-  m.annulus("ring", "ring_light", [.5, y0 + .062, .5], [0, 1, 0], .4, .45, 32);
-  m.write(["body", "ring", "core", "fx", "shell_0", "shell_1", "shell_2", "shell_3"]);
-  return { shells: 4, height: 1.35 };
-}
+function rfGenerator() { return buildRfGenerator(Mesh,{add,sub,mul,norm,cross}); }
 
 // --- the Mana holocron cube (s05, s10) -----------------------------------------------------------
 function manaGenerator() { return buildManaGenerator(Mesh, {add,sub,mul,norm,cross,perp}); }

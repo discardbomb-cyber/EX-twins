@@ -9,8 +9,6 @@ import dev.hurtify.relicsaddon.relic.RelicRole;
 import dev.hurtify.relicsaddon.ship.ShipFrame;
 import dev.hurtify.relicsaddon.shipshield.ShipDeviceBlock;
 import dev.hurtify.relicsaddon.shipshield.ShipDeviceBlockEntity;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 import net.minecraft.client.Minecraft;
@@ -23,7 +21,6 @@ import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
-import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -32,19 +29,18 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ModelEvent;
-import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 /**
  * Draws the moving parts of the ship shield generators and drone docks. The block model is only the
- * device's static body (and a generator's lit floor ring); the parts that move - the RF tower's
- * masts and antenna, the Mana cube's six plates and inner star, the Ex-Twins ring of galaxy orbs
+ * device's static body (and a generator's lit floor ring); the parts that move - the RF ring's
+ * three runic vanes and core, the Mana reactor's three petals and nucleus, the Ex-Twins ring of galaxy orbs
  * and gold threads, the RF dock's sliding modules, the Mana dock's ring and shards, the Ex-Twins
  * dock's plexus - are OBJ groups of the same model (tools/build_ship_device_meshes.mjs), loaded as
  * standalone part models and posed here each frame.
  *
- * <p>A generator eases open when it is switched on (masts unfold one by one with sparks running
- * down them, the cube opens into a star, the ring spins up and the threads reach the sphere) and
+ * <p>A generator eases open when it is switched on (the suspended ring spins and its three vanes drift apart,
+ * the mana petals uncover their crystalline core, the ring spins up and the threads reach the sphere) and
  * eases shut when switched off; a dock eases into its "drone aboard" pose while it holds drones.
  * Lit parts report dynamic light through {@link EffectLights}, at the device's place in the world
  * even when it rides a ship.
@@ -53,10 +49,7 @@ import org.joml.Vector3f;
 public final class ShipDeviceRenderer implements BlockEntityRenderer<ShipDeviceBlockEntity> {
     /** Ticks a generator takes to open, and a dock to bring its modules out. */
     private static final double OPEN_TICKS = 60, DOCK_TICKS = 20;
-    private static final int MANA_PLATES = 3, RF_MASTS = 4, RF_DOCK_MODULES = 3, MANA_DOCK_SHARDS = 3;
-    /** The RF masts: hinge height and radius, how far each swings up (radians) and how long it is. */
-    private static final double MAST_HINGE_Y = .81, MAST_HINGE_R = .21, MAST_SWING = 2.1, MAST_LENGTH = .55;
-    private static final int SPARK_COLOR = 0x8EEBFF, SPARK_TICKS = 6;
+    private static final int MANA_PLATES = 3, RF_VANES = 3, RF_DOCK_MODULES = 3, MANA_DOCK_SHARDS = 3;
     private static final Map<ShipDeviceBlockEntity, View> VIEWS = new WeakHashMap<>();
 
     /** What each device looks like right now: how far open it is, and the motion that accumulates. */
@@ -65,12 +58,8 @@ public final class ShipDeviceRenderer implements BlockEntityRenderer<ShipDeviceB
         /** Ticks since the last frame, for motion whose speed changes (spins and pulses add speed x dt). */
         double dt;
         double spin, turn, pulse;
-        long sparkTick = Long.MIN_VALUE;
-        final List<Spark> sparks = new ArrayList<>();
     }
 
-    /** A spark running down an RF mast: which mast, how far along it (0 at the hinge), when it was born. */
-    private record Spark(int mast, double along, double born) { }
 
     public static void register(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(ShipBlocks.DEVICE.get(), context -> new ShipDeviceRenderer());
@@ -112,7 +101,7 @@ public final class ShipDeviceRenderer implements BlockEntityRenderer<ShipDeviceB
         VertexConsumer buffer = buffers.getBuffer(Sheets.cutoutBlockSheet());
         int bright = LightTexture.FULL_BRIGHT;
         switch (role) {
-            case RF_SHIP_GENERATOR -> rfGenerator(role, state, view, open, time, poses, buffer, light, bright, overlay, centre, level.random);
+            case RF_SHIP_GENERATOR -> rfGenerator(role, state, view, open, time, poses, buffer, light, bright, overlay, centre);
             case MANA_SHIP_GENERATOR -> manaGenerator(role, state, view, open, time, poses, buffer, light, bright, overlay, centre);
             case TWINS_SHIP_GENERATOR -> twinsGenerator(role, state, view, open, poses, buffer, light, bright, overlay, centre);
             case RF_DRONE_DOCK -> rfDock(role, state, open, time, poses, buffer, light, bright, overlay, centre);
@@ -139,90 +128,33 @@ public final class ShipDeviceRenderer implements BlockEntityRenderer<ShipDeviceB
         return ease(Mth.clamp(open * count - index, 0, 1));
     }
 
-    // --- the RF emitter tower: masts unfold one by one, sparks run down them; lamps blink at rest ----
+    // RF: a rotating suspended ring and three independently floating runic vanes.
     private void rfGenerator(RelicRole role, BlockState state, View view, double open, double time, PoseStack poses,
-                             VertexConsumer buffer, int light, int bright, int overlay, Vec3 centre, RandomSource random) {
+                             VertexConsumer buffer, int light, int bright, int overlay, Vec3 centre) {
+        double share = ease(open);
+        view.spin = (view.spin + 1.7 * share * view.dt) % 360;
+        view.turn = (view.turn + .65 * share * view.dt) % 360;
         poses.pushPose();
-        about(poses, .5, .5, 0, 1, 0, (float) (time * 1.5));
+        about(poses, .5, .78, 0, 1, 0, (float) view.spin);
         part(role, "core", state, poses, buffer, light, overlay);
         poses.popPose();
-        // At rest the lamps flash for a few ticks every four seconds; switched on they stay lit.
-        boolean lamps = open > 0 || Math.floorMod((long) (time / 4), 20) == 0;
-        if (lamps) part(role, "fx", state, poses, buffer, bright, overlay);
-        long tick = (long) time;
-        boolean newTick = tick != view.sparkTick;
-        view.sparkTick = tick;
-        for (int index = 0; index < RF_MASTS; index++) {
-            double share = stagger(open, index, RF_MASTS);
-            double angle = mastAngle(index);
-            float dx = (float) Math.cos(angle), dz = (float) Math.sin(angle);
-            float px = (float) (.5 + dx * MAST_HINGE_R), py = (float) MAST_HINGE_Y, pz = (float) (.5 + dz * MAST_HINGE_R);
+        double[] heights = {.62, 1.12, .97};
+        for (int index = 0; index < RF_VANES; index++) {
+            double angle = -Math.PI / 2 + index * Math.PI * 2 / 3;
+            double nx = Math.cos(angle), nz = Math.sin(angle);
             poses.pushPose();
-            poses.translate(px, py, pz);
-            poses.mulPose(Axis.of(new Vector3f(-dz, 0, dx)).rotation((float) (MAST_SWING * share)));
-            poses.translate(-px, -py, -pz);
+            about(poses, .5, .78, 0, 1, 0, (float) view.turn);
+            poses.translate(nx * .055 * share, Math.sin(time * .045 + index * Math.PI * 2 / 3) * .012 * share, nz * .055 * share);
+            poses.translate(.5 + nx * .395, heights[index], .5 + nz * .395);
+            poses.mulPose(Axis.of(new Vector3f((float) nx, 0, (float) nz)).rotation((float) (.15 * share)));
+            poses.translate(-.5 - nx * .395, -heights[index], -.5 - nz * .395);
             part(role, "shell_" + index, state, poses, buffer, light, overlay);
             poses.popPose();
-            // Two sparks a tick set out from the hinge of a mast that is swinging.
-            if (newTick && share > 0 && share < 1) {
-                for (int k = 0; k < 2; k++) view.sparks.add(new Spark(index, random.nextDouble() * .3, time));
-            }
         }
-        sparks(view, open, time, poses);
-        if (lamps) EffectLights.glow(centre.add(0, .4, 0), open > 0 ? 6 + 6 * open : 4, 2.5 + 2 * open);
-    }
-
-    private static double mastAngle(int index) { return index * Math.PI / 2 + Math.PI / 4; }
-
-    /** A point {@code along} blocks down mast {@code index} swung by {@code swing} radians, in model space. */
-    private static Vec3 mastPoint(int index, double swing, double along) {
-        double angle = mastAngle(index), dx = Math.cos(angle), dz = Math.sin(angle);
-        // Swinging about the tangent (-dz, 0, dx) tips the hanging mast outward along (dx, 0, dz).
-        double down = -Math.cos(swing), out = Math.sin(swing);
-        return new Vec3(.5 + dx * MAST_HINGE_R + dx * out * along, MAST_HINGE_Y + down * along, .5 + dz * MAST_HINGE_R + dz * out * along);
-    }
-
-    /**
-     * Sparks as small bright needles on the masts, in the world like everything else here: each runs
-     * down its mast for a few ticks and fades. Drawn into the additive glow buffer, flushed after the
-     * translucent shells.
-     */
-    private static void sparks(View view, double open, double time, PoseStack poses) {
-        if (view.sparks.isEmpty()) return;
-        view.sparks.removeIf(spark -> time - spark.born() > SPARK_TICKS || time < spark.born());
-        VertexConsumer glow = ShieldGlow.consumer();
-        Matrix4f matrix = poses.last().pose();
-        for (Spark spark : view.sparks) {
-            double age = time - spark.born(), fade = 1 - age / SPARK_TICKS;
-            double swing = MAST_SWING * stagger(open, spark.mast(), RF_MASTS);
-            double along = Math.min(MAST_LENGTH, spark.along() + age * .06);
-            Vec3 a = mastPoint(spark.mast(), swing, along), b = mastPoint(spark.mast(), swing, Math.min(MAST_LENGTH, along + .05));
-            needle(glow, matrix, a, b, .012 * fade, SPARK_COLOR, fade);
+        if (open > .01) {
+            part(role, "fx", state, poses, buffer, bright, overlay);
+            EffectLights.glow(centre.add(0, .28, 0), 5 + 9 * share, 3 + 2 * share);
         }
-    }
-
-    /** A thin octahedral needle from a to b: eight triangles, white in the middle, coloured at the pointed ends. */
-    private static void needle(VertexConsumer glow, Matrix4f matrix, Vec3 a, Vec3 b, double width, int color, double alpha) {
-        Vec3 axis = b.subtract(a);
-        if (axis.lengthSqr() < 1e-10) return;
-        Vec3 u = axis.cross(Math.abs(axis.y) > .9 * axis.length() ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize().scale(width);
-        Vec3 v = axis.normalize().cross(u).normalize().scale(width);
-        Vec3 mid = a.add(b).scale(.5);
-        Vec3[] ring = {mid.add(u), mid.add(v), mid.subtract(u), mid.subtract(v)};
-        int r = color >> 16 & 255, g = color >> 8 & 255, bl = color & 255, alphaByte = (int) (alpha * 255);
-        for (int k = 0; k < 4; k++) {
-            Vec3 p = ring[k], q = ring[(k + 1) % 4];
-            vertex(glow, matrix, a, r, g, bl, alphaByte);
-            vertex(glow, matrix, p, 255, 255, 255, alphaByte);
-            vertex(glow, matrix, q, 255, 255, 255, alphaByte);
-            vertex(glow, matrix, b, r, g, bl, alphaByte);
-            vertex(glow, matrix, q, 255, 255, 255, alphaByte);
-            vertex(glow, matrix, p, 255, 255, 255, alphaByte);
-        }
-    }
-
-    private static void vertex(VertexConsumer glow, Matrix4f matrix, Vec3 at, int r, int g, int b, int alpha) {
-        glow.addVertex(matrix, (float) at.x, (float) at.y, (float) at.z).setColor(r, g, b, alpha);
     }
 
     // --- the Mana reactor: three curved petals uncover a rotating crystalline sphere ----
@@ -365,7 +297,7 @@ public final class ShipDeviceRenderer implements BlockEntityRenderer<ShipDeviceB
 
     private static int shellCount(RelicRole role) {
         return switch (role) {
-            case RF_SHIP_GENERATOR -> RF_MASTS;
+            case RF_SHIP_GENERATOR -> RF_VANES;
             case MANA_SHIP_GENERATOR -> MANA_PLATES;
             case RF_DRONE_DOCK -> RF_DOCK_MODULES;
             case MANA_DRONE_DOCK -> 1 + MANA_DOCK_SHARDS;

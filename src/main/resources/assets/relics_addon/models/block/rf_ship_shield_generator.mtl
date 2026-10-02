@@ -1,39 +1,34 @@
-newmtl steel
-Kd 0.32 0.35 0.38
+newmtl hull
+Kd 0.075 0.16 0.2
 Ka 0 0 0
 map_Kd relics_addon:block/ship/machined
 
-newmtl steel_dark
-Kd 0.19 0.21 0.24
+newmtl inset
+Kd 0.025 0.065 0.085
 Ka 0 0 0
-map_Kd relics_addon:block/ship/machined
+map_Kd relics_addon:block/ship/enamel
 
-newmtl steel_light
-Kd 0.53 0.35 0.23
+newmtl edge
+Kd 0.2 0.32 0.37
 Ka 0 0 0
 map_Kd relics_addon:block/ship/aged_alloy
 
-newmtl graphite
-Kd 0.1 0.11 0.13
+newmtl groove
+Kd 0.035 0.09 0.12
 Ka 0 0 0
 map_Kd relics_addon:item/materials/rf_mesh_white
 
-newmtl rubber
-Kd 0.05 0.055 0.065
-Ka 0 0 0
+newmtl glow
+Kd 0.2 0.9 0.89
+Ka 0.85 0.85 0.85
 map_Kd relics_addon:item/materials/rf_mesh_white
 
-newmtl cyan
-Kd 0.31 0.85 0.94
+newmtl white
+Kd 0.6 1 0.97
 Ka 1 1 1
 map_Kd relics_addon:item/materials/rf_mesh_white
 
-newmtl cyan_dim
-Kd 0.15 0.45 0.6
-Ka 0.3 0.3 0.3
-map_Kd relics_addon:item/materials/rf_mesh_white
-
-newmtl ring_light
-Kd 0.72 0.96 1
-Ka 1 1 1
-map_Kd relics_addon:item/materials/rf_mesh_white
+newmtl core
+Kd 0.6 0.98 0.95
+Ka 0.95 0.95 0.95
+map_Kd relics_addon:block/ship/crystal

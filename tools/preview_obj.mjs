@@ -42,10 +42,10 @@ const about = (pivot, axis, angle) => p => add(pivot, rotate(sub(p, pivot), axis
 const C = [.5, .5, .5];
 const POSES = {
   rf_ship_shield_generator: { on: group => {
-    const i = Number(group.replace("shell_", ""));
-    if (Number.isNaN(i)) return null;
-    const a = i * Math.PI / 2 + Math.PI / 4, d = [Math.cos(a), 0, Math.sin(a)], t = [-Math.sin(a), 0, Math.cos(a)];
-    return about(add([.5, .81, .5], mul(d, .21)), t, 2.1);
+    if (!group.startsWith("shell_")) return null;
+    const i=Number(group.slice(6)), a=-Math.PI/2+i*Math.PI*2/3, n=[Math.cos(a),0,Math.sin(a)];
+    const pivot=add([.5,[.62,1.12,.97][i],.5],mul(n,.395));
+    return p=>add(about(pivot,n,.15)(p),mul(n,.055));
   } },
   mana_ship_shield_generator: { on: group => {
     if (!group.startsWith("shell_")) return null;
@@ -61,6 +61,7 @@ const POSES = {
   mana_drone_dock: { docked: group => (group === "shell_0" ? about([.5, .62, .5], [0, 1, 0], .8) : group.startsWith("shell_") ? about(C, [0, 1, 0], 1.2) : null) },
 };
 const hidden = { rest: new Set(["ring"]), on: new Set(), docked: new Set(["ring"]) }[pose] ?? new Set();
+if (name === "rf_ship_shield_generator" && pose === "rest") hidden.add("fx");
 
 // --- load ----------------------------------------------------------------------------------------
 const textures = new Map();
