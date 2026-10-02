@@ -11,7 +11,7 @@
   "visibility": {
     "body": false,
     "ring": false,
-    "core": true,
+    "core": false,
     "fx": false,
     "shell_0": false,
     "shell_1": false,
@@ -28,7 +28,7 @@
     "shell_12": false,
     "shell_13": false,
     "shell_14": false,
-    "shell_15": false,
+    "shell_15": true,
     "shell_16": false,
     "shell_17": false,
     "shell_18": false,

@@ -11,10 +11,12 @@ ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser()
 parser.add_argument('--out', required=True)
 parser.add_argument('--frames', type=int, default=48)
+parser.add_argument('--only', choices=['rf','mana','twins'])
 args = parser.parse_args()
 dest = Path(args.out); dest.mkdir(parents=True, exist_ok=True)
 names = [('rf', 'RF', '#52c4ff'), ('mana', 'Mana', '#48e2ff'), ('twins', 'Ex-Twins', '#d478ff')]
 for key, label, colour in names:
+    if args.only and key != args.only: continue
     folder = dest / key; folder.mkdir(exist_ok=True)
     frames = []
     for i in range(args.frames):
@@ -42,7 +44,7 @@ for key, label, colour in names:
 cards=''.join(f'<article style="--accent:{colour}"><h2>{label}</h2><canvas width="480" height="480" data-branch="{key}"></canvas><p>{desc}</p></article>' for (key,label,colour),desc in zip(names,[
     'Индукционное кольцо, орбита радиаторов, импульсы силовых шин.',
     'Последовательное раскрытие лепестков, вращение ядра, мягкая левитация.',
-    'Орбита сфер, вращение центральной системы, нарастание энергетических нитей.']))
+    'Свободные сферы с текстурой Энд-портала: разные наклоны, направления и скорости, без соединений с ядром.']))
 html='''<!doctype html><html lang="ru"><meta charset="utf-8"><title>Корабельные щиты — стенды</title>
 <style>body{margin:0;background:#10141b;color:#e2e8ef;font:16px system-ui;padding:28px}h1{font-size:25px}header p{color:#9ba9bc}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}article{border:1px solid #303949;border-top:3px solid var(--accent);border-radius:12px;padding:18px;background:#161a20}h2{color:var(--accent);margin:0}canvas{width:100%;height:auto}article p{font-size:14px;min-height:40px;color:#b4bdca}.controls{display:flex;gap:20px;align-items:center;flex-wrap:wrap;padding:20px 0}button,select{padding:9px;background:#283344;border:1px solid #59677b;color:white;border-radius:6px}input{accent-color:#7fd2ff}#seek{width:260px}footer{color:#8594a9;font-size:13px}</style>
 <header><h1>Корабельные щиты · анимационные стенды</h1><p>Цикл: включение → работа → выключение. Реальная геометрия моделей, фиксированная камера.</p></header>

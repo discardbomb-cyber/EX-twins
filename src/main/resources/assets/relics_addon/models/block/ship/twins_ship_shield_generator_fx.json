@@ -12,6 +12,26 @@
     "body": false,
     "ring": false,
     "core": false,
-    "fx": true
+    "fx": true,
+    "shell_0": false,
+    "shell_1": false,
+    "shell_2": false,
+    "shell_3": false,
+    "shell_4": false,
+    "shell_5": false,
+    "shell_6": false,
+    "shell_7": false,
+    "shell_8": false,
+    "shell_9": false,
+    "shell_10": false,
+    "shell_11": false,
+    "shell_12": false,
+    "shell_13": false,
+    "shell_14": false,
+    "shell_15": false,
+    "shell_16": false,
+    "shell_17": false,
+    "shell_18": false,
+    "shell_19": false
   }
 }

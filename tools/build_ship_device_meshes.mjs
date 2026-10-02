@@ -381,6 +381,7 @@ function twinsGenerator() {
     gold: [[.31, .28, .38], 0, "relics_addon:block/ship/aged_alloy"],
     gold_edge: [[.50, .49, .57], 0, "relics_addon:block/ship/aged_alloy"],
     galaxy: [[.65, .60, .80], .08, "relics_addon:block/ship/galaxy"],
+    portal: [[1, 1, 1], .65, "relics_addon:block/ship/end_portal"],
     thread: [[.83, .47, 1], .85],
     ring_light: [[.57, .10, .84], .55],
   });
@@ -429,28 +430,16 @@ function twinsGenerator() {
       }
     }
   }
-  m.sphere("body", "marble_dark", centre, R * .88, 8, 14);
+  m.sphere("core", "marble_dark", centre, R * .88, 8, 14);
   for (const [a,b] of edges) for(let j=0;j<5;j++) {
     const p=t=>add(centre,mul(norm(add(mul(verts[a],1-t),mul(verts[b],t))),R*1.014));
     m.tube("body","gold_edge",p(j/5),p((j+1)/5),.006,6);
   }
-  // Core: the ring of galaxy orbs on a thin gold rail, tilted; it spins when the generator runs.
-  const tilt = .38, axis = norm([Math.sin(tilt), Math.cos(tilt), 0]), ringR = .54, orbs = 20;
-  const u = perp(axis), w = cross(axis, u);
-  const onRing = t => add(centre, add(mul(u, Math.cos(t) * ringR), mul(w, Math.sin(t) * ringR)));
-  const rail = [], side = [];
-  for (let s = 0; s < 48; s++) { rail.push(onRing(2 * Math.PI * s / 48)); side.push(axis); }
-  m.ribbon("core", rail, side, .012, .008, "gold", "gold_edge", true);
+  // Independent free-flying satellites: no rail, sockets, claws or core links.
+  const orbs = 20;
   for (let i = 0; i < orbs; i++) {
-    const p = onRing(2 * Math.PI * i / orbs);
-    m.sphere("core", "galaxy", p, .055, 10, 16);
-    m.lathe("core", "gold_edge", p, axis, [[.058, -.006], [.062, 0], [.058, .006]], 10);
-    // Three narrow metal claws locate each orb in its orbit socket.
-    const radial=norm(sub(p,centre)), tangent=norm(cross(axis,radial));
-    for(let j=0;j<3;j++) {
-      const a=j*Math.PI*2/3, side=add(mul(radial,Math.cos(a)),mul(tangent,Math.sin(a)));
-      m.tube("core","gold",add(p,mul(side,.054)),add(add(p,mul(side,.049)),mul(axis,.022)),.003,5);
-    }
+    const a=i*Math.PI*2/orbs, radius=.54+.07*Math.sin(i*2.17);
+    m.sphere(`shell_${i}`, "portal", add(centre,[Math.cos(a)*radius,0,Math.sin(a)*radius]), .055, 10, 16);
   }
   // Fx: golden threads from the pedestal to the sphere and on to the ring, slightly twisted.
   for (let i = 0; i < 6; i++) {
@@ -463,18 +452,8 @@ function twinsGenerator() {
     }
     m.ribbon("fx", path, sideT, .006, .006, "thread");
   }
-  for (let i = 0; i < 4; i++) {
-    const a = i * Math.PI / 2 + .3, path = [], sideT = [];
-    const end = onRing(a);
-    for (let s = 0; s <= 10; s++) {
-      const f = s / 10, p = add(mul(add(centre, mul(norm(sub(end, centre)), R)), 1 - f), mul(end, f));
-      path.push(add(p, mul(axis, Math.sin(f * Math.PI) * .05)));
-      sideT.push(axis);
-    }
-    m.ribbon("fx", path, sideT, .006, .006, "thread");
-  }
-  m.write(["body", "ring", "core", "fx"]);
-  return { shells: 0, height: 1.1 };
+  m.write(["body", "ring", "core", "fx", ...Array.from({length:orbs},(_,i)=>`shell_${i}`)]);
+  return { shells: orbs, height: 1.4 };
 }
 
 // --- the RF charging base (s06, s07) -------------------------------------------------------------

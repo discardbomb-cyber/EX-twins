@@ -103,7 +103,7 @@ public final class ShipDeviceRenderer implements BlockEntityRenderer<ShipDeviceB
         switch (role) {
             case RF_SHIP_GENERATOR -> rfGenerator(role, state, view, open, time, poses, buffer, light, bright, overlay, centre);
             case MANA_SHIP_GENERATOR -> manaGenerator(role, state, view, open, time, poses, buffer, light, bright, overlay, centre);
-            case TWINS_SHIP_GENERATOR -> twinsGenerator(role, state, view, open, poses, buffer, light, bright, overlay, centre);
+            case TWINS_SHIP_GENERATOR -> twinsGenerator(role, state, view, open, time, poses, buffer, light, bright, overlay, centre);
             case RF_DRONE_DOCK -> rfDock(role, state, open, time, poses, buffer, light, bright, overlay, centre);
             case MANA_DRONE_DOCK -> manaDock(role, state, view, open, time, poses, buffer, light, bright, overlay, centre);
             case TWINS_DRONE_DOCK -> twinsDock(role, state, view, open, poses, buffer, light, bright, overlay, centre);
@@ -195,12 +195,23 @@ public final class ShipDeviceRenderer implements BlockEntityRenderer<ShipDeviceB
     }
 
     // --- the Ex-Twins sphere: the ring of orbs spins up and the gold threads reach the sphere ----
-    private void twinsGenerator(RelicRole role, BlockState state, View view, double open, PoseStack poses, VertexConsumer buffer, int light, int bright, int overlay, Vec3 centre) {
+    private void twinsGenerator(RelicRole role, BlockState state, View view, double open, double time, PoseStack poses, VertexConsumer buffer, int light, int bright, int overlay, Vec3 centre) {
         view.spin = (view.spin + ease(open) * 2.5 * view.dt) % 360;
         poses.pushPose();
         about(poses, .5, .62, 0, 1, 0, (float) view.spin);
         part(role, "core", state, poses, buffer, open > .5 ? bright : light, overlay);
         poses.popPose();
+        for (int index = 0; index < 20; index++) {
+            double tilt = .35 + .8 * ((index * 7) % 20) / 19.0;
+            double azimuth = index * 2.399963;
+            float nx = (float) (Math.cos(azimuth) * Math.sin(tilt));
+            float nz = (float) (Math.sin(azimuth) * Math.sin(tilt));
+            float speed = (float) ((index % 2 == 0 ? 1 : -1) * (.65 + .11 * (index % 9)));
+            poses.pushPose();
+            about(poses, .5, .62, nx, (float) Math.cos(tilt), nz, (float) (time * speed + index * 137.5));
+            part(role, "shell_" + index, state, poses, buffer, bright, overlay);
+            poses.popPose();
+        }
         if (open > .02) {
             poses.pushPose();
             poses.translate(0, .3, 0);
@@ -303,6 +314,7 @@ public final class ShipDeviceRenderer implements BlockEntityRenderer<ShipDeviceB
         return switch (role) {
             case RF_SHIP_GENERATOR -> RF_VANES;
             case MANA_SHIP_GENERATOR -> MANA_PLATES;
+            case TWINS_SHIP_GENERATOR -> 20;
             case RF_DRONE_DOCK -> RF_DOCK_MODULES;
             case MANA_DRONE_DOCK -> 1 + MANA_DOCK_SHARDS;
             default -> 0;

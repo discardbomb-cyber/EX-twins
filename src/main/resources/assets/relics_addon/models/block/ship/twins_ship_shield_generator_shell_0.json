@@ -11,9 +11,9 @@
   "visibility": {
     "body": false,
     "ring": false,
-    "core": true,
+    "core": false,
     "fx": false,
-    "shell_0": false,
+    "shell_0": true,
     "shell_1": false,
     "shell_2": false,
     "shell_3": false,

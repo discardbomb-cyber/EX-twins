@@ -23,6 +23,11 @@ Kd 0.65 0.6 0.8
 Ka 0.08 0.08 0.08
 map_Kd relics_addon:block/ship/galaxy
 
+newmtl portal
+Kd 1 1 1
+Ka 0.65 0.65 0.65
+map_Kd relics_addon:block/ship/end_portal
+
 newmtl thread
 Kd 0.83 0.47 1
 Ka 0.85 0.85 0.85

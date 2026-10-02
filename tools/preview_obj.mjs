@@ -45,6 +45,12 @@ function animated(group) {
     return p=>outer(add(about([.5,.62,.5],n,18*s*rad)(p),mul(n,.13*s)));
   }
   if(name === "twins_ship_shield_generator") {
+    if(group.startsWith("shell_")) {
+      const i=Number(group.slice(6)), tilt=.35+.8*((i*7)%20)/19, az=i*2.399963;
+      const axis=[Math.cos(az)*Math.sin(tilt),Math.cos(tilt),Math.sin(az)*Math.sin(tilt)];
+      const speed=(i%2===0?1:-1)*(.65+.11*(i%9));
+      return about([.5,.62,.5],axis,(ticks*speed+i*137.5)*rad);
+    }
     if(group==="core") return about([.5,.62,.5],[0,1,0],ticks*2.5*share*rad);
     if(group==="fx") return p=>[p[0],.3+(p[1]-.3)*share,p[2]];
   }
@@ -101,7 +107,13 @@ function texture(ref) {
     }
     const [ns, path] = ref.split(":");
     const png = join(ASSETS, "..", ns, "textures", `${path}.png`);
-    textures.set(ref, existsSync(png) ? PNG.sync.read(readFileSync(png)) : null);
+    const tex=existsSync(png)?PNG.sync.read(readFileSync(png)):null;
+    if(tex && existsSync(png+".mcmeta") && tex.height>tex.width) {
+      const meta=JSON.parse(readFileSync(png+".mcmeta","utf8")), height=tex.width;
+      const frame=Math.floor(ticks/(meta.animation?.frametime??1))%(tex.height/height);
+      tex.data=tex.data.subarray(frame*height*tex.width*4,(frame+1)*height*tex.width*4); tex.height=height;
+    }
+    textures.set(ref,tex);
   }
   return textures.get(ref);
 }
