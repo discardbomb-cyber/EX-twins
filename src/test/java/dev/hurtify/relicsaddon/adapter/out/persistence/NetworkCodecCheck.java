@@ -25,7 +25,7 @@ import dev.hurtify.relicsaddon.domain.math.Vec3d;
  */
 public final class NetworkCodecCheck {
     public static void main(String[] args) {
-        // A full 750-drone hive, some drones hit and on their way home.
+        // A full hive, some drones hit and on their way home.
         List<HiveStackState.Unit> units = new ArrayList<>();
         for (int index = 0; index < HiveType.MAX_DRONES; index++) {
             units.add(index % 9 == 0 ? new HiveStackState.Unit(index % 4, 1_000_000L + index, 2_000_000L + index, 3_000_000L + index)
@@ -35,9 +35,10 @@ public final class NetworkCodecCheck {
         int swarmBytes = roundTrip(HiveCodecs.STACK_STATE_STREAM, swarm, "full swarm");
         int restingBytes = roundTrip(HiveCodecs.STACK_STATE_STREAM, new HiveStackState(true,
                 java.util.Collections.nCopies(HiveType.MAX_DRONES, HiveStackState.Unit.fresh())), "resting swarm");
-        require(restingBytes < HiveType.MAX_DRONES + 30, "a resting full swarm must fit in about a byte per drone, took " + restingBytes);
+        require(restingBytes <= 6, "a resting full swarm must fit in one run, took " + restingBytes);
+        checkUnitRuns();
 
-        // After a fight, quiet lanes drop their timings and the swarm is back to a byte per drone.
+        // After a fight, quiet lanes drop their timings and compress into equal-unit runs.
         int slots = HiveType.MAX_DEPLOYED, fighters = HiveType.MAX_DRONES;
         List<HiveStackState.Unit> fought = new ArrayList<>();
         for (int index = 0; index < HiveType.MAX_DRONES; index++) {
@@ -51,7 +52,7 @@ public final class NetworkCodecCheck {
         require(settled.units().get(0).equals(HiveStackState.Unit.fresh()) && settled.units().get(slots).equals(HiveStackState.Unit.fresh()),
                 "a quiet lane starts afresh");
         require(!settled.units().get(3).equals(HiveStackState.Unit.fresh()), "a lane with a drone hit moments ago keeps its timings");
-        require(roundTrip(HiveCodecs.STACK_STATE_STREAM, settled, "settled swarm") < HiveType.MAX_DRONES + 60, "a settled swarm is back to about a byte per drone");
+        require(roundTrip(HiveCodecs.STACK_STATE_STREAM, settled, "settled swarm") < 60, "a settled swarm compresses its quiet runs");
         for (int lane = 0; lane < slots; lane++) {
             if (lane == 3) continue;
             require(HiveFlightPlan.of(HiveType.RF, HiveType.MAX_DRONES, HiveSettings.DEFAULT).wing(AttackMode.BARRAGE).occupant(settled.units(), lane, 6_000) == lane,
@@ -195,6 +196,68 @@ public final class NetworkCodecCheck {
                         9_876_543L), "rf blast into a wall");
         System.out.println("Network codecs: " + HiveType.MAX_DRONES + "-drone swarm (" + swarmBytes + " bytes, " + restingBytes + " at rest), old saves, "
                 + "settings, combat, batteries, shield impacts and Armageddon round-trip exactly");
+    }
+
+    private static void checkUnitRuns() {
+        roundTrip(HiveCodecs.STACK_STATE_STREAM, HiveStackState.DEFAULT, "empty swarm");
+        roundTrip(HiveCodecs.STACK_STATE_STREAM, new HiveStackState(false, List.of(HiveStackState.Unit.fresh())), "disabled singleton");
+        HiveStackState.Unit timed = new HiveStackState.Unit(1, Long.MAX_VALUE, 0, Long.MAX_VALUE);
+        require(roundTrip(HiveCodecs.STACK_STATE_STREAM, new HiveStackState(true,
+                java.util.Collections.nCopies(HiveType.MAX_DRONES, timed)), "identical timed swarm") < 40,
+                "an equal-unit run preserves extreme clocks without repeating them");
+        List<HiveStackState.Unit> alternating = new ArrayList<>();
+        for (int index = 0; index < HiveType.MAX_DRONES; index++)
+            alternating.add(new HiveStackState.Unit(index % 2, 0, -1, 0));
+        require(roundTrip(HiveCodecs.STACK_STATE_STREAM, new HiveStackState(true, alternating), "alternating swarm")
+                <= HiveType.MAX_DRONES * 2 + 3, "singleton runs have bounded overhead");
+        ByteBuf decodedRun = Unpooled.buffer();
+        try {
+            HiveCodecs.STACK_STATE_STREAM.encode(decodedRun, new HiveStackState(true,
+                    java.util.Collections.nCopies(HiveType.MAX_DRONES, HiveStackState.Unit.fresh())));
+            HiveStackState decoded = HiveCodecs.STACK_STATE_STREAM.decode(decodedRun);
+            require(decoded.units().get(0) == decoded.units().get(HiveType.MAX_DRONES - 1)
+                    && decoded.units().get(0) == HiveStackState.Unit.fresh(), "default units share their immutable record");
+        } finally { decodedRun.release(); }
+        for (int[] malformed : new int[][]{{-1, 1, 3}, {HiveType.MAX_DRONES + 1, 1, 3},
+                {1, 0, 3}, {1, -1, 3}, {1, 2, 3}, {1, 1, 128}, {1, 1, 15}}) {
+            ByteBuf buffer = Unpooled.buffer();
+            try {
+                buffer.writeBoolean(true);
+                VarInt.write(buffer, malformed[0]);
+                VarInt.write(buffer, malformed[1]);
+                buffer.writeByte(malformed[2]);
+                refused(HiveCodecs.STACK_STATE_STREAM, buffer, "invalid unit count/run/flags");
+            } finally { buffer.release(); }
+        }
+        ByteBuf negativeClock = Unpooled.buffer();
+        try {
+            negativeClock.writeBoolean(true);
+            VarInt.write(negativeClock, 1); VarInt.write(negativeClock, 1);
+            negativeClock.writeByte(0x10); VarLong.write(negativeClock, -1);
+            refused(HiveCodecs.STACK_STATE_STREAM, negativeClock, "negative repair clock");
+        } finally { negativeClock.release(); }
+        for (int invalid : new int[]{-1, HiveCombatState.MAX_SHOTS + 1}) {
+            ByteBuf buffer = Unpooled.buffer();
+            try {
+                buffer.writeBoolean(false).writeInt(-1).writeLong(0).writeDouble(0).writeDouble(0).writeDouble(0).writeShort(20);
+                VarInt.write(buffer, invalid);
+                refused(HiveCodecs.COMBAT_STATE_STREAM, buffer, "invalid shot count");
+            } finally { buffer.release(); }
+        }
+        for (int invalid : new int[]{-1, HiveCombatState.MAX_TARGETS + 1}) {
+            ByteBuf buffer = Unpooled.buffer();
+            try {
+                buffer.writeBoolean(false).writeInt(-1).writeLong(0).writeDouble(0).writeDouble(0).writeDouble(0).writeShort(20);
+                VarInt.write(buffer, 0); VarInt.write(buffer, 0); VarInt.write(buffer, invalid);
+                refused(HiveCodecs.COMBAT_STATE_STREAM, buffer, "invalid target count");
+            } finally { buffer.release(); }
+        }
+    }
+
+    private static <T> void refused(StreamCodec<ByteBuf, T> codec, ByteBuf buffer, String label) {
+        try { codec.decode(buffer); }
+        catch (io.netty.handler.codec.DecoderException expected) { return; }
+        throw new AssertionError(label + " was accepted");
     }
 
     private static <T> Tag encode(Codec<T> codec, T value) {

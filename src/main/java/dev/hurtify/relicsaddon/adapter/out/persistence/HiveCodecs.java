@@ -27,7 +27,7 @@ import net.minecraft.network.codec.StreamCodec;
 /**
  * Saved and synced forms of the hive components (hive_settings, hive_stack_state, hive_combat_state and
  * hive_support_state), including the released multi-wing allocations, retargeting and Armageddon state. Codec checks
- * cover the released wire format and backward-compatible saved forms.
+ * cover the versioned wire format and backward-compatible saved forms.
  */
 public final class HiveCodecs {
         private static final Codec<Notice.Kind> NOTICE_KIND = Codec.STRING.xmap(id -> {
@@ -119,12 +119,19 @@ public final class HiveCodecs {
             int count = VarInt.read(buffer);
             if (count < 0 || count > HiveType.MAX_DRONES) throw new DecoderException("Hive unit count exceeds limit");
             var units = new ArrayList<HiveStackState.Unit>(count);
-            for (int index = 0; index < count; index++) {
+            while (units.size() < count) {
+                int run = VarInt.read(buffer);
+                if (run < 1 || run > count - units.size()) throw new DecoderException("Invalid hive unit run");
                 int packed = buffer.readUnsignedByte();
+                if ((packed & 0x80) != 0 || (packed & HP_MASK) > HiveType.DRONE_HP)
+                    throw new DecoderException("Invalid hive unit flags");
                 long ready = (packed & READY) != 0 ? VarLong.read(buffer) : 0;
                 long hit = (packed & HIT) != 0 ? VarLong.read(buffer) : -1;
                 long attack = (packed & ATTACK) != 0 ? VarLong.read(buffer) : 0;
-                units.add(new HiveStackState.Unit(packed & HP_MASK, ready, hit, attack));
+                if (ready < 0 || hit < -1 || attack < 0) throw new DecoderException("Invalid hive unit timing");
+                HiveStackState.Unit unit = packed == HiveType.DRONE_HP ? HiveStackState.Unit.fresh()
+                        : new HiveStackState.Unit(packed & HP_MASK, ready, hit, attack);
+                for (int index = 0; index < run; index++) units.add(unit);
             }
             return new HiveStackState(enabled, units);
         }
@@ -132,12 +139,18 @@ public final class HiveCodecs {
         @Override public void encode(ByteBuf buffer, HiveStackState value) {
             buffer.writeBoolean(value.enabled());
             VarInt.write(buffer, value.units().size());
-            // One flag byte (health in the low bits) and only the timings a drone actually has.
-            for (HiveStackState.Unit unit : value.units()) {
+            // Wire v5: bounded equal-unit runs, exact timings. Persistence stays unchanged.
+            // Client and server require the same JAR; Armageddon handshake is version 5.
+            for (int start = 0; start < value.units().size();) {
+                HiveStackState.Unit unit = value.units().get(start);
+                int end = start + 1;
+                while (end < value.units().size() && unit.equals(value.units().get(end))) end++;
+                VarInt.write(buffer, end - start);
                 buffer.writeByte(unit.hp() | (unit.readyAt() > 0 ? READY : 0) | (unit.lastHit() >= 0 ? HIT : 0) | (unit.attackReadyAt() > 0 ? ATTACK : 0));
                 if (unit.readyAt() > 0) VarLong.write(buffer, unit.readyAt());
                 if (unit.lastHit() >= 0) VarLong.write(buffer, unit.lastHit());
                 if (unit.attackReadyAt() > 0) VarLong.write(buffer, unit.attackReadyAt());
+                start = end;
             }
         }
     };
@@ -193,7 +206,8 @@ public final class HiveCodecs {
         @Override public void encode(ByteBuf buffer, HiveCombatState state) {
             buffer.writeBoolean(state.active()).writeInt(state.targetId()).writeLong(state.changedAt())
                     .writeDouble(state.targetX()).writeDouble(state.targetY()).writeDouble(state.targetZ())
-                    .writeShort(state.travel()).writeByte(state.shots().size());
+                    .writeShort(state.travel());
+            VarInt.write(buffer, state.shots().size());
             VarInt.write(buffer, state.wings().size());
             for (Wing wing : state.wings()) {
                 buffer.writeBoolean(wing.out());
@@ -212,7 +226,8 @@ public final class HiveCodecs {
             boolean active = buffer.readBoolean(); int target = buffer.readInt(); long changed = buffer.readLong();
             double x = buffer.readDouble(), y = buffer.readDouble(), z = buffer.readDouble();
             int travel = buffer.readUnsignedShort();
-            int size = buffer.readUnsignedByte();
+            int size = VarInt.read(buffer);
+            if (size < 0 || size > HiveCombatState.MAX_SHOTS) throw new DecoderException("Invalid hive shot count");
             int wingCount = VarInt.read(buffer);
             if (wingCount < 0 || wingCount > HiveCombatState.WINGS) throw new IllegalArgumentException("Oversized hive wing list");
             var wings = new ArrayList<Wing>(wingCount);
@@ -230,7 +245,7 @@ public final class HiveCodecs {
     };
 
     private static void writeTargets(ByteBuf buffer, List<HiveTarget> targets) {
-        buffer.writeByte(targets.size());
+        VarInt.write(buffer, targets.size());
         for (HiveTarget target : targets) {
             VarInt.write(buffer, target.id());
             buffer.writeDouble(target.x()).writeDouble(target.y()).writeDouble(target.z())
@@ -239,8 +254,8 @@ public final class HiveCodecs {
     }
 
     private static List<HiveTarget> readTargets(ByteBuf buffer) {
-        int count = buffer.readUnsignedByte();
-        if (count > HiveCombatState.MAX_TARGETS) throw new IllegalArgumentException("Oversized hive target list");
+        int count = VarInt.read(buffer);
+        if (count < 0 || count > HiveCombatState.MAX_TARGETS) throw new DecoderException("Oversized hive target list");
         var targets = new ArrayList<HiveTarget>(count);
         for (int index = 0; index < count; index++) {
             targets.add(new HiveTarget(VarInt.read(buffer), buffer.readDouble(), buffer.readDouble(), buffer.readDouble(),

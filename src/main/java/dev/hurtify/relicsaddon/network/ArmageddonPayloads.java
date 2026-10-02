@@ -60,7 +60,7 @@ public final class ArmageddonPayloads {
     }
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("4");
+        PayloadRegistrar registrar = event.registrar("5");
         registrar.playToServer(Fire.TYPE, Fire.STREAM_CODEC, (payload, context) -> context.enqueueWork(() -> {
             if (!(context.player() instanceof ServerPlayer player)) return;
             // The server can still say no (the charge ran down while the question was open, say): tell the owner why.

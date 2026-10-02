@@ -125,7 +125,9 @@ public final class CodecGoldenCheck {
         }
         legacy.put("units", legacyUnits);
         nbtInput("hive_stack_state/nbt legacy units", HiveCodecs.STACK_STATE, swarm, legacy);
-        streamInput("hive_stack_state/stream count 751", HiveCodecs.STACK_STATE, swarm, new byte[] {0x01, (byte) 0xEF, 0x05});
+        streamInput("hive_stack_state/stream count 2001", HiveCodecs.STACK_STATE, swarm, new byte[] {0x01, (byte) 0xD1, 0x0F});
+        streamInput("hive_stack_state/stream zero run", HiveCodecs.STACK_STATE, swarm, new byte[] {0x01, 0x01, 0x00});
+        streamInput("hive_stack_state/stream run past count", HiveCodecs.STACK_STATE, swarm, new byte[] {0x01, 0x01, 0x02});
 
         // The combat state is synced only (S3 dropped its unused NBT codec), so it has no NBT column.
         Wire<HiveCombatState> combat = wire(HiveCodecs.COMBAT_STATE_STREAM);
@@ -140,6 +142,7 @@ public final class CodecGoldenCheck {
         // The fixed prefix ends with the shot count; the decoder rejects it before reading shots.
         byte[] oversized = combat.encode(new HiveCombatState(true, 42, 77L, 1.5, 2.5, 3.5,
                 wings(AttackMode.BARRAGE), 44, List.of()));
+        // 101 is a one-byte VarInt; this explicitly overwrites that VarInt, not a byte-sized count.
         oversized[1 + 4 + 8 + 3 * 8 + 2] = (byte) (HiveCombatState.MAX_SHOTS + 1);
         streamInput("hive_combat_state/stream 101 shots", null, combat, oversized);
 

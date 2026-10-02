@@ -4,9 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Every drone of a hive: its health and when it is whole and home again. Up to 750 drones live in
- * one item, so both forms are compact: saves keep two plain arrays, and the network sends one byte
- * for a drone at rest.
+ * Every drone of a hive: its health and when it is whole and home again. Up to 2000 drones live in
+ * one item: saves keep two plain arrays, and network codecs group equal units into runs.
  */
 public record HiveStackState(boolean enabled, List<Unit> units) {
     public static final HiveStackState DEFAULT = new HiveStackState(true, List.of());
@@ -27,7 +26,8 @@ public record HiveStackState(boolean enabled, List<Unit> units) {
             attackReadyAt = Math.max(0, attackReadyAt);
         }
 
-        public static Unit fresh() { return new Unit(HiveType.DRONE_HP, 0, -1, 0); }
+        private static final Unit FRESH = new Unit(HiveType.DRONE_HP, 0, -1, 0);
+        public static Unit fresh() { return FRESH; }
         /** Whole and home, free to fly. */
         public boolean ready(long now) { return hp >= HiveType.DRONE_HP && now >= readyAt; }
         public boolean attackReady(long now) { return hp > 0 && now >= attackReadyAt; }
@@ -56,8 +56,8 @@ public record HiveStackState(boolean enabled, List<Unit> units) {
     }
 
     /**
-     * Drops timings the swarm no longer needs, so a hive that has been in a fight goes back to one
-     * byte per drone on the wire. A fighter lane whose drones are all whole, home and untouched for
+     * Drops timings the swarm no longer needs, so a hive that has been in a fight compresses into
+     * equal-unit runs on the wire. A fighter lane whose drones are all whole, home and untouched for
      * {@code quiet} ticks starts afresh: its drones become identical, and the lane's first drone flies
      * its place (possibly taking over from another drone of the lane, at the same station, so nothing
      * visibly moves). Healers drop spent timers the same way. Timings from another world's clock (later
