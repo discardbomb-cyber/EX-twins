@@ -17,7 +17,6 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
-import net.neoforged.fml.loading.FMLEnvironment;
 
 /**
  * Armageddon's two messages: the owner's request to fire at a point (checked again on the server), and
@@ -68,19 +67,17 @@ public final class ArmageddonPayloads {
             String refused = ArmageddonController.request(player, payload.target());
             if (refused != null) player.displayClientMessage(Component.translatable(refused).withStyle(ChatFormatting.LIGHT_PURPLE), true);
         }));
-        if (FMLEnvironment.dist.isClient()) {
-            // Only ever run on a client, so the client class is loaded there alone.
-            registrar.playToClient(Blast.TYPE, Blast.STREAM_CODEC, (payload, context) -> context.enqueueWork(
-                    () -> {
-                        try {
-                            Class<?> clazz = Class.forName("dev.hurtify.relicsaddon.client.ArmageddonVisual");
-                            java.lang.reflect.Method method = clazz.getMethod("told", HiveType.class, Vec3.class, Vec3.class, Direction.class, float.class, long.class);
-                            method.invoke(null, payload.hive(), payload.centre(), payload.from(), payload.face(), payload.room(), payload.impactAt());
-                        } catch (ReflectiveOperationException e) {
-                            RelicsAddon.LOGGER.error("Failed to invoke ArmageddonVisual.told", e);
-                        }
-                    }));
-        }
+        // Only ever run on a client, so the client class is loaded there alone.
+        registrar.playToClient(Blast.TYPE, Blast.STREAM_CODEC, (payload, context) -> context.enqueueWork(
+                () -> {
+                    try {
+                        Class<?> clazz = Class.forName("dev.hurtify.relicsaddon.client.ArmageddonVisual");
+                        java.lang.reflect.Method method = clazz.getMethod("told", HiveType.class, Vec3.class, Vec3.class, Direction.class, float.class, long.class);
+                        method.invoke(null, payload.hive(), payload.centre(), payload.from(), payload.face(), payload.room(), payload.impactAt());
+                    } catch (ReflectiveOperationException e) {
+                        RelicsAddon.LOGGER.error("Failed to invoke ArmageddonVisual.told", e);
+                    }
+                }));
     }
 
     /** Tells every client near enough of a blast. */
