@@ -4,7 +4,7 @@
   "pattern": [
     "XMX",
     "GKG",
-    "XGX"
+    "XRX"
   ],
   "key": {
     "X": {
@@ -18,6 +18,9 @@
     },
     "K": {
       "item": "relics_addon:mana_shield_core"
+    },
+    "R": {
+      "item": "irons_spellbooks:arcane_rune"
     }
   },
   "result": {

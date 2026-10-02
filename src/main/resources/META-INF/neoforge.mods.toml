@@ -52,6 +52,14 @@ versionRange="[${mekanism_min_version},10.8)"
 ordering="AFTER"
 side="BOTH"
 
+# Mana crafting requires Iron's Spells on both client and server.
+[[dependencies.${mod_id}]]
+modId="irons_spellbooks"
+type="required"
+versionRange="[${irons_spellbooks_min_version},1.21.2)"
+ordering="AFTER"
+side="BOTH"
+
 # Optional: with LambDynamicLights installed, shields, swarm effects and blasts light up the world.
 [[dependencies.${mod_id}]]
 modId="lambdynlights_api"

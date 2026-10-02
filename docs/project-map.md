@@ -120,6 +120,12 @@ MCP и статусы — [mcp-tools.md](mcp-tools.md); каждая ошибк�
 
 Ветка `codex/mekanism-recipes` включает hotfix 433317a, обязательный Mekanism 1.21.1-10.7.15.81 и 18 переработанных рецептов. Изменены 37 ресурсных эталонов: 18 рецептов, 18 условий открытия и описание зависимости. Итог `build runGameTestServer`: BUILD SUCCESSFUL, 96/96. Эта ветка не включена в заменённый hotfix-JAR v1.0.0. Шесть MCP настроены локально; ElevenLabs отменён автором.
 
+## Iron’s Spells в мана-крафтах — 02.10.2026
+
+В `codex/finish-pending` пять мана-рецептов требуют Iron’s Spells: ячейка — `arcane_essence`, оболочка дрона и ядро щита — `arcane_ingot`, щит и улей — `arcane_rune`. Mekanism и количество результатов сохранены. Обновлены пять условий открытия и ровно 11 ресурсных эталонов из-за намеренного изменения рецептов и обязательной зависимости на обеих сторонах.
+
+Runtime: Iron’s Spells `1.21.1-3.16.3`, Iron’s Lib `1.21.1-2.1.0`, GeckoLib `4.7.5.1`, PlayerAnimator `2.0.1+1.21.1`; NeoForge остаётся `21.1.251`. `jar verifyContracts verifyReleaseContents runGameTestServer`: BUILD SUCCESSFUL, **97/97** GameTests, включая крафт с реальными ингредиентами Iron’s и отказ при ванильной подмене. Лог: `work/test-runs/2026-10-02-irons-recipes-01.log`. Релизный JAR v1.0.0 этим изменением не заменяется.
+
 ## Завершение оставшейся очереди оптимизации — 02.10.2026
 
 Рабочая копия: `C:/dev/EX-twins/.worktrees/finish-pending`, ветка `codex/finish-pending` от `codex/mekanism-recipes` / `2b8c24a`. Изменения подготовлены отдельно от чужих файлов в `docs/readme-ru`. Mekanism и сетевой hotfix входят в базу; публикация релиза этим запросом не выполняется.

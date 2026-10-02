@@ -7,9 +7,9 @@
         "items": [
           {
             "items": [
+              "irons_spellbooks:arcane_essence",
               "mekanism:advanced_control_circuit",
               "mekanism:ingot_refined_glowstone",
-              "minecraft:amethyst_shard",
               "relics_addon:resonant_circuit"
             ]
           }

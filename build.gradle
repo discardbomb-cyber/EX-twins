@@ -180,6 +180,21 @@ neoForge {
 
 repositories {
     maven {
+        name = "IronSpells"
+        url = "https://code.redspace.io/releases/"
+        content { includeGroup "io.redspace" }
+    }
+    maven {
+        name = "GeckoLib"
+        url = "https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/"
+        content { includeGroup "software.bernie.geckolib" }
+    }
+    maven {
+        name = "PlayerAnimator"
+        url = "https://maven.kosmx.dev/"
+        content { includeGroup "dev.kosmx.player-anim" }
+    }
+    maven {
         name = "Mekanism"
         url = "https://modmaven.dev/"
         content { includeGroup "mekanism" }
@@ -222,6 +237,11 @@ dependencies {
     testImplementation 'com.google.code.gson:gson:2.10.1'
     // Required recipe ingredients, without a Java/API dependency or bundling Mekanism.
     runtimeOnly "mekanism:Mekanism:${mekanism_version}"
+    // Mana crafting ingredients; libraries required by Iron's own NeoForge metadata.
+    runtimeOnly "io.redspace:irons_spellbooks:${irons_spellbooks_version}"
+    runtimeOnly "io.redspace:irons_lib:${irons_lib_version}"
+    runtimeOnly "software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}"
+    runtimeOnly "dev.kosmx.player-anim:player-animation-lib-forge:${player_animator_version}"
     implementation "top.theillusivec4.curios:curios-neoforge:${curios_version}"
     implementation("com.lowdragmc.photon:photon-neoforge-1.21.1:${photon_version}:all") { transitive = false }
     implementation "com.lowdragmc.ldlib2:ldlib2-neoforge-1.21.1:${ldlib2_version}:all"
@@ -258,6 +278,7 @@ tasks.named('processResources', ProcessResources).configure {
             mod_authors      : mod_authors,
             mod_description  : mod_description,
             mekanism_min_version: mekanism_min_version,
+            irons_spellbooks_min_version: irons_spellbooks_min_version,
             curios_version   : curios_version,
             photon_version   : photon_version,
             ldlib2_version   : ldlib2_version,

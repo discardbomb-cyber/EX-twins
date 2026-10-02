@@ -21,9 +21,9 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
  * Where mana batteries refill from: Botania mana items (tablets, rings), the player's own mana in
- * Ars Nouveau and Iron's Spells 'n Spellbooks, and vanilla experience. The mods are optional and
- * reached by reflection, so none of them is a build or runtime dependency; an adapter that fails
- * to bind is logged once and skipped.
+ * Ars Nouveau and Iron's Spells 'n Spellbooks, and vanilla experience. Botania and Ars are optional;
+ * Iron's Spells is required by crafting. Mana adapters are still reached by reflection to keep
+ * their API types outside the common boundary; a binding failure is logged once and skipped.
  */
 final class ManaSources {
     private interface Source {

@@ -2,7 +2,7 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    "SXS",
+    "SRS",
     "SMS",
     "SXS"
   ],
@@ -15,6 +15,9 @@
     },
     "M": {
       "item": "relics_addon:mana_cell"
+    },
+    "R": {
+      "item": "irons_spellbooks:arcane_rune"
     }
   },
   "result": {

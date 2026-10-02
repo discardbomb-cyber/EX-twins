@@ -7,6 +7,7 @@
         "items": [
           {
             "items": [
+              "irons_spellbooks:arcane_rune",
               "mekanism:elite_control_circuit",
               "mekanism:ingot_refined_glowstone",
               "relics_addon:mana_cell",
