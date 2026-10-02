@@ -1,5 +1,5 @@
 newmtl gold
-Kd 0.6 0.42 0.14
+Kd 0.84 0.66 0.23
 Ka 0 0 0
 map_Kd relics_addon:item/materials/rf_mesh_white
 
@@ -9,22 +9,22 @@ Ka 0.1 0.1 0.1
 map_Kd relics_addon:item/materials/rf_mesh_white
 
 newmtl bronze
-Kd 0.35 0.24 0.1
+Kd 0.9 0.86 0.77
 Ka 0 0 0
 map_Kd relics_addon:item/materials/rf_mesh_white
 
 newmtl navy
-Kd 0.03 0.06 0.14
+Kd 0.18 0.36 0.32
 Ka 0 0 0
 map_Kd relics_addon:item/materials/rf_mesh_white
 
 newmtl glass
-Kd 0.1 0.35 0.85
+Kd 0.18 0.65 0.57
 Ka 0.25 0.25 0.25
 map_Kd relics_addon:item/materials/rf_mesh_white
 
 newmtl glass_light
-Kd 0.45 0.8 1
+Kd 0.32 0.9 0.82
 Ka 0.9 0.9 0.9
 map_Kd relics_addon:item/materials/rf_mesh_white
 
@@ -34,6 +34,6 @@ Ka 1 1 1
 map_Kd relics_addon:item/materials/rf_mesh_white
 
 newmtl ring_light
-Kd 0.8 0.95 1
+Kd 0.32 0.9 0.82
 Ka 1 1 1
 map_Kd relics_addon:item/materials/rf_mesh_white

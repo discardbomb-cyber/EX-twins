@@ -47,6 +47,28 @@ const rotateY = (p, angle, centre = C) => add(centre, rotate(sub(p, centre), [0,
 
 // --- mesh ----------------------------------------------------------------------------------------
 class Mesh {
+  /** Smooth torus for collars, rounded bezels and orbit rails. */
+  torus(group, material, centre, axis, radius, thickness, segments = 48, sides = 8) {
+    const a = norm(axis), u = perp(a), w = cross(a, u);
+    const radial = t => add(mul(u, Math.cos(t)), mul(w, Math.sin(t)));
+    const normal = (t, p) => add(mul(radial(t), Math.cos(p)), mul(a, Math.sin(p)));
+    const at = (t, p) => add(add(centre, mul(radial(t), radius)), mul(normal(t, p), thickness));
+    for (let s = 0; s < segments; s++) for (let k = 0; k < sides; k++) {
+      const t = s * 2 * Math.PI / segments, b = (s + 1) * 2 * Math.PI / segments;
+      const p = k * 2 * Math.PI / sides, q = (k + 1) * 2 * Math.PI / sides;
+      this.quad(group, material, [at(t,p), at(b,p), at(b,q), at(t,q)], [normal(t,p), normal(b,p), normal(b,q), normal(t,q)]);
+    }
+  }
+  /** Convex lens with radial smooth normals. */
+  lens(group, material, centre, axis, radius, depth) {
+    const a = norm(axis), u = perp(a), w = cross(a, u);
+    const at = (r,t) => add(add(centre, mul(a, depth * (1-r*r))), add(mul(u,radius*r*Math.cos(t)),mul(w,radius*r*Math.sin(t))));
+    const n = (r,t) => norm(add(a, add(mul(u,2*depth/radius*r*Math.cos(t)),mul(w,2*depth/radius*r*Math.sin(t)))));
+    for (let j=0;j<5;j++) for (let s=0;s<40;s++) {
+      const r=j/5, b=(j+1)/5, t=s*Math.PI/20, p=(s+1)*Math.PI/20;
+      this.quad(group,material,[at(r,t),at(b,t),at(b,p),at(r,p)],[n(r,t),n(b,t),n(b,p),n(r,p)]);
+    }
+  }
   constructor(name, materials) { this.name = name; this.materials = materials; this.v = []; this.n = []; this.t = []; this.groups = new Map(); }
   vert(p, n, uv = [.5, .5]) { this.v.push(p); this.n.push(norm(n)); this.t.push(uv); return this.v.length; }
   face(group, material, ...ids) {
@@ -265,18 +287,18 @@ function writeTextures() {
 // --- the RF emitter tower (s11, s10) -------------------------------------------------------------
 function rfGenerator() {
   const m = new Mesh("rf_ship_shield_generator", {
-    steel: [[.62, .66, .7], 0, "relics_addon:block/ship/steel"],
+    steel: [[.23, .25, .28], 0],
     steel_dark: [[.3, .33, .37], 0],
-    steel_light: [[.8, .83, .86], 0],
+    steel_light: [[.71, .44, .25], 0],
     graphite: [[.1, .11, .13], 0],
     rubber: [[.05, .055, .065], 0],
-    cyan: [[.3, .82, 1], 1],
+    cyan: [[.31, .85, .94], 1],
     cyan_dim: [[.15, .45, .6], .3],
     ring_light: [[.72, .96, 1], 1],
   });
   const y0 = 0;
   // Octagonal base plate with a raised rim and four foot pads.
-  const oct = r => Array.from({ length: 8 }, (_, i) => [Math.cos((i + .5) * Math.PI / 4) * r, Math.sin((i + .5) * Math.PI / 4) * r]);
+  const oct = r => Array.from({ length: 48 }, (_, i) => [Math.cos(i * Math.PI / 24) * r, Math.sin(i * Math.PI / 24) * r]);
   m.prism("body", "steel_dark", C, oct(.46), y0, y0 + .06, "graphite");
   m.prism("body", "steel", C, oct(.36), y0 + .06, y0 + .1, "steel_dark");
   for (let i = 0; i < 4; i++) {
@@ -286,15 +308,21 @@ function rfGenerator() {
   }
   // Drum and the segmented column.
   m.lathe("body", i => (i === 1 ? "graphite" : i >= 4 ? "steel_dark" : "steel"), [.5, y0 + .1, .5], [0, 1, 0],
-    [[0, 0], [.24, 0], [.24, .05], [.2, .05], [.2, .14], [.26, .17], [.26, .2], [.17, .22], [0, .22]], 24);
+    [[0, 0], [.24, 0], [.24, .05], [.2, .05], [.2, .14], [.26, .17], [.26, .2], [.17, .22], [0, .22]], 48);
   m.lathe("body", i => (i % 2 ? "steel_dark" : "steel"), [.5, y0 + .32, .5], [0, 1, 0],
-    [[.13, 0], [.14, .08], [.11, .1], [.11, .18], [.14, .2], [.14, .3], [.11, .32], [.11, .44], [.15, .46], [.15, .55], [.17, .6], [0, .6]], 20);
+    [[.13, 0], [.14, .08], [.11, .1], [.11, .18], [.14, .2], [.14, .3], [.11, .32], [.11, .44], [.15, .46], [.15, .55], [.17, .6], [0, .6]], 48);
   // Hinge collar for the masts near the column's top.
   m.lathe("body", "graphite", [.5, y0 + .78, .5], [0, 1, 0], [[.12, 0], [.19, 0], [.19, .06], [.12, .06]], 16);
   // Lamps on the drum: fx (drawn fullbright on the switched-on tower, blinking at rest).
   for (let i = 0; i < 4; i++) {
     const a = i * Math.PI / 2, d = [Math.cos(a), 0, Math.sin(a)], t = [-Math.sin(a), 0, Math.cos(a)];
     m.box("fx", "cyan", add([.5, y0 + .27, .5], mul(d, .255)), mul(d, .008), [0, .012, 0], mul(t, .03));
+  }
+  for(let j=0;j<6;j++) m.torus("body","steel_light",[.5,.37+j*.066,.5],[0,1,0],.145,.006,40,6);
+  for(let i=0;i<8;i++) {
+    const a=i*Math.PI/4, d=[Math.cos(a),0,Math.sin(a)];
+    m.tube("body","steel_light",add([.5,.16,.5],mul(d,.217)),add([.5,.29,.5],mul(d,.217)),.011,10);
+    m.sphere("body","steel_light",add([.5,.075,.5],mul(d,.415)),.012,4,8);
   }
   // Core: the antenna spindle with its three vanes and the top lamp; spins slowly.
   m.lathe("core", i => (i >= 3 ? "steel_light" : "steel_dark"), [.5, y0 + .92, .5], [0, 1, 0], [[0, 0], [.05, 0], [.05, .1], [.03, .1], [.03, .32], [.045, .34], [0, .38]], 12);
@@ -334,16 +362,16 @@ function rfGenerator() {
 // --- the Mana holocron cube (s05, s10) -----------------------------------------------------------
 function manaGenerator() {
   const m = new Mesh("mana_ship_shield_generator", {
-    gold: [[.6, .42, .14], 0],
+    gold: [[.84, .66, .23], 0],
     gold_edge: [[.92, .74, .32], .1],
-    bronze: [[.35, .24, .1], 0],
-    navy: [[.03, .06, .14], 0],
-    glass: [[.1, .35, .85], .25],
-    glass_light: [[.45, .8, 1], .9],
+    bronze: [[.90, .86, .77], 0],
+    navy: [[.18, .36, .32], 0],
+    glass: [[.18, .65, .57], .25],
+    glass_light: [[.32, .90, .82], .9],
     core_light: [[1, .85, .45], 1],
-    ring_light: [[.8, .95, 1], 1],
+    ring_light: [[.32, .90, .82], 1],
   });
-  const oct = r => Array.from({ length: 8 }, (_, i) => [Math.cos((i + .5) * Math.PI / 4) * r, Math.sin((i + .5) * Math.PI / 4) * r]);
+  const oct = r => Array.from({ length: 48 }, (_, i) => [Math.cos(i * Math.PI / 24) * r, Math.sin(i * Math.PI / 24) * r]);
   m.prism("body", "bronze", C, oct(.44), 0, .05, "gold");
   m.prism("body", "navy", C, oct(.34), .05, .1, "gold_edge");
   m.lathe("body", i => (i === 0 ? "gold_edge" : "gold"), [.5, .1, .5], [0, 1, 0], [[.2, 0], [.2, .03], [.14, .05], [.1, .12], [0, .12]], 16);
@@ -360,19 +388,17 @@ function manaGenerator() {
   faces.forEach((n, i) => {
     const group = `shell_${i}`, u = perp(n), w = cross(n, u);
     const at = (x, y, out) => add(add(add(centre, mul(n, half + out)), mul(u, x)), mul(w, y));
-    // Frame: four gold bars with a bevelled outer edge.
-    const bar = (sx, sy, cx, cy) => m.box(group, k => (k === 2 ? "gold_edge" : "gold"), at(cx, cy, -.025), mul(u, sx), mul(w, sy), mul(n, .025));
-    bar(half, .04, 0, half - .04); bar(half, .04, 0, -half + .04); bar(.04, half - .08, half - .04, 0); bar(.04, half - .08, -half + .04, 0);
-    // Lens: a square glass plate set back, with a glowing diamond on it.
-    m.poly(group, "glass", [at(-.16, -.16, -.03), at(.16, -.16, -.03), at(.16, .16, -.03), at(-.16, .16, -.03)]);
-    m.poly(group, "navy", [at(-.165, -.165, -.042), at(.165, -.165, -.042), at(.165, .165, -.042), at(-.165, .165, -.042)]);
-    m.poly(group, "glass_light", [at(0, .1, -.028), at(-.1, 0, -.028), at(0, -.1, -.028), at(.1, 0, -.028)]);
-    m.poly(group, "glass", [at(0, .06, -.026), at(-.06, 0, -.026), at(0, -.06, -.026), at(.06, 0, -.026)]);
-    // Circular inscription inset into each square face, matching the holocron reference.
-    for (let s = 0; s < 24; s++) {
-      const a = s * Math.PI / 12, b = (s + 1) * Math.PI / 12;
-      m.tube(group, "gold_edge", at(Math.cos(a) * .13, Math.sin(a) * .13, -.02), at(Math.cos(b) * .13, Math.sin(b) * .13, -.02), .003, 4);
+    // Rounded ivory housing, gold bezel, domed turquoise lens and engraved radial glyphs.
+    m.lens(group, "bronze", at(0,0,-.035), n, .205, .055);
+    m.torus(group, "gold", at(0,0,.005), n, .174, .017, 40);
+    m.lens(group, "glass", at(0,0,.01), n, .151, .035);
+    m.torus(group, "glass_light", at(0,0,.043), n, .112, .0035, 40, 6);
+    m.lens(group, "glass_light", at(0,0,.044), n, .041, .009);
+    for (let s=0;s<12;s++) {
+      const a=s*Math.PI/6;
+      m.tube(group,"gold_edge",at(Math.cos(a)*.126,Math.sin(a)*.126,.036),at(Math.cos(a)*.141,Math.sin(a)*.141,.03),.0025,6);
     }
+
   });
   // Core: a star, a blue octahedron lit from within with a gold pyramid on each face (the open
   // holocron's points), hidden inside the closed cube.
@@ -428,16 +454,16 @@ function truncatedIcosahedron() {
 
 function twinsGenerator() {
   const m = new Mesh("twins_ship_shield_generator", {
-    marble: [[.95, .95, .96], 0, "relics_addon:block/ship/marble"],
-    marble_dark: [[.6, .6, .64], 0, "relics_addon:block/ship/marble"],
-    gold: [[.72, .52, .18], .05],
+    marble: [[.43, .31, .61], 0, "relics_addon:block/ship/marble"],
+    marble_dark: [[.29, .23, .40], 0, "relics_addon:block/ship/marble"],
+    gold: [[.80, .70, .48], .05],
     gold_edge: [[.95, .78, .38], .15],
     galaxy: [[1, 1, 1], .35, "relics_addon:block/ship/galaxy"],
-    thread: [[1, .85, .5], 1],
-    ring_light: [[.95, .85, 1], 1],
+    thread: [[.79, .47, 1], 1],
+    ring_light: [[.79, .47, 1], 1],
   });
   // Pedestal: a marble drum with gold hoops and four marble clamps (s15 pillars), on an octagonal plinth.
-  const oct = r => Array.from({ length: 8 }, (_, i) => [Math.cos((i + .5) * Math.PI / 4) * r, Math.sin((i + .5) * Math.PI / 4) * r]);
+  const oct = r => Array.from({ length: 48 }, (_, i) => [Math.cos(i * Math.PI / 24) * r, Math.sin(i * Math.PI / 24) * r]);
   m.prism("body", "marble_dark", C, oct(.44), 0, .05, "marble");
   m.lathe("body", i => (i === 1 || i === 4 ? "gold_edge" : i >= 6 ? "gold" : "marble"), [.5, .05, .5], [0, 1, 0],
     [[.22, 0], [.22, .05], [.24, .07], [.21, .07], [.21, .16], [.24, .18], [.2, .18], [.1, .18], [.1, .26], [0, .26]], 24, [1, 1]);
@@ -454,10 +480,23 @@ function twinsGenerator() {
     const points = ring.map(i => add(centre, mul(verts[i], R)));
     const u = perp(n), w = cross(n, u);
     const uvs = points.map(p => { const q = sub(p, centre); return [.5 + dot(q, u) * 1.4, .5 + dot(q, w) * 1.4]; });
-    m.poly("body", "marble", points, uvs, true);
+    // Subdivide each hex/pentagon onto the sphere: curved ceramic panels, smooth normals.
+    const project = p => add(centre,mul(norm(sub(p,centre)),R));
+    const hub = project(mul(points.reduce(add,[0,0,0]),1/points.length));
+    for(let edge=0;edge<points.length;edge++) {
+      const a=points[edge], b=points[(edge+1)%points.length];
+      const at=(r,t)=>project(add(mul(hub,1-r),mul(add(mul(a,1-t),mul(b,t)),r)));
+      for(let row=0;row<4;row++) for(let col=0;col<3;col++) {
+        const q=[at(row/4,col/3),at((row+1)/4,col/3),at((row+1)/4,(col+1)/3),at(row/4,(col+1)/3)];
+        m.quad("body","marble",q,q.map(p=>norm(sub(p,centre))),q.map(p=>[.5+dot(sub(p,centre),u)*1.4,.5+dot(sub(p,centre),w)*1.4]));
+      }
+    }
   }
   m.sphere("body", "marble_dark", centre, R * .88, 8, 14);
-  for (const [a, b] of edges) m.tube("body", "gold_edge", add(centre, mul(verts[a], R * 1.01)), add(centre, mul(verts[b], R * 1.01)), .011, 5);
+  for (const [a,b] of edges) for(let j=0;j<5;j++) {
+    const p=t=>add(centre,mul(norm(add(mul(verts[a],1-t),mul(verts[b],t))),R*1.014));
+    m.tube("body","gold_edge",p(j/5),p((j+1)/5),.006,6);
+  }
   // Core: the ring of galaxy orbs on a thin gold rail, tilted; it spins when the generator runs.
   const tilt = .38, axis = norm([Math.sin(tilt), Math.cos(tilt), 0]), ringR = .54, orbs = 20;
   const u = perp(axis), w = cross(axis, u);
@@ -467,7 +506,7 @@ function twinsGenerator() {
   m.ribbon("core", rail, side, .012, .008, "gold", "gold_edge", true);
   for (let i = 0; i < orbs; i++) {
     const p = onRing(2 * Math.PI * i / orbs);
-    m.sphere("core", "galaxy", p, .055, 7, 12);
+    m.sphere("core", "galaxy", p, .055, 10, 16);
     m.lathe("core", "gold_edge", p, axis, [[.058, -.006], [.062, 0], [.058, .006]], 10);
   }
   // Fx: golden threads from the pedestal to the sphere and on to the ring, slightly twisted.

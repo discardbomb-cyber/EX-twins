@@ -1,7 +1,7 @@
 newmtl steel
-Kd 0.62 0.66 0.7
+Kd 0.23 0.25 0.28
 Ka 0 0 0
-map_Kd relics_addon:block/ship/steel
+map_Kd relics_addon:item/materials/rf_mesh_white
 
 newmtl steel_dark
 Kd 0.3 0.33 0.37
@@ -9,7 +9,7 @@ Ka 0 0 0
 map_Kd relics_addon:item/materials/rf_mesh_white
 
 newmtl steel_light
-Kd 0.8 0.83 0.86
+Kd 0.71 0.44 0.25
 Ka 0 0 0
 map_Kd relics_addon:item/materials/rf_mesh_white
 
@@ -24,7 +24,7 @@ Ka 0 0 0
 map_Kd relics_addon:item/materials/rf_mesh_white
 
 newmtl cyan
-Kd 0.3 0.82 1
+Kd 0.31 0.85 0.94
 Ka 1 1 1
 map_Kd relics_addon:item/materials/rf_mesh_white
 

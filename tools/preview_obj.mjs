@@ -117,7 +117,7 @@ const centre = mul(add(lo, hi), .5), extent = Math.max(...sub(hi, lo)) * 1.08;
 
 // --- render --------------------------------------------------------------------------------------
 /** Views: name, camera forward direction (towards the model) and up. */
-const VIEWS = [
+let VIEWS = [
   ["front", norm([0, -.35, 1]), [0, 1, 0]],
   ["corner", norm([-1, -.6, 1]), [0, 1, 0]],
   ["side", norm([-1, -.1, 0]), [0, 1, 0]],
@@ -126,10 +126,16 @@ const VIEWS = [
   ["back", norm([.3, -.3, -1]), [0, 1, 0]],
 ];
 const LIGHT = norm([-.4, 1, -.6]);
+const selectedView = option("--view", "all");
+if (selectedView !== "all") {
+  VIEWS = VIEWS.filter(([name]) => name === selectedView);
+  if (!VIEWS.length) throw new Error(`Unknown view: ${selectedView}`);
+}
+const background = option("--background", "magenta") === "dark" ? [22, 26, 32] : [255, 0, 255];
 const W = size * VIEWS.length, H = size;
 const png = new PNG({ width: W, height: H });
 png.data.fill(0);
-for (let i = 0; i < W * H; i++) { png.data[i * 4] = 255; png.data[i * 4 + 1] = 0; png.data[i * 4 + 2] = 255; png.data[i * 4 + 3] = 255; }
+for (let i = 0; i < W * H; i++) { for (let k=0;k<3;k++) png.data[i * 4 + k] = background[k]; png.data[i * 4 + 3] = 255; }
 
 VIEWS.forEach(([label, forward, upHint], viewIndex) => {
   const right = norm(cross(forward, upHint)), up = cross(right, forward);
