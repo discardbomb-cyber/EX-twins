@@ -35,7 +35,7 @@ public final class ShieldVisualRenderer {
     private static final double SHELL_RADIUS = ShieldField.RADIUS;
     private static final double SHELL_CENTER_Y = ShieldField.CENTER_Y;
     private static final int MAX_IMPACT_WAVES = 12;
-    private static final RenderType SHIELD_RENDER_TYPE = createShieldType();
+    static final RenderType SHIELD_RENDER_TYPE = createShieldType();
     private static final Map<UUID, ImpactCache> IMPACT_WAVES = new HashMap<>();
     private static ClientLevel waveLevel;
 

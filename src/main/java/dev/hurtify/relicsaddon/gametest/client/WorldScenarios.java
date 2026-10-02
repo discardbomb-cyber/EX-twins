@@ -240,6 +240,14 @@ public final class WorldScenarios {
                     new Vec3(11, 5, 7), new Vec3(0, 0.5, -2), 160, 4, -1),
             new Scene("ship-shell-above", RelicRole.RF_HIVE, 0, AttackMode.DROPLET, null, List.of(), false,
                     new Vec3(2, 12, 6), new Vec3(0, 0, -2), 160, 4, -1),
+            new Scene("ship-shell-rf", null, 0, null, null, List.of(), false,
+                    new Vec3(11, 7, 8), new Vec3(0, 0, -2), 160, 24, -1),
+            new Scene("ship-shell-mana", null, 0, null, null, List.of(), false,
+                    new Vec3(11, 7, 8), new Vec3(0, 0, -2), 160, 24, -1),
+            new Scene("ship-shell-twins", null, 0, null, null, List.of(), false,
+                    new Vec3(11, 7, 8), new Vec3(0, 0, -2), 160, 24, -1),
+            new Scene("ship-shell-flight", null, 0, null, null, List.of(), false,
+                    new Vec3(16, 11, 5), new Vec3(0, 4, -7.5), 220, 48, -1),
             // The console's Swarm tab: drones shared between all three modes and the healers, a slider hovered;
             // Containment with no free drones for its tori, dimmed, with its reason; a Droplet squeezed out of the air by Barrage.
             // The nine attacks up close, one figure each (see Scene.juice).
@@ -306,7 +314,7 @@ public final class WorldScenarios {
             "ship-duo", List.of(new Mount(dev.hurtify.relicsaddon.ship.ShipHiveKind.AEGIS, new Vec3(-2, 3, -4), net.minecraft.core.Direction.UP),
                     new Mount(dev.hurtify.relicsaddon.ship.ShipHiveKind.LANCE, new Vec3(2, 3, -4), net.minecraft.core.Direction.UP)));
     /** Scenes played on a Sable ship: its deck and hives are built, then assembled into a ship, which is held and turned. */
-    private static final java.util.Set<String> SABLE = java.util.Set.of("ship-sable", "ship-sable-close");
+    private static final java.util.Set<String> SABLE = java.util.Set.of("ship-sable", "ship-sable-close", "ship-shell-flight");
     /** The Sable ship the current scene assembled, if any, and where to find it just after its assembly. */
     private static java.util.UUID shipId;
     private static dev.ryanhcode.sable.companion.math.BoundingBox3d shipBox;
@@ -363,6 +371,7 @@ public final class WorldScenarios {
                     warmFrames++;
                 }
                 if (ticks == 5 && SABLE.contains(plan.get(scene).name())) onServer(minecraft, WorldScenarios::turnShip);
+                if (ticks == plan.get(scene).warmTicks() - 12 && plan.get(scene).name().startsWith("ship-shell-")) onServer(minecraft, WorldScenarios::strikeShipShield);
                 if (ticks == 30 && plan.get(scene).name().equals("ship-console")) onServer(minecraft, level -> {
                     ServerPlayer player = owner(level);
                     net.minecraft.core.BlockPos console = net.minecraft.core.BlockPos.containing(stage).offset(0, 0, -2);
@@ -405,6 +414,14 @@ public final class WorldScenarios {
                 // A key pressed into the game window must not open a screen over the shot (but a scene of a window keeps its own).
                 if (minecraft.screen != null && !java.util.Set.of("ship-console", "ship-window").contains(plan.get(scene).name())) minecraft.setScreen(null);
                 Shot shot = ARMAGEDDON.get(plan.get(scene).name());
+                if (ticks == 20 && plan.get(scene).name().startsWith("ship-shell-")) onServer(minecraft, WorldScenarios::strikeShipShield);
+                if (ticks % 10 == 0 && plan.get(scene).name().equals("ship-shell-flight")) {
+                    int travelTick = ticks;
+                    onServer(minecraft, level -> {
+                        if (shipId != null) command(level, String.format(Locale.ROOT, "sable teleport %s %.2f %.2f %.2f %.2f 8", shipId,
+                                stage.x + .5 + travelTick * .02, stage.y + 4, stage.z - 7.5, 25 + travelTick * .3));
+                    });
+                }
                 if (++ticks % (shot == null ? plan.get(scene).name().startsWith("juice-") ? 1 : 2 : shot.cadence()) == 0) due = true;
                 if (ticks % 40 == 0 && plan.get(scene).name().startsWith("ship-")) onServer(minecraft, level -> {
                     for (String line : dev.hurtify.relicsaddon.ship.ShipBrain.report()) RelicsAddon.LOGGER.info("World scenario {}: {}", plan.get(scene).name(), line);
@@ -673,6 +690,17 @@ public final class WorldScenarios {
             }
         }
         net.minecraft.core.BlockPos from = base.offset(-3, 6, -13), to = base.offset(3, 7, -3);
+        if (plan.get(scene).name().equals("ship-shell-flight")) {
+            var family = dev.hurtify.relicsaddon.shipshield.ShipFamily.TWINS;
+            net.minecraft.core.BlockPos generatorPos = base.offset(0, 7, -8);
+            level.setBlock(generatorPos, dev.hurtify.relicsaddon.registry.ShipBlocks.GENERATORS.get(family).get().defaultBlockState(), 3);
+            for (int z : new int[]{-11, -5}) {
+                net.minecraft.core.BlockPos dockPos = base.offset(0, 7, z);
+                level.setBlock(dockPos, dev.hurtify.relicsaddon.registry.ShipBlocks.DOCKS.get(family).get().defaultBlockState(), 3);
+                if (level.getBlockEntity(dockPos) instanceof dev.hurtify.relicsaddon.shipshield.ShipDeviceBlockEntity dock) dock.insertDrones(new ItemStack(ModItems.EMITTER_DRONES.get(family).get(), 8));
+            }
+            if (level.getBlockEntity(generatorPos) instanceof dev.hurtify.relicsaddon.shipshield.ShipDeviceBlockEntity generator) generator.setEnabled(null, true);
+        }
         Vec3 middle = stage.add(.5, 7, -7.5);
         command(level, "sable assemble area " + from.getX() + " " + from.getY() + " " + from.getZ() + " " + to.getX() + " " + to.getY() + " " + to.getZ());
         command(level, "sable paused true");
@@ -793,6 +821,41 @@ public final class WorldScenarios {
         if (level.getBlockEntity(base.offset(-3, 0, -2)) instanceof dev.hurtify.relicsaddon.shipshield.ShipDeviceBlockEntity rf) rf.setEnabled(null, true);
         if (level.getBlockEntity(base.offset(-2, 0, -2)) instanceof dev.hurtify.relicsaddon.shipshield.ShipDeviceBlockEntity dock) {
             dock.insertDrones(new ItemStack(ModItems.EMITTER_DRONES.get(families[0]).get(), drones));
+        }
+        String name = plan.get(scene).name();
+        int selected = name.equals("ship-shell-mana") ? 1 : name.equals("ship-shell-twins") ? 2 : 0;
+        if (selected > 0) {
+            if (level.getBlockEntity(base.offset(-3, 0, -2)) instanceof dev.hurtify.relicsaddon.shipshield.ShipDeviceBlockEntity rf) rf.setEnabled(null, false);
+            int x = selected == 1 ? 0 : 2;
+            if (level.getBlockEntity(base.offset(x + 1, 0, -2)) instanceof dev.hurtify.relicsaddon.shipshield.ShipDeviceBlockEntity dock) dock.insertDrones(new ItemStack(ModItems.EMITTER_DRONES.get(families[selected]).get(), drones));
+            if (level.getBlockEntity(base.offset(x, 0, -2)) instanceof dev.hurtify.relicsaddon.shipshield.ShipDeviceBlockEntity generator) generator.setEnabled(null, true);
+        }
+    }
+
+    private static void strikeShipShield(ServerLevel level) {
+        String name = plan.get(scene).name();
+        if (name.equals("ship-shell-flight")) {
+            var region = new dev.ryanhcode.sable.companion.math.BoundingBox3d(stage.x - 64, stage.y - 32, stage.z - 64, stage.x + 64, stage.y + 32, stage.z + 64);
+            for (var ship : dev.ryanhcode.sable.companion.SableCompanion.INSTANCE.getAllIntersecting(level, region)) {
+                if (!ship.getUniqueId().equals(shipId)) continue;
+                Vec3 plot = ship.logicalPose().transformPositionInverse(ship.boundingBox().toMojang().getCenter());
+                var structure = dev.hurtify.relicsaddon.shipshield.ShipStructures.locate(level, net.minecraft.core.BlockPos.containing(plot));
+                for (var pos : structure.blockEntities()) if (level.getBlockEntity(pos) instanceof dev.hurtify.relicsaddon.shipshield.ShipDeviceBlockEntity generator
+                        && generator.shield() != null && generator.shield().outer() != null && generator.shield().heldSeats() > 0) {
+                    Vec3 aim = ship.logicalPose().transformPositionInverse(stage.add(4, 8, -4));
+                    var mesh = generator.shield().outer();
+                    generator.shield().hit(mesh.vertex(mesh.nearestVertex(aim.x, aim.y, aim.z)), 12, level.getGameTime());
+                    RelicsAddon.LOGGER.info("Ship shield capture: {} blocks, {} emitters aboard {}", structure.size(), generator.shield().heldSeats(), shipId);
+                }
+            }
+            return;
+        }
+        int x = name.equals("ship-shell-mana") ? 0 : name.equals("ship-shell-twins") ? 2 : -3;
+        if (level.getBlockEntity(net.minecraft.core.BlockPos.containing(stage).offset(x, 0, -2)) instanceof dev.hurtify.relicsaddon.shipshield.ShipDeviceBlockEntity generator
+                && generator.shield().outer() != null && generator.shield().heldSeats() > 0) {
+            var mesh = generator.shield().outer();
+            int vertex = mesh.nearestVertex(stage.x + 4, stage.y + 3, stage.z + 1);
+            generator.shield().hit(mesh.vertex(vertex), 12, level.getGameTime());
         }
     }
 

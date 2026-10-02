@@ -135,7 +135,7 @@ public final class ShellField {
             java.util.BitSet sealed = new java.util.BitSet(bx * by * bz);
             for (int i = 0; i < bx; i++) for (int j = 0; j < by; j++) for (int k = 0; k < bz; k++) {
                 int index = ((i + margin) * sy + j + margin) * sz + k + margin;
-                if (open.get(index) && !reached.get(index)) sealed.set((i * by + j) * bz + k);
+                if (!reached.get(index)) sealed.set((i * by + j) * bz + k);
             }
             enclosed = sealed;
             return sealed;
@@ -155,8 +155,9 @@ public final class ShellField {
      * (0..1), or -1 when it never does or when it starts inside (the ship's own shots fly out).
      */
     public double entry(Vec3 a, Vec3 b) {
-        if (blocks.isEmpty() || inside(a)) return -1;
-        AABB box = bounds();
+        // A start right on the shell (a shot that stopped there last tick) is still coming in, not flying out.
+        if (blocks.isEmpty() || inside(a) && Math.abs(distance(a) - offset) > 1e-3) return -1;
+        AABB box = bounds().inflate(.01);
         if (!box.contains(a) && !box.contains(b) && box.clip(a, b).isEmpty()) return -1;
         double length = a.distanceTo(b);
         int steps = Math.max(1, (int) Math.ceil(length / WALK));

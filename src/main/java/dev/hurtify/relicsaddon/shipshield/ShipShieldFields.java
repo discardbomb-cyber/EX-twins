@@ -165,7 +165,9 @@ public final class ShipShieldFields {
         List<Crossing> crossings = null;
         for (Field field : fields) {
             Vec3 relative = motion.subtract(field.frame().velocity());
-            if (!field.worldBounds().inflate(Math.max(motion.length(), relative.length()) + 1).contains(from)) continue;
+            AABB near = field.worldBounds().inflate(1);
+            Vec3 end = from.add(relative);
+            if (!near.contains(from) && !near.contains(end) && near.clip(from, end).isEmpty()) continue;
             if (owner != null && field.friendly(owner)) continue;
             if (owner instanceof Player shooter && !level.getServer().isPvpAllowed() && !(projectile instanceof net.minecraft.world.entity.projectile.AbstractHurtingProjectile)
                     && cannon(projectile.getClass()) == 0) continue;
@@ -234,6 +236,7 @@ public final class ShipShieldFields {
     /** An explosion outside a shield spares what is inside it, if the shield holds the whole blast. */
     public static void onExplosion(ExplosionEvent.Detonate event) {
         if (!(event.getLevel() instanceof ServerLevel level)) return;
+        if (dev.hurtify.relicsaddon.server.ShieldController.passesField(event.getExplosion().damageSource)) return;
         long now = level.getGameTime();
         List<Field> fields = live(level, now);
         if (fields.isEmpty()) return;

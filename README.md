@@ -24,6 +24,16 @@ Run `./gradlew build` on Linux/macOS or `.\gradlew.bat build` on Windows. The re
 
 ## Items
 
+### Ship shield generators (work in progress)
+
+This branch adds RF, Mana and Ex-Twins generators and matching emitter-drone docks. Place a generator and a dock on a connected build, insert matching emitter items by right-clicking the dock, supply power, and switch the generator on in its console. One generator runs per structure. Eight emitters are requested per 64 solid blocks; fewer drones share larger patches. Docks charge and service depleted emitters before they return. Generators use the existing FE/mana batteries and three layers at higher levels.
+
+The shell follows the block hull at a configurable offset. It briefly appears on activation, then appears around confirmed hits: RF polygon plates, a teal Mana film, or violet Twins facets with circuit traces. The waves, refraction, palettes, glow and impact sounds reuse the wearable shields. Damage can spread to neighbours and inner layers; depleted patches are holes, and overload sends the drones home. Projectile and damage exceptions use the same `shield.*` settings as the amulets. Configurations live under `shipShield.*`.
+
+Create recipes use its casings and precision mechanism; fallback recipes load when Create is absent. Aeronautics/Sable is optional; the GameTests exercise stationary builds. Ship repair snapshots, final generator/dock models, dedicated sound loops, upgrades and the CC peripheral are **not implemented yet**. See [progress and remaining work](docs/ship-shield-progress.md) and [compatibility notes](docs/aeronautics-compat.md).
+
+### Wearable devices and ship hives
+
 - `relics_addon:rf_shield` -> Curios `charm`
 - `relics_addon:mana_shield` -> Curios `charm`
 - `relics_addon:twins_shield` -> Curios `charm`

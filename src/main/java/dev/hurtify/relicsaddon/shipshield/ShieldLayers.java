@@ -68,10 +68,12 @@ public final class ShieldLayers {
         List<Drain> drains = new ArrayList<>();
         int remaining = Math.max(0, cost);
         int absorbed = 0, stripped = 0;
+        boolean met = false;
         if (seats == 0 || seat < 0 || seat >= seats) return new Strike(0, remaining, false, 0, drains);
         for (int layer = layers - 1; layer >= 0 && remaining > 0; layer--) {
             // A drained patch is a hole in its layer until it mends: a blow through it meets the layer within.
             if (integrity[layer][seat] == 0) continue;
+            met = true;
             int taken = take(layer, seat, remaining, drains);
             remaining -= taken;
             absorbed += taken;
@@ -94,7 +96,8 @@ public final class ShieldLayers {
             }
             if (remaining > 0) stripped++;
         }
-        boolean overloaded = remaining > 0;
+        // What passes through holes on every layer is not an overload: the shield simply has a hole there.
+        boolean overloaded = remaining > 0 && met;
         if (overloaded) {
             for (int layer = 0; layer < layers; layer++) for (int patch = 0; patch < seats; patch++) {
                 if (integrity[layer][patch] > 0) {

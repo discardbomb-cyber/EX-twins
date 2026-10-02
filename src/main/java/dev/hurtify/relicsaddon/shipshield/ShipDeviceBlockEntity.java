@@ -94,6 +94,7 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
     private long clientKey, clientCheckedAt = Long.MIN_VALUE / 4;
     private @Nullable CompletableFuture<List<ShellMesh>> clientPending;
     private long clientPendingKey;
+    private long clientRejectedKey = Long.MIN_VALUE;
 
     public ShipDeviceBlockEntity(BlockPos pos, BlockState state) {
         super(ShipBlocks.DEVICE.get(), pos, state);
@@ -402,7 +403,7 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
                     clientKey = clientPendingKey;
                 }
             } catch (RuntimeException ignored) {
-                // A failed trace is tried again at the next look.
+                clientRejectedKey = clientPendingKey;
             }
             clientPending = null;
         }
@@ -410,7 +411,7 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
             clientCheckedAt = now;
             ShipStructure structure = ShipStructures.locate(level, worldPosition);
             long key = structure.fingerprint() * 31 + Double.doubleToLongBits(view.offset()) + view.layers() * 1024L + view.cellLimit();
-            if (key != clientKey && structure.size() > 0) {
+            if (key != clientKey && key != clientRejectedKey && structure.size() > 0) {
                 var blocks = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(structure.size());
                 structure.forEach(pos -> blocks.add(pos.asLong()));
                 List<CompletableFuture<ShellMesh>> traces = new ArrayList<>();
@@ -456,7 +457,11 @@ public final class ShipDeviceBlockEntity extends BlockEntity {
     }
 
     void onRemoved() {
-        if (level instanceof ServerLevel world && shield != null) shield.release(world);
+        if (level instanceof ServerLevel world && shield != null) {
+            if (loadedShield != null && shield.drones().isEmpty()) shield.load(loadedShield, world.getGameTime());
+            loadedShield = null;
+            shield.release(world);
+        }
         if (drones != null && drones.count() > 0 && level != null) {
             dronesOut = 0;
             int left = drones.extract(drones.count());

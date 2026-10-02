@@ -38,6 +38,13 @@ public final class ShieldRefraction {
     private static final int RINGS = 14, SEGMENTS = 80;
     private static final double BAND = .42;
     private static final List<Job> JOBS = new ArrayList<>();
+    private record Surface(Vec3[] corners, double[] heights, double strength, int tint) { }
+    private static final List<Surface> SURFACES = new ArrayList<>();
+
+    /** The amulet refraction shader on an arbitrary world-space hull polygon, never a camera-facing lens. */
+    static void queueSurface(Vec3[] cameraRelativeCorners, double[] heights, double strength, int tint) {
+        if (enabled() && strength > .02 && java.util.Arrays.stream(heights).anyMatch(h -> Math.abs(h) > .02)) SURFACES.add(new Surface(cameraRelativeCorners, heights, strength, tint));
+    }
     private static ShaderInstance shader;
     private static TextureTarget sceneCopy;
     private static Boolean irisPresent;
@@ -71,12 +78,13 @@ public final class ShieldRefraction {
     }
 
     static void flush(Matrix4f pose) {
-        if (JOBS.isEmpty() && LENSES.isEmpty()) return;
+        if (JOBS.isEmpty() && LENSES.isEmpty() && SURFACES.isEmpty()) return;
         try {
             if (shader != null && enabled()) draw(pose);
         } finally {
             JOBS.clear();
             LENSES.clear();
+            SURFACES.clear();
         }
     }
 
@@ -115,13 +123,22 @@ public final class ShieldRefraction {
         BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
         for (Job job : JOBS) for (ShieldImpact impact : job.impacts) band(builder, pose, job, impact);
         for (Lens lens : LENSES) lens(builder, pose, lens);
+        for (Surface surface : SURFACES) {
+            for (int i = 1; i + 1 < surface.corners.length; i++) {
+                for (int vertex : new int[]{0, i, i + 1}) {
+                    int red = (int) (Math.clamp(surface.heights[vertex] * .5 + .5, 0, 1) * 255);
+                    int argb = (int) (Math.clamp(surface.strength, 0, 1) * 160) << 24 | red << 16;
+                    put(builder, pose, surface.corners[vertex], argb);
+                }
+            }
+        }
         MeshData mesh = builder.build();
         if (mesh == null) return;
 
         RenderSystem.setShader(() -> shader);
         RenderSystem.setShaderTexture(0, sceneCopy.getColorTextureId());
         shader.safeGetUniform("RefractionGain").set((float) (220 * AddonClientConfig.refractionStrength()));
-        int tint = JOBS.isEmpty() ? 0xB25CFF : JOBS.getFirst().role.color();
+        int tint = JOBS.isEmpty() ? SURFACES.isEmpty() ? 0xB25CFF : SURFACES.getFirst().tint : JOBS.getFirst().role.color();
         shader.safeGetUniform("Tint").set((tint >> 16 & 255) / 255F, (tint >> 8 & 255) / 255F, (tint & 255) / 255F);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();

@@ -1,7 +1,11 @@
 package dev.hurtify.relicsaddon.gametest;
 
+import static dev.hurtify.relicsaddon.gametest.DeviceTestSupport.ARENA;
 import static dev.hurtify.relicsaddon.gametest.DeviceTestSupport.TEMPLATE;
 
+import dev.hurtify.relicsaddon.registry.ModDataComponents;
+import dev.hurtify.relicsaddon.relic.DeviceProgression;
+import dev.hurtify.relicsaddon.shipshield.ShieldLayers;
 import dev.hurtify.relicsaddon.registry.ModItems;
 import dev.hurtify.relicsaddon.registry.ShipBlocks;
 import dev.hurtify.relicsaddon.shipshield.EmitterDrone;
@@ -32,6 +36,20 @@ public final class ShipShieldGameTests {
     static void row(GameTestHelper helper, net.minecraft.world.level.block.Block... blocks) {
         for (int x = 0; x < 5; x++) for (int y = 1; y < 4; y++) for (int z = 0; z < 5; z++) helper.setBlock(new BlockPos(x, y, z), Blocks.AIR);
         for (int x = 0; x < blocks.length; x++) helper.setBlock(new BlockPos(x, 2, 2), blocks[x]);
+    }
+
+    /**
+     * The arena (13x7x13) emptied but its floor, with a row of blocks at y=2 from x=4: room above
+     * for the shell and for what flies at it (the small room's barrier ceiling sits right on the shell).
+     */
+    static ShipDeviceBlockEntity arenaRow(GameTestHelper helper, ShipFamily family, int drones, net.minecraft.world.level.block.Block filler) {
+        for (int x = 0; x < 13; x++) for (int y = 1; y < 7; y++) for (int z = 0; z < 13; z++) helper.setBlock(new BlockPos(x, y, z), Blocks.AIR);
+        net.minecraft.world.level.block.Block[] blocks = {ShipBlocks.GENERATORS.get(family).get(), ShipBlocks.DOCKS.get(family).get(), filler, filler, filler};
+        for (int x = 0; x < blocks.length; x++) helper.setBlock(new BlockPos(4 + x, 2, 6), blocks[x]);
+        ShipDeviceBlockEntity generator = device(helper, new BlockPos(4, 2, 6)), dock = device(helper, new BlockPos(5, 2, 6));
+        if (drones > 0) dock.insertDrones(new ItemStack(ModItems.EMITTER_DRONES.get(family).get(), drones));
+        helper.assertTrue(generator.setEnabled(null, true), "The generator comes on");
+        return generator;
     }
 
     static ShipDeviceBlockEntity device(GameTestHelper helper, BlockPos relative) {
@@ -169,6 +187,166 @@ public final class ShipShieldGameTests {
                     helper.succeed();
                 });
             });
+        }));
+    }
+
+    /** A blow smaller than the patch is held by it; a larger one spills to the neighbouring patches of the same layer. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 400)
+    public static void blowsAreHeldByThePatchAndSpillToItsNeighbours(GameTestHelper helper) {
+        ShipDeviceBlockEntity generator = shieldedRow(helper, ShipFamily.RF, 8);
+        whenTraced(helper, generator, shield -> when(helper, () -> shield.heldSeats() == 8, () -> {
+            long now = helper.getLevel().getGameTime();
+            ShieldLayers integrity = shield.integrity();
+            int max = integrity.max();
+            helper.assertTrue(max == 40 && integrity.layers() == 1 && integrity.total() == 8 * 40, "A level 0 RF shield: one layer, 40 a patch, got " + max + " x " + integrity.layers());
+            Vec3 seat = shield.seat(0);
+            ShieldLayers.Strike small = shield.hit(seat, 10, now);
+            helper.assertTrue(small.held() && small.absorbed() == 10 && integrity.integrity(0, 0) == 30, "Ten of forty held by the patch: " + small);
+            helper.assertTrue(integrity.total() == 8 * 40 - 10, "Nothing else touched");
+            int[] neighbours = shield.patches().neighbours(0);
+            helper.assertTrue(neighbours.length >= 2, "The patch has neighbours: " + neighbours.length);
+            ShieldLayers.Strike spill = shield.hit(seat, 50, now);
+            helper.assertTrue(spill.held() && spill.absorbed() == 50 && integrity.integrity(0, 0) == 0, "Fifty: the patch's thirty and twenty from its neighbours: " + spill);
+            int fromNeighbours = 0;
+            for (int other : neighbours) fromNeighbours += 40 - integrity.integrity(0, other);
+            helper.assertTrue(fromNeighbours == 20, "The first ring paid the twenty: " + fromNeighbours);
+            // A blow on the hole goes through: one layer, nothing within.
+            ShieldLayers.Strike hole = shield.hit(seat, 5, now);
+            helper.assertTrue(hole.absorbed() == 0 && hole.passed() == 5 && !hole.overloaded(), "A drained patch is a hole: " + hole);
+            helper.succeed();
+        }));
+    }
+
+    /** A blow beyond a whole layer strips it round the seat and goes on inward; one beyond every layer overloads the shield. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 400)
+    public static void blowsStripLayersInwardAndOverloadTheShield(GameTestHelper helper) {
+        row(helper, ShipBlocks.GENERATORS.get(ShipFamily.MANA).get(), ShipBlocks.DOCKS.get(ShipFamily.MANA).get(), Blocks.IRON_BLOCK, Blocks.IRON_BLOCK, Blocks.IRON_BLOCK);
+        ShipDeviceBlockEntity generator = device(helper, new BlockPos(0, 2, 2)), dock = device(helper, new BlockPos(1, 2, 2));
+        generator.device().set(ModDataComponents.DEVICE_PROGRESSION.get(), new DeviceProgression(0, 8, 0, 0));
+        dock.insertDrones(new ItemStack(ModItems.EMITTER_DRONES.get(ShipFamily.MANA).get(), 8));
+        helper.assertTrue(generator.setEnabled(null, true), "The generator comes on");
+        whenTraced(helper, generator, shield -> when(helper, () -> shield.heldSeats() == 8, () -> {
+            long now = helper.getLevel().getGameTime();
+            ShieldLayers integrity = shield.integrity();
+            helper.assertTrue(shield.layerCount() == 3 && integrity.layers() == 3 && integrity.max() == 60 + 48, "Level 8 Mana: three layers of 108, got " + integrity.layers() + " x " + integrity.max());
+            int max = integrity.max();
+            // Rings of two round the seat on this small shell reach every other seat: the whole outer layer, then 24 more.
+            int outer = 8 * max;
+            ShieldLayers.Strike strip = shield.hit(shield.seat(0), outer + 24, now);
+            helper.assertTrue(strip.held() && strip.layersStripped() == 1, "The outer layer is stripped and the rest held: " + strip);
+            for (int seat = 0; seat < 8; seat++) helper.assertTrue(integrity.integrity(2, seat) == 0, "Outer patch " + seat + " is gone");
+            helper.assertTrue(integrity.integrity(1, 0) == max - 24, "The middle layer's patch took the rest: " + integrity.integrity(1, 0));
+            helper.assertTrue(integrity.integrity(0, 0) == max, "The inner layer is whole");
+            ShieldLayers.Strike overload = shield.hit(shield.seat(0), 100_000, now);
+            helper.assertTrue(overload.overloaded() && overload.passed() > 0 && overload.absorbed() == 2 * outer - 24, "Everything left is taken and the rest passes: " + overload);
+            helper.assertTrue(integrity.total() == 0 && shield.overloaded(now) && !shield.up(now), "The shield is down");
+            helper.assertTrue(generator.shield().notice(now).equals(ShipShield.NOTICE_OVERLOADED), "It says so");
+            when(helper, () -> shield.heldSeats() == 0, () -> {
+                for (EmitterDrone drone : shield.drones()) helper.assertTrue(!drone.holding(), "Drone " + drone.seat + " left the shell");
+                helper.succeed();
+            });
+        }));
+    }
+
+    /** An arrow from outside is stopped on the shell and paid for by the patch it met; a mob under the shell is pushed out. */
+    @GameTest(template = ARENA, timeoutTicks = 400)
+    public static void arrowsAreStoppedOnTheShellAndMobsPushedOut(GameTestHelper helper) {
+        ShipDeviceBlockEntity generator = arenaRow(helper, ShipFamily.TWINS, 8, Blocks.IRON_BLOCK);
+        whenTraced(helper, generator, shield -> when(helper, () -> shield.heldSeats() == 8, () -> {
+            int before = shield.integrity().total();
+            Vec3 from = helper.absoluteVec(new Vec3(6.5, 6.5, 6.5));
+            var arrow = new net.minecraft.world.entity.projectile.Arrow(helper.getLevel(), from.x, from.y, from.z, new ItemStack(net.minecraft.world.item.Items.ARROW), null);
+            arrow.setNoGravity(true);
+            arrow.setDeltaMovement(0, -1.5, 0);
+            arrow.setBaseDamage(2);
+            helper.getLevel().addFreshEntity(arrow);
+            var zombie = net.minecraft.world.entity.EntityType.ZOMBIE.create(helper.getLevel());
+            Vec3 under = helper.absoluteVec(new Vec3(6.5, 3.2, 6.5));
+            zombie.moveTo(under.x, under.y, under.z, 0, 0);
+            zombie.setNoGravity(true);
+            zombie.setNoAi(true);
+            helper.getLevel().addFreshEntity(zombie);
+            helper.assertTrue(shield.inside(zombie.getBoundingBox().getCenter()), "The zombie starts under the shell");
+            helper.runAfterDelay(15, () -> {
+                helper.assertTrue(arrow.isRemoved(), "The arrow was stopped");
+                helper.assertTrue(shield.integrity().total() == before - 3, "Its three points were paid: " + (before - shield.integrity().total()));
+                helper.assertTrue(!shield.inside(zombie.getBoundingBox().getCenter()), "The zombie was pushed out to " + zombie.position());
+                helper.succeed();
+            });
+        }));
+    }
+
+    /** An explosion outside the shell spares the blocks under it while the shield holds its cost. */
+    @GameTest(template = ARENA, timeoutTicks = 400)
+    public static void explosionsOutsideSpareTheBlocksUnderTheShell(GameTestHelper helper) {
+        // Glass, which a TNT blast just outside the shell would shatter.
+        ShipDeviceBlockEntity generator = arenaRow(helper, ShipFamily.RF, 8, Blocks.GLASS);
+        whenTraced(helper, generator, shield -> when(helper, () -> shield.heldSeats() == 8, () -> {
+            int before = shield.integrity().total();
+            Vec3 at = helper.absoluteVec(new Vec3(7.5, 5.2, 6.5));
+            helper.assertTrue(!shield.inside(at), "The blast is outside the shell");
+            helper.getLevel().explode(null, at.x, at.y, at.z, 4, net.minecraft.world.level.Level.ExplosionInteraction.TNT);
+            for (int x = 6; x < 9; x++) helper.assertBlockPresent(Blocks.GLASS, new BlockPos(x, 2, 6));
+            helper.assertTrue(shield.integrity().total() == before - 48, "A radius-4 blast costs 48: " + (before - shield.integrity().total()));
+            helper.succeed();
+        }));
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 600, batch = "ship_single_drone")
+    public static void loneDroneMustRechargeInsteadOfBeingReplaced(GameTestHelper helper) {
+        ShipDeviceBlockEntity generator = shieldedRow(helper, ShipFamily.MANA, 1);
+        whenTraced(helper, generator, shield -> when(helper, () -> shield.heldSeats() == 1, () -> {
+            EmitterDrone original = shield.drone(0);
+            original.setCharge(.1F);
+            when(helper, () -> original.state() == EmitterDrone.State.CHARGING, () -> {
+                helper.runAfterDelay(20, () -> {
+                    helper.assertTrue(shield.drones().size() == 1 && shield.drone(0) == original, "A charging drone must not be replaced by a fresh inventory claim");
+                    helper.assertTrue(shield.heldSeats() == 0 && original.charge() < .5F, "The lone emitter spends time recharging");
+                    when(helper, original::holding, () -> {
+                        helper.assertTrue(original.ready(), "The same emitter returns fully serviced");
+                        generator.setEnabled(null, false);
+                        helper.succeed();
+                    });
+                });
+            });
+        }));
+    }
+
+    @GameTest(template = TEMPLATE)
+    public static void restoredReturningDroneStillCompletesItsDockClaim(GameTestHelper helper) {
+        EmitterDrone drone = new EmitterDrone(0, BlockPos.ZERO, new Vec3(5, 0, 0));
+        drone.setCharge(.1F);
+        drone.fly(Vec3.ZERO, true);
+        var saved = new net.minecraft.nbt.CompoundTag();
+        drone.save(saved);
+        EmitterDrone restored = EmitterDrone.load(saved, new Vec3(5, 0, 0), Vec3.ZERO);
+        helper.assertTrue(restored.state() == EmitterDrone.State.RETURNING && !restored.away(), "Restoring a return keeps its outstanding claim");
+        int arrivals = 0;
+        for (int tick = 0; tick < 10; tick++) if (restored.tickFlight()) arrivals++;
+        helper.assertTrue(arrivals == 1 && restored.away() && restored.charge() == .1F, "Arrival releases exactly one claim without refilling charge");
+        helper.succeed();
+    }
+
+    @GameTest(template = ARENA, timeoutTicks = 400)
+    public static void passingExplosionDoesNotSpendShieldOrFilterItsTargets(GameTestHelper helper) {
+        ShipDeviceBlockEntity generator = arenaRow(helper, ShipFamily.RF, 8, Blocks.GLASS);
+        whenTraced(helper, generator, shield -> when(helper, () -> shield.heldSeats() == 8, () -> {
+            var previous = dev.hurtify.relicsaddon.AddonConfig.SHIELD_PASSING_DAMAGE_TYPES.get();
+            try {
+                dev.hurtify.relicsaddon.AddonConfig.SHIELD_PASSING_DAMAGE_TYPES.set(java.util.List.of("#minecraft:is_explosion"));
+                Vec3 at = helper.absoluteVec(new Vec3(7.5, 5.2, 6.5));
+                var explosion = new net.minecraft.world.level.Explosion(helper.getLevel(), null, at.x, at.y, at.z, 4, false, net.minecraft.world.level.Explosion.BlockInteraction.DESTROY);
+                BlockPos glass = helper.absolutePos(new BlockPos(7, 2, 6));
+                explosion.getToBlow().add(glass);
+                var entities = new java.util.ArrayList<net.minecraft.world.entity.Entity>();
+                int before = shield.integrity().total();
+                dev.hurtify.relicsaddon.shipshield.ShipShieldFields.onExplosion(new net.neoforged.neoforge.event.level.ExplosionEvent.Detonate(helper.getLevel(), explosion, entities));
+                helper.assertTrue(shield.integrity().total() == before && explosion.getToBlow().contains(glass), "A passing blast keeps both its damage and affected blocks");
+            } finally {
+                dev.hurtify.relicsaddon.AddonConfig.SHIELD_PASSING_DAMAGE_TYPES.set(previous);
+                generator.setEnabled(null, false);
+            }
+            helper.succeed();
         }));
     }
 

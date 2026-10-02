@@ -107,6 +107,8 @@ public final class EmitterDrone {
         drone.state = away ? State.CHARGING : State.HOLDING;
         drone.charge = Math.clamp(tag.getFloat("charge"), 0, 1);
         drone.integrity = Math.clamp(tag.getFloat("integrity"), 0, 1);
+        // Keep the dock's outstanding claim until tickFlight reports the arrival after reload.
+        if (state == State.RETURNING) drone.fly(dockPosition, true);
         return drone;
     }
 }

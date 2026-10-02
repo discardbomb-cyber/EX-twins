@@ -209,6 +209,12 @@ public final class NetworkCodecCheck {
         for (int patch = 0; patch < 3 * 128; patch++) integrity.add(patch % 61);
         var view = new dev.hurtify.relicsaddon.shipshield.ShipShieldView(true, 3, 3, 4096, 123_456_789L, 60, new net.minecraft.core.BlockPos(13_978_181, -58, -10_697_027), seats, drones, states, integrity);
         int viewBytes = roundTrip(dev.hurtify.relicsaddon.shipshield.ShipShieldView.STREAM_CODEC, view, "ship shield view");
+        var shipImpact = new dev.hurtify.relicsaddon.shipshield.ShipShieldImpact(new Vec3(1.25, -3.5, 12.125), 9_876_543L, 65_000, 7, true);
+        roundTrip(dev.hurtify.relicsaddon.shipshield.ShipShieldImpact.STREAM_CODEC, shipImpact, "ship impact with large damage counter");
+        var struckView = new dev.hurtify.relicsaddon.shipshield.ShipShieldView(view.active(), view.offset(), view.layers(), view.cellLimit(), view.overloadedUntil(),
+                view.patchMax(), view.origin(), seats, drones, states, integrity, 9_876_500L, java.util.Collections.nCopies(12, shipImpact));
+        roundTrip(dev.hurtify.relicsaddon.shipshield.ShipShieldView.STREAM_CODEC, struckView, "twelve concurrent ship impacts");
+        require(decode(dev.hurtify.relicsaddon.shipshield.ShipShieldView.CODEC, encode(dev.hurtify.relicsaddon.shipshield.ShipShieldView.CODEC, struckView)).equals(struckView), "ship impact history survives NBT");
         require(viewBytes < 128 * 3 * 4 * 2 + 128 * 3 * 2 + 64, "a 128-seat view is floats plus a byte or two a count, took " + viewBytes);
         require(dev.hurtify.relicsaddon.shipshield.ShipShieldView.fromBytes(view.toBytes()).equals(view), "the view's bytes read back");
         require(dev.hurtify.relicsaddon.shipshield.ShipShieldView.fromBytes(new byte[]{1, 2}).equals(dev.hurtify.relicsaddon.shipshield.ShipShieldView.NONE), "torn bytes read as no shield");

@@ -23,7 +23,12 @@ import net.minecraft.world.phys.Vec3;
  *               {@code states} one entry a drone ({@link EmitterDrone.State} ordinal)
  */
 public record ShipShieldView(boolean active, double offset, int layers, int cellLimit, long overloadedUntil, int patchMax,
-        BlockPos origin, List<Float> seats, List<Float> drones, List<Integer> states, List<Integer> integrity) {
+        BlockPos origin, List<Float> seats, List<Float> drones, List<Integer> states, List<Integer> integrity,
+        long raisedAt, List<ShipShieldImpact> impacts) {
+    public ShipShieldView(boolean active, double offset, int layers, int cellLimit, long overloadedUntil, int patchMax,
+            BlockPos origin, List<Float> seats, List<Float> drones, List<Integer> states, List<Integer> integrity) {
+        this(active, offset, layers, cellLimit, overloadedUntil, patchMax, origin, seats, drones, states, integrity, -1, List.of());
+    }
     public static final ShipShieldView NONE = new ShipShieldView(false, 2, 1, 4096, 0, 1, BlockPos.ZERO, List.of(), List.of(), List.of(), List.of());
 
     public static final Codec<ShipShieldView> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -37,7 +42,9 @@ public record ShipShieldView(boolean active, double offset, int layers, int cell
             Codec.FLOAT.listOf().optionalFieldOf("seats", List.of()).forGetter(ShipShieldView::seats),
             Codec.FLOAT.listOf().optionalFieldOf("drones", List.of()).forGetter(ShipShieldView::drones),
             Codec.INT.listOf().optionalFieldOf("states", List.of()).forGetter(ShipShieldView::states),
-            Codec.INT.listOf().optionalFieldOf("integrity", List.of()).forGetter(ShipShieldView::integrity)
+            Codec.INT.listOf().optionalFieldOf("integrity", List.of()).forGetter(ShipShieldView::integrity),
+            Codec.LONG.optionalFieldOf("raised_at", -1L).forGetter(ShipShieldView::raisedAt),
+            ShipShieldImpact.CODEC.listOf().optionalFieldOf("impacts", List.of()).forGetter(ShipShieldView::impacts)
     ).apply(instance, ShipShieldView::new));
 
     /** The view as bytes: counts and integers as VarInts, positions as floats. */
@@ -56,7 +63,12 @@ public record ShipShieldView(boolean active, double offset, int layers, int cell
             count = VarInt.read(buffer);
             List<Integer> integrity = new ArrayList<>(count);
             for (int index = 0; index < count; index++) integrity.add(VarInt.read(buffer));
-            return new ShipShieldView(active, offset, layers, cells, overloaded, patchMax, origin, seats, drones, states, integrity);
+            long raised = VarLong.read(buffer);
+            count = VarInt.read(buffer);
+            if (count < 0 || count > ShipShieldImpact.MAX) throw new IllegalArgumentException("Too many ship shield impacts");
+            List<ShipShieldImpact> impacts = new ArrayList<>(count);
+            for (int index = 0; index < count; index++) impacts.add(ShipShieldImpact.STREAM_CODEC.decode(buffer));
+            return new ShipShieldView(active, offset, layers, cells, overloaded, patchMax, origin, seats, drones, states, integrity, raised, impacts);
         }
 
         @Override public void encode(ByteBuf buffer, ShipShieldView value) {
@@ -73,6 +85,9 @@ public record ShipShieldView(boolean active, double offset, int layers, int cell
             for (int state : value.states) VarInt.write(buffer, state);
             VarInt.write(buffer, value.integrity.size());
             for (int patch : value.integrity) VarInt.write(buffer, patch);
+            VarLong.write(buffer, value.raisedAt);
+            VarInt.write(buffer, value.impacts.size());
+            for (ShipShieldImpact hit : value.impacts) ShipShieldImpact.STREAM_CODEC.encode(buffer, hit);
         }
 
         private static List<Float> floats(ByteBuf buffer) {
@@ -97,6 +112,7 @@ public record ShipShieldView(boolean active, double offset, int layers, int cell
         drones = List.copyOf(drones);
         states = List.copyOf(states);
         integrity = List.copyOf(integrity);
+        impacts = List.copyOf(impacts.subList(Math.max(0, impacts.size() - ShipShieldImpact.MAX), impacts.size()));
     }
 
     public int seatCount() { return seats.size() / 3; }

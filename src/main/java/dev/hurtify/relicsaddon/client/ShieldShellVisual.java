@@ -224,7 +224,7 @@ final class ShieldShellVisual {
             double base = light * (1 + .6 * f.fresnel(nx, ny, nz)) + absorption * .9 + destruction;
             view(f, hubX, hubY, hubZ);
             double hubSheen = sheen(nx, ny, nz, sunX, sunY, sunZ, VIEW[0], VIEW[1], VIEW[2]);
-            double hubAlpha = (base * 22 + hubSheen * 150 * light) * vis;
+            double hubAlpha = paneAlpha(base, hubSheen, light, vis, false);
             int hubColor = mix(tint, 0xFFFFFF, hubSheen * .7);
             for (int k = 0; k < corners; k++) {
                 view(f, CORNER[k * 3], CORNER[k * 3 + 1], CORNER[k * 3 + 2]);
@@ -234,7 +234,7 @@ final class ShieldShellVisual {
             for (int k = 0; k < corners; k++) {
                 int next = (k + 1) % corners;
                 double sheenA = CORNER_SHEEN[k], sheenB = CORNER_SHEEN[next];
-                double rimA = (base * 58 + sheenA * 150 * light) * vis, rimB = (base * 58 + sheenB * 150 * light) * vis;
+                double rimA = paneAlpha(base, sheenA, light, vis, true), rimB = paneAlpha(base, sheenB, light, vis, true);
                 if (hubAlpha + rimA + rimB < 1.5) continue;
                 vertex(fill, m, hubX, hubY, hubZ, hubColor, hubAlpha);
                 vertex(fill, m, CORNER[k * 3], CORNER[k * 3 + 1], CORNER[k * 3 + 2], mix(rimTint, 0xFFFFFF, sheenA * .7), rimA);
@@ -254,7 +254,11 @@ final class ShieldShellVisual {
     }
 
     /** Glassy highlight: how closely the light, mirrored in a pane facing the normal, points at the viewer. */
-    private static double sheen(double nx, double ny, double nz, double lx, double ly, double lz, double vx, double vy, double vz) {
+    static double paneAlpha(double base, double sheen, double light, double visibility, boolean rim) {
+        return (base * (rim ? 58 : 22) + sheen * 150 * light) * visibility;
+    }
+
+    static double sheen(double nx, double ny, double nz, double lx, double ly, double lz, double vx, double vy, double vz) {
         double d = 2 * (nx * lx + ny * ly + nz * lz);
         double rx = nx * d - lx, ry = ny * d - ly, rz = nz * d - lz;
         double facing = rx * vx + ry * vy + rz * vz;
@@ -512,7 +516,7 @@ final class ShieldShellVisual {
         }
     }
 
-    private static int mix(int a, int b, double t) {
+    static int mix(int a, int b, double t) {
         t = Math.clamp(t, 0, 1);
         int r = (int) Math.round((a >> 16 & 255) + ((b >> 16 & 255) - (a >> 16 & 255)) * t);
         int g = (int) Math.round((a >> 8 & 255) + ((b >> 8 & 255) - (a >> 8 & 255)) * t);

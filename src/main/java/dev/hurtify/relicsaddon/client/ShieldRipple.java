@@ -102,6 +102,12 @@ public final class ShieldRipple {
     public static double profile(double dot, double age) {
         if (!Double.isFinite(dot) || !Double.isFinite(age) || age < 0 || age >= ShieldResponse.IMPACT_TICKS) return 0;
         double distance = Math.acos(Math.clamp(dot, -1, 1));
+        return profileDistance(distance, age);
+    }
+
+    /** The same amulet wave evaluated by surface distance, for non-spherical ship shells. */
+    public static double profileDistance(double distance, double age) {
+        if (!Double.isFinite(distance) || !Double.isFinite(age) || distance < 0 || age < 0 || age >= ShieldResponse.IMPACT_TICKS) return 0;
         double u = (distance - front(age)) / SIGMA;
         // Derivative-of-Gaussian: crest just ahead of the front, trough just behind it.
         double main = u * Math.exp(-u * u) * 2.3316;

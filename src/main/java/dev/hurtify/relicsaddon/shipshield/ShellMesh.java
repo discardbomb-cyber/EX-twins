@@ -21,7 +21,7 @@ public final class ShellMesh {
     /** Smoothing passes and how far each pass moves a vertex towards its neighbours' middle. */
     private static final int SMOOTH_PASSES = 3;
     private static final double SMOOTH = .5;
-    /** The coarsest grid: beyond this a mesh is no shape at all, so a very large structure may exceed its cell limit instead. */
+    /** Beyond this spacing the hull loses its shape; reject an oversized rebuild and retain the old shell. */
     private static final int MAX_STEP = 4;
 
     private final ShellField field;
@@ -137,7 +137,8 @@ public final class ShellMesh {
         int step = 1;
         while (true) {
             ShellMesh mesh = trace(field, step);
-            if (mesh.quadCount() <= cellLimit || step >= MAX_STEP) return mesh;
+            if (mesh.quadCount() <= cellLimit) return mesh;
+            if (step >= MAX_STEP) throw new IllegalArgumentException("Ship shell needs " + mesh.quadCount() + " cells; configured limit is " + cellLimit);
             // Quads shrink with the square of the spacing; jump straight to a spacing that should fit, one step on at least.
             step = Math.min(MAX_STEP, Math.max(step + 1, (int) Math.floor(step * Math.sqrt(mesh.quadCount() / (double) cellLimit))));
         }

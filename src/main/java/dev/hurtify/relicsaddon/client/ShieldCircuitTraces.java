@@ -33,6 +33,18 @@ final class ShieldCircuitTraces {
 
     static void render(VertexConsumer core, VertexConsumer glow, Matrix4f matrix, double x, double y, double z,
             double radius, List<ShieldImpact> impacts, double time, boolean low, boolean inside) {
+        render(core, glow, matrix, x, y, z, radius, impacts, time, low, inside, null);
+    }
+
+    /** Reuses the amulet's branching patterns on a non-spherical surface supplied in tangent coordinates. */
+    static void renderOnSurface(VertexConsumer core, VertexConsumer glow, Matrix4f matrix, ShieldImpact impact, double time,
+            boolean inside, java.util.function.BiFunction<Double, Double, Vec3> surface) {
+        render(core, glow, matrix, 0, 0, 0, 4, List.of(impact), time, false, inside, surface);
+    }
+
+    private static void render(VertexConsumer core, VertexConsumer glow, Matrix4f matrix, double x, double y, double z,
+            double radius, List<ShieldImpact> impacts, double time, boolean low, boolean inside,
+            java.util.function.BiFunction<Double, Double, Vec3> surface) {
         double view = inside ? ShieldSurfaceLighting.INSIDE : 1;
         for (ShieldImpact impact : impacts) {
             double age = time - impact.gameTime();
@@ -43,7 +55,7 @@ final class ShieldCircuitTraces {
             Vec3 n = impact.normal();
             Vec3 t1 = n.cross(Math.abs(n.y) > .9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize();
             Vec3 t2 = n.cross(t1).normalize();
-            Frame frame = new Frame(n, t1, t2, x, y, z, radius);
+            Frame frame = new Frame(n, t1, t2, x, y, z, radius, surface);
             for (Segment segment : pattern.segments) {
                 if (segment.s0 >= reach) continue;
                 double visible = Math.min(1, (reach - segment.s0) / (segment.s1 - segment.s0));
@@ -112,7 +124,8 @@ final class ShieldCircuitTraces {
     }
 
     /** Wraps the flat tangent map around the hit direction onto the (rippling) shell. */
-    private record Frame(Vec3 n, Vec3 t1, Vec3 t2, double x, double y, double z, double radius) {
+    private record Frame(Vec3 n, Vec3 t1, Vec3 t2, double x, double y, double z, double radius,
+            java.util.function.BiFunction<Double, Double, Vec3> mapper) {
         Vec3 direction(double u, double v) {
             double distance = Math.hypot(u, v);
             if (distance < 1e-6) return n;
@@ -121,6 +134,11 @@ final class ShieldCircuitTraces {
         }
 
         Vec3 surface(Vec3 direction, double lift) {
+            if (mapper != null) {
+                double distance = Math.acos(Math.clamp(direction.dot(n), -1, 1));
+                double scale = distance < 1e-6 ? 1 : distance / Math.sin(distance);
+                return mapper.apply(direction.dot(t1) * scale, direction.dot(t2) * scale);
+            }
             double bent = radius * (1.014 + lift) * ShieldRipple.scale(direction.x, direction.y, direction.z);
             return new Vec3(x + direction.x * bent, y + direction.y * bent, z + direction.z * bent);
         }

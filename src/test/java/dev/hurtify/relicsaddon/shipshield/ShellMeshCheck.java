@@ -32,6 +32,12 @@ public final class ShellMeshCheck {
         require(hullField.inside(0, 0, 0), "the middle of the sealed room is under the shield (one outer surface)");
         require(!hullField.inside(0, 12, 0), "the air above the box is not");
         require(hullField.entry(new Vec3(0, 0, 0), new Vec3(0, 30, 0)) < 0, "a shot from inside the room flies out unhindered");
+        LongSet furnished = new LongOpenHashSet(hull);
+        for (int y = -5; y < 6; y++) furnished.add(BlockPos.asLong(0, y, 0));
+        ShellField cabin = new ShellField(furnished, 2);
+        Vec3 corner = new Vec3(2.9, 0.5, 1.9);
+        require(cabin.distance(corner) > 2 && cabin.inside(corner), "a boundary voxel beside the cabin pillar is enclosed in full");
+        require(cabin.entry(corner, new Vec3(20, .5, 1.9)) < 0, "shots born beside the pillar leave freely");
         for (int vertex = 0; vertex < hollow.vertexCount(); vertex++) {
             Vec3 at = hollow.vertex(vertex);
             require(Math.max(Math.abs(at.x), Math.max(Math.abs(at.y), Math.abs(at.z))) > 6, "no vertex inside the box: " + at);
@@ -49,10 +55,13 @@ public final class ShellMeshCheck {
         ShellMesh wide = check("airship, offset 6", ship, 6, 4096);
         ShellMesh limited = check("airship, 256 cells", ship, 2, 256);
         require(limited.quadCount() <= 256, "the cell limit holds: " + limited.quadCount());
-        // A limit far too small for the structure: the trace stops at the coarsest grid instead of looping, still clear of the blocks.
-        ShellMesh tiny = ShellMesh.build(new ShellField(hull, 2), 64);
-        for (int vertex = 0; vertex < tiny.vertexCount(); vertex++) require(new ShellField(hull, 2).distance(tiny.vertex(vertex)) >= 2 - 1e-4, "the coarsest shell keeps the offset");
-        require(tiny.quadCount() <= 64 || tiny.step() >= 4, "the smallest limit is met or the coarsest grid reached: " + tiny.quadCount() + " at step " + tiny.step());
+        // A cap too small to preserve the hull is rejected, never silently exceeded.
+        try {
+            ShellMesh tiny = ShellMesh.build(new ShellField(hull, 2), 64);
+            require(tiny.quadCount() <= 64, "the smallest cell limit is enforced");
+        } catch (IllegalArgumentException expected) {
+            require(expected.getMessage().contains("configured limit"), "only a cell-budget rejection is expected");
+        }
         require(limited.step() > 1, "a limited mesh uses a coarser grid: step " + limited.step());
 
         // The same blocks trace the same mesh (caches and both sides depend on it).

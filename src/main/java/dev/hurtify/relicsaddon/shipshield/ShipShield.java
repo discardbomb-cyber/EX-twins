@@ -47,6 +47,7 @@ public final class ShipShield {
     private long changeSeenAt = -1;
     private @Nullable CompletableFuture<List<ShellMesh>> pending;
     private long pendingKey;
+    private long rejectedKey = Long.MIN_VALUE;
     private Vec3[] seats = new Vec3[0];
     private final List<EmitterDrone> drones = new ArrayList<>();
     private @Nullable ShellPatches patches;
@@ -56,6 +57,9 @@ public final class ShipShield {
     private @Nullable ListTag loadedDrones;
     private int[] loadedIntegrity = new int[0];
     private int loadedSeats;
+    private final List<ShipShieldImpact> impacts = new ArrayList<>();
+    private long raisedAt = -1;
+    private boolean wasUp;
 
     public ShipShield(ShipDeviceBlockEntity generator) {
         this.generator = generator;
@@ -142,6 +146,10 @@ public final class ShipShield {
         }
         boolean deploy = running && !overloaded(now);
         tickDrones(level, now, deploy);
+        boolean isUp = up(now);
+        if (isUp && !wasUp) { raisedAt = now; dirty = true; }
+        wasUp = isUp;
+        impacts.removeIf(hit -> now - hit.time() >= ShipShieldImpact.LIFETIME);
         if (heldChanged) {
             heldChanged = false;
             boolean[] held = new boolean[seats.length];
@@ -190,6 +198,7 @@ public final class ShipShield {
                 traced = pending.join();
             } catch (RuntimeException failure) {
                 dev.hurtify.relicsaddon.RelicsAddon.LOGGER.warn("Ship shield at {} failed to trace its shell", generator.getBlockPos(), failure);
+                rejectedKey = pendingKey;
                 traced = null;
             }
             pending = null;
@@ -200,6 +209,7 @@ public final class ShipShield {
         }
         if (structure == null || structure.size() == 0) return;
         long key = key(structure);
+        if (key == rejectedKey) return;
         if (key == tracedKey) {
             changeSeenAt = -1;
             return;
@@ -258,7 +268,11 @@ public final class ShipShield {
         if (loadedDrones != null) {
             for (Tag tag : loadedDrones) {
                 EmitterDrone saved = EmitterDrone.load((CompoundTag) tag, Vec3.ZERO, Vec3.ZERO);
-                if (saved.seat < 0 || saved.seat >= seats.length || seatTaken(saved.seat)) continue;
+                if (seatTaken(saved.seat)) continue;
+                if (saved.seat < 0 || saved.seat >= seats.length) {
+                    if (!saved.away() && generator.getLevel().getBlockEntity(saved.dock) instanceof ShipDeviceBlockEntity dock) dock.droneHome();
+                    continue;
+                }
                 EmitterDrone drone = EmitterDrone.load((CompoundTag) tag, seats[saved.seat], dockPosition(saved.dock));
                 drones.add(drone);
             }
@@ -296,7 +310,8 @@ public final class ShipShield {
                 ShipDeviceBlockEntity dock = null;
                 for (BlockPos pos : generator.docks()) {
                     if (level.getBlockEntity(pos) instanceof ShipDeviceBlockEntity candidate && candidate.role().isDroneDock()
-                            && candidate.spareDrones() > 0 && DevicePower.drain(null, candidate.device(), flightCost)) {
+                            && candidate.spareDrones() > 0 && candidate.droneCount() > ofDock(pos)
+                            && DevicePower.drain(null, candidate.device(), flightCost)) {
                         dock = candidate;
                         break;
                     }
@@ -382,6 +397,15 @@ public final class ShipShield {
 
     /** The drones' claims on their docks given back (the generator block is gone). */
     public void release(ServerLevel level) {
+        if (loadedDrones != null) {
+            for (Tag entry : loadedDrones) {
+                CompoundTag saved = (CompoundTag) entry;
+                int state = saved.getByte("state");
+                if (state != EmitterDrone.State.DOCKED.ordinal() && state != EmitterDrone.State.CHARGING.ordinal()
+                        && level.getBlockEntity(BlockPos.of(saved.getLong("dock"))) instanceof ShipDeviceBlockEntity dock) dock.droneHome();
+            }
+            loadedDrones = null;
+        }
         for (EmitterDrone drone : drones) {
             if (!drone.away() && level.getBlockEntity(drone.dock) instanceof ShipDeviceBlockEntity dock) dock.droneHome();
         }
@@ -405,6 +429,24 @@ public final class ShipShield {
         if (seat < 0 || cost <= 0) return new ShieldLayers.Strike(0, Math.max(0, cost), false, 0, List.of());
         int rings = AddonConfig.SPEC.isLoaded() ? AddonConfig.SHIP_SPREAD_RINGS.get() : 2;
         ShieldLayers.Strike strike = integrity.strike(seat, cost, patches.neighbours(), rings);
+        if (strike.absorbed() > 0) {
+            int broken = 0;
+            for (ShieldLayers.Drain drain : strike.drains()) {
+                if (integrity.integrity(drain.layer(), drain.seat()) == 0) broken |= 1 << drain.layer();
+            }
+            if (impacts.size() >= ShipShieldImpact.MAX) impacts.removeFirst();
+            impacts.add(new ShipShieldImpact(local.subtract(Vec3.atLowerCornerOf(generator.getBlockPos())), now, strike.absorbed(), broken, strike.overloaded()));
+            if (generator.getLevel() instanceof ServerLevel world) {
+                var role = switch (generator.family()) {
+                    case RF -> dev.hurtify.relicsaddon.relic.RelicRole.RF_SHIELD;
+                    case MANA -> dev.hurtify.relicsaddon.relic.RelicRole.MANA_SHIELD;
+                    case TWINS -> dev.hurtify.relicsaddon.relic.RelicRole.TWINS_SHIELD;
+                };
+                Vec3 contact = ShipStructures.worldPosition(world, local);
+                dev.hurtify.relicsaddon.sound.RelicSounds.shield(world, contact, role, broken != 0, strike.overloaded());
+                dev.hurtify.relicsaddon.sound.RelicSounds.ripple(world, contact, role);
+            }
+        }
         lastHitAt = now;
         dirty = true;
         if (strike.absorbed() > 0) {
@@ -480,7 +522,7 @@ public final class ShipShield {
         }
         List<Integer> integrityList = new ArrayList<>(integrity.layers() * integrity.seats());
         for (int layer = 0; layer < integrity.layers(); layer++) for (int seat = 0; seat < integrity.seats(); seat++) integrityList.add(integrity.integrity(layer, seat));
-        return new ShipShieldView(up(now), offset, layerCount, cellLimit, overloaded(now) ? overloadedUntil : 0, integrity.max(), origin, seatList, droneList, states, integrityList);
+        return new ShipShieldView(up(now), offset, layerCount, cellLimit, overloaded(now) ? overloadedUntil : 0, integrity.max(), origin, seatList, droneList, states, integrityList, raisedAt, impacts);
     }
 
     public void save(CompoundTag tag, long now) {
