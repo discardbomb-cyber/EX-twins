@@ -60,12 +60,12 @@ class Mesh {
     }
   }
   /** Convex lens with radial smooth normals. */
-  lens(group, material, centre, axis, radius, depth) {
+  lens(group, material, centre, axis, radius, depth, rows = 5, segments = 40) {
     const a = norm(axis), u = perp(a), w = cross(a, u);
     const at = (r,t) => add(add(centre, mul(a, depth * (1-r*r))), add(mul(u,radius*r*Math.cos(t)),mul(w,radius*r*Math.sin(t))));
     const n = (r,t) => norm(add(a, add(mul(u,2*depth/radius*r*Math.cos(t)),mul(w,2*depth/radius*r*Math.sin(t)))));
-    for (let j=0;j<5;j++) for (let s=0;s<40;s++) {
-      const r=j/5, b=(j+1)/5, t=s*Math.PI/20, p=(s+1)*Math.PI/20;
+    for (let j=0;j<rows;j++) for (let s=0;s<segments;s++) {
+      const r=j/rows, b=(j+1)/rows, t=s*Math.PI*2/segments, p=(s+1)*Math.PI*2/segments;
       this.quad(group,material,[at(r,t),at(b,t),at(b,p),at(r,p)],[n(r,t),n(b,t),n(b,p),n(r,p)],[[.5+.5*r*Math.cos(t),.5+.5*r*Math.sin(t)],[.5+.5*b*Math.cos(t),.5+.5*b*Math.sin(t)],[.5+.5*b*Math.cos(p),.5+.5*b*Math.sin(p)],[.5+.5*r*Math.cos(p),.5+.5*r*Math.sin(p)]]);
     }
   }
@@ -340,6 +340,19 @@ function rfGenerator() {
     m.sphere("body","steel_light",add([.5,.075,.5],mul(d,.415)),.012,4,8);
   }
   // Core: the antenna spindle with its three vanes and the top lamp; spins slowly.
+  // Separate cooling fins, service ports and four curved insulated power leads.
+  for (let i=0;i<12;i++) {
+    const a=i*Math.PI/6, d=[Math.cos(a),0,Math.sin(a)], t=[-Math.sin(a),0,Math.cos(a)];
+    m.box("body","graphite",add([.5,.245,.5],mul(d,.25)),mul(d,.028),[0,.055,0],mul(t,.006));
+    const port=add([.5,.135,.5],mul(d,.24));
+    m.lathe("body","steel_light",port,d,[[0,0],[.014,0],[.014,.018],[.009,.021],[0,.021]],8);
+  }
+  for (let i=0;i<4;i++) {
+    const a=i*Math.PI/2+.22, d=[Math.cos(a),0,Math.sin(a)];
+    const at=f=>add([.5,.30+f*.40,.5],mul(d,.18+Math.sin(f*Math.PI)*.045));
+    for(let j=0;j<12;j++) m.tube("body","rubber",at(j/12),at((j+1)/12),.009,6);
+    for(let j=0;j<=4;j++) m.torus("body","steel_light",at(j/4),[0,1,0],.01,.002,10,4);
+  }
   m.lathe("core", i => (i >= 3 ? "steel_light" : "steel_dark"), [.5, y0 + .92, .5], [0, 1, 0], [[0, 0], [.05, 0], [.05, .1], [.03, .1], [.03, .32], [.045, .34], [0, .38]], 12);
   for (let i = 0; i < 3; i++) {
     const a = i * 2 * Math.PI / 3, d = [Math.cos(a), 0, Math.sin(a)], t = [-Math.sin(a), 0, Math.cos(a)];
@@ -360,6 +373,12 @@ function rfGenerator() {
     for (let k = 0; k < 5; k++) m.box(group, "steel_light", add(pivot, [0, -.08 - k * .095, 0]), mul(t, .022), [0, .005, 0], mul(d, .005));
     // Panel at the free end, and its lamp.
     const end = add(pivot, [0, -length + .04, 0]);
+    // Diagonal lattice braces and small fasteners on the antenna arm.
+    for(let k=0;k<5;k++) {
+      const y=-.08-k*.095;
+      m.tube(group,"steel_light",add(add(pivot,[0,y,0]),mul(t,-.022)),add(add(pivot,[0,y-.075,0]),mul(t,.022)),.003,4);
+      m.sphere(group,"steel_light",add(add(pivot,[0,y,0]),mul(t,.022)),.006,3,6);
+    }
     m.box(group, k => (k === 0 ? "steel_light" : "graphite"), add(end, mul(d, .022)), mul(d, .008), [0, .09, 0], mul(t, .075));
     m.box(group, "cyan", add(end, mul(d, .032)), mul(d, .003), [0, .012, 0], mul(t, .012));
     // Open radiator grille like the tower reference, with visible ribs instead of a solid slab.
@@ -403,7 +422,7 @@ function manaGenerator() {
   faces.forEach((n, i) => {
     const group = `shell_${i}`, u = perp(n), w = cross(n, u);
     const at = (x, y, out) => add(add(add(centre, mul(n, half + out)), mul(u, x)), mul(w, y));
-    // Rounded ivory housing, gold bezel, domed turquoise lens and engraved radial glyphs.
+    // Navy housing, layered gold bezel and a dark crystalline lens.
     m.lens(group, "bronze", at(0,0,-.035), n, .205, .055);
     m.torus(group, "gold", at(0,0,.005), n, .174, .007, 40);
     m.lens(group, "glass", at(0,0,.01), n, .151, .035);
@@ -421,6 +440,20 @@ function manaGenerator() {
     for (let s=0;s<12;s++) {
       const a=s*Math.PI/6;
       m.tube(group,"gold_edge",at(Math.cos(a)*.126,Math.sin(a)*.126,.036),at(Math.cos(a)*.141,Math.sin(a)*.141,.03),.0025,6);
+      // Angular, individually cut sigils between the radial graduations.
+      const p=(r,b)=>at(Math.cos(b)*r,Math.sin(b)*r,.036);
+      m.tube(group,"gold",p(.137,a+.08),p(.148,a+.08),.0015,4);
+      m.tube(group,"gold",p(.148,a+.08),p(.148,a+.15),.0015,4);
+      if(s%2===0) m.tube(group,"gold",p(.148,a+.15),p(.141,a+.19),.0015,4);
+      const seat=at(Math.cos(a)*.184,Math.sin(a)*.184,-.005);
+      m.sphere(group,"gold_edge",seat,.0045,3,6);
+    }
+    // Faceted small crystals seated in the outer housing, with dark recesses.
+    for(let j=0;j<4;j++) {
+      const a=j*Math.PI/2+Math.PI/4, x=Math.cos(a)*.18,y=Math.sin(a)*.18;
+      m.lens(group,"navy",at(x,y,-.013),n,.012,.004,2,12);
+      m.poly(group,"glass",[[0,.009],[-.005,0],[0,-.009],[.005,0]].map(([dx,dy])=>at(x+dx,y+dy,-.005)));
+      m.tube(group,"gold_edge",at(x-.008,y,-.005),at(x+.008,y,-.005),.0015,4);
     }
 
   });
@@ -504,6 +537,21 @@ function twinsGenerator() {
     const points = ring.map(i => add(centre, mul(verts[i], R)));
     const u = perp(n), w = cross(n, u);
     const uvs = points.map(p => { const q = sub(p, centre); return [.5 + dot(q, u) * 1.4, .5 + dot(q, w) * 1.4]; });
+    // Inset panel seam and tiny registration marks following each curved plate.
+    const inset=points.map(p=>add(centre,mul(norm(add(mul(norm(sub(p,centre)),.85),mul(n,.15))),R*1.003)));
+    for(let j=0;j<inset.length;j++) {
+      const a=inset[j], b=inset[(j+1)%inset.length];
+      for(let k=0;k<3;k++) {
+        const at=t=>add(centre,mul(norm(sub(add(mul(a,1-t),mul(b,t)),centre)),R*1.003));
+        m.tube("body","marble_dark",at(k/3),at((k+1)/3),.0017,4);
+      }
+    }
+    const cap=add(centre,mul(n,R*1.007));
+    m.lathe("body","gold",cap,n,[[0,0],[.006,0],[.006,.002],[0,.002]],6);
+    for(let mark=0;mark<3;mark++) {
+      const at=x=>add(cap,add(mul(u,x),mul(w,-.018+mark*.004)));
+      m.tube("body","marble_dark",at(-.008),at(mark===0?.008:.004),.001,4);
+    }
     // Subdivide each hex/pentagon onto the sphere: curved ceramic panels, smooth normals.
     const project = p => add(centre,mul(norm(sub(p,centre)),R));
     const hub = project(mul(points.reduce(add,[0,0,0]),1/points.length));
@@ -532,6 +580,12 @@ function twinsGenerator() {
     const p = onRing(2 * Math.PI * i / orbs);
     m.sphere("core", "galaxy", p, .055, 10, 16);
     m.lathe("core", "gold_edge", p, axis, [[.058, -.006], [.062, 0], [.058, .006]], 10);
+    // Three narrow metal claws locate each orb in its orbit socket.
+    const radial=norm(sub(p,centre)), tangent=norm(cross(axis,radial));
+    for(let j=0;j<3;j++) {
+      const a=j*Math.PI*2/3, side=add(mul(radial,Math.cos(a)),mul(tangent,Math.sin(a)));
+      m.tube("core","gold",add(p,mul(side,.054)),add(add(p,mul(side,.049)),mul(axis,.022)),.003,5);
+    }
   }
   // Fx: golden threads from the pedestal to the sphere and on to the ring, slightly twisted.
   for (let i = 0; i < 6; i++) {
