@@ -1,0 +1,7 @@
+V2 generator: exit 0; 497 meshes / 6 clips.
+Pose generator: exit 0; 3 static poses.
+Animation validation: passed, 0 errors / 0 warnings (tracks unchanged by final hull expansion).
+Visual iteration 1: armour coverage gaps, floating lenses.
+Visual iteration 2: lens parenting fixed, shell added; seam gaps remained.
+Visual iteration 3: complete triangular hull; closed silhouette inspected and gaps sealed.
+Open/crafting: inspected locally, frame geometry remains above fixed foundation, orbiting nodes surround faceted core.

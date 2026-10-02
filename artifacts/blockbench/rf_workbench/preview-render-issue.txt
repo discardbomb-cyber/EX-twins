@@ -1,0 +1,3 @@
+Original clip renders: completed, but visually identical closed rest pose (failed visual check).
+Baked poses: node tools/pose_rf_workbench.mjs exit 0, 3 poses saved.
+Baked renders: all completed; visual inspection confirms dark inserts / opened panels / orbiting tips and enlarged core.

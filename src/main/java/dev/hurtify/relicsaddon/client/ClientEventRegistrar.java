@@ -27,6 +27,7 @@ public final class ClientEventRegistrar {
         modEventBus.addListener(ClientEventRegistrar::registerScreens);
         modEventBus.addListener(ClientEventRegistrar::registerShaders);
         modEventBus.addListener(dev.hurtify.relicsaddon.client.fx.ExFx::registerReloadListener);
+        modEventBus.addListener(dev.hurtify.relicsaddon.client.workbench.RfWorkbenchModel::registerReloadListener);
     }
 
     private static void registerShaders(net.neoforged.neoforge.client.event.RegisterShadersEvent event) {

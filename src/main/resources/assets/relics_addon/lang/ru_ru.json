@@ -393,5 +393,7 @@
   "subtitles.relics_addon.ship_aegis_break": "Щит корабля пробит",
   "subtitles.relics_addon.ship_aegis_raise": "Щит корабля поднимается",
   "subtitles.relics_addon.ship_escort_arc": "Дроны сопровождения бьют",
-  "subtitles.relics_addon.ship_escort_launch": "Дроны сопровождения взлетают"
+  "subtitles.relics_addon.ship_escort_launch": "Дроны сопровождения взлетают",
+  "message.relics_addon.rf_workbench_preview": "Предпросмотр RF-верстака: %s. /rfworkbench_preview stop закрывает его.",
+  "commands.relics_addon.armageddon.started": "Армагеддон запущен: %s. Заряженный улей установлен в первый слот амулета."
 }

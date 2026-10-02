@@ -1,0 +1,59 @@
+Compiled from "PhotonClientListeners.java"
+public class com.lowdragmc.photon.client.PhotonClientListeners {
+  public com.lowdragmc.photon.client.PhotonClientListeners();
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: return
+
+  public static void onRegisterCommands(net.neoforged.neoforge.client.event.RegisterClientCommandsEvent);
+    Code:
+       0: aload_0
+       1: invokevirtual #7                  // Method net/neoforged/neoforge/client/event/RegisterClientCommandsEvent.getDispatcher:()Lcom/mojang/brigadier/CommandDispatcher;
+       4: astore_1
+       5: invokestatic  #13                 // Method com/lowdragmc/photon/client/ClientCommands.createClientCommands:()Ljava/util/List;
+       8: astore_2
+       9: aload_2
+      10: aload_1
+      11: dup
+      12: invokestatic  #19                 // Method java/util/Objects.requireNonNull:(Ljava/lang/Object;)Ljava/lang/Object;
+      15: pop
+      16: invokedynamic #25,  0             // InvokeDynamic #0:accept:(Lcom/mojang/brigadier/CommandDispatcher;)Ljava/util/function/Consumer;
+      21: invokeinterface #29,  2           // InterfaceMethod java/util/List.forEach:(Ljava/util/function/Consumer;)V
+      26: return
+
+  public static void onRenderFrame(net.neoforged.neoforge.client.event.RenderFrameEvent$Post);
+    Code:
+       0: invokestatic  #35                 // Method com/lowdragmc/photon/client/postfx/PhotonPostFX.onFrameEnd:()V
+       3: return
+
+  public static void onRenderLevelStage(net.neoforged.neoforge.client.event.RenderLevelStageEvent);
+    Code:
+       0: aload_0
+       1: invokevirtual #40                 // Method net/neoforged/neoforge/client/event/RenderLevelStageEvent.getModelViewMatrix:()Lorg/joml/Matrix4f;
+       4: aload_0
+       5: invokevirtual #46                 // Method net/neoforged/neoforge/client/event/RenderLevelStageEvent.getProjectionMatrix:()Lorg/joml/Matrix4f;
+       8: aload_0
+       9: invokevirtual #49                 // Method net/neoforged/neoforge/client/event/RenderLevelStageEvent.getCamera:()Lnet/minecraft/client/Camera;
+      12: invokevirtual #53                 // Method net/minecraft/client/Camera.getPosition:()Lnet/minecraft/world/phys/Vec3;
+      15: invokestatic  #59                 // Method com/lowdragmc/photon/client/postfx/runtime/PostFXCamera.capture:(Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lnet/minecraft/world/phys/Vec3;)V
+      18: aload_0
+      19: invokevirtual #65                 // Method net/neoforged/neoforge/client/event/RenderLevelStageEvent.getStage:()Lnet/neoforged/neoforge/client/event/RenderLevelStageEvent$Stage;
+      22: getstatic     #69                 // Field net/neoforged/neoforge/client/event/RenderLevelStageEvent$Stage.AFTER_BLOCK_ENTITIES:Lnet/neoforged/neoforge/client/event/RenderLevelStageEvent$Stage;
+      25: if_acmpne     34
+      28: invokestatic  #75                 // Method com/lowdragmc/photon/client/gameobject/emitter/renderpipeline/OpaqueDepthCapture.capture:()V
+      31: goto          47
+      34: aload_0
+      35: invokevirtual #65                 // Method net/neoforged/neoforge/client/event/RenderLevelStageEvent.getStage:()Lnet/neoforged/neoforge/client/event/RenderLevelStageEvent$Stage;
+      38: getstatic     #79                 // Field net/neoforged/neoforge/client/event/RenderLevelStageEvent$Stage.AFTER_PARTICLES:Lnet/neoforged/neoforge/client/event/RenderLevelStageEvent$Stage;
+      41: if_acmpne     47
+      44: invokestatic  #82                 // Method com/lowdragmc/photon/client/postfx/PhotonPostFX.onLevelStageAfterParticles:()V
+      47: return
+
+  public static void onRenderGui(net.neoforged.neoforge.client.event.RenderGuiEvent$Post);
+    Code:
+       0: aload_0
+       1: invokevirtual #85                 // Method net/neoforged/neoforge/client/event/RenderGuiEvent$Post.getGuiGraphics:()Lnet/minecraft/client/gui/GuiGraphics;
+       4: invokestatic  #91                 // Method com/lowdragmc/photon/client/compat/iris/IrisOverlay.render:(Lnet/minecraft/client/gui/GuiGraphics;)V
+       7: return
+}

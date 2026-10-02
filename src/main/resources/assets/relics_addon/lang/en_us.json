@@ -393,5 +393,7 @@
   "subtitles.relics_addon.ship_aegis_break": "Ship shield breaks",
   "subtitles.relics_addon.ship_aegis_raise": "Ship shield rises",
   "subtitles.relics_addon.ship_escort_arc": "Escort drones strike",
-  "subtitles.relics_addon.ship_escort_launch": "Escort drones take off"
+  "subtitles.relics_addon.ship_escort_launch": "Escort drones take off",
+  "message.relics_addon.rf_workbench_preview": "RF workbench preview: %s. /rfworkbench_preview stop closes it.",
+  "commands.relics_addon.armageddon.started": "Armageddon started: %s. A charged hive is equipped in charm slot 1."
 }

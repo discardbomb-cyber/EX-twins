@@ -548,7 +548,14 @@ public final class WorldScenarios {
         if (scene >= plan.size()) {
             phase = Phase.DONE;
             RelicsAddon.LOGGER.info("World scenarios captured: {}", plan.stream().map(Scene::name).toList());
-            minecraft.execute(minecraft::stop);
+            if (Boolean.getBoolean("relics_addon.worldScenarioKeepOpen")) {
+                minecraft.options.hideGui = false;
+                onServer(minecraft, level -> {
+                    ServerPlayer player = owner(level);
+                    player.setGameMode(GameType.CREATIVE);
+                    if (origin != null) player.teleportTo(level, origin.x, origin.y, origin.z, 180, 0);
+                });
+            } else minecraft.execute(minecraft::stop);
             return;
         }
         phase = Phase.SETUP;
@@ -564,6 +571,20 @@ public final class WorldScenarios {
     }
 
     private static void attachCamera(Minecraft minecraft) {
+        if (Boolean.getBoolean("relics_addon.worldScenarioTop") && stage != null && minecraft.level != null
+                && scene >= 0 && scene < plan.size() && ARMAGEDDON.containsKey(plan.get(scene).name())) {
+            // The server's camera is outside entity tracking range at this height.
+            Entity overhead = minecraft.getCameraEntity();
+            if (!(overhead instanceof ArmorStand) || overhead.level() != minecraft.level) {
+                overhead = EntityType.ARMOR_STAND.create(minecraft.level);
+                if (overhead == null) return;
+                minecraft.setCameraEntity(overhead);
+            }
+            overhead.moveTo(stage.x, stage.y + 430 - overhead.getEyeHeight(), stage.z - 75, 0, 90);
+            overhead.setOldPosAndRot();
+            minecraft.options.setCameraType(CameraType.FIRST_PERSON);
+            return;
+        }
         int id = CAMERA.get();
         if (id < 0 || minecraft.level == null) return;
         Entity camera = minecraft.level.getEntity(id);
@@ -680,7 +701,9 @@ public final class WorldScenarios {
 
         ArmorStand camera = EntityType.ARMOR_STAND.create(level);
         if (camera != null) {
-            Vec3 eye = stage.add(scene.camera()), look = stage.add(scene.look()).subtract(eye);
+            boolean top = Boolean.getBoolean("relics_addon.worldScenarioTop") && ARMAGEDDON.containsKey(scene.name());
+            Vec3 eye = top ? stage.add(0, 430, -75) : stage.add(scene.camera());
+            Vec3 look = (top ? stage.add(0, 0, -75) : stage.add(scene.look())).subtract(eye);
             float yaw = (float) Math.toDegrees(Math.atan2(-look.x, look.z));
             float pitch = (float) -Math.toDegrees(Math.atan2(look.y, Math.sqrt(look.x * look.x + look.z * look.z)));
             camera.setInvisible(true);

@@ -37,6 +37,26 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
         }
 
+        minersDreamClient {
+            client()
+            gameDirectory = file('D:/ex-twins-captures/miners-dream-run')
+            programArgument '--quickPlaySingleplayer'
+            programArgument 'MinersDream'
+            if (providers.gradleProperty('scenario').isPresent()) {
+                systemProperty 'relics_addon.worldScenario', providers.gradleProperty('scenario').get()
+                systemProperty 'relics_addon.worldScenarioKeepOpen', 'true'
+                systemProperty 'relics_addon.worldScenarioTop', providers.gradleProperty('scenarioTop').getOrElse('false')
+            }
+        }
+
+        rfWorkbenchClient {
+            client()
+            gameDirectory = file('D:/ex-twins-captures/rf-workbench-run')
+            systemProperty 'relics_addon.rfWorkbenchCapture', 'true'
+            programArgument '--quickPlaySingleplayer'
+            programArgument 'RFWorkbench'
+        }
+
         server {
             server()
             programArgument '--nogui'

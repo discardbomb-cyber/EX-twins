@@ -272,6 +272,55 @@ public final class ExFx {
         hiveImpact(level, to, type, 2);
     }
 
+    /** Small workbench core pulse; tick caller controls cadence. Override: rf_workbench_core.fx. */
+    public static void rfWorkbenchCore(Level level, Vec3 center, boolean crafting) {
+        try {
+            play(level, center, center, 0, "rf_workbench_core", 0x38E8FF, ExFxLibrary::rfWorkbenchPulse,
+                    executor -> executor.onStarted(runtime -> {
+                        ExFxLibrary.depthTested(runtime);
+                        float factor = crafting ? 1 : .45f;
+                        ExFxLibrary.each(runtime, "halo", emitter -> ExFxLibrary.size(emitter, .36f * factor));
+                        ExFxLibrary.each(runtime, "ring", emitter -> ExFxLibrary.size(emitter, .24f * factor));
+                    }));
+        } catch (RuntimeException | LinkageError error) { fail(error); }
+    }
+
+    /** World-space trail along a sampled corner-node segment. Override: rf_workbench_trail.fx. */
+    public static void rfWorkbenchTrail(Level level, Vec3 from, Vec3 to) {
+        try {
+            if (from == null || to == null || from.distanceToSqr(to) < 1e-10) return;
+            play(level, from, to, 1, "rf_workbench_trail", 0x38E8FF, ExFxLibrary::rfWorkbenchTrail,
+                    executor -> executor.onStarted(ExFxLibrary::depthTested));
+        } catch (RuntimeException | LinkageError error) { fail(error); }
+    }
+
+    /** Brief joint spark for unfolding and node detachment. Override: rf_workbench_unfold.fx. */
+    public static void rfWorkbenchUnfold(Level level, Vec3 point) {
+        try {
+            play(level, point, point, 0, "rf_workbench_unfold", 0xFFB347,
+                    ExFxLibrary::rfWorkbenchUnfold, executor -> executor.onStarted(ExFxLibrary::depthTested));
+        } catch (RuntimeException | LinkageError error) { fail(error); }
+    }
+
+    /** Thin core-to-node discharge. Override: rf_workbench_arc.fx. */
+    public static void rfWorkbenchArc(Level level, Vec3 from, Vec3 to) {
+        try {
+            if (from == null || to == null) return;
+            Vec3 path = to.subtract(from);
+            float length = (float) path.length();
+            if (!(length > .01f)) return;
+            play(level, from, to, 0, "rf_workbench_arc", 0x38E8FF, ExFxLibrary::hiveLightning,
+                    executor -> executor.onStarted(runtime -> {
+                        ExFxLibrary.depthTested(runtime);
+                        placeLightning(runtime, level, path, length, .12);
+                        for (int i = 0; i < ExFxLibrary.LIGHTNING_SEGMENTS; i++) {
+                            ExFxLibrary.each(runtime, "seg" + i, emitter -> ExFxLibrary.scaleCount(emitter, .25f));
+                        }
+                        ExFxLibrary.each(runtime, "flash", emitter -> ExFxLibrary.size(emitter, .06f));
+                    }));
+        } catch (RuntimeException | LinkageError error) { fail(error); }
+    }
+
     private static int swarmColor(HiveType type) {
         return switch (type) {
             case RF -> 0x38E8FF;

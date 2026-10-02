@@ -1,0 +1,5 @@
+Blender get_addon_status: live addon unavailable; used actual Minecraft capture.
+Initial orbit key-frequency patch: context mismatch; exact line read, corrected patch applied.
+VisualSmoke.java probe: file absent; existing NativeModelSmoke / WorldScenarios used as API examples.
+assets/relics_addon/fx probe: authored overrides absent; code-built ExFxLibrary supplies effects.
+README patch delete+add same target rejected; normal file write succeeded.

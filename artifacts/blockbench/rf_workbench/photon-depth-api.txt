@@ -1,0 +1,116 @@
+Compiled from "OpaqueDepthCapture.java"
+public final class com.lowdragmc.photon.client.gameobject.emitter.renderpipeline.OpaqueDepthCapture {
+  static final boolean $assertionsDisabled;
+
+  public static void capture();
+    Code:
+       0: invokestatic  #7                  // Method isWanted:()Z
+       3: ifne          7
+       6: return
+       7: invokestatic  #13                 // InterfaceMethod com/lowdragmc/lowdraglib2/gui/ui/rendering/UISurface.currentTarget:()Lcom/mojang/blaze3d/pipeline/RenderTarget;
+      10: astore_0
+      11: aload_0
+      12: getfield      #19                 // Field com/mojang/blaze3d/pipeline/RenderTarget.width:I
+      15: ifle          25
+      18: aload_0
+      19: getfield      #25                 // Field com/mojang/blaze3d/pipeline/RenderTarget.height:I
+      22: ifgt          26
+      25: return
+      26: invokestatic  #28                 // Method com/mojang/blaze3d/platform/GlStateManager.getBoundFramebuffer:()I
+      29: istore_1
+      30: invokestatic  #34                 // Method com/mojang/blaze3d/platform/GlStateManager$Viewport.x:()I
+      33: istore_2
+      34: invokestatic  #39                 // Method com/mojang/blaze3d/platform/GlStateManager$Viewport.y:()I
+      37: istore_3
+      38: invokestatic  #42                 // Method com/mojang/blaze3d/platform/GlStateManager$Viewport.width:()I
+      41: istore        4
+      43: invokestatic  #44                 // Method com/mojang/blaze3d/platform/GlStateManager$Viewport.height:()I
+      46: istore        5
+      48: aload_0
+      49: getfield      #19                 // Field com/mojang/blaze3d/pipeline/RenderTarget.width:I
+      52: aload_0
+      53: getfield      #25                 // Field com/mojang/blaze3d/pipeline/RenderTarget.height:I
+      56: invokestatic  #46                 // Method allocate:(II)V
+      59: getstatic     #50                 // Field $assertionsDisabled:Z
+      62: ifne          79
+      65: getstatic     #54                 // Field target:Lcom/lowdragmc/photon/client/postfx/runtime/FormatTarget;
+      68: ifnonnull     79
+      71: new           #58                 // class java/lang/AssertionError
+      74: dup
+      75: invokespecial #60                 // Method java/lang/AssertionError."<init>":()V
+      78: athrow
+      79: getstatic     #54                 // Field target:Lcom/lowdragmc/photon/client/postfx/runtime/FormatTarget;
+      82: aload_0
+      83: invokevirtual #61                 // Method com/lowdragmc/photon/client/postfx/runtime/FormatTarget.copyDepthFrom:(Lcom/mojang/blaze3d/pipeline/RenderTarget;)V
+      86: getstatic     #67                 // Field frame:J
+      89: putstatic     #71                 // Field capturedFrame:J
+      92: ldc           #76                 // int 36160
+      94: iload_1
+      95: invokestatic  #77                 // Method com/mojang/blaze3d/platform/GlStateManager._glBindFramebuffer:(II)V
+      98: iload_2
+      99: iload_3
+     100: iload         4
+     102: iload         5
+     104: invokestatic  #80                 // Method com/mojang/blaze3d/systems/RenderSystem.viewport:(IIII)V
+     107: return
+
+  public static void demand();
+    Code:
+       0: iconst_1
+       1: putstatic     #120                // Field demandedThisFrame:Z
+       4: return
+
+  public static int depthTexture();
+    Code:
+       0: getstatic     #54                 // Field target:Lcom/lowdragmc/photon/client/postfx/runtime/FormatTarget;
+       3: ifnull        16
+       6: getstatic     #71                 // Field capturedFrame:J
+       9: getstatic     #67                 // Field frame:J
+      12: lcmp
+      13: ifeq          18
+      16: iconst_0
+      17: ireturn
+      18: getstatic     #54                 // Field target:Lcom/lowdragmc/photon/client/postfx/runtime/FormatTarget;
+      21: invokevirtual #149                // Method com/lowdragmc/photon/client/postfx/runtime/FormatTarget.getDepthTextureId:()I
+      24: ireturn
+
+  public static boolean hasCaptureThisFrame();
+    Code:
+       0: invokestatic  #152                // Method depthTexture:()I
+       3: ifeq          10
+       6: iconst_1
+       7: goto          11
+      10: iconst_0
+      11: ireturn
+
+  public static void endFrame();
+    Code:
+       0: getstatic     #67                 // Field frame:J
+       3: lconst_1
+       4: ladd
+       5: putstatic     #67                 // Field frame:J
+       8: getstatic     #120                // Field demandedThisFrame:Z
+      11: putstatic     #95                 // Field demandedLastFrame:Z
+      14: iconst_0
+      15: putstatic     #120                // Field demandedThisFrame:Z
+      18: return
+
+  static {};
+    Code:
+       0: ldc           #8                  // class com/lowdragmc/photon/client/gameobject/emitter/renderpipeline/OpaqueDepthCapture
+       2: invokevirtual #155                // Method java/lang/Class.desiredAssertionStatus:()Z
+       5: ifne          12
+       8: iconst_1
+       9: goto          13
+      12: iconst_0
+      13: putstatic     #50                 // Field $assertionsDisabled:Z
+      16: ldc2_w        #160                // long -1l
+      19: putstatic     #71                 // Field capturedFrame:J
+      22: lconst_0
+      23: putstatic     #67                 // Field frame:J
+      26: iconst_0
+      27: putstatic     #120                // Field demandedThisFrame:Z
+      30: iconst_0
+      31: putstatic     #95                 // Field demandedLastFrame:Z
+      34: return
+}

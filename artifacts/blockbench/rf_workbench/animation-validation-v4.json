@@ -1,0 +1,51 @@
+{
+  "revision": "6c12dec4bceda8e8",
+  "checked": [
+    "uncharged",
+    "charged_closed",
+    "player_approach",
+    "charged_open",
+    "player_leave",
+    "crafting",
+    "crafting_start",
+    "crafting_end"
+  ],
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "passed": true
+  },
+  "gates": [
+    {
+      "id": "animated_bones_exist",
+      "label": "Animators target groups that exist",
+      "severity": "error",
+      "ran": true,
+      "violations": []
+    },
+    {
+      "id": "keyframe_timing",
+      "label": "Keyframes lie inside the clip and do not collide",
+      "severity": "warning",
+      "ran": true,
+      "violations": []
+    },
+    {
+      "id": "ground_sink",
+      "label": "No part sinks below the ground during a clip",
+      "severity": "warning",
+      "ran": true,
+      "violations": []
+    },
+    {
+      "id": "detachment",
+      "label": "Attached groups stay attached to their parent during a clip",
+      "severity": "warning",
+      "ran": true,
+      "violations": []
+    }
+  ],
+  "skipped_channels": [],
+  "approximated_bezier": [],
+  "capped_clips": []
+}

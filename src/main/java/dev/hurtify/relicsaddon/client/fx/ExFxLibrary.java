@@ -196,6 +196,52 @@ final class ExFxLibrary {
         return fx(scatter, flash("flash", color, .8f, 5));
     }
 
+    /** Workbench pulse stays small enough to leave the circuitry sphere visible. */
+    static FX rfWorkbenchPulse(int color) {
+        var halo = flash("halo", color, .36f, 12);
+        var ring = flash("ring", color, .24f, 12);
+        ring.config.renderer.getMaterials().set(0, additive(new MaterialSetting(new TextureMaterial(RING))));
+        shrink(ring, .2f, 1.4f, 1.8f);
+        var mist = glow("mist", 0x09131C, 3, sphere(.12f, 1), .02f, .06f, 10, 16, .08f, .14f, .12f);
+        var material = new MaterialSetting(new TextureMaterial(SMOKE));
+        material.getBlendMode().setSrcColorFactor(GlStateManager.SourceFactor.SRC_ALPHA);
+        material.getBlendMode().setDstColorFactor(GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
+        material.setDepthMask(false);
+        mist.config.renderer.getMaterials().set(0, material);
+        return fx(halo, ring, shrink(glow("motes", color, 6, sphere(.08f, 1), .04f, .15f,
+                8, 14, .009f, .022f, .65f), 0, 1, 0), shrink(mist, .5f, 1.5f));
+    }
+
+    static FX rfWorkbenchTrail(int color) {
+        var head = glow("head", color, 1, new Dot(), 0, 0, 6, 6, .022f, .022f, .8f);
+        head.config.setMaxParticles(2);
+        head.config.colorOverLifetime.setColor(hold(color));
+        var trails = head.config.trails;
+        trails.setEnable(true);
+        trails.setLifetime(NumberFunction.constant(.7f));
+        trails.setInheritParticleColor(false);
+        trails.setColorOverLifetime(NumberFunction.color(-1));
+        trails.config.setWidthOverTrail(curve(0, .045f, .06f));
+        trails.config.setColorOverTrail(trail(color));
+        trails.config.renderer.getMaterials().set(0, additive(new MaterialSetting(new TextureMaterial(TAIL))));
+        return fx(head);
+    }
+
+    static FX rfWorkbenchUnfold(int color) {
+        return fx(flash("flash", color, .18f, 5),
+                streaks(glow("sparks", color, 5, sphere(.035f, 1), .12f, .4f,
+                        5, 9, .01f, .025f, .8f), 4, .85f));
+    }
+
+    /** Workbench artist overrides must respect the opaque scene/frame depth as well. */
+    static void depthTested(FXRuntime runtime) {
+        for (IFXObject object : runtime.objects.values()) {
+            if (!(object instanceof ParticleEmitter emitter)) continue;
+            for (var material : emitter.config.renderer.getMaterials()) material.setDepthTest(true);
+            for (var material : emitter.config.trails.config.renderer.getMaterials()) material.setDepthTest(true);
+        }
+    }
+
     /** Applies {@code action} to every particle emitter of the runtime with the given name. */
     static void each(FXRuntime runtime, String name, Consumer<ParticleEmitter> action) {
         for (IFXObject object : runtime.objects.values()) {

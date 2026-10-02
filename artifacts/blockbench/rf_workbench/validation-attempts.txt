@@ -1,0 +1,5 @@
+Attempt 1: MCP input rejected: path supplied, file required.
+Attempt 2: geometry PASS, 0 errors / 28 bounding-box warnings; animations PASS, 0 errors / 8 warnings (ground_sink, detachment).
+Attempt 3: root orbital groups, revised opening: animations PASS, 0 errors / 4 ground_sink warnings.
+Attempt 4: decimal Molang keys toFixed(6): animations PASS, 0 errors / 0 warnings.
+Generator: PASS, 52 elements, 6 clips, fixed foundation.
