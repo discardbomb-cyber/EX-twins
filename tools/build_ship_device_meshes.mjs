@@ -66,7 +66,7 @@ class Mesh {
     const n = (r,t) => norm(add(a, add(mul(u,2*depth/radius*r*Math.cos(t)),mul(w,2*depth/radius*r*Math.sin(t)))));
     for (let j=0;j<5;j++) for (let s=0;s<40;s++) {
       const r=j/5, b=(j+1)/5, t=s*Math.PI/20, p=(s+1)*Math.PI/20;
-      this.quad(group,material,[at(r,t),at(b,t),at(b,p),at(r,p)],[n(r,t),n(b,t),n(b,p),n(r,p)]);
+      this.quad(group,material,[at(r,t),at(b,t),at(b,p),at(r,p)],[n(r,t),n(b,t),n(b,p),n(r,p)],[[.5+.5*r*Math.cos(t),.5+.5*r*Math.sin(t)],[.5+.5*b*Math.cos(t),.5+.5*b*Math.sin(t)],[.5+.5*b*Math.cos(p),.5+.5*b*Math.sin(p)],[.5+.5*r*Math.cos(p),.5+.5*r*Math.sin(p)]]);
     }
   }
   constructor(name, materials) { this.name = name; this.materials = materials; this.v = []; this.n = []; this.t = []; this.groups = new Map(); }
@@ -83,6 +83,12 @@ class Mesh {
       return [acc[0] + (p[1] - q[1]) * (p[2] + q[2]), acc[1] + (p[2] - q[2]) * (p[0] + q[0]), acc[2] + (p[0] - q[0]) * (p[1] + q[1])];
     }, [0, 0, 0]));
     if (!Number.isFinite(n[0]) || len(n) < .5) return;
+    if (!uvs) {
+      const axis = n.map(Math.abs).indexOf(Math.max(...n.map(Math.abs)));
+      const axes = [0,1,2].filter(i=>i!==axis);
+      const low=axes.map(a=>Math.min(...points.map(p=>p[a]))), high=axes.map(a=>Math.max(...points.map(p=>p[a])));
+      uvs=points.map(p=>axes.map((a,i)=>(p[a]-low[i])/Math.max(high[i]-low[i],1e-6)));
+    }
     const front = points.map((p, i) => this.vert(p, n, uvs?.[i]));
     for (let i = 1; i + 1 < front.length; i++) this.face(group, material, front[0], front[i], front[i + 1]);
     if (single) return;
@@ -251,6 +257,15 @@ const fbm = (x, y, size, seed) => (noise(x, y, size, 16, seed) * .5 + noise(x, y
 function writeTextures() {
   mkdirSync(TEXTURES, { recursive: true });
   const S = 64;
+  // Neutral material maps: their tint is supplied by each branch's MTL palette.
+  for (const [name,seed,grain] of [["machined",57,18],["aged_alloy",63,8],["enamel",71,4],["crystal",79,6]]) {
+    writeFileSync(join(TEXTURES,name+".png"),png(64,64,(x,y)=>{
+      const wear=fbm(x,y,64,seed), scratch=hash(x,y,seed)>.993?-.14:0;
+      const brush=(hash(0,y,seed+3)-.5)*grain;
+      const value=185+wear*57+brush+scratch*255;
+      return [value,value,value];
+    }));
+  }
   // White marble with grey veins (the Ex-Twins sphere and pillars).
   writeFileSync(join(TEXTURES, "marble.png"), png(S, S, (x, y) => {
     const vein = Math.abs(Math.sin((x + y * .6) / 5 + fbm(x, y, S, 3) * 9));
@@ -287,9 +302,9 @@ function writeTextures() {
 // --- the RF emitter tower (s11, s10) -------------------------------------------------------------
 function rfGenerator() {
   const m = new Mesh("rf_ship_shield_generator", {
-    steel: [[.23, .25, .28], 0],
-    steel_dark: [[.3, .33, .37], 0],
-    steel_light: [[.71, .44, .25], 0],
+    steel: [[.32, .35, .38], 0, "relics_addon:block/ship/machined"],
+    steel_dark: [[.19, .21, .24], 0, "relics_addon:block/ship/machined"],
+    steel_light: [[.53, .35, .23], 0, "relics_addon:block/ship/aged_alloy"],
     graphite: [[.1, .11, .13], 0],
     rubber: [[.05, .055, .065], 0],
     cyan: [[.31, .85, .94], 1],
@@ -362,14 +377,14 @@ function rfGenerator() {
 // --- the Mana holocron cube (s05, s10) -----------------------------------------------------------
 function manaGenerator() {
   const m = new Mesh("mana_ship_shield_generator", {
-    gold: [[.84, .66, .23], 0],
-    gold_edge: [[.92, .74, .32], .1],
-    bronze: [[.90, .86, .77], 0],
-    navy: [[.18, .36, .32], 0],
-    glass: [[.18, .65, .57], .25],
-    glass_light: [[.32, .90, .82], .9],
-    core_light: [[1, .85, .45], 1],
-    ring_light: [[.32, .90, .82], 1],
+    gold: [[.62, .43, .15], 0, "relics_addon:block/ship/aged_alloy"],
+    gold_edge: [[.76, .60, .32], 0, "relics_addon:block/ship/aged_alloy"],
+    bronze: [[.07, .09, .20], 0, "relics_addon:block/ship/enamel"],
+    navy: [[.035, .05, .12], 0, "relics_addon:block/ship/enamel"],
+    glass: [[.03, .08, .16], .05, "relics_addon:block/ship/crystal"],
+    glass_light: [[.3, .78, 1], .5],
+    core_light: [[.3, .78, 1], .65],
+    ring_light: [[.3, .78, 1], .55],
   });
   const oct = r => Array.from({ length: 48 }, (_, i) => [Math.cos(i * Math.PI / 24) * r, Math.sin(i * Math.PI / 24) * r]);
   m.prism("body", "bronze", C, oct(.44), 0, .05, "gold");
@@ -390,10 +405,19 @@ function manaGenerator() {
     const at = (x, y, out) => add(add(add(centre, mul(n, half + out)), mul(u, x)), mul(w, y));
     // Rounded ivory housing, gold bezel, domed turquoise lens and engraved radial glyphs.
     m.lens(group, "bronze", at(0,0,-.035), n, .205, .055);
-    m.torus(group, "gold", at(0,0,.005), n, .174, .017, 40);
+    m.torus(group, "gold", at(0,0,.005), n, .174, .007, 40);
     m.lens(group, "glass", at(0,0,.01), n, .151, .035);
     m.torus(group, "glass_light", at(0,0,.043), n, .112, .0035, 40, 6);
-    m.lens(group, "glass_light", at(0,0,.044), n, .041, .009);
+    const glyph = [[0,.034],[-.023,0],[0,-.034],[.023,0]].map(([x,y])=>at(x,y,.047));
+    for(let j=0;j<4;j++) m.tube(group,"glass_light",glyph[j],glyph[(j+1)%4],.0025,6);
+    for(const side of [-1,1]) {
+      const path=[], directions=[];
+      for(let j=0;j<=20;j++) {
+        const a=.25+j/20*2.5;
+        path.push(at(side*Math.sin(a)*.184,Math.cos(a)*.184,-.011)); directions.push(n);
+      }
+      m.ribbon(group,path,directions,.012,.008,"gold_edge","gold");
+    }
     for (let s=0;s<12;s++) {
       const a=s*Math.PI/6;
       m.tube(group,"gold_edge",at(Math.cos(a)*.126,Math.sin(a)*.126,.036),at(Math.cos(a)*.141,Math.sin(a)*.141,.03),.0025,6);
@@ -454,13 +478,13 @@ function truncatedIcosahedron() {
 
 function twinsGenerator() {
   const m = new Mesh("twins_ship_shield_generator", {
-    marble: [[.43, .31, .61], 0, "relics_addon:block/ship/marble"],
-    marble_dark: [[.29, .23, .40], 0, "relics_addon:block/ship/marble"],
-    gold: [[.80, .70, .48], .05],
-    gold_edge: [[.95, .78, .38], .15],
-    galaxy: [[1, 1, 1], .35, "relics_addon:block/ship/galaxy"],
-    thread: [[.79, .47, 1], 1],
-    ring_light: [[.79, .47, 1], 1],
+    marble: [[.65, .67, .70], 0, "relics_addon:block/ship/marble"],
+    marble_dark: [[.24, .25, .29], 0, "relics_addon:block/ship/machined"],
+    gold: [[.61, .52, .35], 0, "relics_addon:block/ship/aged_alloy"],
+    gold_edge: [[.75, .67, .48], 0, "relics_addon:block/ship/aged_alloy"],
+    galaxy: [[.65, .60, .80], .08, "relics_addon:block/ship/galaxy"],
+    thread: [[.65, .35, .88], .55],
+    ring_light: [[.65, .35, .88], .55],
   });
   // Pedestal: a marble drum with gold hoops and four marble clamps (s15 pillars), on an octagonal plinth.
   const oct = r => Array.from({ length: 48 }, (_, i) => [Math.cos(i * Math.PI / 24) * r, Math.sin(i * Math.PI / 24) * r]);

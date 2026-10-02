@@ -113,7 +113,7 @@ for (const line of readFileSync(file, "utf8").split(/\r?\n/)) {
 }
 let lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
 for (const t of tris) for (const c of t.corners) { lo = lo.map((x, i) => Math.min(x, c.p[i])); hi = hi.map((x, i) => Math.max(x, c.p[i])); }
-const centre = mul(add(lo, hi), .5), extent = Math.max(...sub(hi, lo)) * 1.08;
+const centre = mul(add(lo, hi), .5);
 
 // --- render --------------------------------------------------------------------------------------
 /** Views: name, camera forward direction (towards the model) and up. */
@@ -139,8 +139,15 @@ for (let i = 0; i < W * H; i++) { for (let k=0;k<3;k++) png.data[i * 4 + k] = ba
 
 VIEWS.forEach(([label, forward, upHint], viewIndex) => {
   const right = norm(cross(forward, upHint)), up = cross(right, forward);
+  // Fit the posed mesh in camera space: an oblique view can exceed the world-space box width.
+  let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
+  for (const tri of tris) for (const corner of tri.corners) {
+    const d=sub(corner.p,centre), x=dot(d,right), y=dot(d,up);
+    minX=Math.min(minX,x); maxX=Math.max(maxX,x); minY=Math.min(minY,y); maxY=Math.max(maxY,y);
+  }
+  const extent=Math.max(maxX-minX,maxY-minY)*1.12, offsetX=(minX+maxX)/2, offsetY=(minY+maxY)/2;
   const depth = new Float32Array(size * size).fill(Infinity);
-  const project = p => { const d = sub(p, centre); return [(dot(d, right) / extent + .5) * size, (.5 - dot(d, up) / extent) * size, dot(d, forward)]; };
+  const project = p => { const d = sub(p, centre); return [((dot(d, right)-offsetX) / extent + .5) * size, (.5 - (dot(d, up)-offsetY) / extent) * size, dot(d, forward)]; };
   for (const tri of tris) {
     const mat = materials[tri.material] ?? { kd: [1, 0, 1], ka: 0, map: null };
     const s = tri.corners.map(c => project(c.p));
